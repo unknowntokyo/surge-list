@@ -31,6 +31,7 @@ DOMAIN-SUFFIX,cdnst.net
 DOMAIN-SUFFIX,cloudflare.com
 DOMAIN-SUFFIX,cloudfront.net
 DOMAIN-SUFFIX,cloudmagic.com
+DOMAIN-SUFFIX,cnn.com
 DOMAIN-SUFFIX,crashlytics.com
 DOMAIN-SUFFIX,disq.us
 DOMAIN-SUFFIX,disqus.com
@@ -43,6 +44,7 @@ DOMAIN-SUFFIX,dropboxusercontent.com
 DOMAIN-SUFFIX,dueapp.com
 DOMAIN-SUFFIX,ebay.com
 DOMAIN-SUFFIX,engadget.com
+DOMAIN-SUFFIX,espn.com
 DOMAIN-SUFFIX,fabric.io
 DOMAIN-SUFFIX,facebook.com
 DOMAIN-SUFFIX,fb.me
@@ -78,6 +80,7 @@ DOMAIN-SUFFIX,helpshift.com
 DOMAIN-SUFFIX,hk
 DOMAIN-SUFFIX,hockeyapp.net
 DOMAIN-SUFFIX,images-amazon.com
+DOMAIN-SUFFIX,imgur.com
 DOMAIN-SUFFIX,instagram.com
 DOMAIN-SUFFIX,ipsw.me
 DOMAIN-SUFFIX,issuu.com
@@ -86,6 +89,7 @@ DOMAIN-SUFFIX,jsboxbbs.com
 DOMAIN-SUFFIX,keen.io
 DOMAIN-SUFFIX,kfs.io
 DOMAIN-SUFFIX,kindle4rss.com
+DOMAIN-SUFFIX,linkedin.com 
 DOMAIN-SUFFIX,livefilestore.com
 DOMAIN-SUFFIX,m.me
 DOMAIN-SUFFIX,mac-torrent-download.net
@@ -100,6 +104,7 @@ DOMAIN-SUFFIX,megaupload.com
 DOMAIN-SUFFIX,microsoft.com
 DOMAIN-SUFFIX,netdna-cdn.com
 DOMAIN-SUFFIX,nssurge.com
+DOMAIN-SUFFIX,nytimes.com
 DOMAIN-SUFFIX,oneplus.com
 DOMAIN-SUFFIX,openstreetmap.org
 DOMAIN-SUFFIX,parse.com
