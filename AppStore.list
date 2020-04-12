@@ -3,3 +3,5 @@ USER-AGENT,App%20Store*
 USER-AGENT,MacAppStore*
 USER-AGENT,com.apple.appstored*
 USER-AGENT,itunesstored*
+USER-AGENT,Siri*
+USER-AGENT,*siri*
