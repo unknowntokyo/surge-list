@@ -33,6 +33,7 @@ DOMAIN-SUFFIX,cloudfront.net
 DOMAIN-SUFFIX,cloudmagic.com
 DOMAIN-SUFFIX,cnn.com
 DOMAIN-SUFFIX,crashlytics.com
+DOMAIN-SUFFIX,crossutility.com
 DOMAIN-SUFFIX,disq.us
 DOMAIN-SUFFIX,disqus.com
 DOMAIN-SUFFIX,disquscdn.com
@@ -103,6 +104,7 @@ DOMAIN-SUFFIX,mega.co.nz
 DOMAIN-SUFFIX,mega.nz
 DOMAIN-SUFFIX,megaupload.com
 DOMAIN-SUFFIX,microsoft.com
+DOMAIN-SUFFIX,mindnode.com
 DOMAIN-SUFFIX,netdna-cdn.com
 DOMAIN-SUFFIX,nssurge.com
 DOMAIN-SUFFIX,nytimes.com
