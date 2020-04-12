@@ -6,6 +6,7 @@ DOMAIN-SUFFIX,126.com
 DOMAIN-SUFFIX,126.net
 DOMAIN-SUFFIX,127.net
 DOMAIN-SUFFIX,163.com
+DOMAIN-SUFFIX,1905.com
 DOMAIN-SUFFIX,360buy.com
 DOMAIN-SUFFIX,360buyimg.com
 DOMAIN-SUFFIX,36kr.com
@@ -30,6 +31,7 @@ DOMAIN-SUFFIX,aliyun.com
 DOMAIN-SUFFIX,aliyuncdn.com
 DOMAIN-SUFFIX,aliyuncs.com
 DOMAIN-SUFFIX,amap.com
+DOMAIN-SUFFIX,anjuke.com
 DOMAIN-SUFFIX,appfan.im
 DOMAIN-SUFFIX,avosapps.com
 DOMAIN-SUFFIX,baidu.com
@@ -81,6 +83,7 @@ DOMAIN-SUFFIX,douyutv.com
 DOMAIN-SUFFIX,douyu.tv
 DOMAIN-SUFFIX,duomi.com
 DOMAIN-SUFFIX,duowan.com
+DOMAIN-SUFFIX,dytt8.com
 DOMAIN-SUFFIX,ecitic.com
 DOMAIN-SUFFIX,ele.me
 DOMAIN-SUFFIX,elong.com
@@ -100,7 +103,9 @@ DOMAIN-SUFFIX,guokr.com
 DOMAIN-SUFFIX,hdslb.com
 DOMAIN-SUFFIX,hdslb.net
 DOMAIN-SUFFIX,huami.com
+DOMAIN-SUFFIX,huawei.com
 DOMAIN-SUFFIX,hupu.com
+DOMAIN-SUFFIX,huya.com
 DOMAIN-SUFFIX,iask.com
 DOMAIN-SUFFIX,ibeta.me
 DOMAIN-SUFFIX,icbc.com
@@ -127,10 +132,12 @@ DOMAIN-SUFFIX,kuaidi100.com
 DOMAIN-SUFFIX,kugou.com
 DOMAIN-SUFFIX,lashou.com
 DOMAIN-SUFFIX,lashouimg.com
+DOMAIN-SUFFIX,lianjia.com
 DOMAIN-SUFFIX,liantu.com
 DOMAIN-SUFFIX,lianwifi.com
 DOMAIN-SUFFIX,lietou.com
 DOMAIN-SUFFIX,lizhi.fm
+DOMAIN-SUFFIX,lofter.com
 DOMAIN-SUFFIX,lxdns.com
 DOMAIN-SUFFIX,manmanbuy.com
 DOMAIN-SUFFIX,maoyan.com
@@ -168,6 +175,7 @@ DOMAIN-SUFFIX,qq.com
 DOMAIN-SUFFIX,qunar.com
 DOMAIN-SUFFIX,qunarzz.com
 DOMAIN-SUFFIX,sdo.com
+DOMAIN-SUFFIX,sf-express.com
 DOMAIN-SUFFIX,sina.com
 DOMAIN-SUFFIX,sinaapp.com
 DOMAIN-SUFFIX,smzdm.com
@@ -188,6 +196,7 @@ DOMAIN-SUFFIX,tbcache.com
 DOMAIN-SUFFIX,tencent.com
 DOMAIN-SUFFIX,tenpay.com
 DOMAIN-SUFFIX,tmall.com
+DOMAIN-SUFFIX,to8to.com
 DOMAIN-SUFFIX,toutiao.com
 DOMAIN-SUFFIX,tudou.com
 DOMAIN-SUFFIX,tuniu.com
