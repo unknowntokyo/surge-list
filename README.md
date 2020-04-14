@@ -1,4 +1,4 @@
-# 【rule】
+# [rule]
 RULE-SET,SYSTEM,DIRECT
 
 RULE-SET,https://raw.githubusercontent.com/unknowntokyo/surge-list/master/appstore.list,DIRECT
