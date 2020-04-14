@@ -9,6 +9,7 @@ DOMAIN-SUFFIX,adonit-sdk.net
 DOMAIN-SUFFIX,adtidy.org
 DOMAIN-SUFFIX,ahcdn.com
 DOMAIN-SUFFIX,aida64.com
+DOMAIN-SUFFIX,alexa.com
 DOMAIN-SUFFIX,amazon.com
 DOMAIN-SUFFIX,amazonaws.com
 DOMAIN-SUFFIX,ampproject.net
@@ -21,6 +22,7 @@ DOMAIN-SUFFIX,appsflyer.com
 DOMAIN-SUFFIX,appspot.com
 DOMAIN-SUFFIX,avgle.com
 DOMAIN-SUFFIX,appsto.re
+DOMAIN-SUFFIX,battle.net
 DOMAIN-SUFFIX,bintray.com
 DOMAIN-SUFFIX,bit.ly
 DOMAIN-SUFFIX,bit.surf
@@ -111,6 +113,7 @@ DOMAIN-SUFFIX,mega.nz
 DOMAIN-SUFFIX,megaupload.com
 DOMAIN-SUFFIX,microsoft.com
 DOMAIN-SUFFIX,mindnode.com
+DOMAIN-SUFFIX,nasa.gov
 DOMAIN-SUFFIX,netdna-cdn.com
 DOMAIN-SUFFIX,nssurge.com
 DOMAIN-SUFFIX,nytimes.com
@@ -127,6 +130,7 @@ DOMAIN-SUFFIX,pornhub.com
 DOMAIN-SUFFIX,pornhubpremium.com
 DOMAIN-SUFFIX,producthunt.com
 DOMAIN-SUFFIX,pximg.net
+DOMAIN-SUFFIX,quora.com
 DOMAIN-SUFFIX,reddit.com
 DOMAIN-SUFFIX,reuters.com
 DOMAIN-SUFFIX,serif.com
@@ -135,6 +139,7 @@ DOMAIN-SUFFIX,speedtest.net
 DOMAIN-SUFFIX,sm.ms
 DOMAIN-SUFFIX,sndcdn.com
 DOMAIN-SUFFIX,soundcloud.com
+DOMAIN-SUFFIX,spotify.com
 DOMAIN-SUFFIX,stackoverflow.com
 DOMAIN-SUFFIX,supertop.co
 DOMAIN-SUFFIX,symcb.com
@@ -156,6 +161,7 @@ DOMAIN-SUFFIX,twitch.tv
 DOMAIN-SUFFIX,twitpic.com
 DOMAIN-SUFFIX,typography.com
 DOMAIN-SUFFIX,uploadhouse.com
+DOMAIN-SUFFIX,ups.com
 DOMAIN-SUFFIX,v2ex.co
 DOMAIN-SUFFIX,v2ex.com
 DOMAIN-SUFFIX,v2ray.com
