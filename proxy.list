@@ -79,6 +79,7 @@ DOMAIN-SUFFIX,githubusercontent.com
 DOMAIN-SUFFIX,gitlab.com
 DOMAIN-SUFFIX,gmail.com
 DOMAIN-SUFFIX,gravatar.com
+DOMAIN-SUFFIX,greasyfork.org
 DOMAIN-SUFFIX,gstatic.com
 DOMAIN-SUFFIX,he.net
 DOMAIN-SUFFIX,helpshift.com
@@ -140,6 +141,7 @@ DOMAIN-SUFFIX,symcd.com
 DOMAIN-SUFFIX,t.co
 DOMAIN-SUFFIX,t.me
 DOMAIN-SUFFIX,tapbots.com
+DOMAIN-SUFFIX,tampermonkey.net
 DOMAIN-SUFFIX,telegra.ph
 DOMAIN-SUFFIX,time.com
 DOMAIN-SUFFIX,timeinc.net
