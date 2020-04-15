@@ -6,5 +6,4 @@ USER-AGENT,itunesstored*
 USER-AGENT,Siri*
 USER-AGENT,*siri*
 USER-AGENT,swcd*
-DOMAIN-SUFFIX,e.crashlytics.com
 DOMAIN-SUFFIX,mzstatic.com
