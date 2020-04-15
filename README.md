@@ -11,8 +11,6 @@ RULE-SET,https://raw.githubusercontent.com/unknowntokyo/surge-list/master/wechat
 
 RULE-SET,https://raw.githubusercontent.com/unknowntokyo/surge-list/master/reject.list,REJECT
 
-RULE-SET,https://raw.githubusercontent.com/privacy-protection-tools/anti-AD/master/anti-ad-surge.txt,REJECT
-
 RULE-SET,https://raw.githubusercontent.com/unknowntokyo/surge-list/master/cn.list,DIRECT
 
 RULE-SET,https://raw.githubusercontent.com/unknowntokyo/surge-list/master/netflix.list,Netflix
