@@ -5,3 +5,4 @@ USER-AGENT,com.apple.appstored*
 USER-AGENT,itunesstored*
 USER-AGENT,Siri*
 USER-AGENT,*siri*
+USER-AGENT,swcd*
