@@ -35,6 +35,7 @@ DOMAIN-SUFFIX,bootstrapcdn.com
 DOMAIN-SUFFIX,branch.io
 DOMAIN-SUFFIX,cdninstagram.com
 DOMAIN-SUFFIX,cdnst.net
+DOMAIN-SUFFIX,cleanmymac.com
 DOMAIN-SUFFIX,cloudflare.com
 DOMAIN-SUFFIX,cloudfront.net
 DOMAIN-SUFFIX,cloudmagic.com
@@ -90,6 +91,7 @@ DOMAIN-SUFFIX,helpshift.com
 DOMAIN-SUFFIX,hk
 DOMAIN-SUFFIX,hockeyapp.net
 DOMAIN-SUFFIX,images-amazon.com
+DOMAIN-SUFFIX,imazing.com
 DOMAIN-SUFFIX,imdb.com
 DOMAIN-SUFFIX,imgur.com
 DOMAIN-SUFFIX,instagram.com
@@ -107,6 +109,7 @@ DOMAIN-SUFFIX,m.me
 DOMAIN-SUFFIX,mac-torrent-download.net
 DOMAIN-SUFFIX,macrumors.com
 DOMAIN-SUFFIX,macupdater.net
+DOMAIN-SUFFIX,macpw.com
 DOMAIN-SUFFIX,macwk.com
 DOMAIN-SUFFIX,mathpix.com
 DOMAIN-SUFFIX,maxcdn.com
@@ -154,6 +157,8 @@ DOMAIN-SUFFIX,tableau.com
 DOMAIN-SUFFIX,tapbots.com
 DOMAIN-SUFFIX,tampermonkey.net
 DOMAIN-SUFFIX,telegra.ph
+DOMAIN-SUFFIX,telegram.org
+DOMAIN-SUFFIX,tampermonkey.net
 DOMAIN-SUFFIX,time.com
 DOMAIN-SUFFIX,timeinc.net
 DOMAIN-SUFFIX,tiny.cc
@@ -175,6 +180,7 @@ DOMAIN-SUFFIX,wikimedia.org
 DOMAIN-SUFFIX,wikipedia.com
 DOMAIN-SUFFIX,wikipedia.org
 DOMAIN-SUFFIX,w.org
+DOMAIN-SUFFIX,withgoogle.com
 DOMAIN-SUFFIX,wp.com
 DOMAIN-SUFFIX,wordpress.com
 DOMAIN-SUFFIX,workflow.is
