@@ -71,7 +71,6 @@ DOMAIN-SUFFIX,gitter.im
 DOMAIN-SUFFIX,goo.gl
 DOMAIN-SUFFIX,google.com
 DOMAIN-SUFFIX,googlefiber.net
-DOMAIN-SUFFIX,googlevideo.com
 DOMAIN-SUFFIX,geekbench.com
 DOMAIN-SUFFIX,getpricetag.com
 DOMAIN-SUFFIX,gfx.ms
@@ -185,9 +184,6 @@ DOMAIN-SUFFIX,xteko.com
 DOMAIN-SUFFIX,yahoo.com
 DOMAIN-SUFFIX,yimg.com
 DOMAIN-SUFFIX,ying.com
-DOMAIN-SUFFIX,youtu.be
-DOMAIN-SUFFIX,youtube.com
-DOMAIN-SUFFIX,youtube-nocookie.com
 DOMAIN-SUFFIX,ytimg.com
 DOMAIN-SUFFIX,ytoo.li
 DOMAIN-SUFFIX,ytoo-163cdn.com
