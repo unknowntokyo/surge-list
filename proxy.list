@@ -21,8 +21,10 @@ DOMAIN-SUFFIX,apple-dns.net
 DOMAIN-SUFFIX,apprcn.com
 DOMAIN-SUFFIX,appsflyer.com
 DOMAIN-SUFFIX,appspot.com
-DOMAIN-SUFFIX,avgle.com
 DOMAIN-SUFFIX,appsto.re
+DOMAIN-SUFFIX,avgle.com
+DOMAIN-SUFFIX,azure.com
+DOMAIN-SUFFIX,azurewebsites.net
 DOMAIN-SUFFIX,battle.net
 DOMAIN-SUFFIX,bintray.com
 DOMAIN-SUFFIX,bit.ly
@@ -186,6 +188,8 @@ DOMAIN-SUFFIX,wordpress.com
 DOMAIN-SUFFIX,workflow.is
 DOMAIN-SUFFIX,wsj.com
 DOMAIN-SUFFIX,wsj.net
+DOMAIN-SUFFIX,xbox.com
+DOMAIN-SUFFIX,xboxlive.com
 DOMAIN-SUFFIX,xda-developers.com
 DOMAIN-SUFFIX,xteko.com
 DOMAIN-SUFFIX,yahoo.com
