@@ -83,8 +83,8 @@ DOMAIN-SUFFIX,docin.com
 DOMAIN-SUFFIX,douban.com
 DOMAIN-SUFFIX,doubanio.com
 DOMAIN-SUFFIX,douyu.com
-DOMAIN-SUFFIX,douyutv.com
 DOMAIN-SUFFIX,douyu.tv
+DOMAIN-SUFFIX,douyutv.com
 DOMAIN-SUFFIX,duomi.com
 DOMAIN-SUFFIX,duowan.com
 DOMAIN-SUFFIX,ecitic.com
@@ -156,8 +156,8 @@ DOMAIN-SUFFIX,meituan.com
 DOMAIN-SUFFIX,meituan.net
 DOMAIN-SUFFIX,meizu.com
 DOMAIN-SUFFIX,mi.com
-DOMAIN-SUFFIX,mi-img.com
 DOMAIN-SUFFIX,miaopai.com
+DOMAIN-SUFFIX,mi-img.com
 DOMAIN-SUFFIX,mipcdn.com
 DOMAIN-SUFFIX,miui.com
 DOMAIN-SUFFIX,moke.com
@@ -175,7 +175,6 @@ DOMAIN-SUFFIX,patentics.com
 DOMAIN-SUFFIX,pinduoduo.com
 DOMAIN-SUFFIX,pstatp.com
 DOMAIN-SUFFIX,pubyun.com
-DOMAIN-SUFFIX,qixin.com
 DOMAIN-SUFFIX,qbox.me
 DOMAIN-SUFFIX,qcc.com
 DOMAIN-SUFFIX,qhimg.com
@@ -184,6 +183,7 @@ DOMAIN-SUFFIX,qingting.fm
 DOMAIN-SUFFIX,qiniu.com
 DOMAIN-SUFFIX,qiniucdn.com
 DOMAIN-SUFFIX,qiniudn.com
+DOMAIN-SUFFIX,qixin.com
 DOMAIN-SUFFIX,qiyi.com
 DOMAIN-SUFFIX,qiyipic.com
 DOMAIN-SUFFIX,qnssl.com
@@ -249,8 +249,8 @@ DOMAIN-SUFFIX,xiaomi.com
 DOMAIN-SUFFIX,xiaomi.net
 DOMAIN-SUFFIX,ximalaya.com
 DOMAIN-SUFFIX,xitek.com
-DOMAIN-SUFFIX,xslb.com
 DOMAIN-SUFFIX,xmcdn.com
+DOMAIN-SUFFIX,xslb.com
 DOMAIN-SUFFIX,yangkeduo.com
 DOMAIN-SUFFIX,yhd.com
 DOMAIN-SUFFIX,yicai.com
