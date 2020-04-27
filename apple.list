@@ -1,5 +1,3 @@
-USER-AGENT,com.apple.trustd*
-USER-AGENT,trustd*
 DOMAIN-SUFFIX,aaplimg.com
 DOMAIN-SUFFIX,apple.com
 DOMAIN-SUFFIX,apple-cloudkit.com
