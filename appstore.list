@@ -6,3 +6,6 @@ USER-AGENT,itunesstored*
 USER-AGENT,MacAppStore*
 USER-AGENT,trustd*
 DOMAIN-SUFFIX,mzstatic.com
+DOMAIN-SUFFIX,time.apple.com
+DOMAIN-SUFFIX,time-ios.apple.com
+DOMAIN-SUFFIX,time-macos.apple.com
