@@ -1,6 +1,5 @@
 PROCESS-NAME,/Applications/WeChat.app/Contents/MacOS/WeChat
 USER-AGENT,MicroMessenger*
-USER-AGENT,MicroMessenger%20Client
 USER-AGENT,WeChat*
 DOMAIN,anquan.baidu.com
 DOMAIN,app.adjust.com
