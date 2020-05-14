@@ -1,0 +1,5 @@
+PROCESS-NAME,/Applications/Speedtest.app/Contents/MacOS/Speedtest
+USER-AGENT,SpeedTest*
+DOMAIN-SUFFIX,ooklaserver.net
+DOMAIN-SUFFIX,speedtestcustom.com
+DOMAIN-SUFFIX,speedtest.net
