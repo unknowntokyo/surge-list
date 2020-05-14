@@ -1,4 +1,6 @@
 PROCESS-NAME,/Applications/MacUpdater.app/Contents/MacOS/MacUpdater
+PROCESS-NAME,/Applications/Speedtest.app/Contents/MacOS/Speedtest
+USER-AGENT,SpeedTest*
 DOMAIN-SUFFIX,2o7.net
 DOMAIN-SUFFIX,4sqi.net
 DOMAIN-SUFFIX,9to5mac.com
@@ -144,6 +146,7 @@ DOMAIN-SUFFIX,nytimes.com
 DOMAIN-SUFFIX,office.com
 DOMAIN-SUFFIX,office.net
 DOMAIN-SUFFIX,oneplus.com
+DOMAIN-SUFFIX,ooklaserver.net
 DOMAIN-SUFFIX,openhub.net
 DOMAIN-SUFFIX,openstreetmap.org
 DOMAIN-SUFFIX,packagecontrol.io
@@ -171,6 +174,8 @@ DOMAIN-SUFFIX,sheerid.com
 DOMAIN-SUFFIX,sm.ms
 DOMAIN-SUFFIX,sndcdn.com
 DOMAIN-SUFFIX,soundcloud.com
+DOMAIN-SUFFIX,speedtestcustom.com
+DOMAIN-SUFFIX,speedtest.net
 DOMAIN-SUFFIX,spotify.com
 DOMAIN-SUFFIX,stackoverflow.com
 DOMAIN-SUFFIX,supertop.co
