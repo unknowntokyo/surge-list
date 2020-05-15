@@ -1,6 +1,7 @@
 PROCESS-NAME,/Applications/Folx.app/Contents/MacOS/Folx
 PROCESS-NAME,/Applications/NeteaseMusic.app/Contents/MacOS/NeteaseMusic
 PROCESS-NAME,/Applications/pap.er.app/Contents/MacOS/Pap.er
+USER-AGENT,NeteaseMusic*
 DOMAIN-SUFFIX,10010.com
 DOMAIN-SUFFIX,126.com
 DOMAIN-SUFFIX,126.net
