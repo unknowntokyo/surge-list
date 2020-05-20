@@ -39,6 +39,7 @@ DOMAIN-SUFFIX,bloomberg.com
 DOMAIN-SUFFIX,bootstrapcdn.com
 DOMAIN-SUFFIX,branch.io
 DOMAIN-SUFFIX,bugsnag.com
+DOMAIN-SUFFIX,byteoversea.com
 DOMAIN-SUFFIX,cdninstagram.com
 DOMAIN-SUFFIX,cdnst.net
 DOMAIN-SUFFIX,cleanmymac.com
@@ -109,6 +110,7 @@ DOMAIN-SUFFIX,imgur.com
 DOMAIN-SUFFIX,instagram.com
 DOMAIN-SUFFIX,ip-api.com
 DOMAIN-SUFFIX,ipsw.me
+DOMAIN-SUFFIX,isnssdk.com
 DOMAIN-SUFFIX,issuu.com
 DOMAIN-SUFFIX,jquery.com
 DOMAIN-SUFFIX,jsboxbbs.com
@@ -138,6 +140,7 @@ DOMAIN-SUFFIX,mmapiws.com
 DOMAIN-SUFFIX,movistprime.com
 DOMAIN-SUFFIX,mozilla.com
 DOMAIN-SUFFIX,mozilla.org
+DOMAIN-SUFFIX,musical.ly
 DOMAIN-SUFFIX,nasa.gov
 DOMAIN-SUFFIX,netdna-cdn.com
 DOMAIN-SUFFIX,notion.so
@@ -194,6 +197,8 @@ DOMAIN-SUFFIX,telegram.me
 DOMAIN-SUFFIX,telegram.org
 DOMAIN-SUFFIX,tgstat.com
 DOMAIN-SUFFIX,theporndude.com
+DOMAIN-SUFFIX,tiktok.com
+DOMAIN-SUFFIX,tiktokcdn.com
 DOMAIN-SUFFIX,time.com
 DOMAIN-SUFFIX,timeinc.net
 DOMAIN-SUFFIX,tiny.cc
