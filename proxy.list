@@ -61,6 +61,7 @@ DOMAIN-SUFFIX,dropboxstatic.com
 DOMAIN-SUFFIX,dropboxusercontent.com
 DOMAIN-SUFFIX,dueapp.com
 DOMAIN-SUFFIX,ebay.com
+DOMAIN-SUFFIX,ebayimg.com
 DOMAIN-SUFFIX,engadget.com
 DOMAIN-SUFFIX,espn.com
 DOMAIN-SUFFIX,fabric.io
@@ -75,6 +76,7 @@ DOMAIN-SUFFIX,firebaseio.com
 DOMAIN-SUFFIX,fixer.io
 DOMAIN-SUFFIX,flexihub.com
 DOMAIN-SUFFIX,flypy.com
+DOMAIN-SUFFIX,forter.com
 DOMAIN-SUFFIX,foursquare.com
 DOMAIN-SUFFIX,g.co
 DOMAIN-SUFFIX,geekbench.com
@@ -175,6 +177,7 @@ DOMAIN-SUFFIX,sfx.ms
 DOMAIN-SUFFIX,shadowsocks.org
 DOMAIN-SUFFIX,sheerid.com
 DOMAIN-SUFFIX,sm.ms
+DOMAIN-SUFFIX,snapchat.com
 DOMAIN-SUFFIX,sndcdn.com
 DOMAIN-SUFFIX,soundcloud.com
 DOMAIN-SUFFIX,speedtestcustom.com
