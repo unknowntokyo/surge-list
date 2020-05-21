@@ -2,6 +2,7 @@ PROCESS-NAME,/Applications/Folx.app/Contents/MacOS/Folx
 PROCESS-NAME,/Applications/NeteaseMusic.app/Contents/MacOS/NeteaseMusic
 PROCESS-NAME,/Applications/pap.er.app/Contents/MacOS/Pap.er
 USER-AGENT,NeteaseMusic*
+USER-AGENT,网易云音乐*
 DOMAIN-SUFFIX,10010.com
 DOMAIN-SUFFIX,126.com
 DOMAIN-SUFFIX,126.net
@@ -26,6 +27,7 @@ DOMAIN-SUFFIX,58cdn.com
 DOMAIN-SUFFIX,acfun.tv
 DOMAIN-SUFFIX,adobe.com
 DOMAIN-SUFFIX,aicdn.com
+DOMAIN-SUFFIX,aliapp.org
 DOMAIN-SUFFIX,alibaba.com
 DOMAIN-SUFFIX,alibabausercontent.com
 DOMAIN-SUFFIX,alicdn.com
@@ -144,6 +146,7 @@ DOMAIN-SUFFIX,ipip.net
 DOMAIN-SUFFIX,iqiyi.com
 DOMAIN-SUFFIX,it168.com
 DOMAIN-SUFFIX,ithome.com
+DOMAIN-SUFFIX,ixigua.com
 DOMAIN-SUFFIX,jd.com
 DOMAIN-SUFFIX,jiakaobaodian.com
 DOMAIN-SUFFIX,jianshu.com
