@@ -3,3 +3,4 @@ DOMAIN,time.asia.apple.com
 DOMAIN,time-ios.apple.com
 DOMAIN-SUFFIX,ntp.org
 DOMAIN-SUFFIX,proximabeta.com
+IP-CIDR,198.18.17.0/24
