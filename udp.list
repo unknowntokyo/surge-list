@@ -6,3 +6,4 @@ DOMAIN-SUFFIX,ntp.org
 # 传说对决
 DOMAIN-SUFFIX,proximabeta.com
 IP-CIDR,198.18.17.0/24
+IP-CIDR,150.109.23.59/32
