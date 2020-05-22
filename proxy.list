@@ -20,6 +20,7 @@ DOMAIN-SUFFIX,amazon.com
 DOMAIN-SUFFIX,amazonaws.com
 DOMAIN-SUFFIX,ampproject.net
 DOMAIN-SUFFIX,ampproject.org
+DOMAIN-SUFFIX,app.link
 DOMAIN-SUFFIX,appcenter.ms
 DOMAIN-SUFFIX,appledaily.net
 DOMAIN-SUFFIX,apple-dns.net
@@ -55,6 +56,8 @@ DOMAIN-SUFFIX,cnn.com
 DOMAIN-SUFFIX,converse.com
 DOMAIN-SUFFIX,crashlytics.com
 DOMAIN-SUFFIX,crossutility.com
+DOMAIN-SUFFIX,d.meet
+DOMAIN-SUFFIX,dial.meet
 DOMAIN-SUFFIX,disq.us
 DOMAIN-SUFFIX,disqus.com
 DOMAIN-SUFFIX,disquscdn.com
@@ -153,11 +156,13 @@ DOMAIN-SUFFIX,nasa.gov
 DOMAIN-SUFFIX,netdna-cdn.com
 DOMAIN-SUFFIX,netflav.com
 DOMAIN-SUFFIX,nike.com
+DOMAIN-SUFFIX,nikecloud.com
 DOMAIN-SUFFIX,notion.so
 DOMAIN-SUFFIX,nssurge.com
 DOMAIN-SUFFIX,nytimes.com
 DOMAIN-SUFFIX,office.com
 DOMAIN-SUFFIX,office.net
+DOMAIN-SUFFIX,onelink.me
 DOMAIN-SUFFIX,oneplus.com
 DOMAIN-SUFFIX,onitsukatiger.com
 DOMAIN-SUFFIX,ooklaserver.net
@@ -181,6 +186,8 @@ DOMAIN-SUFFIX,playstationnetwork.com
 DOMAIN-SUFFIX,pornhub.com
 DOMAIN-SUFFIX,pornhubpremium.com
 DOMAIN-SUFFIX,producthunt.com
+DOMAIN-SUFFIX,pubg.com
+DOMAIN-SUFFIX,pubgmobile.com
 DOMAIN-SUFFIX,puma.com
 DOMAIN-SUFFIX,pximg.net
 DOMAIN-SUFFIX,quora.com
@@ -194,17 +201,21 @@ DOMAIN-SUFFIX,sheerid.com
 DOMAIN-SUFFIX,sm.ms
 DOMAIN-SUFFIX,snapchat.com
 DOMAIN-SUFFIX,sndcdn.com
+DOMAIN-SUFFIX,sng.link
 DOMAIN-SUFFIX,soundcloud.com
 DOMAIN-SUFFIX,speedtestcustom.com
 DOMAIN-SUFFIX,speedtest.net
 DOMAIN-SUFFIX,spotify.com
 DOMAIN-SUFFIX,stackoverflow.com
+DOMAIN-SUFFIX,starbucks.com
 DOMAIN-SUFFIX,supertop.co
 DOMAIN-SUFFIX,surge-activation.com
 DOMAIN-SUFFIX,symcb.com
 DOMAIN-SUFFIX,symcd.com
 DOMAIN-SUFFIX,t.co
 DOMAIN-SUFFIX,t.me
+DOMAIN-SUFFIX,t.meet
+DOMAIN-SUFFIX,tel.meet
 DOMAIN-SUFFIX,tableau.com
 DOMAIN-SUFFIX,tampermonkey.net
 DOMAIN-SUFFIX,tampermonkey.net
@@ -213,6 +224,7 @@ DOMAIN-SUFFIX,tapbots.net
 DOMAIN-SUFFIX,telegra.ph
 DOMAIN-SUFFIX,telegram.me
 DOMAIN-SUFFIX,telegram.org
+DOMAIN-SUFFIX,test-app.link
 DOMAIN-SUFFIX,tgstat.com
 DOMAIN-SUFFIX,theporndude.com
 DOMAIN-SUFFIX,tiktok.com
@@ -227,6 +239,7 @@ DOMAIN-SUFFIX,twitch.tv
 DOMAIN-SUFFIX,typekit.com
 DOMAIN-SUFFIX,typography.com
 DOMAIN-SUFFIX,umbro.com
+DOMAIN-SUFFIX,unc0ver.dev
 DOMAIN-SUFFIX,unity3d.com
 DOMAIN-SUFFIX,uploadhouse.com
 DOMAIN-SUFFIX,ups.com
