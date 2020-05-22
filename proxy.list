@@ -4,6 +4,7 @@ USER-AGENT,SpeedTest*
 DOMAIN-SUFFIX,2o7.net
 DOMAIN-SUFFIX,4sqi.net
 DOMAIN-SUFFIX,9to5mac.com
+DOMAIN-SUFFIX,adidas.com
 DOMAIN-SUFFIX,adguard.com
 DOMAIN-SUFFIX,adobe.com
 DOMAIN-SUFFIX,adobe.io
@@ -49,6 +50,7 @@ DOMAIN-SUFFIX,cloudflareinsights.com
 DOMAIN-SUFFIX,cloudfront.net
 DOMAIN-SUFFIX,cloudmagic.com
 DOMAIN-SUFFIX,cnn.com
+DOMAIN-SUFFIX,converse.com
 DOMAIN-SUFFIX,crashlytics.com
 DOMAIN-SUFFIX,crossutility.com
 DOMAIN-SUFFIX,disq.us
@@ -145,12 +147,14 @@ DOMAIN-SUFFIX,mozilla.org
 DOMAIN-SUFFIX,musical.ly
 DOMAIN-SUFFIX,nasa.gov
 DOMAIN-SUFFIX,netdna-cdn.com
+DOMAIN-SUFFIX,nike.com
 DOMAIN-SUFFIX,notion.so
 DOMAIN-SUFFIX,nssurge.com
 DOMAIN-SUFFIX,nytimes.com
 DOMAIN-SUFFIX,office.com
 DOMAIN-SUFFIX,office.net
 DOMAIN-SUFFIX,oneplus.com
+DOMAIN-SUFFIX,onitsukatiger.com
 DOMAIN-SUFFIX,ooklaserver.net
 DOMAIN-SUFFIX,openhub.net
 DOMAIN-SUFFIX,openstreetmap.org
@@ -168,6 +172,7 @@ DOMAIN-SUFFIX,playstation.com.hk
 DOMAIN-SUFFIX,playstation.net
 DOMAIN-SUFFIX,playstationnetwork.com
 DOMAIN-SUFFIX,producthunt.com
+DOMAIN-SUFFIX,puma.com
 DOMAIN-SUFFIX,pximg.net
 DOMAIN-SUFFIX,quora.com
 DOMAIN-SUFFIX,reddit.com
@@ -212,6 +217,7 @@ DOMAIN-SUFFIX,tw
 DOMAIN-SUFFIX,twitch.tv
 DOMAIN-SUFFIX,typekit.com
 DOMAIN-SUFFIX,typography.com
+DOMAIN-SUFFIX,umbro.com
 DOMAIN-SUFFIX,unity3d.com
 DOMAIN-SUFFIX,uploadhouse.com
 DOMAIN-SUFFIX,ups.com
