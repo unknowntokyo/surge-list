@@ -1,21 +1,4 @@
-PROCESS-NAME,/Applications/MacUpdater.app/Contents/MacOS/MacUpdater
 DOMAIN-SUFFIX,google.cn
 DOMAIN-SUFFIX,google.co.jp
 DOMAIN-SUFFIX,google.com
 DOMAIN-SUFFIX,googleapis.com
-DOMAIN-SUFFIX,googleusercontent.com
-DOMAIN-SUFFIX,googlevideo.com
-DOMAIN-SUFFIX,youtu.be
-DOMAIN-SUFFIX,youtube.com
-DOMAIN-SUFFIX,youtube-nocookie.com
-DOMAIN-SUFFIX,yt-dl.org
-
-# Porn
-DOMAIN-SUFFIX,91porn.com
-DOMAIN-SUFFIX,avgle.com
-DOMAIN-SUFFIX,jable.tv
-DOMAIN-SUFFIX,netflav.com
-DOMAIN-SUFFIX,phncdn.com
-DOMAIN-SUFFIX,phprcdn.com
-DOMAIN-SUFFIX,pornhub.com
-DOMAIN-SUFFIX,pornhubpremium.com
