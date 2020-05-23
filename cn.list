@@ -319,6 +319,7 @@ DOMAIN-SUFFIX,zhipin.com
 DOMAIN-SUFFIX,zhubajie.com
 DOMAIN-KEYWORD,-cn
 IP-CIDR,119.29.29.29/32,no-resolve
+IP-CIDR,114.114.114.114/32,no-resolve
 
 # 传说对决
 IP-CIDR,182.254.116.0/24
