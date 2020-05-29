@@ -45,6 +45,7 @@ DOMAIN-SUFFIX,bugsnag.com
 DOMAIN-SUFFIX,byteoversea.com
 DOMAIN-SUFFIX,cdninstagram.com
 DOMAIN-SUFFIX,cdnst.net
+DOMAIN-SUFFIX,checkra.in
 DOMAIN-SUFFIX,cleanmymac.com
 DOMAIN-SUFFIX,cloudflare.com
 DOMAIN-SUFFIX,cloudflare-dns.com
@@ -83,6 +84,7 @@ DOMAIN-SUFFIX,firebaseio.com
 DOMAIN-SUFFIX,fixer.io
 DOMAIN-SUFFIX,flexihub.com
 DOMAIN-SUFFIX,flypy.com
+DOMAIN-SUFFIX,fontawesome.com
 DOMAIN-SUFFIX,forter.com
 DOMAIN-SUFFIX,foursquare.com
 DOMAIN-SUFFIX,g.co
@@ -231,6 +233,7 @@ DOMAIN-SUFFIX,timeinc.net
 DOMAIN-SUFFIX,tiny.cc
 DOMAIN-SUFFIX,tinypic.com
 DOMAIN-SUFFIX,trello.com
+DOMAIN-SUFFIX,typlog.com
 DOMAIN-SUFFIX,tw
 DOMAIN-SUFFIX,twitch.tv
 DOMAIN-SUFFIX,twitchcdn.net
@@ -238,6 +241,7 @@ DOMAIN-SUFFIX,typekit.com
 DOMAIN-SUFFIX,typography.com
 DOMAIN-SUFFIX,umbro.com
 DOMAIN-SUFFIX,unc0ver.dev
+DOMAIN-SUFFIX,unsplash.com
 DOMAIN-SUFFIX,uploadhouse.com
 DOMAIN-SUFFIX,ups.com
 DOMAIN-SUFFIX,v2ex.co
