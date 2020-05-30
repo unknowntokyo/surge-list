@@ -175,6 +175,7 @@ DOMAIN-SUFFIX,paddle.com
 DOMAIN-SUFFIX,paddleapi.com
 DOMAIN-SUFFIX,parse.com
 DOMAIN-SUFFIX,parsely.com
+DOMAIN-SUFFIX,patreon.com
 DOMAIN-SUFFIX,patsnap.com
 DOMAIN-SUFFIX,pgyer.com
 DOMAIN-SUFFIX,pinterest.com
@@ -240,7 +241,7 @@ DOMAIN-SUFFIX,twitchcdn.net
 DOMAIN-SUFFIX,typekit.com
 DOMAIN-SUFFIX,typography.com
 DOMAIN-SUFFIX,umbro.com
-DOMAIN-SUFFIX,unc0ver.dev
+DOMAIN-SUFFIX,unpkg.com
 DOMAIN-SUFFIX,unsplash.com
 DOMAIN-SUFFIX,uploadhouse.com
 DOMAIN-SUFFIX,ups.com
