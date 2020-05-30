@@ -5,7 +5,6 @@ DOMAIN-SUFFIX,youtu.be
 DOMAIN-SUFFIX,youtube.com
 DOMAIN-SUFFIX,youtube-nocookie.com
 DOMAIN-SUFFIX,yt-dl.org
-IP-CIDR,224.0.1.0/24
 IP-CIDR,239.0.0.0/8
 
 # Porn
