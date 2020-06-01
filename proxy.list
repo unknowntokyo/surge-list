@@ -109,6 +109,7 @@ DOMAIN-SUFFIX,googlefiber.net
 DOMAIN-SUFFIX,gravatar.com
 DOMAIN-SUFFIX,greasyfork.org
 DOMAIN-SUFFIX,gstatic.com
+DOMAIN-SUFFIX,hcaptcha.com
 DOMAIN-SUFFIX,he.net
 DOMAIN-SUFFIX,helpshift.com
 DOMAIN-SUFFIX,himalaya.com
@@ -271,6 +272,10 @@ DOMAIN-SUFFIX,yahoo.com
 DOMAIN-SUFFIX,yimg.com
 DOMAIN-SUFFIX,ying.com
 DOMAIN-SUFFIX,ytimg.com
+DOMAIN-SUFFIX,ytoo.li
+DOMAIN-SUFFIX,ytoo.xyz
+DOMAIN-SUFFIX,ytoo.yt
+DOMAIN-SUFFIX,ytoo-163cdn.com
 DOMAIN-SUFFIX,zdassets.com
 DOMAIN-SUFFIX,zendesk.com
 DOMAIN-KEYWORD,google
