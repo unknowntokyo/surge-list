@@ -1,4 +1,5 @@
 USER-AGENT,Sileo*
+DOMAIN-SUFFIX,1conan.com
 DOMAIN-SUFFIX,altstore.io
 DOMAIN-SUFFIX,bingner.com
 DOMAIN-SUFFIX,chariz.com
@@ -20,6 +21,7 @@ DOMAIN-SUFFIX,report-uri.com
 DOMAIN-SUFFIX,rpetri.ch
 DOMAIN-SUFFIX,ryleyangus.com
 DOMAIN-SUFFIX,saurik.com
+DOMAIN-SUFFIX,shsh.host
 DOMAIN-SUFFIX,thebigboss.org
 DOMAIN-SUFFIX,twickd.com
 DOMAIN-SUFFIX,unc0ver.dev
