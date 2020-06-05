@@ -121,7 +121,10 @@ DOMAIN-SUFFIX,imazing.com
 DOMAIN-SUFFIX,imdb.com
 DOMAIN-SUFFIX,img.ly
 DOMAIN-SUFFIX,imgur.com
+DOMAIN-SUFFIX,insent.ai
 DOMAIN-SUFFIX,instagram.com
+DOMAIN-SUFFIX,intercom.io
+DOMAIN-SUFFIX,intercomcdn.com
 DOMAIN-SUFFIX,ip-api.com
 DOMAIN-SUFFIX,ipsw.me
 DOMAIN-SUFFIX,isnssdk.com
@@ -155,12 +158,14 @@ DOMAIN-SUFFIX,megaupload.com
 DOMAIN-SUFFIX,microsoft.com
 DOMAIN-SUFFIX,microsoftonline.com
 DOMAIN-SUFFIX,mindnode.com
+DOMAIN-SUFFIX,mixrank.com
 DOMAIN-SUFFIX,mmapiws.com
 DOMAIN-SUFFIX,movistprime.com
 DOMAIN-SUFFIX,musical.ly
 DOMAIN-SUFFIX,nasa.gov
 DOMAIN-SUFFIX,netdna-cdn.com
 DOMAIN-SUFFIX,netskao.com
+DOMAIN-SUFFIX,nicegram.app
 DOMAIN-SUFFIX,nike.com
 DOMAIN-SUFFIX,nikecloud.com
 DOMAIN-SUFFIX,notion.so
