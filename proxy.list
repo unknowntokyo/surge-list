@@ -74,6 +74,7 @@ DOMAIN-SUFFIX,dropboxusercontent.com
 DOMAIN-SUFFIX,dueapp.com
 DOMAIN-SUFFIX,ebay.com
 DOMAIN-SUFFIX,ebayimg.com
+DOMAIN-SUFFIX,eepurl.com
 DOMAIN-SUFFIX,engadget.com
 DOMAIN-SUFFIX,espn.com
 DOMAIN-SUFFIX,fabric.io
@@ -142,7 +143,8 @@ DOMAIN-SUFFIX,kindle4rss.com
 DOMAIN-SUFFIX,kr
 DOMAIN-SUFFIX,lanzous.com 
 DOMAIN-SUFFIX,limneos.net
-DOMAIN-SUFFIX,linkedin.com 
+DOMAIN-SUFFIX,linkedin.com
+DOMAIN-SUFFIX,list-manage.com
 DOMAIN-SUFFIX,live.com
 DOMAIN-SUFFIX,livefilestore.com
 DOMAIN-SUFFIX,loggly.com
@@ -151,6 +153,7 @@ DOMAIN-SUFFIX,macpw.com
 DOMAIN-SUFFIX,macrumors.com
 DOMAIN-SUFFIX,mac-torrent-download.net
 DOMAIN-SUFFIX,macupdater.net
+DOMAIN-SUFFIX,mailchimp.com
 DOMAIN-SUFFIX,mathpix.com
 DOMAIN-SUFFIX,maxcdn.com
 DOMAIN-SUFFIX,maxmind.com
