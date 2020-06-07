@@ -36,9 +36,9 @@ DOMAIN-SUFFIX,alimama.com
 DOMAIN-SUFFIX,alipay.com
 DOMAIN-SUFFIX,alipayobjects.com
 DOMAIN-SUFFIX,aliyun.com
-DOMAIN-SUFFIX,aliyun-inc.com
 DOMAIN-SUFFIX,aliyuncdn.com
 DOMAIN-SUFFIX,aliyuncs.com
+DOMAIN-SUFFIX,aliyun-inc.com
 DOMAIN-SUFFIX,amap.com
 DOMAIN-SUFFIX,anjuke.com
 DOMAIN-SUFFIX,anta.com
@@ -75,6 +75,8 @@ DOMAIN-SUFFIX,chinaz.net
 DOMAIN-SUFFIX,chiphell.com
 DOMAIN-SUFFIX,cloudcdn.net
 DOMAIN-SUFFIX,clouddn.com
+DOMAIN-SUFFIX,cmbchina.com
+DOMAIN-SUFFIX,cmbimg.com
 DOMAIN-SUFFIX,cn
 DOMAIN-SUFFIX,cnbeta.com
 DOMAIN-SUFFIX,cnbetacdn.com
@@ -171,8 +173,8 @@ DOMAIN-SUFFIX,kuaifaka.com
 DOMAIN-SUFFIX,kugou.com
 DOMAIN-SUFFIX,lanzou.com
 DOMAIN-SUFFIX,lanzou.com
-DOMAIN-SUFFIX,lashou.com
 DOMAIN-SUFFIX,lashouimg.com
+DOMAIN-SUFFIX,lashous.com
 DOMAIN-SUFFIX,lianjia.com
 DOMAIN-SUFFIX,liantu.com
 DOMAIN-SUFFIX,lianwifi.com
@@ -193,9 +195,9 @@ DOMAIN-SUFFIX,meituan.com
 DOMAIN-SUFFIX,meituan.net
 DOMAIN-SUFFIX,meizu.com
 DOMAIN-SUFFIX,mi.com
+DOMAIN-SUFFIX,miaopai.com
 DOMAIN-SUFFIX,mi-img.com
 DOMAIN-SUFFIX,miot-spec.org
-DOMAIN-SUFFIX,miaopai.com
 DOMAIN-SUFFIX,mipcdn.com
 DOMAIN-SUFFIX,miui.com
 DOMAIN-SUFFIX,miwifi.com
@@ -217,9 +219,9 @@ DOMAIN-SUFFIX,patentics.com
 DOMAIN-SUFFIX,pinduoduo.com
 DOMAIN-SUFFIX,pstatp.com
 DOMAIN-SUFFIX,pubyun.com
-DOMAIN-SUFFIX,qcloud.com
 DOMAIN-SUFFIX,qbox.me
 DOMAIN-SUFFIX,qcc.com
+DOMAIN-SUFFIX,qcloud.com
 DOMAIN-SUFFIX,qhimg.com
 DOMAIN-SUFFIX,qidian.com
 DOMAIN-SUFFIX,qingting.fm
@@ -307,8 +309,8 @@ DOMAIN-SUFFIX,ximalaya.com
 DOMAIN-SUFFIX,xinhuanet.com
 DOMAIN-SUFFIX,xitek.com
 DOMAIN-SUFFIX,xmcdn.com
-DOMAIN-SUFFIX,xzsmartmetro.com
 DOMAIN-SUFFIX,xslb.com
+DOMAIN-SUFFIX,xzsmartmetro.com
 DOMAIN-SUFFIX,yangkeduo.com
 DOMAIN-SUFFIX,yhd.com
 DOMAIN-SUFFIX,yicai.com
