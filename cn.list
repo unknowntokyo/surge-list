@@ -162,6 +162,7 @@ DOMAIN-SUFFIX,infzm.com
 DOMAIN-SUFFIX,ioszen.com
 DOMAIN-SUFFIX,ipip.net
 DOMAIN-SUFFIX,iqiyi.com
+DOMAIN-SUFFIX,ireader.com
 DOMAIN-SUFFIX,it168.com
 DOMAIN-SUFFIX,ithome.com
 DOMAIN-SUFFIX,ixigua.com
@@ -332,6 +333,7 @@ DOMAIN-SUFFIX,youku.com
 DOMAIN-SUFFIX,yunjiasu-cdn.net
 DOMAIN-SUFFIX,zealer.com
 DOMAIN-SUFFIX,zgslb.com
+DOMAIN-SUFFIX,zhangyue.com
 DOMAIN-SUFFIX,zhaopin.com
 DOMAIN-SUFFIX,zhi.hu
 DOMAIN-SUFFIX,zhihu.com
@@ -339,6 +341,27 @@ DOMAIN-SUFFIX,zhihuiya.com
 DOMAIN-SUFFIX,zhimg.com
 DOMAIN-SUFFIX,zhipin.com
 DOMAIN-SUFFIX,zhubajie.com
+DOMAIN-SUFFIX,akadns.net
+DOMAIN-SUFFIX,akamai.net
+DOMAIN-SUFFIX,akamaiedge.net
+DOMAIN-SUFFIX,akamaihd.net
+DOMAIN-SUFFIX,akamaistream.net
+DOMAIN-SUFFIX,akamaized.net
+DOMAIN-SUFFIX,feiliao.com
+DOMAIN-SUFFIX,meitu.com
+DOMAIN-SUFFIX,meitudata.com
+DOMAIN-SUFFIX,meitustat.com
+DOMAIN-SUFFIX,ydstatic.com
+DOMAIN-SUFFIX,weibocdn.com
+DOMAIN-SUFFIX,sohucs.com
+DOMAIN-SUFFIX,sohu-inc.com
+DOMAIN-SUFFIX,igamecj.com
+DOMAIN-SUFFIX,servicewechat.com
+DOMAIN,file-igamecj.akamaized.net
+DOMAIN-SUFFIX,chinanetcenter.com
+DOMAIN-SUFFIX,meixincdn.com
+DOMAIN-SUFFIX,staticdn.net
+DOMAIN-SUFFIX,wangsu.com
 DOMAIN-KEYWORD,-cn
 IP-CIDR,119.29.29.29/32,no-resolve
 
