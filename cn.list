@@ -25,6 +25,8 @@ DOMAIN-SUFFIX,58.com
 DOMAIN-SUFFIX,58cdn.com
 DOMAIN-SUFFIX,abcydia.com
 DOMAIN-SUFFIX,acfun.tv
+DOMAIN-SUFFIX,acg.tv
+DOMAIN-SUFFIX,acgvideo.com
 DOMAIN-SUFFIX,adobe.com
 DOMAIN-SUFFIX,aicdn.com
 DOMAIN-SUFFIX,aliapp.org
@@ -54,7 +56,13 @@ DOMAIN-SUFFIX,bcebos.com
 DOMAIN-SUFFIX,bdimg.com
 DOMAIN-SUFFIX,bdstatic.com
 DOMAIN-SUFFIX,bestwehotel.com
+DOMAIN-SUFFIX,biliapi.com
+DOMAIN-SUFFIX,biliapi.net
 DOMAIN-SUFFIX,bilibili.com
+DOMAIN-SUFFIX,bilibili.tv
+DOMAIN-SUFFIX,biligame.com
+DOMAIN-SUFFIX,biligame.net
+DOMAIN-SUFFIX,bilivideo.com
 DOMAIN-SUFFIX,bing.com
 DOMAIN-SUFFIX,bootcss.com
 DOMAIN-SUFFIX,bqimg.com
@@ -117,7 +125,6 @@ DOMAIN-SUFFIX,elong.com
 DOMAIN-SUFFIX,eudic.net
 DOMAIN-SUFFIX,feng.com
 DOMAIN-SUFFIX,fengniao.com
-DOMAIN-SUFFIX,fir.im
 DOMAIN-SUFFIX,frdic.com
 DOMAIN-SUFFIX,freshhema.com
 DOMAIN-SUFFIX,gamersky.com
