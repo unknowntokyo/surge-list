@@ -1,0 +1,5 @@
+hostname = mp.weixin.qq.com
+
+^https?://(www.)?(g|google).cn url 302 https://www.google.co.jp
+^https?://(www.)?google.cn/search url 302 https://www.google.co.jp/search
+^https?://mp.weixin.qq.com/mp/getappmsgad url script-response-body WeChat.js
