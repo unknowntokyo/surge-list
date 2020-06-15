@@ -84,6 +84,9 @@ DOMAIN-SUFFIX,allyes.com
 DOMAIN-SUFFIX,amazon-adsystem.com
 DOMAIN-SUFFIX,amdc.m.taobao.com
 DOMAIN-SUFFIX,anquan.org
+DOMAIN-SUFFIX,api.cmt.mob.com
+DOMAIN-SUFFIX,api.exc.mob.com
+DOMAIN-SUFFIX,api.share.mob.com
 DOMAIN-SUFFIX,api.youqian.baidu.com
 DOMAIN-SUFFIX,appads.com
 DOMAIN-SUFFIX,appjiagu.com
@@ -105,8 +108,10 @@ DOMAIN-SUFFIX,biddingx.com
 DOMAIN-SUFFIX,boscdn.bpc.baidu.com
 DOMAIN-SUFFIX,bugtags.com
 DOMAIN-SUFFIX,c.baidu.com
+DOMAIN-SUFFIX,c.data.mob.com
 DOMAIN-SUFFIX,cbjs.baidu.com
 DOMAIN-SUFFIX,cc.xtgreat.com
+DOMAIN-SUFFIX,cca.mob.com
 DOMAIN-SUFFIX,chartboost.com
 DOMAIN-SUFFIX,cjhq.baidu.com
 DOMAIN-SUFFIX,cmcore.com
@@ -118,6 +123,7 @@ DOMAIN-SUFFIX,cpro.tieba.baidu.com
 DOMAIN-SUFFIX,cpro.zhidao.baidu.com
 DOMAIN-SUFFIX,css.network
 DOMAIN-SUFFIX,d.dsp.imageter.com
+DOMAIN-SUFFIX,devs.data.mob.com
 DOMAIN-SUFFIX,dotcounter.douyutv.com
 DOMAIN-SUFFIX,doubleclick.com
 DOMAIN-SUFFIX,doubleclick.net
@@ -156,6 +162,7 @@ DOMAIN-SUFFIX,jusha.com
 DOMAIN-SUFFIX,kejet.net
 DOMAIN-SUFFIX,localytics.com
 DOMAIN-SUFFIX,log.umsns.com
+DOMAIN-SUFFIX,m.data.mob.com
 DOMAIN-SUFFIX,m-adash.m.taobao.com
 DOMAIN-SUFFIX,ma.baidu.com
 DOMAIN-SUFFIX,madmini.com
@@ -164,7 +171,6 @@ DOMAIN-SUFFIX,mediav.com
 DOMAIN-SUFFIX,miaozhen.com
 DOMAIN-SUFFIX,mixpanel.com
 DOMAIN-SUFFIX,moatads.com
-DOMAIN-SUFFIX,mob.com
 DOMAIN-SUFFIX,mobads-logs.baidu.com
 DOMAIN-SUFFIX,mobads.baidu.com
 DOMAIN-SUFFIX,mobclix.com
