@@ -7,3 +7,4 @@ DOMAIN,hm.baidu.com
 DOMAIN,msg.umeng.com
 DOMAIN,msg.umengcloud.com
 DOMAIN-SUFFIX,wechat.com
+IP-CIDR 58.240.0.0/12
