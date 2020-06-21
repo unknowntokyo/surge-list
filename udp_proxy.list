@@ -1,5 +1,4 @@
 DOMAIN,ntp.nasa.gov
-DOMAIN-SUFFIX,git.io
 DOMAIN-SUFFIX,mozilla.com
 DOMAIN-SUFFIX,ntp.org
 IP-CIDR,239.0.0.0/8
