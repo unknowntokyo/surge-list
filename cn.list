@@ -2,6 +2,9 @@ PROCESS-NAME,/Applications/Folx.app/Contents/MacOS/Folx
 PROCESS-NAME,/Applications/NeteaseMusic.app/Contents/MacOS/NeteaseMusic
 PROCESS-NAME,/Applications/pap.er.app/Contents/MacOS/Pap.er
 USER-AGENT,NeteaseMusic*
+DOMAIN,time.apple.com
+DOMAIN,time.asia.apple.com
+DOMAIN,time-ios.apple.com
 DOMAIN-SUFFIX,10010.com
 DOMAIN-SUFFIX,126.com
 DOMAIN-SUFFIX,126.net
@@ -188,6 +191,7 @@ DOMAIN-SUFFIX,jianshu.io
 DOMAIN-SUFFIX,jianshuapi.com
 DOMAIN-SUFFIX,jiathis.com
 DOMAIN-SUFFIX,jinjiang.com
+DOMAIN-SUFFIX,jpush.io
 DOMAIN-SUFFIX,kanzhun.com
 DOMAIN-SUFFIX,ksyun.com
 DOMAIN-SUFFIX,kuaidadi.com
