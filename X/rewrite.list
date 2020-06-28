@@ -1,8 +1,9 @@
-hostname = api.m.jd.com, mp.weixin.qq.com, trade-acs.m.taobao.com
+hostname = api.m.jd.com, cdn.altstore.io, mp.weixin.qq.com, trade-acs.m.taobao.com, www.patreon.com
 
 ^https?://(www.)?(g|google).cn url 302 https://www.google.co.jp
 ^https?://(www.)?google.cn/search url 302 https://www.google.co.jp/search
 ^https?://api\.m\.jd\.com/client\.action\?functionId=(wareBusiness|serverConfig) url script-response-body https://raw.githubusercontent.com/yichahucha/surge/master/jd_price.js
 ^http://.+/amdc/mobileDispatch url script-request-body https://raw.githubusercontent.com/yichahucha/surge/master/tb_price.js
 ^https?://trade-acs\.m\.taobao\.com/gw/mtop\.taobao\.detail\.getdetail url script-response-body https://raw.githubusercontent.com/yichahucha/surge/master/tb_price.js
+^https:\/\/www\.patreon\.com\/api\/oauth2\/v2\/identity? script-response-body https://raw.githubusercontent.com/langkhach270389/Scripting/master/altstore.js
 ^https?://mp\.weixin\.qq\.com/mp/getappmsgad url script-response-body https://raw.githubusercontent.com/NobyDa/Script/master/QuantumultX/File/Wechat.js
