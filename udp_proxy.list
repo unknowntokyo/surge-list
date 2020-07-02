@@ -1,4 +1,5 @@
 DOMAIN,ntp.nasa.gov
+DOMAIN-SUFFIX,gameloft.com
 DOMAIN-SUFFIX,mozilla.com
 DOMAIN-SUFFIX,ntp.org
 IP-CIDR,239.0.0.0/8
