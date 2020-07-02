@@ -1,6 +1,7 @@
 DOMAIN,ntp.nasa.gov
 DOMAIN-SUFFIX,mozilla.com
 DOMAIN-SUFFIX,ntp.org
+IP-CIDR,220.98.0.0/32
 IP-CIDR,239.0.0.0/8
 
 # 传说对决
