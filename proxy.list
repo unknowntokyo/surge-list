@@ -30,7 +30,9 @@ DOMAIN-SUFFIX,apprcn.com
 DOMAIN-SUFFIX,appsflyer.com
 DOMAIN-SUFFIX,appspot.com
 DOMAIN-SUFFIX,appsto.re
+DOMAIN-SUFFIX,apptentive.com
 DOMAIN-SUFFIX,associates-amazon.com
+DOMAIN-SUFFIX,att.com
 DOMAIN-SUFFIX,azure.com
 DOMAIN-SUFFIX,azurewebsites.net
 DOMAIN-SUFFIX,battle.net
@@ -100,6 +102,7 @@ DOMAIN-SUFFIX,feedx.net
 DOMAIN-SUFFIX,fiplab.com
 DOMAIN-SUFFIX,fir.im
 DOMAIN-SUFFIX,firebaseio.com
+DOMAIN-SUFFIX,fitbit.com
 DOMAIN-SUFFIX,fixer.io
 DOMAIN-SUFFIX,flexihub.com
 DOMAIN-SUFFIX,flurry.com
@@ -177,6 +180,7 @@ DOMAIN-SUFFIX,mailchimp.com
 DOMAIN-SUFFIX,mathpix.com
 DOMAIN-SUFFIX,maxcdn.com
 DOMAIN-SUFFIX,maxmind.com
+DOMAIN-SUFFIX,mcdonalds.com
 DOMAIN-SUFFIX,media-amazon.com
 DOMAIN-SUFFIX,medium.com
 DOMAIN-SUFFIX,mega.co.nz
@@ -240,13 +244,14 @@ DOMAIN-SUFFIX,redditstatic.com
 DOMAIN-SUFFIX,reuters.com
 DOMAIN-SUFFIX,rpgfarm.com
 DOMAIN-SUFFIX,ru
+DOMAIN-SUFFIX,segment.com
 DOMAIN-SUFFIX,serif.com
 DOMAIN-SUFFIX,setapp.com
 DOMAIN-SUFFIX,sfx.ms
 DOMAIN-SUFFIX,sg
 DOMAIN-SUFFIX,shadowsocks.org
 DOMAIN-SUFFIX,sheerid.com
-DOMAIN-SUFFIX,segment.com
+DOMAIN-SUFFIX,skype.com
 DOMAIN-SUFFIX,sm.ms
 DOMAIN-SUFFIX,snapchat.com
 DOMAIN-SUFFIX,sndcdn.com
@@ -294,6 +299,7 @@ DOMAIN-SUFFIX,twitchcdn.net
 DOMAIN-SUFFIX,typekit.com
 DOMAIN-SUFFIX,typlog.com
 DOMAIN-SUFFIX,typography.com
+DOMAIN-SUFFIX,uber.com
 DOMAIN-SUFFIX,umbro.com
 DOMAIN-SUFFIX,unpkg.com
 DOMAIN-SUFFIX,unsplash.com
@@ -318,6 +324,7 @@ DOMAIN-SUFFIX,wp.com
 DOMAIN-SUFFIX,wsj.com
 DOMAIN-SUFFIX,wsj.net
 DOMAIN-SUFFIX,xbox.com
+DOMAIN-SUFFIX,xboxab.com
 DOMAIN-SUFFIX,xboxlive.com
 DOMAIN-SUFFIX,xda-developers.com
 DOMAIN-SUFFIX,xteko.com
