@@ -36,6 +36,7 @@ DOMAIN-SUFFIX,att.com
 DOMAIN-SUFFIX,azure.com
 DOMAIN-SUFFIX,azurewebsites.net
 DOMAIN-SUFFIX,battle.net
+DOMAIN-SUFFIX,bbc.com
 DOMAIN-SUFFIX,betaqr.com
 DOMAIN-SUFFIX,bgp.he.net
 DOMAIN-SUFFIX,bintray.com
@@ -300,6 +301,7 @@ DOMAIN-SUFFIX,typekit.com
 DOMAIN-SUFFIX,typlog.com
 DOMAIN-SUFFIX,typography.com
 DOMAIN-SUFFIX,uber.com
+DOMAIN-SUFFIX,uk
 DOMAIN-SUFFIX,umbro.com
 DOMAIN-SUFFIX,unpkg.com
 DOMAIN-SUFFIX,unsplash.com
