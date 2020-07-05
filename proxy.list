@@ -41,8 +41,8 @@ DOMAIN-SUFFIX,betaqr.com
 DOMAIN-SUFFIX,bgp.he.net
 DOMAIN-SUFFIX,bintray.com
 DOMAIN-SUFFIX,bit.ly
-DOMAIN-SUFFIX,bitly.com
 DOMAIN-SUFFIX,bit.surf
+DOMAIN-SUFFIX,bitly.com
 DOMAIN-SUFFIX,blizzard.com
 DOMAIN-SUFFIX,blog.com
 DOMAIN-SUFFIX,blogcdn.com
@@ -293,10 +293,10 @@ DOMAIN-SUFFIX,timeinc.net
 DOMAIN-SUFFIX,tiny.cc
 DOMAIN-SUFFIX,tinypic.com
 DOMAIN-SUFFIX,trello.com
-DOMAIN-SUFFIX,tx.me
 DOMAIN-SUFFIX,tw
 DOMAIN-SUFFIX,twitch.tv
 DOMAIN-SUFFIX,twitchcdn.net
+DOMAIN-SUFFIX,tx.me
 DOMAIN-SUFFIX,typekit.com
 DOMAIN-SUFFIX,typlog.com
 DOMAIN-SUFFIX,typography.com
