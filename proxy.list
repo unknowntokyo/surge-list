@@ -52,6 +52,7 @@ DOMAIN-SUFFIX,bloomberg.com
 DOMAIN-SUFFIX,booth.pm
 DOMAIN-SUFFIX,bootstrapcdn.com
 DOMAIN-SUFFIX,branch.io
+DOMAIN-SUFFIX,bttn.io
 DOMAIN-SUFFIX,bugsnag.com
 DOMAIN-SUFFIX,byteoversea.com
 DOMAIN-SUFFIX,cdninstagram.com
@@ -80,6 +81,9 @@ DOMAIN-SUFFIX,discord.gg
 DOMAIN-SUFFIX,discord.gift
 DOMAIN-SUFFIX,discord.new
 DOMAIN-SUFFIX,discordapp.com
+DOMAIN-SUFFIX,disney.com
+DOMAIN-SUFFIX,disneyplus.com
+DOMAIN-SUFFIX,disney-plus.net
 DOMAIN-SUFFIX,disq.us
 DOMAIN-SUFFIX,disqus.com
 DOMAIN-SUFFIX,disquscdn.com
@@ -131,6 +135,7 @@ DOMAIN-SUFFIX,gitter.im
 DOMAIN-SUFFIX,gmail.com
 DOMAIN-SUFFIX,goo.gl
 DOMAIN-SUFFIX,googlefiber.net
+DOMAIN-SUFFIX,gotinder.com
 DOMAIN-SUFFIX,gravatar.com
 DOMAIN-SUFFIX,greasyfork.org
 DOMAIN-SUFFIX,gstatic.com
@@ -173,6 +178,7 @@ DOMAIN-SUFFIX,list-manage.com
 DOMAIN-SUFFIX,live.com
 DOMAIN-SUFFIX,livefilestore.com
 DOMAIN-SUFFIX,loggly.com
+DOMAIN-SUFFIX,lyft.com
 DOMAIN-SUFFIX,m.me
 DOMAIN-SUFFIX,macpw.com
 DOMAIN-SUFFIX,macrumors.com
@@ -221,6 +227,7 @@ DOMAIN-SUFFIX,packagecontrol.io
 DOMAIN-SUFFIX,paddle.com
 DOMAIN-SUFFIX,paddleapi.com
 DOMAIN-SUFFIX,page.link
+DOMAIN-SUFFIX,pandora.com
 DOMAIN-SUFFIX,parse.com
 DOMAIN-SUFFIX,parsely.com
 DOMAIN-SUFFIX,patreon.com
@@ -293,6 +300,8 @@ DOMAIN-SUFFIX,tiktok.com
 DOMAIN-SUFFIX,tiktokcdn.com
 DOMAIN-SUFFIX,time.com
 DOMAIN-SUFFIX,timeinc.net
+DOMAIN-SUFFIX,tinder.com
+DOMAIN-SUFFIX,tindersparks.com
 DOMAIN-SUFFIX,tiny.cc
 DOMAIN-SUFFIX,tinypic.com
 DOMAIN-SUFFIX,trello.com
@@ -317,6 +326,8 @@ DOMAIN-SUFFIX,vanillicon.com
 DOMAIN-SUFFIX,vimeo.com
 DOMAIN-SUFFIX,vmware.com
 DOMAIN-SUFFIX,w.org
+DOMAIN-SUFFIX,w-mt.co
+DOMAIN-SUFFIX,walmart.com
 DOMAIN-SUFFIX,wikimedia.org
 DOMAIN-SUFFIX,wikipedia.com
 DOMAIN-SUFFIX,wikipedia.org
