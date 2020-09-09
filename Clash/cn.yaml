@@ -423,6 +423,7 @@ payload:
   - DOMAIN-SUFFIX,wangsu.com
   - DOMAIN-SUFFIX,wanwudezhi.com
   - DOMAIN-SUFFIX,weather.com
+  - DOMAIN-SUFFIX,wechat.com
   - DOMAIN-SUFFIX,weibo.com
   - DOMAIN-SUFFIX,weibocdn.com
   - DOMAIN-SUFFIX,weico.cc
