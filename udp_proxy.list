@@ -1,5 +1,6 @@
 DOMAIN,lens.l.google.com
 DOMAIN,ntp.nasa.gov
+DOMAIN,time.android.com
 DOMAIN-SUFFIX,mozilla.com
 DOMAIN-SUFFIX,ntp.org
 IP-CIDR,220.98.0.0/32
