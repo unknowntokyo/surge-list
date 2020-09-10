@@ -19,6 +19,7 @@ payload:
   - DOMAIN-SUFFIX,amplitude.com
   - DOMAIN-SUFFIX,ampproject.net
   - DOMAIN-SUFFIX,ampproject.org
+  - DOMAIN-SUFFIX,android.com
   - DOMAIN-SUFFIX,apnic.net
   - DOMAIN-SUFFIX,app.link
   - DOMAIN-SUFFIX,appcenter.ms
@@ -205,6 +206,7 @@ payload:
   - DOMAIN-SUFFIX,mmapiws.com
   - DOMAIN-SUFFIX,mokeedev.com
   - DOMAIN-SUFFIX,movistprime.com
+  - DOMAIN-SUFFIX,mozilla.com
   - DOMAIN-SUFFIX,musical.ly
   - DOMAIN-SUFFIX,nasa.gov
   - DOMAIN-SUFFIX,nektony.com
