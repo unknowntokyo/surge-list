@@ -1,6 +1,7 @@
 PROCESS-NAME,/Applications/MacUpdater.app/Contents/MacOS/MacUpdater
 PROCESS-NAME,/Applications/Speedtest.app/Contents/MacOS/Speedtest
 USER-AGENT,SpeedTest*
+DOMAIN-SUFFIX,2checkout.com
 DOMAIN-SUFFIX,2o7.net
 DOMAIN-SUFFIX,4sqi.net
 DOMAIN-SUFFIX,9to5mac.com
@@ -78,6 +79,7 @@ DOMAIN-SUFFIX,crashlytics.com
 DOMAIN-SUFFIX,creaturecoding.com
 DOMAIN-SUFFIX,crossutility.com
 DOMAIN-SUFFIX,d.meet
+DOMAIN-SUFFIX,derwentinnovation.com
 DOMAIN-SUFFIX,dial.meet
 DOMAIN-SUFFIX,discord.com
 DOMAIN-SUFFIX,discord.gg
@@ -101,7 +103,9 @@ DOMAIN-SUFFIX,ebayimg.com
 DOMAIN-SUFFIX,eepurl.com
 DOMAIN-SUFFIX,engadget.com
 DOMAIN-SUFFIX,ensighten.com
+DOMAIN-SUFFIX,espacenet.com
 DOMAIN-SUFFIX,espn.com
+DOMAIN-SUFFIX,europa.eu
 DOMAIN-SUFFIX,f-droid.org
 DOMAIN-SUFFIX,fabric.io
 DOMAIN-SUFFIX,facebook.com
@@ -151,6 +155,7 @@ DOMAIN-SUFFIX,hockeyapp.net
 DOMAIN-SUFFIX,hpconnected.com
 DOMAIN-SUFFIX,hpsmart.com
 DOMAIN-SUFFIX,ifixit.com
+DOMAIN-SUFFIX,imac.hk
 DOMAIN-SUFFIX,images-amazon.com
 DOMAIN-SUFFIX,imazing.com
 DOMAIN-SUFFIX,imdb.com
@@ -230,6 +235,7 @@ DOMAIN-SUFFIX,onitsukatiger.com
 DOMAIN-SUFFIX,ooklaserver.net
 DOMAIN-SUFFIX,openhub.net
 DOMAIN-SUFFIX,openstreetmap.org
+DOMAIN-SUFFIX,orbit.com
 DOMAIN-SUFFIX,packagecontrol.io
 DOMAIN-SUFFIX,paddle.com
 DOMAIN-SUFFIX,paddleapi.com
@@ -317,6 +323,7 @@ DOMAIN-SUFFIX,tinder.com
 DOMAIN-SUFFIX,tindersparks.com
 DOMAIN-SUFFIX,tiny.cc
 DOMAIN-SUFFIX,tinypic.com
+DOMAIN-SUFFIX,thomsoninnovate.org
 DOMAIN-SUFFIX,trello.com
 DOMAIN-SUFFIX,tw
 DOMAIN-SUFFIX,twitch.tv
@@ -332,6 +339,7 @@ DOMAIN-SUFFIX,unpkg.com
 DOMAIN-SUFFIX,unsplash.com
 DOMAIN-SUFFIX,uploadhouse.com
 DOMAIN-SUFFIX,ups.com
+DOMAIN-SUFFIX,uspto.gov
 DOMAIN-SUFFIX,v2ex.co
 DOMAIN-SUFFIX,v2ex.com
 DOMAIN-SUFFIX,v2fly.org
@@ -348,6 +356,8 @@ DOMAIN-SUFFIX,whitehouse.gov
 DOMAIN-SUFFIX,wikimedia.org
 DOMAIN-SUFFIX,wikipedia.com
 DOMAIN-SUFFIX,wikipedia.org
+DOMAIN-SUFFIX,wipo.int
+DOMAIN-SUFFIX,wipsglobal.com
 DOMAIN-SUFFIX,withgoogle.com
 DOMAIN-SUFFIX,wordpress.com
 DOMAIN-SUFFIX,workflow.is
@@ -369,3 +379,5 @@ DOMAIN-SUFFIX,ytimg.com
 DOMAIN-SUFFIX,zdassets.com
 DOMAIN-SUFFIX,zendesk.com
 DOMAIN-KEYWORD,google
+DOMAIN-KEYWORD,gov.hk
+DOMAIN-KEYWORD,gov.tw

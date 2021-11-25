@@ -73,12 +73,14 @@ DOMAIN-SUFFIX,antutu.com
 DOMAIN-SUFFIX,antutu.net
 DOMAIN-SUFFIX,aonaotu.com
 DOMAIN-SUFFIX,appfan.im
+DOMAIN-SUFFIX,askci.com
 DOMAIN-SUFFIX,aunapi.com
 DOMAIN-SUFFIX,autonavi.com
 DOMAIN-SUFFIX,avosapps.com
 DOMAIN-SUFFIX,baidu.com
 DOMAIN-SUFFIX,baidubce.com
 DOMAIN-SUFFIX,baidupcs.com
+DOMAIN-SUFFIX,baimiaoapp.com
 DOMAIN-SUFFIX,baixing.com
 DOMAIN-SUFFIX,bcebos.com
 DOMAIN-SUFFIX,bdimg.com
@@ -129,6 +131,7 @@ DOMAIN-SUFFIX,cnbetacdn.com
 DOMAIN-SUFFIX,cnki.net
 DOMAIN-SUFFIX,cnmstl.net
 DOMAIN-SUFFIX,cnzz.com
+DOMAIN-SUFFIX,coolapk.com
 DOMAIN-SUFFIX,cowtransfer.com
 DOMAIN-SUFFIX,csdn.net
 DOMAIN-SUFFIX,ctobsnssdk.com
@@ -203,6 +206,7 @@ DOMAIN-SUFFIX,hdslb.com
 DOMAIN-SUFFIX,hdslb.net
 DOMAIN-SUFFIX,hellobike.com
 DOMAIN-SUFFIX,heweather.com
+DOMAIN-SUFFIX,himmpat.com
 DOMAIN-SUFFIX,hitv.com
 DOMAIN-SUFFIX,hp.com
 DOMAIN-SUFFIX,huami.com
@@ -230,11 +234,13 @@ DOMAIN-SUFFIX,ihaozhuo.com
 DOMAIN-SUFFIX,incopat.com
 DOMAIN-SUFFIX,incoshare.com
 DOMAIN-SUFFIX,infzm.com
+DOMAIN-SUFFIX,innojoy.com
 DOMAIN-SUFFIX,intsig.net
 DOMAIN-SUFFIX,ioszen.com
 DOMAIN-SUFFIX,ipip.net
 DOMAIN-SUFFIX,iqiyi.com
 DOMAIN-SUFFIX,ireader.com
+DOMAIN-SUFFIX,islide.cc
 DOMAIN-SUFFIX,isuzhou.me
 DOMAIN-SUFFIX,it168.com
 DOMAIN-SUFFIX,ithome.com
@@ -263,6 +269,7 @@ DOMAIN-SUFFIX,lanzou.com
 DOMAIN-SUFFIX,lanzous.com
 DOMAIN-SUFFIX,lashou.com
 DOMAIN-SUFFIX,lashouimg.com
+DOMAIN-SUFFIX,lenovo.com
 DOMAIN-SUFFIX,lianjia.com
 DOMAIN-SUFFIX,liantu.com
 DOMAIN-SUFFIX,lianwifi.com
@@ -325,6 +332,8 @@ DOMAIN-SUFFIX,oppo.com
 DOMAIN-SUFFIX,oschina.net
 DOMAIN-SUFFIX,ourdvs.com
 DOMAIN-SUFFIX,parallels.com
+DOMAIN-SUFFIX,patentguru.com
+DOMAIN-SUFFIX,patenthub.com
 DOMAIN-SUFFIX,patentics.com
 DOMAIN-SUFFIX,pinduoduo.com
 DOMAIN-SUFFIX,poizon.com
@@ -409,6 +418,7 @@ DOMAIN-SUFFIX,tmall.com
 DOMAIN-SUFFIX,to8to.com
 DOMAIN-SUFFIX,toutiao.com
 DOMAIN-SUFFIX,tracup.com
+DOMAIN-SUFFIX,tubiaoxiu.com
 DOMAIN-SUFFIX,tudou.com
 DOMAIN-SUFFIX,tuniu.com
 DOMAIN-SUFFIX,ucitymetro.com
