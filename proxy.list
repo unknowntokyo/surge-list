@@ -132,12 +132,6 @@ DOMAIN-SUFFIX,giphy.com
 DOMAIN-SUFFIX,git.io
 DOMAIN-SUFFIX,gitbooks.io
 DOMAIN-SUFFIX,gitee.com
-DOMAIN-SUFFIX,github.com
-DOMAIN-SUFFIX,github.io
-DOMAIN-SUFFIX,githubapp.com
-DOMAIN-SUFFIX,githubassets.com
-DOMAIN-SUFFIX,githubusercontent.com
-DOMAIN-SUFFIX,githubstatus.com
 DOMAIN-SUFFIX,gitlab.com
 DOMAIN-SUFFIX,gitter.im
 DOMAIN-SUFFIX,gmail.com
@@ -293,7 +287,6 @@ DOMAIN-SUFFIX,ssl-images-amazon.com
 DOMAIN-SUFFIX,stackoverflow.com
 DOMAIN-SUFFIX,starbucks.com
 DOMAIN-SUFFIX,stardock.com
-DOMAIN-SUFFIX,sublink.dev
 DOMAIN-SUFFIX,supertop.co
 DOMAIN-SUFFIX,surge-activation.com
 DOMAIN-SUFFIX,symcb.com
@@ -372,10 +365,6 @@ DOMAIN-SUFFIX,yahoo.com
 DOMAIN-SUFFIX,yimg.com
 DOMAIN-SUFFIX,ying.com
 DOMAIN-SUFFIX,ytimg.com
-DOMAIN-SUFFIX,ytoo.li
-DOMAIN-SUFFIX,ytoo.xyz
-DOMAIN-SUFFIX,ytoo.yt
-DOMAIN-SUFFIX,ytoo-163cdn.com
 DOMAIN-SUFFIX,zdassets.com
 DOMAIN-SUFFIX,zendesk.com
 DOMAIN-KEYWORD,google
