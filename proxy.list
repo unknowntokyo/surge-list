@@ -16,6 +16,7 @@ DOMAIN-SUFFIX,ahcdn.com
 DOMAIN-SUFFIX,aida64.com
 DOMAIN-SUFFIX,akamaized.net
 DOMAIN-SUFFIX,alexa.com
+DOMAIN-SUFFIX,amazon.co.jp
 DOMAIN-SUFFIX,amazon.com
 DOMAIN-SUFFIX,amazonaws.com
 DOMAIN-SUFFIX,amd.com
@@ -225,6 +226,8 @@ DOMAIN-SUFFIX,notion.so
 DOMAIN-SUFFIX,nssurge.com
 DOMAIN-SUFFIX,nvidia.com
 DOMAIN-SUFFIX,nytimes.com
+DOMAIN-SUFFIX,oculus.com
+DOMAIN-SUFFIX,oculuscdn.com
 DOMAIN-SUFFIX,office.com
 DOMAIN-SUFFIX,office.net
 DOMAIN-SUFFIX,okex.com
