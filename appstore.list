@@ -5,4 +5,5 @@ USER-AGENT,com.apple.trustd*
 USER-AGENT,itunesstored*
 USER-AGENT,MacAppStore*
 USER-AGENT,trustd*
+DOMAIN-SUFFIX,apple-mapkit.com
 DOMAIN-SUFFIX,mzstatic.com
