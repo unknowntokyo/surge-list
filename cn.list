@@ -12,6 +12,7 @@ DOMAIN-SUFFIX,126.com
 DOMAIN-SUFFIX,126.net
 DOMAIN-SUFFIX,127.net
 DOMAIN-SUFFIX,163.com
+DOMAIN-SUFFIX,163jiasu.com
 DOMAIN-SUFFIX,163yun.com
 DOMAIN-SUFFIX,1688.com
 DOMAIN-SUFFIX,178.com
@@ -339,10 +340,12 @@ DOMAIN-SUFFIX,openinstall.io
 DOMAIN-SUFFIX,oppo.com
 DOMAIN-SUFFIX,oschina.net
 DOMAIN-SUFFIX,ourdvs.com
+DOMAIN-SUFFIX,p2cdn.com
 DOMAIN-SUFFIX,parallels.com
 DOMAIN-SUFFIX,patentguru.com
 DOMAIN-SUFFIX,patenthub.com
 DOMAIN-SUFFIX,patentics.com
+DOMAIN-SUFFIX,pddpic.com
 DOMAIN-SUFFIX,pinduoduo.com
 DOMAIN-SUFFIX,poizon.com
 DOMAIN-SUFFIX,pstatp.com
@@ -376,6 +379,7 @@ DOMAIN-SUFFIX,recaptcha.net
 DOMAIN-SUFFIX,redeem.link
 DOMAIN-SUFFIX,ronghub.com
 DOMAIN-SUFFIX,rr.tv
+DOMAIN-SUFFIX,ruanmei.com
 DOMAIN-SUFFIX,sdo.com
 DOMAIN-SUFFIX,seeyouyima.com
 DOMAIN-SUFFIX,servicewechat.com
@@ -406,6 +410,7 @@ DOMAIN-SUFFIX,soopat.com
 DOMAIN-SUFFIX,soso.com
 DOMAIN-SUFFIX,soyoung.com
 DOMAIN-SUFFIX,sspai.com
+DOMAIN-SUFFIX,staticfile.org
 DOMAIN-SUFFIX,startssl.com
 DOMAIN-SUFFIX,staticdn.net
 DOMAIN-SUFFIX,suning.com
@@ -491,6 +496,7 @@ DOMAIN-SUFFIX,yundaex.com
 DOMAIN-SUFFIX,yundasys.com
 DOMAIN-SUFFIX,yunjiasu-cdn.net
 DOMAIN-SUFFIX,yximgs.com
+DOMAIN-SUFFIX,zdmimg.com
 DOMAIN-SUFFIX,zealer.com
 DOMAIN-SUFFIX,zgslb.com
 DOMAIN-SUFFIX,zhangyue.com
