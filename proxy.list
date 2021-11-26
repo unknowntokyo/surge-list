@@ -25,6 +25,12 @@ DOMAIN-SUFFIX,ampproject.net
 DOMAIN-SUFFIX,ampproject.org
 DOMAIN-SUFFIX,android.com
 DOMAIN-SUFFIX,androidfilehost.com
+DOMAIN-SUFFIX,apkcombo.com
+DOMAIN-SUFFIX,apk-dl.com
+DOMAIN-SUFFIX,apkfind.com
+DOMAIN-SUFFIX,apkmirror.com
+DOMAIN-SUFFIX,apkmonk.com
+DOMAIN-SUFFIX,apkpure.com
 DOMAIN-SUFFIX,apnic.net
 DOMAIN-SUFFIX,app.link
 DOMAIN-SUFFIX,appcenter.ms
@@ -36,10 +42,16 @@ DOMAIN-SUFFIX,appsflyer.com
 DOMAIN-SUFFIX,appspot.com
 DOMAIN-SUFFIX,appsto.re
 DOMAIN-SUFFIX,apptentive.com
+DOMAIN-SUFFIX,aptoide.com
+DOMAIN-SUFFIX,archive.is
+DOMAIN-SUFFIX,archive.org
+DOMAIN-SUFFIX,archiveofourown.com
+DOMAIN-SUFFIX,archiveofourown.org
 DOMAIN-SUFFIX,associates-amazon.com
 DOMAIN-SUFFIX,att.com
 DOMAIN-SUFFIX,azure.com
 DOMAIN-SUFFIX,azurewebsites.net
+DOMAIN-SUFFIX,bandwagonhost.com
 DOMAIN-SUFFIX,battle.net
 DOMAIN-SUFFIX,bbc.com
 DOMAIN-SUFFIX,bestbuy.com
@@ -90,6 +102,7 @@ DOMAIN-SUFFIX,discord.gg
 DOMAIN-SUFFIX,discord.gift
 DOMAIN-SUFFIX,discord.new
 DOMAIN-SUFFIX,discordapp.com
+DOMAIN-SUFFIX,discordapp.net
 DOMAIN-SUFFIX,disney.com
 DOMAIN-SUFFIX,disneyplus.com
 DOMAIN-SUFFIX,disney-plus.net
@@ -144,6 +157,8 @@ DOMAIN-SUFFIX,githubmemory.com
 DOMAIN-SUFFIX,gitlab.com
 DOMAIN-SUFFIX,gitter.im
 DOMAIN-SUFFIX,gmail.com
+DOMAIN-SUFFIX,go.dev
+DOMAIN-SUFFIX,golang.org
 DOMAIN-SUFFIX,goo.gl
 DOMAIN-SUFFIX,googlefiber.net
 DOMAIN-SUFFIX,gotinder.com
