@@ -48,6 +48,7 @@ DOMAIN-SUFFIX,archive.is
 DOMAIN-SUFFIX,archive.org
 DOMAIN-SUFFIX,archiveofourown.com
 DOMAIN-SUFFIX,archiveofourown.org
+DOMAIN-SUFFIX,arxiv.org
 DOMAIN-SUFFIX,associates-amazon.com
 DOMAIN-SUFFIX,att.com
 DOMAIN-SUFFIX,azure.com
@@ -97,6 +98,7 @@ DOMAIN-SUFFIX,cnn.com
 DOMAIN-SUFFIX,coding.net
 DOMAIN-SUFFIX,coinbase.com
 DOMAIN-SUFFIX,converse.com
+DOMAIN-SUFFIX,cookielaw.org
 DOMAIN-SUFFIX,crashlytics.com
 DOMAIN-SUFFIX,creaturecoding.com
 DOMAIN-SUFFIX,crossutility.com
@@ -130,6 +132,7 @@ DOMAIN-SUFFIX,engadget.com
 DOMAIN-SUFFIX,ensighten.com
 DOMAIN-SUFFIX,espacenet.com
 DOMAIN-SUFFIX,espn.com
+DOMAIN-SUFFIX,euronews.com
 DOMAIN-SUFFIX,europa.eu
 DOMAIN-SUFFIX,f-droid.org
 DOMAIN-SUFFIX,fabric.io
@@ -245,6 +248,7 @@ DOMAIN-SUFFIX,mokeedev.com
 DOMAIN-SUFFIX,movistprime.com
 DOMAIN-SUFFIX,musical.ly
 DOMAIN-SUFFIX,nasa.gov
+DOMAIN-SUFFIX,nature.com
 DOMAIN-SUFFIX,ndmdhs.com
 DOMAIN-SUFFIX,nektony.com
 DOMAIN-SUFFIX,netdna-cdn.com
@@ -305,6 +309,8 @@ DOMAIN-SUFFIX,revenuecat.com
 DOMAIN-SUFFIX,rpgfarm.com
 DOMAIN-SUFFIX,rsshub.app
 DOMAIN-SUFFIX,ru
+DOMAIN-SUFFIX,sciencedaily.com
+DOMAIN-SUFFIX,scmp.com
 DOMAIN-SUFFIX,seagm.com
 DOMAIN-SUFFIX,segment.com
 DOMAIN-SUFFIX,serif.com
@@ -316,6 +322,7 @@ DOMAIN-SUFFIX,sheerid.com
 DOMAIN-SUFFIX,shrtm.nu
 DOMAIN-SUFFIX,signal.org
 DOMAIN-SUFFIX,skype.com
+DOMAIN-SUFFIX,slashdot.org
 DOMAIN-SUFFIX,sm.ms
 DOMAIN-SUFFIX,snapchat.com
 DOMAIN-SUFFIX,sndcdn.com
