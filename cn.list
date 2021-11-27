@@ -115,6 +115,7 @@ DOMAIN-SUFFIX,ccb.com
 DOMAIN-SUFFIX,ccgslb.com
 DOMAIN-SUFFIX,ccgslb.net
 DOMAIN-SUFFIX,cctv.com
+DOMAIN-SUFFIX,cctvpic.com
 DOMAIN-SUFFIX,cdntips.net
 DOMAIN-SUFFIX,cehome.com
 DOMAIN-SUFFIX,ceping.com
@@ -156,6 +157,7 @@ DOMAIN-SUFFIX,dgtle.com
 DOMAIN-SUFFIX,diandian.com
 DOMAIN-SUFFIX,dianping.com
 DOMAIN-SUFFIX,didialift.com
+DOMAIN-SUFFIX,didiglobal.com
 DOMAIN-SUFFIX,didapinche.com
 DOMAIN-SUFFIX,didiqiche.com
 DOMAIN-SUFFIX,didistatic.com
@@ -262,6 +264,7 @@ DOMAIN-SUFFIX,ithome.com
 DOMAIN-SUFFIX,ixigua.com
 DOMAIN-SUFFIX,jandan.net
 DOMAIN-SUFFIX,jd.com
+DOMAIN-SUFFIX,jdpay.com
 DOMAIN-SUFFIX,jiakaobaodian.com
 DOMAIN-SUFFIX,jianshu.com
 DOMAIN-SUFFIX,jianshu.io
@@ -274,6 +277,7 @@ DOMAIN-SUFFIX,jxedt.com
 DOMAIN-SUFFIX,kakamobi.com
 DOMAIN-SUFFIX,kanzhun.com
 DOMAIN-SUFFIX,ke.com
+DOMAIN-SUFFIX,ksosoft.com
 DOMAIN-SUFFIX,ksyun.com
 DOMAIN-SUFFIX,kuaidadi.com
 DOMAIN-SUFFIX,kuaidi100.com
@@ -294,6 +298,7 @@ DOMAIN-SUFFIX,lietou.com
 DOMAIN-SUFFIX,lingxi360.com
 DOMAIN-SUFFIX,lining.com
 DOMAIN-SUFFIX,linkinip.com
+DOMAIN-SUFFIX,livechina.com
 DOMAIN-SUFFIX,lizhi.fm
 DOMAIN-SUFFIX,lizhi.io
 DOMAIN-SUFFIX,ljcdn.com
@@ -528,4 +533,14 @@ DOMAIN-KEYWORD,-cn
 IP-CIDR,119.29.29.29/32,no-resolve
 
 # Tencent
+IP-CIDR,101.32.104.4/32
+IP-CIDR,101.32.104.41/32
+IP-CIDR,101.32.104.56/32
+IP-CIDR,101.32.118.25/32
+IP-CIDR,101.32.133.16/32
+IP-CIDR,101.32.133.53/32
+IP-CIDR,101.32.133.209/32
+IP-CIDR,129.226.3.47/32
+IP-CIDR,129.226.107.244/32
+IP-CIDR,182.254.116.0/24
 IP-CIDR,203.205.254.0/23
