@@ -58,6 +58,9 @@ DOMAIN-SUFFIX,bbc.com
 DOMAIN-SUFFIX,bestbuy.com
 DOMAIN-SUFFIX,betaqr.com
 DOMAIN-SUFFIX,bgp.he.net
+DOMAIN-SUFFIX,binance.cc
+DOMAIN-SUFFIX,binance.com
+DOMAIN-SUFFIX,binance.us
 DOMAIN-SUFFIX,bintray.com
 DOMAIN-SUFFIX,bit.ly
 DOMAIN-SUFFIX,bit.surf
@@ -92,6 +95,7 @@ DOMAIN-SUFFIX,cloudfront.net
 DOMAIN-SUFFIX,cloudmagic.com
 DOMAIN-SUFFIX,cnn.com
 DOMAIN-SUFFIX,coding.net
+DOMAIN-SUFFIX,coinbase.com
 DOMAIN-SUFFIX,converse.com
 DOMAIN-SUFFIX,crashlytics.com
 DOMAIN-SUFFIX,creaturecoding.com
@@ -179,6 +183,7 @@ DOMAIN-SUFFIX,hockeyapp.net
 DOMAIN-SUFFIX,hp-mns.com
 DOMAIN-SUFFIX,hpconnected.com
 DOMAIN-SUFFIX,hpsmart.com
+DOMAIN-SUFFIX,huobi.com
 DOMAIN-SUFFIX,i-dont-care-about-cookies.eu
 DOMAIN-SUFFIX,ifixit.com
 DOMAIN-SUFFIX,imac.hk
