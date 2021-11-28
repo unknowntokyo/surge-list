@@ -59,6 +59,7 @@ DOMAIN-SUFFIX,akamaiedge.net
 DOMAIN-SUFFIX,akamaihd.net
 DOMAIN-SUFFIX,akamaistream.net
 DOMAIN-SUFFIX,akamaized.net
+DOMAIN-SUFFIX,akr-developers.com
 DOMAIN-SUFFIX,aliapp.org
 DOMAIN-SUFFIX,alibaba.com
 DOMAIN-SUFFIX,alibabausercontent.com
@@ -234,6 +235,8 @@ DOMAIN-SUFFIX,growingio.com
 DOMAIN-SUFFIX,gtimg.com
 DOMAIN-SUFFIX,guazi.com
 DOMAIN-SUFFIX,guokr.com
+DOMAIN-SUFFIX,guozhivip.com
+DOMAIN-SUFFIX,ghxi.com
 DOMAIN-SUFFIX,haimawan.com
 DOMAIN-SUFFIX,hanghangcha.com
 DOMAIN-SUFFIX,hc-cdn.com
@@ -374,6 +377,7 @@ DOMAIN-SUFFIX,networkbench.com
 DOMAIN-SUFFIX,ngabbs.com
 DOMAIN-SUFFIX,nuomi.com
 DOMAIN-SUFFIX,okjike.com
+DOMAIN-SUFFIX,onedict.com
 DOMAIN-SUFFIX,onethingpcs.com
 DOMAIN-SUFFIX,openinstall.io
 DOMAIN-SUFFIX,oppo.com
@@ -390,6 +394,7 @@ DOMAIN-SUFFIX,pinduoduo.net
 DOMAIN-SUFFIX,poizon.com
 DOMAIN-SUFFIX,pstatp.com
 DOMAIN-SUFFIX,pubyun.com
+DOMAIN-SUFFIX,pullword.com
 DOMAIN-SUFFIX,qbox.me
 DOMAIN-SUFFIX,qcc.com
 DOMAIN-SUFFIX,qcloud.com
@@ -448,6 +453,7 @@ DOMAIN-SUFFIX,sogoucdn.com
 DOMAIN-SUFFIX,sohu.com
 DOMAIN-SUFFIX,sohucs.com
 DOMAIN-SUFFIX,sohu-inc.com
+DOMAIN-SUFFIX,sojson.com
 DOMAIN-SUFFIX,soku.com
 DOMAIN-SUFFIX,solidot.org
 DOMAIN-SUFFIX,songshuhui.net
@@ -501,6 +507,7 @@ DOMAIN-SUFFIX,wanwudezhi.com
 DOMAIN-SUFFIX,weather.com
 DOMAIN-SUFFIX,weibo.com
 DOMAIN-SUFFIX,weibocdn.com
+DOMAIN-SUFFIX,weiciyun.com
 DOMAIN-SUFFIX,weico.cc
 DOMAIN-SUFFIX,weidian.com
 DOMAIN-SUFFIX,weiphone.com
