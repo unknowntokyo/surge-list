@@ -100,6 +100,7 @@ DOMAIN-SUFFIX,cloudflareinsights.com
 DOMAIN-SUFFIX,cloudfront.net
 DOMAIN-SUFFIX,cloudmagic.com
 DOMAIN-SUFFIX,clubhouse.com
+DOMAIN-SUFFIX,cn-ki.net
 DOMAIN-SUFFIX,cnn.com
 DOMAIN-SUFFIX,coding.net
 DOMAIN-SUFFIX,coinbase.com
@@ -177,6 +178,7 @@ DOMAIN-SUFFIX,giphy.com
 DOMAIN-SUFFIX,git.io
 DOMAIN-SUFFIX,gitbooks.io
 DOMAIN-SUFFIX,gitee.com
+DOMAIN-SUFFIX,giters.com
 DOMAIN-SUFFIX,githubmemory.com
 DOMAIN-SUFFIX,gitlab.com
 DOMAIN-SUFFIX,gitter.im
@@ -186,6 +188,7 @@ DOMAIN-SUFFIX,golang.org
 DOMAIN-SUFFIX,goo.gl
 DOMAIN-SUFFIX,googlefiber.net
 DOMAIN-SUFFIX,gotinder.com
+DOMAIN-SUFFIX,gratisography.com
 DOMAIN-SUFFIX,gravatar.com
 DOMAIN-SUFFIX,greasyfork.org
 DOMAIN-SUFFIX,gstatic.com
@@ -308,6 +311,7 @@ DOMAIN-SUFFIX,patreon.com
 DOMAIN-SUFFIX,patsnap.com
 DOMAIN-SUFFIX,pgyer.com
 DOMAIN-SUFFIX,pinterest.com
+DOMAIN-SUFFIX,pixabay.com
 DOMAIN-SUFFIX,pixiv.net
 DOMAIN-SUFFIX,pixiv.org
 DOMAIN-SUFFIX,playstation.com
