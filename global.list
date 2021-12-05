@@ -99,6 +99,7 @@ DOMAIN-SUFFIX,cloudflare-dns.com
 DOMAIN-SUFFIX,cloudflareinsights.com
 DOMAIN-SUFFIX,cloudfront.net
 DOMAIN-SUFFIX,cloudmagic.com
+DOMAIN-SUFFIX,clubhouse.com
 DOMAIN-SUFFIX,cnn.com
 DOMAIN-SUFFIX,coding.net
 DOMAIN-SUFFIX,coinbase.com
@@ -218,6 +219,8 @@ DOMAIN-SUFFIX,ip-api.com
 DOMAIN-SUFFIX,ipsw.me
 DOMAIN-SUFFIX,isnssdk.com
 DOMAIN-SUFFIX,issuu.com
+DOMAIN-SUFFIX,janrain.com
+DOMAIN-SUFFIX,janraincapture.com
 DOMAIN-SUFFIX,jetbrains.com
 DOMAIN-SUFFIX,jp
 DOMAIN-SUFFIX,jquery.com
@@ -238,6 +241,7 @@ DOMAIN-SUFFIX,list-manage.com
 DOMAIN-SUFFIX,live.com
 DOMAIN-SUFFIX,livefilestore.com
 DOMAIN-SUFFIX,loggly.com
+DOMAIN-SUFFIX,loli.net
 DOMAIN-SUFFIX,lyft.com
 DOMAIN-SUFFIX,m.me
 DOMAIN-SUFFIX,macpw.com
@@ -332,6 +336,7 @@ DOMAIN-SUFFIX,ru
 DOMAIN-SUFFIX,sciencedaily.com
 DOMAIN-SUFFIX,scmp.com
 DOMAIN-SUFFIX,seagm.com
+DOMAIN-SUFFIX,seeds.services
 DOMAIN-SUFFIX,segment.com
 DOMAIN-SUFFIX,serif.com
 DOMAIN-SUFFIX,setapp.com
@@ -350,6 +355,7 @@ DOMAIN-SUFFIX,sndcdn.com
 DOMAIN-SUFFIX,sng.link
 DOMAIN-SUFFIX,sony.com
 DOMAIN-SUFFIX,sony.net
+DOMAIN-SUFFIX,sonyentertainmentnetwork.com
 DOMAIN-SUFFIX,soundcloud.com
 DOMAIN-SUFFIX,sourceforge.io
 DOMAIN-SUFFIX,speedtest.net
