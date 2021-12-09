@@ -165,6 +165,7 @@ DOMAIN-SUFFIX,flypy.com
 DOMAIN-SUFFIX,fontawesome.com
 DOMAIN-SUFFIX,forter.com
 DOMAIN-SUFFIX,foursquare.com
+DOMAIN-SUFFIX,friendlyarm.com
 DOMAIN-SUFFIX,ft.com
 DOMAIN-SUFFIX,g.co
 DOMAIN-SUFFIX,gameloft.com
@@ -176,6 +177,8 @@ DOMAIN-SUFFIX,gfx.ms
 DOMAIN-SUFFIX,ggpht.com
 DOMAIN-SUFFIX,giphy.com
 DOMAIN-SUFFIX,git.io
+DOMAIN-SUFFIX,gitbook.com
+DOMAIN-SUFFIX,gitbook.io
 DOMAIN-SUFFIX,gitbooks.io
 DOMAIN-SUFFIX,gitee.com
 DOMAIN-SUFFIX,giters.com
@@ -462,6 +465,7 @@ DOMAIN-SUFFIX,yahoo.com
 DOMAIN-SUFFIX,yimg.com
 DOMAIN-SUFFIX,ying.com
 DOMAIN-SUFFIX,ytimg.com
+DOMAIN-SUFFIX,yoursite.com
 DOMAIN-SUFFIX,zaobao.com
 DOMAIN-SUFFIX,zdassets.com
 DOMAIN-SUFFIX,zendesk.com
