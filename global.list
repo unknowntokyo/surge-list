@@ -74,6 +74,7 @@ DOMAIN-SUFFIX,blizzard.com
 DOMAIN-SUFFIX,blog.com
 DOMAIN-SUFFIX,blogcdn.com
 DOMAIN-SUFFIX,blogger.com
+DOMAIN-SUFFIX,blogspot.com
 DOMAIN-SUFFIX,bloomberg.cn
 DOMAIN-SUFFIX,bloomberg.com
 DOMAIN-SUFFIX,booth.pm
@@ -234,6 +235,7 @@ DOMAIN-SUFFIX,jp
 DOMAIN-SUFFIX,jquery.com
 DOMAIN-SUFFIX,jsboxbbs.com
 DOMAIN-SUFFIX,jsdelivr.net
+DOMAIN-SUFFIX,kairosoft.net
 DOMAIN-SUFFIX,kaspersky.com
 DOMAIN-SUFFIX,keen.io
 DOMAIN-SUFFIX,kfs.io
@@ -333,6 +335,7 @@ DOMAIN-SUFFIX,pximg.net
 DOMAIN-SUFFIX,python.org
 DOMAIN-SUFFIX,quantumult.app
 DOMAIN-SUFFIX,quora.com
+DOMAIN-SUFFIX,rayark.com
 DOMAIN-SUFFIX,redd.it
 DOMAIN-SUFFIX,reddit.com
 DOMAIN-SUFFIX,redditmail.com
