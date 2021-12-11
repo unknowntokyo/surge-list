@@ -3,8 +3,11 @@ PROCESS-NAME,/Applications/Speedtest.app/Contents/MacOS/Speedtest
 USER-AGENT,SpeedTest*
 DOMAIN-SUFFIX,2checkout.com
 DOMAIN-SUFFIX,2o7.net
+DOMAIN-SUFFIX,4shared.com
 DOMAIN-SUFFIX,4sqi.net
 DOMAIN-SUFFIX,9to5mac.com
+DOMAIN-SUFFIX,abpchina.org
+DOMAIN-SUFFIX,accountkit.com
 DOMAIN-SUFFIX,adguard.com
 DOMAIN-SUFFIX,adidas.com
 DOMAIN-SUFFIX,adobe.com
@@ -14,18 +17,27 @@ DOMAIN-SUFFIX,adonit-sdk.net
 DOMAIN-SUFFIX,adtidy.org
 DOMAIN-SUFFIX,ahcdn.com
 DOMAIN-SUFFIX,aida64.com
+DOMAIN-SUFFIX,airtable.com
 DOMAIN-SUFFIX,akamaized.net
 DOMAIN-SUFFIX,alexa.com
+DOMAIN-SUFFIX,alfredapp.com
 DOMAIN-SUFFIX,altapps.net
 DOMAIN-SUFFIX,amazon.co.jp
 DOMAIN-SUFFIX,amazon.com
 DOMAIN-SUFFIX,amazonaws.com
 DOMAIN-SUFFIX,amd.com
 DOMAIN-SUFFIX,amplitude.com
+DOMAIN-SUFFIX,ampproject.com
 DOMAIN-SUFFIX,ampproject.net
 DOMAIN-SUFFIX,ampproject.org
 DOMAIN-SUFFIX,android.com
+DOMAIN-SUFFIX,androidify.com
+DOMAIN-SUFFIX,android-x86.org
 DOMAIN-SUFFIX,androidfilehost.com
+DOMAIN-SUFFIX,aol.com
+DOMAIN-SUFFIX,aolcdn.com
+DOMAIN-SUFFIX,apache.org
+DOMAIN-SUFFIX,apigee.com
 DOMAIN-SUFFIX,apkcombo.com
 DOMAIN-SUFFIX,apk-dl.com
 DOMAIN-SUFFIX,apkfind.com
@@ -35,6 +47,7 @@ DOMAIN-SUFFIX,apkpure.com
 DOMAIN-SUFFIX,apnic.net
 DOMAIN-SUFFIX,app.link
 DOMAIN-SUFFIX,appcenter.ms
+DOMAIN-SUFFIX,appdownloader.net
 DOMAIN-SUFFIX,appledaily.net
 DOMAIN-SUFFIX,apple-dns.net
 DOMAIN-SUFFIX,app-measurement.com
@@ -55,6 +68,7 @@ DOMAIN-SUFFIX,arxiv.org
 DOMAIN-SUFFIX,associates-amazon.com
 DOMAIN-SUFFIX,att.com
 DOMAIN-SUFFIX,azure.com
+DOMAIN-SUFFIX,azureedge.net
 DOMAIN-SUFFIX,azurewebsites.net
 DOMAIN-SUFFIX,bandwagonhost.com
 DOMAIN-SUFFIX,battle.net
@@ -66,10 +80,13 @@ DOMAIN-SUFFIX,binance.cc
 DOMAIN-SUFFIX,binance.com
 DOMAIN-SUFFIX,binance.us
 DOMAIN-SUFFIX,bintray.com
+DOMAIN-SUFFIX,bit.com
+DOMAIN-SUFFIX,bit.do
 DOMAIN-SUFFIX,bit.ly
 DOMAIN-SUFFIX,bit.surf
 DOMAIN-SUFFIX,bitbucket.org
 DOMAIN-SUFFIX,bitly.com
+DOMAIN-SUFFIX,bitshare.com
 DOMAIN-SUFFIX,blizzard.com
 DOMAIN-SUFFIX,blog.com
 DOMAIN-SUFFIX,blogcdn.com
@@ -87,6 +104,7 @@ DOMAIN-SUFFIX,byteoversea.com
 DOMAIN-SUFFIX,cbinsights.com
 DOMAIN-SUFFIX,cdninstagram.com
 DOMAIN-SUFFIX,cdnst.net
+DOMAIN-SUFFIX,certificate-transparency.org
 DOMAIN-SUFFIX,checkra.in
 DOMAIN-SUFFIX,chrome.com
 DOMAIN-SUFFIX,chromecast.com
@@ -101,6 +119,7 @@ DOMAIN-SUFFIX,cloudflareinsights.com
 DOMAIN-SUFFIX,cloudfront.net
 DOMAIN-SUFFIX,cloudmagic.com
 DOMAIN-SUFFIX,clubhouse.com
+DOMAIN-SUFFIX,cnet.com
 DOMAIN-SUFFIX,cn-ki.net
 DOMAIN-SUFFIX,cnn.com
 DOMAIN-SUFFIX,coding.net
@@ -112,6 +131,7 @@ DOMAIN-SUFFIX,creaturecoding.com
 DOMAIN-SUFFIX,crossutility.com
 DOMAIN-SUFFIX,culturedcode.com
 DOMAIN-SUFFIX,d.meet
+DOMAIN-SUFFIX,dayone.me
 DOMAIN-SUFFIX,derwentinnovation.com
 DOMAIN-SUFFIX,dial.meet
 DOMAIN-SUFFIX,discord.com
@@ -132,11 +152,13 @@ DOMAIN-SUFFIX,dropbox.com
 DOMAIN-SUFFIX,dropboxapi.com
 DOMAIN-SUFFIX,dropboxstatic.com
 DOMAIN-SUFFIX,dropboxusercontent.com
+DOMAIN-SUFFIX,duckduckgo.com
 DOMAIN-SUFFIX,dueapp.com
 DOMAIN-SUFFIX,earthcam.com
 DOMAIN-SUFFIX,ebay.com
 DOMAIN-SUFFIX,ebayimg.com
 DOMAIN-SUFFIX,ebaystatic.com
+DOMAIN-SUFFIX,economist.com
 DOMAIN-SUFFIX,eepurl.com
 DOMAIN-SUFFIX,engadget.com
 DOMAIN-SUFFIX,ensighten.com
@@ -162,6 +184,7 @@ DOMAIN-SUFFIX,firebaseio.com
 DOMAIN-SUFFIX,fitbit.com
 DOMAIN-SUFFIX,fixer.io
 DOMAIN-SUFFIX,flexihub.com
+DOMAIN-SUFFIX,flickr.com
 DOMAIN-SUFFIX,flurry.com
 DOMAIN-SUFFIX,flypy.com
 DOMAIN-SUFFIX,fontawesome.com
@@ -247,6 +270,7 @@ DOMAIN-SUFFIX,limbopro.com
 DOMAIN-SUFFIX,limneos.net
 DOMAIN-SUFFIX,lineageos.org
 DOMAIN-SUFFIX,linkedin.com
+DOMAIN-SUFFIX,linode.com
 DOMAIN-SUFFIX,list-manage.com
 DOMAIN-SUFFIX,live.com
 DOMAIN-SUFFIX,livefilestore.com
@@ -289,6 +313,8 @@ DOMAIN-SUFFIX,nicegram.app
 DOMAIN-SUFFIX,nike.com
 DOMAIN-SUFFIX,nikecloud.com
 DOMAIN-SUFFIX,nikkei.com
+DOMAIN-SUFFIX,nintendo.com
+DOMAIN-SUFFIX,nintendo.net
 DOMAIN-SUFFIX,notebookcheck.com
 DOMAIN-SUFFIX,notion.so
 DOMAIN-SUFFIX,nssurge.com
@@ -298,6 +324,7 @@ DOMAIN-SUFFIX,oculus.com
 DOMAIN-SUFFIX,oculuscdn.com
 DOMAIN-SUFFIX,office.com
 DOMAIN-SUFFIX,office.net
+DOMAIN-SUFFIX,office365.com
 DOMAIN-SUFFIX,okex.com
 DOMAIN-SUFFIX,omtrdc.net
 DOMAIN-SUFFIX,onelink.me
@@ -331,11 +358,13 @@ DOMAIN-SUFFIX,producthunt.com
 DOMAIN-SUFFIX,pubg.com
 DOMAIN-SUFFIX,pubgmobile.com
 DOMAIN-SUFFIX,puma.com
+DOMAIN-SUFFIX,pvp.net
 DOMAIN-SUFFIX,pximg.net
 DOMAIN-SUFFIX,python.org
 DOMAIN-SUFFIX,quantumult.app
 DOMAIN-SUFFIX,quora.com
 DOMAIN-SUFFIX,rayark.com
+DOMAIN-SUFFIX,recaptcha.net
 DOMAIN-SUFFIX,redd.it
 DOMAIN-SUFFIX,reddit.com
 DOMAIN-SUFFIX,redditmail.com
@@ -343,6 +372,8 @@ DOMAIN-SUFFIX,redditmedia.com
 DOMAIN-SUFFIX,redditstatic.com
 DOMAIN-SUFFIX,reuters.com
 DOMAIN-SUFFIX,revenuecat.com
+DOMAIN-SUFFIX,riotcdn.net
+DOMAIN-SUFFIX,riotgames.com
 DOMAIN-SUFFIX,rpgfarm.com
 DOMAIN-SUFFIX,rsshub.app
 DOMAIN-SUFFIX,ru
@@ -363,6 +394,7 @@ DOMAIN-SUFFIX,signal.org
 DOMAIN-SUFFIX,skype.com
 DOMAIN-SUFFIX,slashdot.org
 DOMAIN-SUFFIX,sm.ms
+DOMAIN-SUFFIX,smartmailcloud.com
 DOMAIN-SUFFIX,snapchat.com
 DOMAIN-SUFFIX,sndcdn.com
 DOMAIN-SUFFIX,sng.link
@@ -391,6 +423,7 @@ DOMAIN-SUFFIX,tapbots.com
 DOMAIN-SUFFIX,tapbots.net
 DOMAIN-SUFFIX,teamviewer.com
 DOMAIN-SUFFIX,tel.meet
+DOMAIN-SUFFIX,termius.com
 DOMAIN-SUFFIX,tesla.com
 DOMAIN-SUFFIX,test-app.link
 DOMAIN-SUFFIX,tgstat.com
@@ -402,6 +435,7 @@ DOMAIN-SUFFIX,timeinc.net
 DOMAIN-SUFFIX,tinder.com
 DOMAIN-SUFFIX,tindersparks.com
 DOMAIN-SUFFIX,tiny.cc
+DOMAIN-SUFFIX,tinychat.com
 DOMAIN-SUFFIX,tinypic.com
 DOMAIN-SUFFIX,thomsoninnovate.org
 DOMAIN-SUFFIX,trello.com
@@ -413,6 +447,7 @@ DOMAIN-SUFFIX,typekit.com
 DOMAIN-SUFFIX,typlog.com
 DOMAIN-SUFFIX,typography.com
 DOMAIN-SUFFIX,uber.com
+DOMAIN-SUFFIX,ubertags.com
 DOMAIN-SUFFIX,uk
 DOMAIN-SUFFIX,umbro.com
 DOMAIN-SUFFIX,unpkg.com
@@ -430,6 +465,7 @@ DOMAIN-SUFFIX,vmware.com
 DOMAIN-SUFFIX,voachinese.com
 DOMAIN-SUFFIX,voanews.com
 DOMAIN-SUFFIX,voovmeeting.com
+DOMAIN-SUFFIX,vsco.co
 DOMAIN-SUFFIX,w.org
 DOMAIN-SUFFIX,w-mt.co
 DOMAIN-SUFFIX,w3schools.com
@@ -468,6 +504,7 @@ DOMAIN-SUFFIX,xdrig.com
 DOMAIN-SUFFIX,xnview.com
 DOMAIN-SUFFIX,xteko.com
 DOMAIN-SUFFIX,yahoo.com
+DOMAIN-SUFFIX,yahooapis.com
 DOMAIN-SUFFIX,yimg.com
 DOMAIN-SUFFIX,ying.com
 DOMAIN-SUFFIX,ytimg.com
