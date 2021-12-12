@@ -21,12 +21,6 @@ DOMAIN-SUFFIX,adtidy.org
 DOMAIN-SUFFIX,ahcdn.com
 DOMAIN-SUFFIX,aida64.com
 DOMAIN-SUFFIX,airtable.com
-'DOMAIN-SUFFIX,akamai.com
-DOMAIN-SUFFIX,akamai.net
-DOMAIN-SUFFIX,akamaiedge.net
-DOMAIN-SUFFIX,akamaihd.net
-DOMAIN-SUFFIX,akamaistream.net
-DOMAIN-SUFFIX,akamaized.net
 DOMAIN-SUFFIX,alcatel-home.com
 DOMAIN-SUFFIX,alcatelmobile.com
 DOMAIN-SUFFIX,alexa.com
@@ -672,6 +666,7 @@ DOMAIN-SUFFIX,sublimemerge.com
 DOMAIN-SUFFIX,sublimetext.com
 DOMAIN-SUFFIX,supertop.co
 DOMAIN-SUFFIX,surge-activation.com
+DOMAIN-SUFFIX,swiftype.com
 DOMAIN-SUFFIX,symcb.com
 DOMAIN-SUFFIX,symcd.com
 DOMAIN-SUFFIX,t.co
