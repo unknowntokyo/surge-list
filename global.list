@@ -209,8 +209,15 @@ DOMAIN-SUFFIX,duckduckgo.com
 DOMAIN-SUFFIX,duckgo.com
 DOMAIN-SUFFIX,dueapp.com
 DOMAIN-SUFFIX,earthcam.com
+DOMAIN-SUFFIX,e-bay.it
 DOMAIN-SUFFIX,ebay.com
+DOMAIN-SUFFIX,ebay-us.com
+DOMAIN-SUFFIX,ebaycdn.net
 DOMAIN-SUFFIX,ebayimg.com
+DOMAIN-SUFFIX,ebayinc.com
+DOMAIN-SUFFIX,ebaymainstreet.com
+DOMAIN-SUFFIX,ebayprivacycenter.com
+DOMAIN-SUFFIX,ebayrtm.com
 DOMAIN-SUFFIX,ebaystatic.com
 DOMAIN-SUFFIX,economist.com
 DOMAIN-SUFFIX,eepurl.com
@@ -776,6 +783,8 @@ DOMAIN-SUFFIX,xnview.com
 DOMAIN-SUFFIX,xteko.com
 DOMAIN-SUFFIX,yahoo.com
 DOMAIN-SUFFIX,yahooapis.com
+DOMAIN-SUFFIX,yandex.com
+DOMAIN-SUFFIX,yastatic.net
 DOMAIN-SUFFIX,yimg.com
 DOMAIN-SUFFIX,ying.com
 DOMAIN-SUFFIX,ytimg.com
