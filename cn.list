@@ -8,7 +8,6 @@ DOMAIN,time.asia.apple.com
 DOMAIN,time-ios.apple.com
 DOMAIN,weather-analytics-events.apple.com
 DOMAIN,weather-data.apple.com
-DOMAIN-KEYWORD,-cn
 DOMAIN-SUFFIX,10010.com
 DOMAIN-SUFFIX,115.com
 DOMAIN-SUFFIX,115cdn.com
@@ -968,6 +967,7 @@ DOMAIN-SUFFIX,zuoyebang.cc
 DOMAIN-SUFFIX,zuoyebang.com
 DOMAIN-SUFFIX,zybang.com
 DOMAIN-SUFFIX,zzzstudio.net
+DOMAIN-KEYWORD,-cn
 IP-CIDR,119.29.29.29/32,no-resolve
 
 # Tencent
