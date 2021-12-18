@@ -89,6 +89,7 @@ DOMAIN-SUFFIX,bbc.com
 DOMAIN-SUFFIX,beibao.cn
 DOMAIN-SUFFIX,beibao.com
 DOMAIN-SUFFIX,beibao.com.cn
+DOMAIN-SUFFIX,belkin.com
 DOMAIN-SUFFIX,bestbuy.com
 DOMAIN-SUFFIX,betaqr.com
 DOMAIN-SUFFIX,bgp.he.net
@@ -524,6 +525,7 @@ DOMAIN-SUFFIX,parse.com
 DOMAIN-SUFFIX,parsely.com
 DOMAIN-SUFFIX,patreon.com
 DOMAIN-SUFFIX,patsnap.com
+DOMAIN-SUFFIX,payments-amazon.com
 DOMAIN-SUFFIX,pccw.com
 DOMAIN-SUFFIX,pccwglobal.com
 DOMAIN-SUFFIX,pccwsolutions.com
@@ -655,6 +657,7 @@ DOMAIN-SUFFIX,soundcloud.com
 DOMAIN-SUFFIX,sourceforge.io
 DOMAIN-SUFFIX,speedtest.net
 DOMAIN-SUFFIX,speedtestcustom.com
+DOMAIN-SUFFIX,splunkcloud.com
 DOMAIN-SUFFIX,spoti.fi
 DOMAIN-SUFFIX,spotify.com
 DOMAIN-SUFFIX,spotify.design
