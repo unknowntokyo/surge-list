@@ -3,6 +3,7 @@ PROCESS-NAME,/Applications/NeteaseMusic.app/Contents/MacOS/NeteaseMusic
 PROCESS-NAME,/Applications/pap.er.app/Contents/MacOS/Pap.er
 USER-AGENT,NeteaseMusic*
 DOMAIN,cdn.jsdelivr.net
+DOMAIN,router.asus.com
 DOMAIN,time.apple.com
 DOMAIN,time.asia.apple.com
 DOMAIN,time-ios.apple.com
@@ -385,6 +386,7 @@ DOMAIN-SUFFIX,heweather.com
 DOMAIN-SUFFIX,hexun.com
 DOMAIN-SUFFIX,himmpat.com
 DOMAIN-SUFFIX,hitv.com
+DOMAIN-SUFFIX,hiwifi.com
 DOMAIN-SUFFIX,hp.com
 DOMAIN-SUFFIX,huaban.com
 DOMAIN-SUFFIX,huami.com
@@ -587,9 +589,11 @@ DOMAIN-SUFFIX,msstatic.com
 DOMAIN-SUFFIX,mtime.com
 DOMAIN-SUFFIX,mtyun.com
 DOMAIN-SUFFIX,mxhichina.com
+DOMAIN-SUFFIX,my.router
 DOMAIN-SUFFIX,myalicdn.com
 DOMAIN-SUFFIX,myapp.com
 DOMAIN-SUFFIX,myqcloud.com
+DOMAIN-SUFFIX,myrouter.local
 DOMAIN-SUFFIX,mysipo.com
 DOMAIN-SUFFIX,mzres.com
 DOMAIN-SUFFIX,nbweekly.com
@@ -681,6 +685,7 @@ DOMAIN-SUFFIX,riotcdn.net
 DOMAIN-SUFFIX,riotforgegames.com
 DOMAIN-SUFFIX,riot-games.com
 DOMAIN-SUFFIX,ronghub.com
+DOMAIN-SUFFIX,routerlogin.com
 DOMAIN-SUFFIX,rr.tv
 DOMAIN-SUFFIX,ruanmei.com
 DOMAIN-SUFFIX,ruguoapp.com
