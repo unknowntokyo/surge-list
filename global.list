@@ -1,6 +1,7 @@
 PROCESS-NAME,/Applications/MacUpdater.app/Contents/MacOS/MacUpdater
 PROCESS-NAME,/Applications/Speedtest.app/Contents/MacOS/Speedtest
 USER-AGENT,SpeedTest*
+USER-AGENT,TikTok*
 DOMAIN-SUFFIX,2checkout.com
 DOMAIN-SUFFIX,2o7.net
 DOMAIN-SUFFIX,4shared.com
@@ -34,6 +35,7 @@ DOMAIN-SUFFIX,amazonprimevideos.com
 DOMAIN-SUFFIX,amazonvideo.cc
 DOMAIN-SUFFIX,amazonvideo.com
 DOMAIN-SUFFIX,amd.com
+DOMAIN-SUFFIX,amemv.com
 DOMAIN-SUFFIX,amplitude.com
 DOMAIN-SUFFIX,ampproject.com
 DOMAIN-SUFFIX,ampproject.net
@@ -91,6 +93,25 @@ DOMAIN-SUFFIX,beibao.com
 DOMAIN-SUFFIX,beibao.com.cn
 DOMAIN-SUFFIX,belkin.com
 DOMAIN-SUFFIX,bestbuy.com
+DOMAIN-SUFFIX,bestbuy.com.mx
+DOMAIN-SUFFIX,bestbuy.info
+DOMAIN-SUFFIX,bestbuy24x7solutions.com
+DOMAIN-SUFFIX,bestbuybusiness.com
+DOMAIN-SUFFIX,bestbuybusinessadvantageaccount.com
+DOMAIN-SUFFIX,bestbuycanada.com
+DOMAIN-SUFFIX,bestbuycharityclassic.com
+DOMAIN-SUFFIX,bestbuycoffeemakers.com
+DOMAIN-SUFFIX,bestbuyethics.com
+DOMAIN-SUFFIX,bestbuygsm.com
+DOMAIN-SUFFIX,bestbuyideax.com
+DOMAIN-SUFFIX,bestbuyphotoworkshoptours.com
+DOMAIN-SUFFIX,bestbuyrewards.com
+DOMAIN-SUFFIX,bestbuys.com
+DOMAIN-SUFFIX,bestbuysgeeksquad.com
+DOMAIN-SUFFIX,bestbuysolutions.net
+DOMAIN-SUFFIX,bestbuystores.com
+DOMAIN-SUFFIX,bestbuytradein.com
+DOMAIN-SUFFIX,bestbuyus.com
 DOMAIN-SUFFIX,betaqr.com
 DOMAIN-SUFFIX,bgp.he.net
 DOMAIN-SUFFIX,binance.cc
@@ -238,8 +259,8 @@ DOMAIN-SUFFIX,espn.com
 DOMAIN-SUFFIX,espn.net
 DOMAIN-SUFFIX,espncdn.com
 DOMAIN-SUFFIX,espnqa.com
+DOMAIN-SUFFIX,eu
 DOMAIN-SUFFIX,euronews.com
-DOMAIN-SUFFIX,europa.eu
 DOMAIN-SUFFIX,fabric.io
 DOMAIN-SUFFIX,facebook.com
 DOMAIN-SUFFIX,facebook.net
@@ -273,7 +294,6 @@ DOMAIN-SUFFIX,gerritcodereview.com
 DOMAIN-SUFFIX,getnoir.app
 DOMAIN-SUFFIX,getpricetag.com
 DOMAIN-SUFFIX,gfx.ms
-DOMAIN-SUFFIX,gigabyte.cn
 DOMAIN-SUFFIX,gigabyte.com
 DOMAIN-SUFFIX,giphy.com
 DOMAIN-SUFFIX,git.io
@@ -330,7 +350,8 @@ DOMAIN-SUFFIX,hulutv.com
 DOMAIN-SUFFIX,huobi.com
 DOMAIN-SUFFIX,ibm
 DOMAIN-SUFFIX,ibm.com
-DOMAIN-SUFFIX,i-dont-care-about-cookies.eu
+DOMAIN-SUFFIX,ibytedtos.com
+DOMAIN-SUFFIX,ibyteimg.com
 DOMAIN-SUFFIX,ifixit.com
 DOMAIN-SUFFIX,ift.tt
 DOMAIN-SUFFIX,images-amazon.com
@@ -367,6 +388,7 @@ DOMAIN-SUFFIX,intercom.io
 DOMAIN-SUFFIX,intercomassets.com
 DOMAIN-SUFFIX,intercomcdn.com
 DOMAIN-SUFFIX,ip-api.com
+DOMAIN-SUFFIX,ipstatp.com
 DOMAIN-SUFFIX,ipsw.me
 DOMAIN-SUFFIX,isnssdk.com
 DOMAIN-SUFFIX,issuu.com
@@ -431,9 +453,7 @@ DOMAIN-SUFFIX,mcdonalds.com
 DOMAIN-SUFFIX,media-amazon.com
 DOMAIN-SUFFIX,media-imdb.com
 DOMAIN-SUFFIX,medium.com
-DOMAIN-SUFFIX,mega.co.nz
 DOMAIN-SUFFIX,mega.io
-DOMAIN-SUFFIX,mega.nz
 DOMAIN-SUFFIX,megaupload.com
 DOMAIN-SUFFIX,meta.com
 DOMAIN-SUFFIX,microsoft.com
@@ -446,6 +466,7 @@ DOMAIN-SUFFIX,moedog.org
 DOMAIN-SUFFIX,mokeedev.com
 DOMAIN-SUFFIX,motorola.com
 DOMAIN-SUFFIX,movistprime.com
+DOMAIN-SUFFIX,muscdn.com
 DOMAIN-SUFFIX,musical.ly
 DOMAIN-SUFFIX,nasa.gov
 DOMAIN-SUFFIX,nature.com
@@ -590,7 +611,6 @@ DOMAIN-SUFFIX,samsung.com
 DOMAIN-SUFFIX,samsungapps.com
 DOMAIN-SUFFIX,samsungcloud.com
 DOMAIN-SUFFIX,samsungdm.com
-DOMAIN-SUFFIX,samsungeshop.com.cn
 DOMAIN-SUFFIX,samsunggalaxyfriends.com
 DOMAIN-SUFFIX,samsungknox.com
 DOMAIN-SUFFIX,samsungqbe.com
@@ -602,14 +622,13 @@ DOMAIN-SUFFIX,scmp.com
 DOMAIN-SUFFIX,seagm.com
 DOMAIN-SUFFIX,seeds.services
 DOMAIN-SUFFIX,segment.com
-DOMAIN-SUFFIX,senseagro.cn
 DOMAIN-SUFFIX,senseagro.com
-DOMAIN-SUFFIX,senseagro.com.cn
 DOMAIN-SUFFIX,serif.com
 DOMAIN-SUFFIX,setapp.com
 DOMAIN-SUFFIX,sf.net
 DOMAIN-SUFFIX,sfx.ms
 DOMAIN-SUFFIX,sg
+DOMAIN-SUFFIX,sgpstatp.com
 DOMAIN-SUFFIX,shadowsocks.org
 DOMAIN-SUFFIX,sheerid.com
 DOMAIN-SUFFIX,shodan.io
@@ -644,7 +663,6 @@ DOMAIN-SUFFIX,sonyclassics.com
 DOMAIN-SUFFIX,sonydesign.com
 DOMAIN-SUFFIX,sonydna.com
 DOMAIN-SUFFIX,sonyentertainmentnetwork.com
-DOMAIN-SUFFIX,sonyged.com.cn
 DOMAIN-SUFFIX,sonylatvija.com
 DOMAIN-SUFFIX,sonypictures.com
 DOMAIN-SUFFIX,sonypicturesanimation.com
@@ -652,9 +670,6 @@ DOMAIN-SUFFIX,sonypicturesmuseum.com
 DOMAIN-SUFFIX,sonypicturesstudios.com
 DOMAIN-SUFFIX,sonypicturestelevision.com
 DOMAIN-SUFFIX,sonypicturestelevisiongames.com
-DOMAIN-SUFFIX,sonyselect.cn
-DOMAIN-SUFFIX,sonyselect.com.cn
-DOMAIN-SUFFIX,sonystyle.com.cn
 DOMAIN-SUFFIX,soundcloud.com
 DOMAIN-SUFFIX,sourceforge.io
 DOMAIN-SUFFIX,speedtest.net
@@ -672,7 +687,14 @@ DOMAIN-SUFFIX,spotifyforbrands.com
 DOMAIN-SUFFIX,spotifyjobs.com
 DOMAIN-SUFFIX,springer.com
 DOMAIN-SUFFIX,ssl-images-amazon.com
+DOMAIN-SUFFIX,sstatic.net
+DOMAIN-SUFFIX,stackapps.com
+DOMAIN-SUFFIX,stackexchange.com
+DOMAIN-SUFFIX,stackmod.blog
+DOMAIN-SUFFIX,stackoverflow.blog
 DOMAIN-SUFFIX,stackoverflow.com
+DOMAIN-SUFFIX,stackoverflowbusiness.com
+DOMAIN-SUFFIX,stacksnippets.net
 DOMAIN-SUFFIX,starbucks.com
 DOMAIN-SUFFIX,starbucks-stars.com
 DOMAIN-SUFFIX,stardock.com
@@ -680,6 +702,7 @@ DOMAIN-SUFFIX,sublimehq.com
 DOMAIN-SUFFIX,sublimemerge.com
 DOMAIN-SUFFIX,sublimetext.com
 DOMAIN-SUFFIX,supertop.co
+DOMAIN-SUFFIX,superuser.com
 DOMAIN-SUFFIX,surge-activation.com
 DOMAIN-SUFFIX,swiftype.com
 DOMAIN-SUFFIX,symcb.com
@@ -701,8 +724,12 @@ DOMAIN-SUFFIX,tgstat.com
 DOMAIN-SUFFIX,theporndude.com
 DOMAIN-SUFFIX,thomsoninnovate.org
 DOMAIN-SUFFIX,thomsonreuters.com
+DOMAIN-SUFFIX,tidal.com
+DOMAIN-SUFFIX,tidalhifi.com
+DOMAIN-SUFFIX,tik-tokapi.com
 DOMAIN-SUFFIX,tiktok.com
 DOMAIN-SUFFIX,tiktokcdn.com
+DOMAIN-SUFFIX,tiktokv.com
 DOMAIN-SUFFIX,time.com
 DOMAIN-SUFFIX,timeinc.net
 DOMAIN-SUFFIX,tinder.com
@@ -720,7 +747,6 @@ DOMAIN-SUFFIX,tumblr.com
 DOMAIN-SUFFIX,tw
 DOMAIN-SUFFIX,twitch.tv
 DOMAIN-SUFFIX,twitchcdn.net
-DOMAIN-SUFFIX,tx.me
 DOMAIN-SUFFIX,typekit.com
 DOMAIN-SUFFIX,typlog.com
 DOMAIN-SUFFIX,typography.com
@@ -769,7 +795,6 @@ DOMAIN-SUFFIX,voakorea.com
 DOMAIN-SUFFIX,voalingala.com
 DOMAIN-SUFFIX,voandebele.com
 DOMAIN-SUFFIX,voanews.com
-DOMAIN-SUFFIX,voanews.eu
 DOMAIN-SUFFIX,voanoticias.com
 DOMAIN-SUFFIX,voanouvel.com
 DOMAIN-SUFFIX,voaportugues.com
@@ -805,6 +830,7 @@ DOMAIN-SUFFIX,wikipedia.com
 DOMAIN-SUFFIX,wikipedia.org
 DOMAIN-SUFFIX,wikiquote.org
 DOMAIN-SUFFIX,wikiwand.com
+DOMAIN-SUFFIX,wimpmusic.com
 DOMAIN-SUFFIX,wipo.int
 DOMAIN-SUFFIX,wipsglobal.com
 DOMAIN-SUFFIX,withgoogle.com
