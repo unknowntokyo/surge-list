@@ -158,6 +158,7 @@ DOMAIN-SUFFIX,chromecast.com
 DOMAIN-SUFFIX,chromercise.com
 DOMAIN-SUFFIX,chromestatus.com
 DOMAIN-SUFFIX,chromium.org
+DOMAIN-SUFFIX,cisco.com
 DOMAIN-SUFFIX,clarivate.com
 DOMAIN-SUFFIX,cleanmymac.com
 DOMAIN-SUFFIX,cloudflare.com
@@ -700,6 +701,7 @@ DOMAIN-SUFFIX,stacksnippets.net
 DOMAIN-SUFFIX,starbucks.com
 DOMAIN-SUFFIX,starbucks-stars.com
 DOMAIN-SUFFIX,stardock.com
+DOMAIN-SUFFIX,static-cisco.com
 DOMAIN-SUFFIX,sublimehq.com
 DOMAIN-SUFFIX,sublimemerge.com
 DOMAIN-SUFFIX,sublimetext.com
