@@ -1,3 +1,6 @@
+#!name=Rewrite & Script
+#!desc=URL重定向 & 微信去除公众号文章底部广告
+
 [URL Rewrite]
 ^https?://(www.)?(g|google).cn https://www.google.co.jp 302
 ^https?://(www.)?google.cn/search https://www.google.co.jp/search 302
