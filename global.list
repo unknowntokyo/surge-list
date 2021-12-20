@@ -82,6 +82,8 @@ DOMAIN-SUFFIX,arxiv.org
 DOMAIN-SUFFIX,associates-amazon.com
 DOMAIN-SUFFIX,asus.com
 DOMAIN-SUFFIX,att.com
+DOMAIN-SUFFIX,audi.com
+DOMAIN-SUFFIX,audiusa.com
 DOMAIN-SUFFIX,azure.com
 DOMAIN-SUFFIX,azureedge.net
 DOMAIN-SUFFIX,azurewebsites.net
@@ -136,12 +138,14 @@ DOMAIN-SUFFIX,bloomberg.com
 DOMAIN-SUFFIX,bluemix.com
 DOMAIN-SUFFIX,bluemix.net
 DOMAIN-SUFFIX,bmw.com
+DOMAIN-SUFFIX,bmwusa.com
 DOMAIN-SUFFIX,booth.pm
 DOMAIN-SUFFIX,bootstrapcdn.com
 DOMAIN-SUFFIX,branch.io
 DOMAIN-SUFFIX,bttn.io
 DOMAIN-SUFFIX,bugsnag.com
 DOMAIN-SUFFIX,bwh1.net
+DOMAIN-SUFFIX,byd.com
 DOMAIN-SUFFIX,byteoversea.com
 DOMAIN-SUFFIX,canon.com
 DOMAIN-SUFFIX,cbinsights.com
@@ -153,6 +157,7 @@ DOMAIN-SUFFIX,cdninstagram.com
 DOMAIN-SUFFIX,cdnst.net
 DOMAIN-SUFFIX,certificate-transparency.org
 DOMAIN-SUFFIX,checkra.in
+DOMAIN-SUFFIX,chevrolet.com
 DOMAIN-SUFFIX,chrome.com
 DOMAIN-SUFFIX,chromecast.com
 DOMAIN-SUFFIX,chromercise.com
@@ -216,6 +221,7 @@ DOMAIN-SUFFIX,disney-plus.net
 DOMAIN-SUFFIX,displaymate.com
 DOMAIN-SUFFIX,disqus.com
 DOMAIN-SUFFIX,disquscdn.com
+DOMAIN-SUFFIX,dlink.com
 DOMAIN-SUFFIX,docker.com
 DOMAIN-SUFFIX,dropbox.com
 DOMAIN-SUFFIX,dropbox.tech
@@ -305,6 +311,9 @@ DOMAIN-SUFFIX,giters.com
 DOMAIN-SUFFIX,githubmemory.com
 DOMAIN-SUFFIX,gitlab.com
 DOMAIN-SUFFIX,gitter.im
+DOMAIN-SUFFIX,global.honda
+DOMAIN-SUFFIX,global.toyota
+DOMAIN-SUFFIX,gm.com
 DOMAIN-SUFFIX,gmail.com
 DOMAIN-SUFFIX,go.dev
 DOMAIN-SUFFIX,golang.org
@@ -316,6 +325,7 @@ DOMAIN-SUFFIX,gratisography.com
 DOMAIN-SUFFIX,gravatar.com
 DOMAIN-SUFFIX,greasyfork.org
 DOMAIN-SUFFIX,gstatic.com
+DOMAIN-SUFFIX,gwm-global.com
 DOMAIN-SUFFIX,hbo.com
 DOMAIN-SUFFIX,hboasia.com
 DOMAIN-SUFFIX,hbogo.com
@@ -333,6 +343,7 @@ DOMAIN-SUFFIX,hk
 DOMAIN-SUFFIX,hkbn.net
 DOMAIN-SUFFIX,hkbnes.net
 DOMAIN-SUFFIX,hockeyapp.net
+DOMAIN-SUFFIX,honda.com
 DOMAIN-SUFFIX,hpconnected.com
 DOMAIN-SUFFIX,hp-mns.com
 DOMAIN-SUFFIX,hpsmart.com
@@ -441,6 +452,7 @@ DOMAIN-SUFFIX,logitech.com
 DOMAIN-SUFFIX,loli.net
 DOMAIN-SUFFIX,lvv2.com
 DOMAIN-SUFFIX,lyft.com
+DOMAIN-SUFFIX,lynkco.com
 DOMAIN-SUFFIX,m.me
 DOMAIN-SUFFIX,macpw.com
 DOMAIN-SUFFIX,macrumors.com
@@ -450,12 +462,16 @@ DOMAIN-SUFFIX,mailchimp.com
 DOMAIN-SUFFIX,mathpix.com
 DOMAIN-SUFFIX,maxcdn.com
 DOMAIN-SUFFIX,maxmind.com
+DOMAIN-SUFFIX,mazda.com
+DOMAIN-SUFFIX,mazdausa.com
+DOMAIN-SUFFIX,mbusa.com
 DOMAIN-SUFFIX,mcdonalds.com
 DOMAIN-SUFFIX,media-amazon.com
 DOMAIN-SUFFIX,media-imdb.com
 DOMAIN-SUFFIX,medium.com
 DOMAIN-SUFFIX,mega.io
 DOMAIN-SUFFIX,megaupload.com
+DOMAIN-SUFFIX,mercedes-benz.com
 DOMAIN-SUFFIX,meta.com
 DOMAIN-SUFFIX,microsoft.com
 DOMAIN-SUFFIX,microsoftonline.com
@@ -480,6 +496,7 @@ DOMAIN-SUFFIX,nbcuni.com
 DOMAIN-SUFFIX,ndmdhs.com
 DOMAIN-SUFFIX,nektony.com
 DOMAIN-SUFFIX,netdna-cdn.com
+DOMAIN-SUFFIX,netgear.com
 DOMAIN-SUFFIX,netlify.com
 DOMAIN-SUFFIX,netskao.com
 DOMAIN-SUFFIX,ngaa.cn
@@ -508,6 +525,11 @@ DOMAIN-SUFFIX,nintendoswitch.com
 DOMAIN-SUFFIX,nintendoswitch.net
 DOMAIN-SUFFIX,nintendoswitchtogether.com
 DOMAIN-SUFFIX,nintendowii.com
+DOMAIN-SUFFIX,nio.com
+DOMAIN-SUFFIX,nissan.com
+DOMAIN-SUFFIX,nissan-europe.com
+DOMAIN-SUFFIX,nissan-global.com
+DOMAIN-SUFFIX,nissanusa.com
 DOMAIN-SUFFIX,notebookcheck.com
 DOMAIN-SUFFIX,notion.new
 DOMAIN-SUFFIX,notion.so
@@ -740,6 +762,8 @@ DOMAIN-SUFFIX,tiny.cc
 DOMAIN-SUFFIX,tinychat.com
 DOMAIN-SUFFIX,tinypic.com
 DOMAIN-SUFFIX,tmblr.co
+DOMAIN-SUFFIX,toyota.com
+DOMAIN-SUFFIX,toyota-europe.com
 DOMAIN-SUFFIX,tp-link.com
 DOMAIN-SUFFIX,tplinkwifi.net
 DOMAIN-SUFFIX,trello.com
@@ -809,8 +833,12 @@ DOMAIN-SUFFIX,voatibetanenglish.com
 DOMAIN-SUFFIX,voatiengviet.com
 DOMAIN-SUFFIX,voatour.com
 DOMAIN-SUFFIX,voazimbabwe.com
+DOMAIN-SUFFIX,volkswagenag.com
+DOMAIN-SUFFIX,volvo.com
+DOMAIN-SUFFIX,volvocars.com
 DOMAIN-SUFFIX,voovmeeting.com
 DOMAIN-SUFFIX,vsco.co
+DOMAIN-SUFFIX,vw.com
 DOMAIN-SUFFIX,w.org
 DOMAIN-SUFFIX,w3schools.com
 DOMAIN-SUFFIX,walmart.com
