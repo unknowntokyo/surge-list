@@ -2,7 +2,6 @@ PROCESS-NAME,/Applications/Folx.app/Contents/MacOS/Folx
 PROCESS-NAME,/Applications/NeteaseMusic.app/Contents/MacOS/NeteaseMusic
 PROCESS-NAME,/Applications/pap.er.app/Contents/MacOS/Pap.er
 USER-AGENT,NeteaseMusic*
-DOMAIN,cdn.jsdelivr.net
 DOMAIN,router.asus.com
 DOMAIN,time.apple.com
 DOMAIN,time.asia.apple.com
