@@ -1,3 +1,4 @@
+setTimeout(function () {
 ;(async () => {
 
 
@@ -47,4 +48,4 @@ function getParams(param) {
       .map(([k, v]) => [k, decodeURIComponent(v)])
   );
 }
-
+}, 5000)
