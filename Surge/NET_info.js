@@ -12,14 +12,14 @@ for (var key in proxy){
     }
 let group = params.group
 let rootName = (await httpAPI("/v1/policy_groups/select?group_name="+encodeURIComponent(group)+"")).policy;
-//while(allGroup.includes(rootName)==true){
+while(allGroup.includes(rootName)==true){
 	rootName = (await httpAPI("/v1/policy_groups/select?group_name="+encodeURIComponent(rootName)+"")).policy;
-//}
+}
 
 $httpClient.get('http://ip-api.com/json/?lang=en', function (error, response, data) {
     const jsonData = JSON.parse(data);
     $done({
-      title:rootName1,
+      title:rootName,
       content:
 		`IP: ${jsonData.query}\n`+
       `Carrier: ${jsonData.isp}\n` +
