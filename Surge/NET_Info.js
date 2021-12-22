@@ -1,7 +1,7 @@
 ;(async () => {
 
 let params = getParams($argument)
-//获取根节点名
+//获取节点名
 let group = params.group
 let rootName = (await httpAPI("/v1/policy_groups/select?group_name="+encodeURIComponent(group)+"")).policy;
 
@@ -19,7 +19,6 @@ $httpClient.get('http://ip-api.com/json/?lang=en', function (error, response, da
   });
 
 })();
-
 
 function httpAPI(path = "", method = "GET", body = null) {
     return new Promise((resolve) => {
