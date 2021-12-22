@@ -20,9 +20,9 @@ $httpClient.get('http://ip-api.com/json/?lang=en', function (error, response, da
     $done({
       title:rootName,
       content:
-		`Area: ${jsonData.city}\n`+
-      `Carrier : ${jsonData.isp}\n` +
-		`Data center: ${jsonData.org}`,
+		`IP: ${jsonData.query}\n`+
+      `Carrier: ${jsonData.isp}\n` +
+		`Data Center: ${jsonData.org}`,
       icon: params.icon,
 		  "icon-color":params.color
     });
