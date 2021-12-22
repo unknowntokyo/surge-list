@@ -1,13 +1,7 @@
-setTimeout(function () {
 ;(async () => {
 
 let params = getParams($argument)
 //获取根节点名
-let proxy = await httpAPI("/v1/policy_groups");
-let allGroup = [];
-for (var key in proxy){
-   allGroup.push(key)
-    }
 let group = params.group
 let rootName = (await httpAPI("/v1/policy_groups/select?group_name="+encodeURIComponent(group)+"")).policy;
 
@@ -45,4 +39,3 @@ function getParams(param) {
       .map(([k, v]) => [k, decodeURIComponent(v)])
   );
 }
-}, 200)
