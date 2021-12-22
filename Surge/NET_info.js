@@ -48,4 +48,4 @@ function getParams(param) {
       .map(([k, v]) => [k, decodeURIComponent(v)])
   );
 }
-}, 100)
+}, 6000)
