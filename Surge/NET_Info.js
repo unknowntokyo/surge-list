@@ -18,7 +18,7 @@ $httpClient.get(’http://ip-api.com/json/?lang=en‘, function (error, response
       title:rootName,
       content:
 		`地区: ${jsonData.city}\n`+
-      `运营商 : ${jsonData.isp}\n` +
+      `运营商: ${jsonData.isp}\n` +
 		`数据中心: ${jsonData.org}`,
       icon: params.icon,
 		  ”icon-color“:params.color
