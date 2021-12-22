@@ -19,7 +19,7 @@ let rootName = (await httpAPI("/v1/policy_groups/select?group_name="+encodeURICo
 $httpClient.get('http://ip-api.com/json/?lang=en', function (error, response, data) {
     const jsonData = JSON.parse(data);
     $done({
-      title:rootName,
+      title:rootName1,
       content:
 		`IP: ${jsonData.query}\n`+
       `Carrier: ${jsonData.isp}\n` +
