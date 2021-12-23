@@ -72,5 +72,5 @@ $done({
 title:"节假日倒计时",
 icon:"list.dash.header.rectangle",
 'icon-color': "#0089A7",
-content:tlist[nowlist][0]+": "+today(tnumcount(nowlist))+"天"+tlist[nowlist][2]+", "+tlist[Number(nowlist) + Number(1)][0] +":"+ tnumcount(Number(nowlist) + Number  (1))+ "天"+tlist[Number(nowlist) + Number(1)][2]+", "+tlist[Number(nowlist) + Number(2)][0]+":"+tnumcount(Number(nowlist) + Number(2))+"天"+tlist[Number(nowlist) + Number(2)][2]
+content:tlist[nowlist][0]+":"+today(tnumcount(nowlist))+"天"+tlist[nowlist][2]+", "+tlist[Number(nowlist) + Number(1)][0] +":"+ tnumcount(Number(nowlist) + Number  (1))+ "天"+tlist[Number(nowlist) + Number(1)][2]+", "+tlist[Number(nowlist) + Number(2)][0]+":"+tnumcount(Number(nowlist) + Number(2))+"天"+tlist[Number(nowlist) + Number(2)][2]
 })
