@@ -59,15 +59,6 @@ function today(day) {
   }
 }
 
-//提醒日当天发送通知
-function datenotice() {
-  if ($persistentStore.read("timecardpushed") != tlist[nowlist][1] && tnow.getHours() >= 6) {
-    $persistentStore.write(tlist[nowlist][1], "timecardpushed");
-    $notification.post("假日祝福","", "今天是" + tlist[nowlist][1] + "日 " + tlist[nowlist][0] + "   🎉")
-  } else if ($persistentStore.read("timecardpushed") == tlist[nowlist][1]) {
-    //console.log("当日已通知");
-  }
-}
 $done({
 title:"节假日倒计时",
 icon:"list.dash.header.rectangle",
