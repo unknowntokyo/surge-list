@@ -5,7 +5,7 @@ var time="";
 function num(location, result) {
   var loc = location;
   var resu = result;
-  var lastUpdateTime = new RegExp(loc + "[\\s\\S]*?lastUpdateTime[\\s\\S]{3}(\\d+)");
+  var lastUpdateTime = new RegExp("[\\s\\S]*?lastUpdateTime[\\s\\S]{3}(\\d+)");
   var loc_new = new RegExp(loc + "[\\s\\S]*?confirm[\\s\\S]{3}(\\d+)");
   var loc_now = new RegExp(loc + "[\\s\\S]*?nowConfirm[\\s\\S]{3}(\\d+)");
   let lastUpdateTime_res = lastUpdateTime.exec(resu);
