@@ -1,4 +1,4 @@
-var list = ["湖北","武汉","十堰"];
+var list = ["中国","江苏","安徽"];
 const url = "https://view.inews.qq.com/g2/getOnsInfo?name=disease_h5";
 var ala="";
 var time =new RegExp("[\\s\\S]*?lastUpdateTime[\\s\\S]{3}(\\d+)");
