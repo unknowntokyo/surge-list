@@ -22,7 +22,7 @@ $httpClient.get(url, function(error, response, data){
     num(list[i], res);
     if (i == list.length - 1) {
      $done({
-       title: "COVID-2019：新增｜现存",
+       title: "COVID-2019: 新增  ｜  现存",
        icon:"filemenu.and.cursorarrow",
        "icon-color":"#0089A7",
        content: ala.replace(/\n$/, "")
