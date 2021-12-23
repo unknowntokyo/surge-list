@@ -1,7 +1,9 @@
 var list = ["湖北","武汉","十堰"];
 const url = "https://view.inews.qq.com/g2/getOnsInfo?name=disease_h5";
 var ala="";
-var time =new RegExp("[\\s\\S]*?lastUpdateTime[\\s\\S]{3}(\\d+)")
+var time =new RegExp("[\\s\\S]*?lastUpdateTime[\\s\\S]{3}(\\d+)");
+let time_res = time.exec(resu);
+time=time_res[1].padStart(5,"\u0020")
 function num(location, result) {
   var loc = location;
   var resu = result;
@@ -23,7 +25,7 @@ $httpClient.get(url, function(error, response, data){
     num(list[i], res);
     if (i == list.length - 1) {
      $done({
-       title: "疫情查询:新增|现存"+ "   "+time,
+       title: "疫情查询:新增|现存"+ "   "+time.replace(/\n$/, ""),
        icon:"filemenu.and.cursorarrow",
        "icon-color":"#0089A7",
        content: ala.replace(/\n$/, "")
