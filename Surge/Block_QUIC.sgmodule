@@ -1,4 +1,4 @@
-#!name= 屏蔽HTTP3/QUIC协议
+#!name= Block HTTP3/QUIC协议
 #!desc= 屏蔽HTTP3/QUIC协议以强制回退至HTTP1.1/HTTP2
 [Rule]
 AND,((PROTOCOL,UDP),(DEST-PORT,443)),REJECT-NO-DROP
