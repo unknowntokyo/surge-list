@@ -73,5 +73,5 @@ $done({
 title:"距离节假日，还有多少天？",
 icon:"list.dash.header.rectangle",
 'icon-color': "#0089A7",
-content:tlist[nowlist][0]+":"+today(tnumcount(nowlist))+"天,---"+tlist[Number(nowlist) + Number(1)][0] +":"+ tnumcount(Number(nowlist) + Number(1))+ "天,"+tlist[Number(nowlist) + Number(2)][0]+":"+tnumcount(Number(nowlist) + Number(2))+"天"
+content:tlist[nowlist][0]+"："+today(tnumcount(nowlist))+"天，"+tlist[Number(nowlist) + Number(1)][0] +":"+ tnumcount(Number(nowlist) + Number(1))+ "天，"+tlist[Number(nowlist) + Number(2)][0]+"："+tnumcount(Number(nowlist) + Number(2))+"天"
 })
