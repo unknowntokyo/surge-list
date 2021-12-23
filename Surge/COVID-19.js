@@ -1,9 +1,6 @@
 var list = ["中国","江苏","安徽"];
 const url = "https://view.inews.qq.com/g2/getOnsInfo?name=disease_h5";
-var ala="";
-var time =new RegExp("[\\s\\S]*?lastUpdateTime[\\s\\S]{3}(\\d+)");
-let time_res = time.exec(resu);
-time=time_res[1].padStart(5,"\u0020")
+var ala="  ";
 function num(location, result) {
   var loc = location;
   var resu = result;
@@ -13,7 +10,7 @@ function num(location, result) {
   let loc_now_res = loc_now.exec(resu);
   if (loc_new_res) {
     //console.log("已获取" + loc + "的信息");
-    ala = ala +loc +"   :   " +loc_new_res[1].padStart(5,"\u0020")+":"+loc_now_res[1].padStart(5,"\u0020")+ "\n";
+    ala = ala +loc +"    :    " +loc_new_res[1].padStart(5,"\u0020")+":"+loc_now_res[1].padStart(5,"\u0020")+ "\n";
   } else {
     //console.log("获取" + loc + "的信息失败");
     ala = ala + loc + "   :   查无数据\n";
@@ -25,7 +22,7 @@ $httpClient.get(url, function(error, response, data){
     num(list[i], res);
     if (i == list.length - 1) {
      $done({
-       title: "疫情查询:新增|现存"+ "   "+time.replace(/\n$/, ""),
+       title: "COVID-2019查询：新增｜现存",
        icon:"filemenu.and.cursorarrow",
        "icon-color":"#0089A7",
        content: ala.replace(/\n$/, "")
