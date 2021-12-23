@@ -14,11 +14,10 @@ function num(location, result) {
   if (loc_new_res) {
     //console.log("已获取" + loc + "的信息");
     ala = ala +loc +"   :   " +loc_new_res[1].padStart(5,"\u0020")+":"+loc_now_res[1].padStart(5,"\u0020")+ "\n";
-    time = lastUpdateTime_res[1].padStart(5,"\u0020")
+    time = lastUpdateTime_res[1].padStart(5,"\u0020");
   } else {
     //console.log("获取" + loc + "的信息失败");
     ala = ala + loc + "   :   查无数据\n";
-    time = lastUpdateTime_res[1].padStart(5,"\u0020")
   }
 };
 $httpClient.get(url, function(error, response, data){
@@ -27,7 +26,7 @@ $httpClient.get(url, function(error, response, data){
     num(list[i], res);
     if (i == list.length - 1) {
      $done({
-       title: "疫情查询:新增|现存"+ "   "+time.replace(/\n$/, ""),
+       title: "疫情查询:新增|现存"+ "   "+time,
        icon:"filemenu.and.cursorarrow",
        "icon-color":"#0089A7",
        content: ala.replace(/\n$/, "")
