@@ -1,14 +1,13 @@
 var tlist = {
-  1: ["元旦", "2022-01-01"],
-  2: ["春节", "2022-02-01"],
-  3: ["元宵", "2022-02-15"],
-  4: ["清明", "2022-04-05"],
-  5: ["劳动", "2022-05-01"],
-  6: ["端午", "2022-06-03"],
-  7: ["中秋", "2022-09-10"],
-  8: ["国庆", "2022-10-01"],
-  9: ["元旦", "2022-01-01"],
-  10: ["春节", "2023-01-22"]
+  1: ["元旦", "2022-01-01", "➌"],
+  2: ["春节", "2022-02-01", "➐"],
+  3: ["清明", "2022-04-05", "➌"],
+  4: ["劳动", "2022-05-01", "➎"],
+  5: ["端午", "2022-06-03", "➌"],
+  6: ["中秋", "2022-09-10", "➌"],
+  7: ["国庆", "2022-10-01", "➐"],
+  8: ["元旦", "2022-01-01", "➌"],
+  9: ["春节", "2023-01-22", "➐"]
 };
 let tnow = new Date();
 let tnowf =
@@ -73,5 +72,5 @@ $done({
 title:"节假日倒计时",
 icon:"list.dash.header.rectangle",
 'icon-color': "#0089A7",
-content:tlist[nowlist][0]+": "+today(tnumcount(nowlist))+"天, "+tlist[Number(nowlist) + Number(1)][0] +":"+ tnumcount(Number(nowlist) + Number  (1))+ "天, "+tlist[Number(nowlist) + Number(2)][0]+":"+tnumcount(Number(nowlist) + Number(2))+"天"
+content:tlist[nowlist][0]+": "+today(tnumcount(nowlist))+"天"+tlist[nowlist][2]+", "+tlist[Number(nowlist) + Number(1)][0] +":"+ tnumcount(Number(nowlist) + Number  (1))+ "天"+tlist[Number(nowlist) + Number(1)][2]+", "+tlist[Number(nowlist) + Number(2)][0]+":"+tnumcount(Number(nowlist) + Number(2))+"天"+tlist[Number(nowlist) + Number(2)][2]
 })
