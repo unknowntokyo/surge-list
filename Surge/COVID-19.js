@@ -1,6 +1,6 @@
 var list = ["中国","江苏","安徽"];
 const url = "https://view.inews.qq.com/g2/getOnsInfo?name=disease_h5";
-var ala="  ";
+var ala="       ";
 function num(location, result) {
   var loc = location;
   var resu = result;
@@ -10,7 +10,7 @@ function num(location, result) {
   let loc_now_res = loc_now.exec(resu);
   if (loc_new_res) {
     //console.log("已获取" + loc + "的信息");
-    ala = ala +loc +"    :    " +loc_new_res[1].padStart(5,"\u0020")+":"+loc_now_res[1].padStart(5,"\u0020")+ "\n";
+    ala = ala +loc +"    :    " +loc_new_res[1].padStart(5,"\u0020")+" : "+loc_now_res[1].padStart(5,"\u0020")+ "\n";
   } else {
     //console.log("获取" + loc + "的信息失败");
     ala = ala + loc + "   :   查无数据\n";
