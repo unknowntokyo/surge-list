@@ -1,20 +1,17 @@
-var list = ["中国","江苏","美国"];
+var list = ["湖北","武汉","十堰"];
 const url = "https://view.inews.qq.com/g2/getOnsInfo?name=disease_h5";
 var ala="";
-var time="";
+var time =new RegExp("[\\s\\S]*?lastUpdateTime[\\s\\S]{3}(\\d+)")
 function num(location, result) {
   var loc = location;
   var resu = result;
-  var lastUpdateTime = new RegExp("[\\s\\S]*?lastUpdateTime[\\s\\S]{3}(\\d+)");
   var loc_new = new RegExp(loc + "[\\s\\S]*?confirm[\\s\\S]{3}(\\d+)");
   var loc_now = new RegExp(loc + "[\\s\\S]*?nowConfirm[\\s\\S]{3}(\\d+)");
-  let lastUpdateTime_res = lastUpdateTime.exec(resu);
   let loc_new_res = loc_new.exec(resu);
   let loc_now_res = loc_now.exec(resu);
   if (loc_new_res) {
     //console.log("已获取" + loc + "的信息");
     ala = ala +loc +"   :   " +loc_new_res[1].padStart(5,"\u0020")+":"+loc_now_res[1].padStart(5,"\u0020")+ "\n";
-    time = lastUpdateTime_res[1].padStart(5,"\u0020");
   } else {
     //console.log("获取" + loc + "的信息失败");
     ala = ala + loc + "   :   查无数据\n";
