@@ -28,7 +28,7 @@ $httpClient.get(url, function(error, response, data){
        title: "COVID-19：   新增  |  现存",
        icon:"filemenu.and.cursorarrow",
        "icon-color":"#0089A7",
-       content: ala1.replace(/\n$/, "")
+       content: ala1
      });
     }
   }
