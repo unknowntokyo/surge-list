@@ -36,7 +36,7 @@ $httpClient.get(url, function(error, response, data){
     num(list[i], res);
     if (i == list.length - 1) {
      $done({
-       title: "COVID-19：   新增   |   现存|   治愈率",
+       title: "COVID-19：   新增   |   现存   |   治愈率",
        icon:"filemenu.and.cursorarrow",
        "icon-color":"#0089A7",
        content: ala.replace(/\n$/, "")
