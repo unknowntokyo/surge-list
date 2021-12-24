@@ -18,10 +18,10 @@ function num(location, result) {
     num2=loc_now_res[1].padStart(5,"\u0020");
     num11=num1.replace(/\s/g, "");
     num22=num2.replace(/\s/g, "");
-    ala = ala +loc +"           " +num11.padStart(5,"\u0020")+"         "+num22.padStart(5,"\u0020")+ "\n";
+    ala = ala +loc +"             " +num11.padStart(5,"\u0020")+"         "+num22.padStart(5,"\u0020")+ "\n";
   } else {
     //console.log("获取" + loc + "的信息失败");
-    ala = ala + loc + "         查无数据\n";
+    ala = ala + loc + "             查无数据\n";
   }
 };
 $httpClient.get(url, function(error, response, data){
