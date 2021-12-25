@@ -64,5 +64,5 @@ title:"节假日倒计时",
 icon:"list.dash.header.rectangle",
 'icon-color': "#0089A7",
 content:
-tlist[nowlist][0]+"："+today(tnumcount(nowlist))+"天"+tlist[nowlist][2]+"\n"+tlist[Number(nowlist) + Number(1)][0] +"："+ tnumcount(Number(nowlist) + Number  (1))+ "天"+tlist[Number(nowlist) + Number(1)][2]+"\n"+tlist[Number(nowlist) + Number(2)][0]+"："+tnumcount(Number(nowlist) + Number(2))+"天"+tlist[Number(nowlist) + Number(2)][2]
+tlist[nowlist][0]+"："+today(tnumcount(nowlist)).padStart(3,"\u0020")+"天"+tlist[nowlist][2]+"\n"+tlist[Number(nowlist) + Number(1)][0] +"："+ tnumcount(Number(nowlist) + Number  (1)).padStart(3,"\u0020")+ "天"+tlist[Number(nowlist) + Number(1)][2]+"\n"+tlist[Number(nowlist) + Number(2)][0]+"："+tnumcount(Number(nowlist) + Number(2)).padStart(3,"\u0020")+"天"+tlist[Number(nowlist) + Number(2)][2]
 })
