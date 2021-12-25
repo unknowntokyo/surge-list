@@ -26,6 +26,7 @@ function num(location, result) {
 };
 $httpClient.get(url, function(error, response, data){
   let res = data;
+  let now = new Date();
   let hour = now.getHours();
   let minutes = now.getMinutes();
   hour = hour > 9 ? hour : "0" + hour;
