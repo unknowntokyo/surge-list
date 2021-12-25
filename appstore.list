@@ -3,8 +3,8 @@ USER-AGENT,App%20Store*
 USER-AGENT,com.apple.appstored*
 USER-AGENT,itunesstored*
 USER-AGENT,MacAppStore*
-DOMAIN,apps.apple.com
-DOMAIN,itunes.apple.com
+DOMAIN-SUFFIX,apps.apple.com
+DOMAIN-SUFFIX,itunes.apple.com
 DOMAIN-SUFFIX,apple-mapkit.com
 DOMAIN-SUFFIX,appsto.re
 DOMAIN-SUFFIX,appstore.com
