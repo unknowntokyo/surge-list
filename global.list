@@ -140,6 +140,7 @@ DOMAIN-SUFFIX,bmwusa.com
 DOMAIN-SUFFIX,booth.pm
 DOMAIN-SUFFIX,bootstrapcdn.com
 DOMAIN-SUFFIX,branch.io
+DOMAIN-SUFFIX,broadcom.com
 DOMAIN-SUFFIX,bttn.io
 DOMAIN-SUFFIX,bugsnag.com
 DOMAIN-SUFFIX,bwh1.net
@@ -360,6 +361,7 @@ DOMAIN-SUFFIX,hulusports.com
 DOMAIN-SUFFIX,hulustream.com
 DOMAIN-SUFFIX,huluteam.com
 DOMAIN-SUFFIX,hulutv.com
+DOMAIN-SUFFIX,skhynix.com
 DOMAIN-SUFFIX,ibm
 DOMAIN-SUFFIX,ibm.com
 DOMAIN-SUFFIX,ibytedtos.com
@@ -373,6 +375,7 @@ DOMAIN-SUFFIX,imdb.to
 DOMAIN-SUFFIX,img.ly
 DOMAIN-SUFFIX,imgur.com
 DOMAIN-SUFFIX,imgurinc.com
+DOMAIN-SUFFIX,infineon.com
 DOMAIN-SUFFIX,innotechx.com
 DOMAIN-SUFFIX,insent.ai
 DOMAIN-SUFFIX,insight.com
@@ -421,6 +424,7 @@ DOMAIN-SUFFIX,kaspersky.com
 DOMAIN-SUFFIX,keen.io
 DOMAIN-SUFFIX,kfs.io
 DOMAIN-SUFFIX,kindle4rss.com
+DOMAIN-SUFFIX,kioxia.com
 DOMAIN-SUFFIX,kmcha.com
 DOMAIN-SUFFIX,kmplayer.com
 DOMAIN-SUFFIX,kotlinlang.org
@@ -468,11 +472,13 @@ DOMAIN-SUFFIX,mbusa.com
 DOMAIN-SUFFIX,mcdonalds.com
 DOMAIN-SUFFIX,media-amazon.com
 DOMAIN-SUFFIX,media-imdb.com
+DOMAIN-SUFFIX,mediatek.com
 DOMAIN-SUFFIX,medium.com
 DOMAIN-SUFFIX,mega.io
 DOMAIN-SUFFIX,megaupload.com
 DOMAIN-SUFFIX,mercedes-benz.com
 DOMAIN-SUFFIX,meta.com
+DOMAIN-SUFFIX,micron.com
 DOMAIN-SUFFIX,microsoft.com
 DOMAIN-SUFFIX,microsoftonline.com
 DOMAIN-SUFFIX,mindnode.com
@@ -609,11 +615,13 @@ DOMAIN-SUFFIX,pubgmobile.com
 DOMAIN-SUFFIX,puma.com
 DOMAIN-SUFFIX,pximg.net
 DOMAIN-SUFFIX,python.org
+DOMAIN-SUFFIX,qualcomm.com
 DOMAIN-SUFFIX,quantumult.app
 DOMAIN-SUFFIX,quora.com
 DOMAIN-SUFFIX,rayark.com
 DOMAIN-SUFFIX,razer.com
 DOMAIN-SUFFIX,razerzone.com
+DOMAIN-SUFFIX,realtek.com
 DOMAIN-SUFFIX,recaptcha.net
 DOMAIN-SUFFIX,redd.it
 DOMAIN-SUFFIX,reddit.com
@@ -710,6 +718,7 @@ DOMAIN-SUFFIX,spotifyjobs.com
 DOMAIN-SUFFIX,springer.com
 DOMAIN-SUFFIX,ssl-images-amazon.com
 DOMAIN-SUFFIX,sstatic.net
+DOMAIN-SUFFIX,st.com
 DOMAIN-SUFFIX,stackapps.com
 DOMAIN-SUFFIX,stackexchange.com
 DOMAIN-SUFFIX,stackmod.blog
@@ -750,6 +759,7 @@ DOMAIN-SUFFIX,tgstat.com
 DOMAIN-SUFFIX,theporndude.com
 DOMAIN-SUFFIX,thomsoninnovate.org
 DOMAIN-SUFFIX,thomsonreuters.com
+DOMAIN-SUFFIX,ti.com
 DOMAIN-SUFFIX,tidal.com
 DOMAIN-SUFFIX,tidalhifi.com
 DOMAIN-SUFFIX,tik-tokapi.com
@@ -783,6 +793,7 @@ DOMAIN-SUFFIX,uber.com
 DOMAIN-SUFFIX,ubertags.com
 DOMAIN-SUFFIX,uk
 DOMAIN-SUFFIX,umbro.com
+DOMAIN-SUFFIX,umc.com
 DOMAIN-SUFFIX,unpkg.com
 DOMAIN-SUFFIX,unsplash.com
 DOMAIN-SUFFIX,uploadhouse.com
@@ -803,6 +814,7 @@ DOMAIN-SUFFIX,verizonenterprise.com
 DOMAIN-SUFFIX,verizonfios.com
 DOMAIN-SUFFIX,verizonmedia.com
 DOMAIN-SUFFIX,verizonwireless.com
+DOMAIN-SUFFIX,viatech.com
 DOMAIN-SUFFIX,vimeo.com
 DOMAIN-SUFFIX,visa.com
 DOMAIN-SUFFIX,vmware.com
