@@ -12,4 +12,3 @@ simple_cert_hostname=sub.store
 ^https?:\/\/ms\.jr\.jd\.com\/gw\/generic\/aladdin\/(new)?na\/m\/getLoadingPicture url reject
 ^https?:\/\/ms\.jr\.jd\.com\/gw\/generic\/base\/(new)?na\/m\/adInfo url reject
 ^https?+:\/\/oss\.umetrip\.com.+?\/advert\/ url reject
-^https?:\/\/ad\.12306\.cn url reject
