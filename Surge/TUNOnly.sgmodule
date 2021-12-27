@@ -1,4 +1,4 @@
-#!name=TUNOnly
+#!name=TUN Only
 #!desc=开启兼容模式TUN Only，绕过部分APP代理检测
 #!system=ios
 
