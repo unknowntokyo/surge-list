@@ -16,8 +16,10 @@ DOMAIN,gma.alicdn.com
 DOMAIN,hydra.alibaba.com
 DOMAIN,init.icloud-analysis.com
 DOMAIN,log.tbs.qq.com
-DOMAIN,mobads.baidu.com
+DOMAIN,mobads-logs.baidu.cn
 DOMAIN,mobads-logs.baidu.com
+DOMAIN,mobads.baidu.cn
+DOMAIN,mobads.baidu.com
 DOMAIN,mobads-pre-config.cdn.bcebos.com
 DOMAIN,mobileads.google.com
 DOMAIN,msm.qq.com
