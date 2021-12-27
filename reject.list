@@ -278,4 +278,7 @@ DOMAIN-KEYWORD,uedas
 DOMAIN-KEYWORD,usage
 DOMAIN-KEYWORD,wlmonitor
 DOMAIN-KEYWORD,zjtoolbar
-URL-REGEX,^https?+://oss.umetrip.com.+?/advert/
+URL-REGEX,^https?:\/\/bdsp-x\.jd\.com\/adx\/
+URL-REGEX,^https?:\/\/ms\.jr\.jd\.com\/gw\/generic\/aladdin\/(new)?na\/m\/getLoadingPicture
+URL-REGEX,^https?:\/\/ms\.jr\.jd\.com\/gw\/generic\/base\/(new)?na\/m\/adInfo
+URL-REGEX,^https?+:\/\/oss\.umetrip\.com.+?\/advert\/
