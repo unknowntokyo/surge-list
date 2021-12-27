@@ -3,3 +3,8 @@ USER-AGENT,MicroMessenger
 USER-AGENT,WeChat*
 DOMAIN-SUFFIX,servicewechat.com
 DOMAIN-SUFFIX,wechat.com
+DOMAIN-SUFFIX,wechatlegal.net
+DOMAIN-SUFFIX,wechatpay.com
+DOMAIN-SUFFIX,weixin.com
+DOMAIN-SUFFIX,weixinbridge.com
+DOMAIN-SUFFIX,weixinsxy.com
