@@ -1,0 +1,12 @@
+#!name=ChangeUA1
+#!desc=更换 User-Agent 以提升体验，使用手机百度 Quark 的 User-Agent。
+#!system=ios
+
+[Header Rewrite]
+# 知乎（部分替换为手机百度 Quark 的 User-Agent）
+^https?:\/\/www\.zhihu\.com header-replace User-Agent Mozilla/5.0 (iPhone; CPU iPhone OS 15_2 like Mac OS X; zh-cn) AppleWebKit/601.1.46 (KHTML, like Gecko) Mobile/19C57 Quark/5.4.9.1257 Mobile
+
+
+
+[MITM]
+hostname = %APPEND% *.baidu.com, www.zhihu.com
