@@ -278,3 +278,4 @@ DOMAIN-KEYWORD,uedas
 DOMAIN-KEYWORD,usage
 DOMAIN-KEYWORD,wlmonitor
 DOMAIN-KEYWORD,zjtoolbar
+URL-REGEX,^https?+://oss.umetrip.com.+?/advert/
