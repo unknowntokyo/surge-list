@@ -5,7 +5,6 @@
 const FILM_ID = 81215567
 const AREA_TEST_FILM_ID = 80018499
 
-
   ; (async () => {
 
     //测试当前状态
@@ -22,7 +21,6 @@ const AREA_TEST_FILM_ID = 80018499
     if (newStatus === 2) {
       console.log("当前节点仍可用 退出检测")
     } else {
-
 
       let netflixGroup = "Netflix"
       let proxy = await httpAPI("/v1/policy_groups");
@@ -44,7 +42,6 @@ const AREA_TEST_FILM_ID = 80018499
       var onlyOriginal = [];
       var selectFU = []
       var selectOG = []
-
 
       if ($persistentStore.read("FULLUNLOCK") == null || $persistentStore.read("ONLYORIGINAL") == null) {
       } else {
@@ -71,7 +68,6 @@ const AREA_TEST_FILM_ID = 80018499
           del(onlyOriginal, selectName[i])
         }
       }
-
 
       //遍历检测当选策略
       console.log("当前检测：" + groupName)
@@ -131,11 +127,7 @@ const AREA_TEST_FILM_ID = 80018499
       //切换节点
       if (selectList.length > 0) $surge.setSelectGroupPolicy(groupName, selectList[0]);
 
-
-
-
       // 创建持久化数据
-
       $persistentStore.write(fullUnlock.toString(), "FULLUNLOCK");
       $persistentStore.write(onlyOriginal.toString(), "ONLYORIGINAL")
       $persistentStore.write(JSON.stringify(data), "NFREGIONCODE")
@@ -148,10 +140,6 @@ const AREA_TEST_FILM_ID = 80018499
     $done()
 
   })();
-
-
-
-
 
 function httpAPI(path = "", method = "GET", body = null) {
   return new Promise((resolve) => {
