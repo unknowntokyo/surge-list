@@ -5,9 +5,6 @@ var num1="";
 var num2="";
 var num11="";
 var num22="";
-var time="";
-var times="";
-var times1="";
 function num(location, result) {
   var loc = location;
   var resu = result;
@@ -30,16 +27,8 @@ $httpClient.get(url, function(error, response, data){
   let now = new Date();
   let hour = now.getHours();
   let minutes = now.getMinutes();
-  var times = time;
-  var resu1 = result;
   hour = hour > 9 ? hour : "0" + hour;
   minutes = minutes > 9 ? minutes : "0" + minutes;
-  var times_new = new RegExp("[\\s\\S]*?lastUpdateTime[\\s\\S]{3}(\\d+)");
-  let times_new_res = times_new.exec(resu1);
-  if (times_new_res) {
-  times1=times_new_res[1].padStart(10,"\u0020");
-    times1=times1.replace(/\s/g, "");
-}
   for (var i = 0; i < list.length; i++) {
     num(list[i], res);
     if (i == list.length - 1) {
@@ -47,7 +36,7 @@ $httpClient.get(url, function(error, response, data){
        title: "COVID-19:   新增   |   现存   |   "+hour+":"+minutes,
        icon:"filemenu.and.cursorarrow",
        "icon-color":"#0089A7",
-       content: ala.replace(/\n$/, "").replace("中国", "全国")+times1
+       content: ala.replace(/\n$/, "").replace("中国", "全国")
      });
     }
   }
