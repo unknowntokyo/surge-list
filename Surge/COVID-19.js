@@ -12,15 +12,17 @@ function num(location, result) {
   var loc_now = new RegExp(loc + "[\\s\\S]*?nowConfirm[\\s\\S]{3}(\\d+)");
   let loc_new_res = loc_new.exec(resu);
   let loc_now_res = loc_now.exec(resu);
+  if (loc = "中国") {
+      loc="全国";
+      } else {
+      }
   if (loc_new_res) {
-    //console.log("已获取" + loc + "的信息");
-    num1=loc_new_res[1].padStart(5,"\u0020");
-    num2=loc_now_res[1].padStart(5,"\u0020");
+  num1=loc_new_res[1].padStart(5,"\u0020");
+  num2=loc_now_res[1].padStart(5,"\u0020");
     num11=num1.replace(/\s/g, "");
     num22=num2.replace(/\s/g, "");
     ala = ala +loc +"           " +num11.padStart(5,"\u0020")+"        "+num22.padStart(5,"\u0020")+ "\n";
   } else {
-    //console.log("获取" + loc + "的信息失败");
     ala = ala + loc + "           查无数据\n";
   }
 };
