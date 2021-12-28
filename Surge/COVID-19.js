@@ -35,7 +35,7 @@ $httpClient.get(url, function(error, response, data){
      $done({
        title: "COVID-19:   新增   |   现存   |   "+hour+":"+minutes,
        icon:"heart.text.square",
-       "icon-color":"#0089A7",
+       "icon-color":"#E94335",
        content: ala.replace(/\n$/, "").replace("中国", "全国")
      });
     }
