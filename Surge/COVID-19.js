@@ -12,10 +12,6 @@ function num(location, result) {
   var loc_now = new RegExp(loc + "[\\s\\S]*?nowConfirm[\\s\\S]{3}(\\d+)");
   let loc_new_res = loc_new.exec(resu);
   let loc_now_res = loc_now.exec(resu);
-  if (loc = "中国") {
-      loc="全国";
-      } else {
-      }
   if (loc_new_res) {
   num1=loc_new_res[1].padStart(5,"\u0020");
   num2=loc_now_res[1].padStart(5,"\u0020");
@@ -40,7 +36,7 @@ $httpClient.get(url, function(error, response, data){
        title: "COVID-19:   新增   |   现存   |   "+hour+":"+minutes,
        icon:"filemenu.and.cursorarrow",
        "icon-color":"#0089A7",
-       content: ala.replace(/\n$/, "")
+       content: ala.replace(/\n$/, "").replace("中国", "全国")
      });
     }
   }
