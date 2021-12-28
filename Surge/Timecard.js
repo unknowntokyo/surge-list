@@ -61,8 +61,8 @@ function today(day) {
 
 $done({
 title:"节假日倒计时",
-icon:"logo.playstation",
-'icon-color': "#000000",
+icon:"hourglass",
+'icon-color': "#3394E6",
 content:
 tlist[nowlist][0]+"："+today(tnumcount(nowlist))+"天"+tlist[nowlist][2]+"\n"+tlist[Number(nowlist) + Number(1)][0] +"："+ tnumcount(Number(nowlist) + Number  (1))+ "天"+tlist[Number(nowlist) + Number(1)][2]+"\n"+tlist[Number(nowlist) + Number(2)][0]+"："+tnumcount(Number(nowlist) + Number(2))+"天"+tlist[Number(nowlist) + Number(2)][2]
 })
