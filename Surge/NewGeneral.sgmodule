@@ -7,7 +7,7 @@
 ^https?:\/\/(ditu|maps).google\.cn https://maps.google.com 302
 
 [MITM]
-hostname = %APPEND% mp.weixin.qq.com,www.google.cn
+hostname = %APPEND% acs.m.taobao.com,bdsp-x.jd.com,guide-acs.m.taobao.com,mp.weixin.qq.com,ms.jr.jd.com,www.google.cn
 
 [Script]
 http-response ^https?:\/\/mp\.weixin\.qq\.com\/mp\/getappmsgad requires-body=1,max-size=0,script-path=https://raw.githubusercontent.com/NobyDa/Script/master/QuantumultX/File/Wechat.js
