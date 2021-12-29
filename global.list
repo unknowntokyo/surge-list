@@ -6,8 +6,12 @@ DOMAIN-SUFFIX,2checkout.com
 DOMAIN-SUFFIX,2o7.net
 DOMAIN-SUFFIX,4shared.com
 DOMAIN-SUFFIX,4sqi.net
+DOMAIN-SUFFIX,5itv.tv
 DOMAIN-SUFFIX,666clouds.com
 DOMAIN-SUFFIX,9to5mac.com
+DOMAIN-SUFFIX,abema.io
+DOMAIN-SUFFIX,abema.tv
+DOMAIN-SUFFIX,hayabusa.io
 DOMAIN-SUFFIX,abpchina.org
 DOMAIN-SUFFIX,accountkit.com
 DOMAIN-SUFFIX,acer.com
@@ -404,6 +408,7 @@ DOMAIN-SUFFIX,intercom.com
 DOMAIN-SUFFIX,intercom.io
 DOMAIN-SUFFIX,intercomassets.com
 DOMAIN-SUFFIX,intercomcdn.com
+DOMAIN-SUFFIX,iplaysoft.com
 DOMAIN-SUFFIX,ipstatp.com
 DOMAIN-SUFFIX,ipsw.me
 DOMAIN-SUFFIX,isnssdk.com
@@ -427,6 +432,7 @@ DOMAIN-SUFFIX,keen.io
 DOMAIN-SUFFIX,kfs.io
 DOMAIN-SUFFIX,kindle4rss.com
 DOMAIN-SUFFIX,kioxia.com
+DOMAIN-SUFFIX,kkbox.com
 DOMAIN-SUFFIX,kmcha.com
 DOMAIN-SUFFIX,kmplayer.com
 DOMAIN-SUFFIX,kotlinlang.org
@@ -493,6 +499,7 @@ DOMAIN-SUFFIX,motorola.com
 DOMAIN-SUFFIX,movistprime.com
 DOMAIN-SUFFIX,muscdn.com
 DOMAIN-SUFFIX,musical.ly
+DOMAIN-SUFFIX,mytvsuper.com
 DOMAIN-SUFFIX,nasa.gov
 DOMAIN-SUFFIX,nature.com
 DOMAIN-SUFFIX,nbc.co
@@ -548,6 +555,7 @@ DOMAIN-SUFFIX,nvidia.com
 DOMAIN-SUFFIX,nvidiaforhp.com
 DOMAIN-SUFFIX,nvidiagrid.net
 DOMAIN-SUFFIX,nytimes.com
+DOMAIN-SUFFIX,ocnttv.com
 DOMAIN-SUFFIX,oculus.com
 DOMAIN-SUFFIX,oculuscdn.com
 DOMAIN-SUFFIX,office.com
@@ -567,6 +575,7 @@ DOMAIN-SUFFIX,openstreetmap.org
 DOMAIN-SUFFIX,openwrt.org
 DOMAIN-SUFFIX,opstatics.com
 DOMAIN-SUFFIX,orbit.com
+DOMAIN-SUFFIX,overcast.fm
 DOMAIN-SUFFIX,packagecontrol.io
 DOMAIN-SUFFIX,paddle.com
 DOMAIN-SUFFIX,paddleapi.com
@@ -789,6 +798,7 @@ DOMAIN-SUFFIX,ts.la
 DOMAIN-SUFFIX,tsmc.com
 DOMAIN-SUFFIX,tumblr.co
 DOMAIN-SUFFIX,tumblr.com
+DOMAIN-SUFFIX,tvb.com
 DOMAIN-SUFFIX,tw
 DOMAIN-SUFFIX,twitch.tv
 DOMAIN-SUFFIX,twitchcdn.net
