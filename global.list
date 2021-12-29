@@ -13,6 +13,8 @@ DOMAIN-SUFFIX,abema.io
 DOMAIN-SUFFIX,abema.tv
 DOMAIN-SUFFIX,hayabusa.io
 DOMAIN-SUFFIX,abpchina.org
+DOMAIN-SUFFIX,acaciaresearch.com
+DOMAIN-SUFFIX,accessadvance.com
 DOMAIN-SUFFIX,accountkit.com
 DOMAIN-SUFFIX,acer.com
 DOMAIN-SUFFIX,acer-group.com
@@ -89,6 +91,7 @@ DOMAIN-SUFFIX,asus.com
 DOMAIN-SUFFIX,att.com
 DOMAIN-SUFFIX,audi.com
 DOMAIN-SUFFIX,audiusa.com
+DOMAIN-SUFFIX,avanci.com
 DOMAIN-SUFFIX,azure.com
 DOMAIN-SUFFIX,azureedge.net
 DOMAIN-SUFFIX,azurewebsites.net
@@ -196,6 +199,7 @@ DOMAIN-SUFFIX,cnn.com
 DOMAIN-SUFFIX,coding.net
 DOMAIN-SUFFIX,converse.com
 DOMAIN-SUFFIX,cookielaw.org
+DOMAIN-SUFFIX,core-wireless.com
 DOMAIN-SUFFIX,costco.com
 DOMAIN-SUFFIX,crashlytics.com
 DOMAIN-SUFFIX,creaturecoding.com
@@ -401,6 +405,7 @@ DOMAIN-SUFFIX,intelfreepress.com
 DOMAIN-SUFFIX,intelgo.net
 DOMAIN-SUFFIX,intelinsight.com
 DOMAIN-SUFFIX,inteliotmarketplace.com
+DOMAIN-SUFFIX,intellectualventures.com
 DOMAIN-SUFFIX,intellij.com
 DOMAIN-SUFFIX,intellij.net
 DOMAIN-SUFFIX,intellij.org
@@ -497,6 +502,7 @@ DOMAIN-SUFFIX,moedog.org
 DOMAIN-SUFFIX,mokeedev.com
 DOMAIN-SUFFIX,motorola.com
 DOMAIN-SUFFIX,movistprime.com
+DOMAIN-SUFFIX,msauth.net
 DOMAIN-SUFFIX,muscdn.com
 DOMAIN-SUFFIX,musical.ly
 DOMAIN-SUFFIX,mytvsuper.com
@@ -567,6 +573,7 @@ DOMAIN-SUFFIX,oneplus.com
 DOMAIN-SUFFIX,oneplus.net
 DOMAIN-SUFFIX,oneplusbbs.com
 DOMAIN-SUFFIX,oneplusmobile.com
+DOMAIN-SUFFIX,onestore.ms
 DOMAIN-SUFFIX,onitsukatiger.com
 DOMAIN-SUFFIX,ooklaserver.net
 DOMAIN-SUFFIX,opengapps.org
@@ -582,6 +589,7 @@ DOMAIN-SUFFIX,paddleapi.com
 DOMAIN-SUFFIX,page.link
 DOMAIN-SUFFIX,pandora.com
 DOMAIN-SUFFIX,pandora.tv
+DOMAIN-SUFFIX,papstlicensing.com
 DOMAIN-SUFFIX,paramountplus.com
 DOMAIN-SUFFIX,parse.com
 DOMAIN-SUFFIX,parsely.com
@@ -647,6 +655,7 @@ DOMAIN-SUFFIX,revenuecat.com
 DOMAIN-SUFFIX,ripe.net
 DOMAIN-SUFFIX,rockstargames.com
 DOMAIN-SUFFIX,rpgfarm.com
+DOMAIN-SUFFIX,rpxcorp.com
 DOMAIN-SUFFIX,rsshub.app
 DOMAIN-SUFFIX,ru
 DOMAIN-SUFFIX,samsung.com
@@ -674,10 +683,13 @@ DOMAIN-SUFFIX,sfx.ms
 DOMAIN-SUFFIX,sg
 DOMAIN-SUFFIX,sgpstatp.com
 DOMAIN-SUFFIX,shadowsocks.org
+DOMAIN-SUFFIX,sharp.com
+DOMAIN-SUFFIX,sharpusa.com
 DOMAIN-SUFFIX,sheerid.com
 DOMAIN-SUFFIX,shodan.io
 DOMAIN-SUFFIX,shrtm.nu
 DOMAIN-SUFFIX,signal.org
+DOMAIN-SUFFIX,sisvel.com
 DOMAIN-SUFFIX,skype.com
 DOMAIN-SUFFIX,slack.com
 DOMAIN-SUFFIX,slackb.com
@@ -691,6 +703,7 @@ DOMAIN-SUFFIX,slack-imgs.com
 DOMAIN-SUFFIX,slack-msgs.com
 DOMAIN-SUFFIX,slack-redir.net
 DOMAIN-SUFFIX,slashdot.org
+DOMAIN-SUFFIX,s-microsoft.com
 DOMAIN-SUFFIX,sm.ms
 DOMAIN-SUFFIX,smartmailcloud.com
 DOMAIN-SUFFIX,snap.com
