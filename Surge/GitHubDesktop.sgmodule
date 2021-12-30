@@ -3,7 +3,7 @@
 #!system=ios
 
 [Script]
-GithubDesktop = type=http-request,pattern=^https?:\/\/github\.com,script-path=https://raw.githubusercontent.com/unknowntokyo/surge-list/master/Surge/GithubDesktop.js
+GithubDesktop = type=http-request,pattern=^https?:\/\/ip138\.com,script-path=https://raw.githubusercontent.com/unknowntokyo/surge-list/master/Surge/GithubDesktop.js
 
 [MITM]
-hostname = %APPEND% github.com
+hostname = %APPEND% ip138.com
