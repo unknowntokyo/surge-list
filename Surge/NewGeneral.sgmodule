@@ -7,7 +7,7 @@
 ^https?:\/\/(ditu|maps).google\.cn https://maps.google.com 302
 
 [MITM]
-hostname = %APPEND% hacs.m.taobao.com,api.m.jd.com,bdsp-x.jd.com,guide-acs.m.taobao.com,mp.weixin.qq.com,ms.jr.jd.com,www.google.cn
+hostname = %APPEND% acs.m.taobao.com,api.m.jd.com,bdsp-x.jd.com,guide-acs.m.taobao.com,mp.weixin.qq.com,ms.jr.jd.com,www.google.cn
 
 [Script]
 http-response ^https?://api\.m\.jd\.com/client\.action\?functionId=(wareBusiness|serverConfig|basicConfig) requires-body=1,script-path=https://raw.githubusercontent.com/yichahucha/surge/master/jd_price.js
