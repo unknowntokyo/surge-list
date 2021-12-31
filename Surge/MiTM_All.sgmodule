@@ -1,0 +1,6 @@
+#!name=MitM All
+#!desc=临时对所有网站开启MitM
+
+[MITM]
+tcp-connection = true
+hostname = -*.apple.com,-*.crashlytics.com,-*.facebook.com,-*.github.com,-*.icloud.com,-*.instagram.com,-*.mzstatic.com,-*.qq.com,*
