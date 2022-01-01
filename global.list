@@ -86,6 +86,7 @@ DOMAIN-SUFFIX,archiveofourown.com
 DOMAIN-SUFFIX,archiveofourown.org
 DOMAIN-SUFFIX,arm.com
 DOMAIN-SUFFIX,arxiv.org
+DOMAIN-SUFFIX,aseglobal.com
 DOMAIN-SUFFIX,associates-amazon.com
 DOMAIN-SUFFIX,asus.com
 DOMAIN-SUFFIX,att.com
@@ -333,6 +334,7 @@ DOMAIN-SUFFIX,gitlab.com
 DOMAIN-SUFFIX,gitter.im
 DOMAIN-SUFFIX,global.honda
 DOMAIN-SUFFIX,global.toyota
+DOMAIN-SUFFIX,globalfoundries.com
 DOMAIN-SUFFIX,gm.com
 DOMAIN-SUFFIX,gmail.com
 DOMAIN-SUFFIX,go.dev
@@ -575,6 +577,7 @@ DOMAIN-SUFFIX,nvidia.asia
 DOMAIN-SUFFIX,nvidia.com
 DOMAIN-SUFFIX,nvidiaforhp.com
 DOMAIN-SUFFIX,nvidiagrid.net
+DOMAIN-SUFFIX,nxp.com
 DOMAIN-SUFFIX,nytimes.com
 DOMAIN-SUFFIX,ocnttv.com
 DOMAIN-SUFFIX,oculus.com
@@ -590,6 +593,7 @@ DOMAIN-SUFFIX,oneplusbbs.com
 DOMAIN-SUFFIX,oneplusmobile.com
 DOMAIN-SUFFIX,onestore.ms
 DOMAIN-SUFFIX,onitsukatiger.com
+DOMAIN-SUFFIX,onsemi.com
 DOMAIN-SUFFIX,ooklaserver.net
 DOMAIN-SUFFIX,opengapps.org
 DOMAIN-SUFFIX,openhub.net
@@ -794,6 +798,7 @@ DOMAIN-SUFFIX,tableau.com
 DOMAIN-SUFFIX,tampermonkey.net
 DOMAIN-SUFFIX,tapbots.com
 DOMAIN-SUFFIX,tapbots.net
+DOMAIN-SUFFIX,tdk.com
 DOMAIN-SUFFIX,teamviewer.com
 DOMAIN-SUFFIX,tegrazone.com
 DOMAIN-SUFFIX,tel.meet
