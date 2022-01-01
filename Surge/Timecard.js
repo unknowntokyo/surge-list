@@ -39,9 +39,6 @@ function tnumcount(num) {
 function now() {
   for (var i = 1; i <= Object.getOwnPropertyNames(tlist).length; i++) {
     if (Number(dateDiff(tnowf, tlist[i.toString()][1])) >= 0) {
-      //console.log("最近的日期是:" + tlist[i.toString()][0]);
-      //console.log("列表长度:" + Object.getOwnPropertyNames(tlist).length);
-      //console.log("时间差距:" + Number(dateDiff(tnowf, tlist[i.toString()][1])));
       return i;
     }
   }
@@ -56,6 +53,15 @@ function today(day) {
     return "🎉";
   } else {
     return daythis;
+  }
+}
+
+//提醒日当天发送通知
+function datenotice() {
+  if ($persistentStore.read("timecardpushed") != tlist[nowlist][1] && tnow.getHours() >= 6) {
+    $persistentStore.write(tlist[nowlist][1], "timecardpushed");
+    $notification.post("假日祝福","", "今天是" + tlist[nowlist][1] + "日 " + tlist[nowlist][0] + "   🎉")
+  } else if ($persistentStore.read("timecardpushed") == tlist[nowlist][1]) {
   }
 }
 
