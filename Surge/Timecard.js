@@ -63,7 +63,6 @@ function datenotice() {
     $persistentStore.write(tlist[nowlist][1], "timecardpushed");
     $notification.post("今天是" + tlist[nowlist][1].replace("距离", "") + tlist[nowlist][0] + "   🎉")
   } else if ($persistentStore.read("timecardpushed") == tlist[nowlist][1]) {
-  console.log("当日已通知");
   }
 }
 
@@ -72,5 +71,5 @@ title:"节假日倒计时",
 icon:"hourglass",
 'icon-color': "#1E88FB",
 content:
-tlist[nowlist][0]+"："+today(tnumcount(nowlist))+"天"+tlist[nowlist][2]+"\n"+tlist[Number(nowlist) + Number(1)][0] +"："+ tnumcount(Number(nowlist) + Number  (1))+ "天"+tlist[Number(nowlist) + Number(1)][2]+"\n"+tlist[Number(nowlist) + Number(2)][0]+"："+tnumcount(Number(nowlist) + Number(2))+"天"+tlist[Number(nowlist) + Number(2)][2]
+tlist[nowlist][0]+"："+(today(tnumcount(nowlist))+"天").replace("🎉天", "🎉")+tlist[nowlist][2]+"\n"+tlist[Number(nowlist) + Number(1)][0] +"："+ tnumcount(Number(nowlist) + Number  (1))+ "天"+tlist[Number(nowlist) + Number(1)][2]+"\n"+tlist[Number(nowlist) + Number(2)][0]+"："+tnumcount(Number(nowlist) + Number(2))+"天"+tlist[Number(nowlist) + Number(2)][2]
 })
