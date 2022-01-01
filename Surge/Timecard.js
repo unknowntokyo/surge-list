@@ -60,7 +60,7 @@ function today(day) {
 function datenotice() {
   if ($persistentStore.read("timecardpushed") != tlist[nowlist][2] && tnow.getHours() >= 6) {
     $persistentStore.write(tlist[nowlist][2], "timecardpushed");
-    $notification.post("假日祝福","", "今天是" + tlist[nowlist][0] + "，  🎉")
+    $notification.post("今天是" + tlist[nowlist][0] + "，  🎉")
   } else if ($persistentStore.read("timecardpushed") == tlist[nowlist][2]) {
   }
 }
