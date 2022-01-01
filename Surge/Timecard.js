@@ -71,10 +71,10 @@ title:"节假日倒计时",
 icon:"hourglass",
 'icon-color': "#1E88FB",
 
-if (daythis == "0") {
+if (today(tnumcount(nowlist)) == "🎉") {
 content:tlist[nowlist][1]+"："+today(tnumcount(nowlist))+tlist[nowlist][3]+"\n"+tlist[Number(nowlist) + Number(1)][0] +"："+ tnumcount(Number(nowlist) + Number  (1))+ "天"+tlist[Number(nowlist) + Number(1)][2]+"\n"+tlist[Number(nowlist) + Number(2)][0]+"："+tnumcount(Number(nowlist) + Number(2))+"天"+tlist[Number(nowlist) + Number(2)][2]
-})
+}
   } else {
 content:tlist[nowlist][1]+"："+today(tnumcount(nowlist))+"天"+tlist[nowlist][3]+"\n"+tlist[Number(nowlist) + Number(1)][0] +"："+ tnumcount(Number(nowlist) + Number  (1))+ "天"+tlist[Number(nowlist) + Number(1)][2]+"\n"+tlist[Number(nowlist) + Number(2)][0]+"："+tnumcount(Number(nowlist) + Number(2))+"天"+tlist[Number(nowlist) + Number(2)][2]
+}
 })
-  }
