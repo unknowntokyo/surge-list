@@ -13,8 +13,8 @@ $httpClient.get('http://ip-api.com/json/?lang=en', function (error, response, da
 		`IP地址：${jsonData.query}\n`+
       `运营商：${jsonData.isp}\n` +
 		`数据中心：${jsonData.org}`,
-      icon: params.icon,
-		  "icon-color":params.color
+      icon: "checkmark.icloud.fill",
+       "icon-color":"#369CF3",
     });
   });
 
