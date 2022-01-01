@@ -39,7 +39,7 @@ function tnumcount(num) {
 //获取最接近的日期
 function now() {
   for (var i = 1; i <= Object.getOwnPropertyNames(tlist).length; i++) {
-    if (Number(dateDiff(tnowf, tlist[i.toString()][1])) >= 0) {
+    if (Number(dateDiff(tnowf, tlist[i.toString()][2])) >= 0) {
       return i;
     }
   }
