@@ -1,13 +1,13 @@
 var tlist = {
-  1: ["距离元旦", "2022-01-01", "  ➌"],
-  2: ["距离春节", "2022-02-01", "  ➐"],
-  3: ["距离清明节", "2022-04-05", "  ➌"],
-  4: ["距离劳动节", "2022-05-01", "  ➎"],
-  5: ["距离端午节", "2022-06-03", "  ➌"],
-  6: ["距离中秋节", "2022-09-10", "  ➌"],
-  7: ["距离国庆节", "2022-10-01", "  ➐"],
-  8: ["距离元旦", "2022-01-01", "  ➌"],
-  9: ["距离春节", "2023-01-22", "  ➐"]
+  1: ["元旦", "距离元旦", "2022-01-01", "  ➌"],
+  2: ["春节", "距离春节", "2022-02-01", "  ➐"],
+  3: ["清明节", "距离清明节", "2022-04-05", "  ➌"],
+  4: ["劳动节", "距离劳动节", "2022-05-01", "  ➎"],
+  5: ["端午节", "距离端午节", "2022-06-03", "  ➌"],
+  6: ["中秋节", "距离中秋节", "2022-09-10", "  ➌"],
+  7: ["国庆节", "距离国庆节", "2022-10-01", "  ➐"],
+  8: ["元旦", "距离元旦", "2022-01-01", "  ➌"],
+  9: ["春节", "距离春节", "2023-01-22", "  ➐"]
 };
 let tnow = new Date();
 let tnowf =
@@ -32,7 +32,7 @@ function dateDiff(startDateString, endDateString) {
 //计算输入序号对应的时间与现在的天数间隔
 function tnumcount(num) {
   let dnum = num;
-  return dateDiff(tnowf, tlist[dnum][1]);
+  return dateDiff(tnowf, tlist[dnum][2]);
 }
 
 //获取最接近的日期
@@ -58,10 +58,10 @@ function today(day) {
 
 //提醒日当天发送通知
 function datenotice() {
-  if ($persistentStore.read("timecardpushed") != tlist[nowlist][1] && tnow.getHours() >= 6) {
-    $persistentStore.write(tlist[nowlist][1], "timecardpushed");
-    $notification.post("假日祝福","", "今天是" + tlist[nowlist][1] + "日 " + tlist[nowlist][0] + "   🎉")
-  } else if ($persistentStore.read("timecardpushed") == tlist[nowlist][1]) {
+  if ($persistentStore.read("timecardpushed") != tlist[nowlist][2] && tnow.getHours() >= 6) {
+    $persistentStore.write(tlist[nowlist][2], "timecardpushed");
+    $notification.post("假日祝福","", "今天是" + tlist[nowlist][0] + "，  🎉")
+  } else if ($persistentStore.read("timecardpushed") == tlist[nowlist][2]) {
   }
 }
 
@@ -70,5 +70,5 @@ title:"节假日倒计时",
 icon:"hourglass",
 'icon-color': "#1E88FB",
 content:
-tlist[nowlist][0]+"："+today(tnumcount(nowlist))+"天"+tlist[nowlist][2]+"\n"+tlist[Number(nowlist) + Number(1)][0] +"："+ tnumcount(Number(nowlist) + Number  (1))+ "天"+tlist[Number(nowlist) + Number(1)][2]+"\n"+tlist[Number(nowlist) + Number(2)][0]+"："+tnumcount(Number(nowlist) + Number(2))+"天"+tlist[Number(nowlist) + Number(2)][2]
+tlist[nowlist][1]+"："+today(tnumcount(nowlist))+"天"+tlist[nowlist][3]+"\n"+tlist[Number(nowlist) + Number(1)][0] +"："+ tnumcount(Number(nowlist) + Number  (1))+ "天"+tlist[Number(nowlist) + Number(1)][2]+"\n"+tlist[Number(nowlist) + Number(2)][0]+"："+tnumcount(Number(nowlist) + Number(2))+"天"+tlist[Number(nowlist) + Number(2)][2]
 })
