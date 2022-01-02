@@ -3,4 +3,4 @@
 
 [MITM]
 tcp-connection = true
-hostname = -*.apple.com,-*.crashlytics.com,-*.facebook.com,-*.github.com,-*.icloud.com,-*.instagram.com,-*.mzstatic.com,-*.qq.com,*:0
+hostname = -*.apple.com,-*.bugsnag.com,-*.crashlytics.com,-*.facebook.com,-*.firebaseapp.com,-*.firebaseio.com,-*.github.com,-*.google.co.jp,-*.google.com,-*.icloud.com,-*.instagram.com,-*.mzstatic.com,-*.qq.com,*:0
