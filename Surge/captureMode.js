@@ -37,7 +37,8 @@
     }
     if (capture && mitmall) panel["icon-color"] = color3 ? color3 : "#E94335";
     else if (capture || mitmall) panel["icon-color"] = color2 ? color2 : "#FCB515";
-    else color1 ? (panel["icon-color"] = color1) : "#00B1FF";    
+    else color1 ? (panel["icon-color"] = color1) : "#00B1FF";
+    console.log(mitmall);
     if (mitmall) {
       panel.content =
     `${module}：${mitmall ? "开启" : "关闭"}\n` + `抓取流量：${capture ? "开启" : "关闭"}\n` + (hostname ? `hostname：${hostname}` : "");
