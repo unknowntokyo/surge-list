@@ -8,16 +8,16 @@
 # zh xxx (知乎)
 ^https:\/\/duckduckgo.com\/\?q=zh(\+|%20)([^&]+).+ https://www.zhihu.com/search?q=$2 302
 
-# ccn (App Store 临时换至中国区) 感谢 @mieqq
+# ccn (App Store 临时切换至国区)
 ^https:\/\/duckduckgo.com\/\?q=ccn&.+ https://itunes.apple.com/WebObjects/MZStore.woa/wa/resetAndRedirect?dsf=143465&mt=8&url=/WebObjects/MZStore.woa/wa/viewSoftware?mt=8&id=1108187390&cc=cn&urlDesc= 302
 
-# uus (App Store 临时换至美国区) 感谢 @mieqq
+# uus (App Store 临时切换至美区)
 ^https:\/\/duckduckgo.com\/\?q=uus&.+ https://itunes.apple.com/WebObjects/MZStore.woa/wa/resetAndRedirect?dsf=143441&mt=8&url=/WebObjects/MZStore.woa/wa/viewSoftware?mt=8&id=1108187390&cc=us&urlDesc= 302
 
 # wk xxx (Wikipedia 中文)
 ^https:\/\/duckduckgo.com\/\?q=wk(\+|%20)([^&]+).+ https://zh.wikipedia.org/wiki/$2 302
 
-# xxx （无指令默认为 Google）
+# xxx （无指令默认为 Google搜索）
 ^https:\/\/duckduckgo.com\/\?q=(?!dl(c|e|j)(\+|%20))([^&]+).+ https://www.google.co.jp/search?q=$3&num=100 302
 
 [MITM]
