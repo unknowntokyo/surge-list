@@ -24,6 +24,9 @@
     if ($trigger == "button") {
         capture = (await httpAPI("/v1/features/capture")).enabled;
         mitmall = (await httpAPI("/v1/modules")).enabled.includes(module);
+        if (capture){
+            await httpAPI("/v1/features/capture", "POST", { disabled: !capture });
+            }
         if (capture == mitmall)
             await httpAPI("/v1/features/capture", "POST", { enabled: !capture });
         let moduleBody = {};
