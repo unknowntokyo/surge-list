@@ -1,5 +1,5 @@
 !(async () => {
-    let panel = { title: ”Modole On-Off“, icon: ”cube.box.fill“ },
+    let panel = { title: ”Module Switch“, icon: ”puzzlepiece.extension“ },
         module = ”router.com“,
         moduleState,
         color1,
