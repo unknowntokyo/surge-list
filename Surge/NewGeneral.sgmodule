@@ -1,14 +1,35 @@
 #!name=Rewrite & Script
-#!desc=URL重定向 & 微信去除公众号广告 & 比价
+#!desc=URL重定向 & 微信去公众号广告 & Q-Search & 比价
 
 [URL Rewrite]
 ^https?://(www.)?(g|google).cn https://www.google.co.jp 302
+
 ^https?://(www.)?google.cn/search https://www.google.co.jp/search 302
+
 ^https?:\/\/(ditu|maps).google\.cn https://maps.google.com 302
 
+# bd xxx (百度)
+^https:\/\/duckduckgo.com\/\?q=bd(\+|%20)([^&]+).+ https://www.baidu.com/s?wd=$2 302
+
+# zh xxx (知乎)
+^https:\/\/duckduckgo.com\/\?q=zh(\+|%20)([^&]+).+ https://www.zhihu.com/search?q=$2 302
+
+# ccn (App Store 临时切换至国区)
+^https:\/\/duckduckgo.com\/\?q=ccn&.+ https://itunes.apple.com/WebObjects/MZStore.woa/wa/resetAndRedirect?dsf=143465&mt=8&url=/WebObjects/MZStore.woa/wa/viewSoftware?mt=8&id=1108187390&cc=cn&urlDesc= 302
+
+# uus (App Store 临时切换至美区)
+^https:\/\/duckduckgo.com\/\?q=uus&.+ https://itunes.apple.com/WebObjects/MZStore.woa/wa/resetAndRedirect?dsf=143441&mt=8&url=/WebObjects/MZStore.woa/wa/viewSoftware?mt=8&id=1108187390&cc=us&urlDesc= 302
+
+# wk xxx (Wikipedia 中文)
+^https:\/\/duckduckgo.com\/\?q=wk(\+|%20)([^&]+).+ https://zh.wikipedia.org/wiki/$2 302
+
+# xxx （无指令默认为 Google搜索）
+^https:\/\/duckduckgo.com\/\?q=(?!dl(c|e|j)(\+|%20))([^&]+).+ https://www.google.co.jp/search?q=$3&num=30 302
+
 [MITM]
-hostname = %APPEND% acs.m.taobao.com,api.m.jd.com,bdsp-x.jd.com,guide-acs.m.taobao.com,mp.weixin.qq.com,ms.jr.jd.com,www.google.cn
+hostname = %APPEND% acs.m.taobao.com,api.m.jd.com,bdsp-x.jd.com,guide-acs.m.taobao.com,duckduckgo.com,mp.weixin.qq.com,ms.jr.jd.com,www.google.cn
 
 [Script]
 http-response ^https?://api\.m\.jd\.com/client\.action\?functionId=(wareBusiness|serverConfig|basicConfig) requires-body=1,script-path=https://raw.githubusercontent.com/yichahucha/surge/master/jd_price.js
+
 http-response ^https?:\/\/mp\.weixin\.qq\.com\/mp\/getappmsgad requires-body=1,max-size=0,script-path=https://raw.githubusercontent.com/NobyDa/Script/master/QuantumultX/File/Wechat.js
