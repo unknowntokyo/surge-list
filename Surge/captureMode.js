@@ -27,7 +27,7 @@
         let moduleBody = {};
         moduleBody[module] = !mitmall;
         if (capture){
-            await httpAPI("/v1/features/capture", "POST", { disabled: !capture });
+            await httpAPI("/v1/features/capture", "POST", { enabled: !capture });
             }
             if (mitmall){
             await httpAPI("/v1/modules", "POST", moduleBody);
