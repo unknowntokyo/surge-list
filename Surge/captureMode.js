@@ -50,6 +50,9 @@
     if (mitmall) {
       panel.content =
     `${module}：${mitmall ? "开启" : "关闭"}\n` + `抓取流量：${capture ? "开启" : "关闭"}\n` + (hostname ? `hostname：${hostname}` : "");
+    } elseif (capture) {
+    panel.content =
+    `${module}：${mitmall ? "开启" : "关闭"}\n` + `抓取流量：${capture ? "开启" : "关闭"}\n` + `hostname：${hostname1}`;
     } else {
     panel.content =
     `${module}：${mitmall ? "开启" : "关闭"}\n` + `抓取流量：${capture ? "开启" : "关闭"}\n` + `hostname：${hostname1}`;
