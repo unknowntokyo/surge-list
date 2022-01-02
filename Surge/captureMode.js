@@ -39,8 +39,8 @@
     else if (capture || mitmall) panel["icon-color"] = color2 ? color2 : "#FCB515";
     else panel["icon-color"] = color1 ? color1 : "#00B1FF";
     panel.content =
-        `抓取流量：${capture ? "enabled" : "disabled"}\n` +
-        `${module}：${mitmall ? "enabled" : "disabled"}` +
+        `抓取流量：${capture ? "开启" : "关闭"}\n` +
+        `${module}：${mitmall ? "开启" : "关闭"}` +
         (hostname ? `\nhostname：${hostname}` : "");
     $done(panel);
 })();
