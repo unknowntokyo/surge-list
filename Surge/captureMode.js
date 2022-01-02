@@ -1,10 +1,13 @@
 !(async () => {
     let module = "MitM All",
+    let module1 = "Rewrite & Script",
         panel = { title: "Capture Mode", icon: "tray.and.arrow.down.fill" },
         showHostname = true,
         capture,
         mitmall,
+        mitmall1,
         hostname,
+        hostname1,
         color1,
         color2,
         color3;
@@ -38,10 +41,17 @@
     if (capture && mitmall) panel["icon-color"] = color3 ? color3 : "#E94335";
     else if (capture || mitmall) panel["icon-color"] = color2 ? color2 : "#FCB515";
     else color1 ? (panel["icon-color"] = color1) : "#00B1FF";
-    console.log(mitmall);
+    mitmall1 = (await httpAPI("/v1/modules1")).enabled.includes(module1);
+    if (showHostname && mitmall1) {
+        hostname1 = /hostname\s?=\s?(.*)/.exec(
+            (await httpAPI("/v1/profiles/current?sensitive=0")).profile
+        )[1];
     if (mitmall) {
       panel.content =
     `${module}：${mitmall ? "开启" : "关闭"}\n` + `抓取流量：${capture ? "开启" : "关闭"}\n` + (hostname ? `hostname：${hostname}` : "");
+    } else if (capture && mitmall) {
+    panel.content =
+    `${module}：${mitmall ? "开启" : "关闭"}\n` + `抓取流量：${capture ? "开启" : "关闭"}\n` + `hostname：${hostname1}`;
     } else {
     panel.content =
     `${module}：${mitmall ? "开启" : "关闭"}\n` + `抓取流量：${capture ? "开启" : "关闭"}`;   
