@@ -38,14 +38,15 @@
             (await httpAPI("/v1/profiles/current?sensitive=0")).profile
         )[1];
     }
-    if (capture && mitmall) panel["icon-color"] = color3 ? color3 : "#E94335";
-    else if (capture || mitmall) panel["icon-color"] = color2 ? color2 : "#FCB515";
-    else color1 ? (panel["icon-color"] = color1) : "#00B1FF";
     mitmall1 = (await httpAPI("/v1/modules")).enabled.includes(module1);
     if (showHostname && mitmall1) {
         hostname1 = /hostname\s?=\s?(.*)/.exec(
             (await httpAPI("/v1/profiles/current?sensitive=0")).profile
         )[1];
+        }
+    if (capture && mitmall) panel["icon-color"] = color3 ? color3 : "#E94335";
+    else if (capture || mitmall) panel["icon-color"] = color2 ? color2 : "#FCB515";
+    else color1 ? (panel["icon-color"] = color1) : "#00B1FF";
     if (mitmall) {
       panel.content =
     `${module}：${mitmall ? "开启" : "关闭"}\n` + `抓取流量：${capture ? "开启" : "关闭"}\n` + (hostname ? `hostname：${hostname}` : "");
