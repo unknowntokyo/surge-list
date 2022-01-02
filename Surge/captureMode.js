@@ -1,6 +1,6 @@
 !(async () => {
     let module = "MitM All",
-        panel = { title: module, icon: "tray.and.arrow.down.fill" },
+        panel = { title: "Capture Mode", icon: "tray.and.arrow.down.fill" },
         showHostname = true,
         capture,
         mitmall,
@@ -39,9 +39,7 @@
     else if (capture || mitmall) panel["icon-color"] = color2 ? color2 : "#FCB515";
     else panel["icon-color"] = color1 ? color1 : "#00B1FF";
     panel.content =
-        `抓取流量：${capture ? "开启" : "关闭"}\n` +
-        `${module}：${mitmall ? "开启" : "关闭"}` +
-        (hostname ? `\nhostname：${hostname}` : "");
+    `${module}：${mitmall ? "开启" : "关闭"}` + `抓取流量：${capture ? "开启" : "关闭"}\n` + (hostname ? `\nhostname：${hostname}` : "");
     $done(panel);
 })();
 
