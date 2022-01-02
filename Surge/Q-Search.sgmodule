@@ -18,7 +18,7 @@
 ^https:\/\/duckduckgo.com\/\?q=wk(\+|%20)([^&]+).+ https://zh.wikipedia.org/wiki/$2 302
 
 # xxx （无指令默认为 Google搜索）
-^https:\/\/duckduckgo.com\/\?q=(?!dl(c|e|j)(\+|%20))([^&]+).+ https://www.google.co.jp/search?q=$3&num=30 302
+^https:\/\/duckduckgo.com\/\?q=(?!dl(c|e|j)(\+|%20))([^&]+).+ https://www.google.co.jp/search?q=$3&num=20 302
 
 [MITM]
 hostname = %APPEND% duckduckgo.com
