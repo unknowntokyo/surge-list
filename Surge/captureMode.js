@@ -25,14 +25,15 @@
         capture = (await httpAPI("/v1/features/capture")).enabled;
         mitmall = (await httpAPI("/v1/modules")).enabled.includes(module);
         if (capture){
-            await httpAPI("/v1/features/capture", "POST", { disabled: !capture });
-            }
-        if (capture == mitmall)
+            await httpAPI("/v1/features/capture", "POST", { enabled: !capture });
+            } else if (capture == mitmall){
             await httpAPI("/v1/features/capture", "POST", { enabled: !capture });
         let moduleBody = {};
         moduleBody[module] = !mitmall;
         await httpAPI("/v1/modules", "POST", moduleBody);
         await sleep(100);
+    } else {
+    }
     }
     capture = (await httpAPI("/v1/features/capture")).enabled;
     mitmall = (await httpAPI("/v1/modules")).enabled.includes(module);
