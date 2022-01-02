@@ -36,12 +36,12 @@
         )[1];
     }
     if (capture && mitmall) panel["icon-color"] = color3 ? color3 : "#E94335";
-    else if (capture || mitmall) panel["icon-color"] = color2 ? color2 : "#E94335";
-    else color1 ? (panel["icon-color"] = color1) : "00B1FF";
+    else if (capture || mitmall) panel["icon-color"] = color2 ? color2 : "#FCB515";
+    else panel["icon-color"] = color1 ? color1 : "#00B1FF";
     panel.content =
-        `抓取流量: ${capture ? "enabled" : "disabled"}\n` +
-        `${module}: ${mitmall ? "enabled" : "disabled"}` +
-        (hostname ? `\nhostname: ${hostname}` : "");
+        `抓取流量：${capture ? "enabled" : "disabled"}\n` +
+        `${module}：${mitmall ? "enabled" : "disabled"}` +
+        (hostname ? `\nhostname：${hostname}` : "");
     $done(panel);
 })();
 
