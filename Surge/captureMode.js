@@ -1,6 +1,6 @@
 !(async () => {
     let module = "MitM All",
-    let module1 = "Rewrite & Script",
+        module1 = "Rewrite & Script",
         panel = { title: "Capture Mode", icon: "tray.and.arrow.down.fill" },
         showHostname = true,
         capture,
