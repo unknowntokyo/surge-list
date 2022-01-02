@@ -35,7 +35,7 @@
         if (capture == mitmall){
             await httpAPI("/v1/features/capture", "POST", { enabled: !capture });
         await httpAPI("/v1/modules", "POST", moduleBody);
-        await sleep(30);
+        await sleep(20);
     }
     }
     capture = (await httpAPI("/v1/features/capture")).enabled;
