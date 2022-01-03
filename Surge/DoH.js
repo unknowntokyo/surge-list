@@ -1,3 +1,5 @@
+// AutoDoH = type=event,event-name=network-changed,script-path=https://raw.githubusercontent.com/unknowntokyo/surge-list/master/Surge/DoH.js,script-update-interval=86400
+
 const ssid1 = "Linksys_5G";
 const ssid2 = "SSID2";
 const name = "DNS over HTTPS";
