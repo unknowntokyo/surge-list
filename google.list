@@ -10,8 +10,14 @@ DOMAIN-SUFFIX,google.com.hk
 DOMAIN-SUFFIX,googleapis.com
 DOMAIN-SUFFIX,googleapis-cn.com
 DOMAIN-SUFFIX,googleblog.com
+DOMAIN-SUFFIX,googledomains.com
 DOMAIN-SUFFIX,googledrive.com
+DOMAIN-SUFFIX,googleearth.com
 DOMAIN-SUFFIX,googlefiber.net
+DOMAIN-SUFFIX,googlelabs.com
+DOMAIN-SUFFIX,googlemail.com
+DOMAIN-SUFFIX,googlephotos.com
+DOMAIN-SUFFIX,googleplay.com
 DOMAIN-SUFFIX,googleusercontent.com
 DOMAIN-KEYWORD,google
 IP-CIDR,108.177.8.0/21

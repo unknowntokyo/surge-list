@@ -132,6 +132,7 @@ DOMAIN-SUFFIX,bit.ly
 DOMAIN-SUFFIX,bit.surf
 DOMAIN-SUFFIX,bitbucket.org
 DOMAIN-SUFFIX,bitly.com
+DOMAIN-SUFFIX,bitly.is
 DOMAIN-SUFFIX,bitshare.com
 DOMAIN-SUFFIX,blackberry.com
 DOMAIN-SUFFIX,blizzard.com
@@ -141,6 +142,7 @@ DOMAIN-SUFFIX,blogger.com
 DOMAIN-SUFFIX,blogspot.com
 DOMAIN-SUFFIX,bloomberg.cn
 DOMAIN-SUFFIX,bloomberg.com
+DOMAIN-SUFFIX,bloombergapps.com
 DOMAIN-SUFFIX,bluemix.com
 DOMAIN-SUFFIX,bluemix.net
 DOMAIN-SUFFIX,bmw.com
@@ -238,6 +240,7 @@ DOMAIN-SUFFIX,disquscdn.com
 DOMAIN-SUFFIX,divineengine.net
 DOMAIN-SUFFIX,dlink.com
 DOMAIN-SUFFIX,docker.com
+DOMAIN-SUFFIX,docker.io
 DOMAIN-SUFFIX,dropbox.com
 DOMAIN-SUFFIX,dropbox.tech
 DOMAIN-SUFFIX,dropbox.zendesk.com
@@ -258,6 +261,10 @@ DOMAIN-SUFFIX,duckduckco.com
 DOMAIN-SUFFIX,duckduckgo.com
 DOMAIN-SUFFIX,duckgo.com
 DOMAIN-SUFFIX,dueapp.com
+DOMAIN-SUFFIX,durex.com
+DOMAIN-SUFFIX,durexchina.com
+DOMAIN-SUFFIX,durexloveclub.com
+DOMAIN-SUFFIX,durexusa.com
 DOMAIN-SUFFIX,duyaoss.com
 DOMAIN-SUFFIX,dy2018.com
 DOMAIN-SUFFIX,dydytt.net
@@ -311,6 +318,7 @@ DOMAIN-SUFFIX,fixer.io
 DOMAIN-SUFFIX,fixtracking.com
 DOMAIN-SUFFIX,flexihub.com
 DOMAIN-SUFFIX,flickr.com
+DOMAIN-SUFFIX,flickr.net
 DOMAIN-SUFFIX,flipboard.com
 DOMAIN-SUFFIX,flipchina.cn
 DOMAIN-SUFFIX,flurry.com
@@ -318,6 +326,11 @@ DOMAIN-SUFFIX,flypy.com
 DOMAIN-SUFFIX,fontawesome.com
 DOMAIN-SUFFIX,forter.com
 DOMAIN-SUFFIX,foursquare.com
+DOMAIN-SUFFIX,fox.com
+DOMAIN-SUFFIX,fox.tv
+DOMAIN-SUFFIX,fox-corporation.com
+DOMAIN-SUFFIX,fox-news.com
+DOMAIN-SUFFIX,foxnews.com
 DOMAIN-SUFFIX,friendlyarm.com
 DOMAIN-SUFFIX,ft.com
 DOMAIN-SUFFIX,gameloft.com
@@ -336,7 +349,13 @@ DOMAIN-SUFFIX,gitbooks.io
 DOMAIN-SUFFIX,gitee.com
 DOMAIN-SUFFIX,giters.com
 DOMAIN-SUFFIX,githubmemory.com
+DOMAIN-SUFFIX,githubpreview.dev
+DOMAIN-SUFFIX,githubstatus.com
+DOMAIN-SUFFIX,githubuniverse.com
 DOMAIN-SUFFIX,gitlab.com
+DOMAIN-SUFFIX,gitlab.io
+DOMAIN-SUFFIX,gitlab.net
+DOMAIN-SUFFIX,gitlab-static.net
 DOMAIN-SUFFIX,gitter.im
 DOMAIN-SUFFIX,global.honda
 DOMAIN-SUFFIX,global.toyota
@@ -411,6 +430,7 @@ DOMAIN-SUFFIX,innotechx.com
 DOMAIN-SUFFIX,insent.ai
 DOMAIN-SUFFIX,insight.com
 DOMAIN-SUFFIX,instagram.com
+DOMAIN-SUFFIX,instagram-help.com
 DOMAIN-SUFFIX,intel.com
 DOMAIN-SUFFIX,intelamericasstore.com
 DOMAIN-SUFFIX,intelapacstore.com
@@ -434,6 +454,7 @@ DOMAIN-SUFFIX,intercom.com
 DOMAIN-SUFFIX,intercom.io
 DOMAIN-SUFFIX,intercomassets.com
 DOMAIN-SUFFIX,intercomcdn.com
+DOMAIN-SUFFIX,iphone.com
 DOMAIN-SUFFIX,iplaysoft.com
 DOMAIN-SUFFIX,ipstatp.com
 DOMAIN-SUFFIX,ipsw.me
@@ -501,6 +522,8 @@ DOMAIN-SUFFIX,macrumors.com
 DOMAIN-SUFFIX,mac-torrent-download.net
 DOMAIN-SUFFIX,macupdater.net
 DOMAIN-SUFFIX,mailchimp.com
+DOMAIN-SUFFIX,marvel.com
+DOMAIN-SUFFIX,mastercard.com
 DOMAIN-SUFFIX,mathpix.com
 DOMAIN-SUFFIX,maxcdn.com
 DOMAIN-SUFFIX,maxmind.com
@@ -520,6 +543,8 @@ DOMAIN-SUFFIX,micron.com
 DOMAIN-SUFFIX,microsoft.com
 DOMAIN-SUFFIX,microsoftonline.com
 DOMAIN-SUFFIX,mindnode.com
+DOMAIN-SUFFIX,minecraft.net
+DOMAIN-SUFFIX,minecraftshop.com
 DOMAIN-SUFFIX,mixrank.com
 DOMAIN-SUFFIX,mizuno.com
 DOMAIN-SUFFIX,mmapiws.com
@@ -530,6 +555,8 @@ DOMAIN-SUFFIX,motorola.com
 DOMAIN-SUFFIX,movistprime.com
 DOMAIN-SUFFIX,mozilla.com
 DOMAIN-SUFFIX,msauth.net
+DOMAIN-SUFFIX,muji.com
+DOMAIN-SUFFIX,muji.net
 DOMAIN-SUFFIX,muscdn.com
 DOMAIN-SUFFIX,musical.ly
 DOMAIN-SUFFIX,mytvsuper.com
@@ -578,6 +605,7 @@ DOMAIN-SUFFIX,nissan.com
 DOMAIN-SUFFIX,nissan-europe.com
 DOMAIN-SUFFIX,nissan-global.com
 DOMAIN-SUFFIX,nissanusa.com
+DOMAIN-SUFFIX,nokia.com
 DOMAIN-SUFFIX,notebookcheck.com
 DOMAIN-SUFFIX,notion.new
 DOMAIN-SUFFIX,notion.so
@@ -597,8 +625,13 @@ DOMAIN-SUFFIX,oculuscdn.com
 DOMAIN-SUFFIX,office.com
 DOMAIN-SUFFIX,office.net
 DOMAIN-SUFFIX,office365.com
+DOMAIN-SUFFIX,okamotocorp.com
+DOMAIN-SUFFIX,okamotoglobal.com
+DOMAIN-SUFFIX,okamotousa.com
 DOMAIN-SUFFIX,omtrdc.net
 DOMAIN-SUFFIX,onelink.me
+DOMAIN-SUFFIX,onenote.com
+DOMAIN-SUFFIX,onenote.net
 DOMAIN-SUFFIX,oneplus.com
 DOMAIN-SUFFIX,oneplus.net
 DOMAIN-SUFFIX,oneplusbbs.com
@@ -974,6 +1007,7 @@ DOMAIN-SUFFIX,xnview.com
 DOMAIN-SUFFIX,xteko.com
 DOMAIN-SUFFIX,yahoo.com
 DOMAIN-SUFFIX,yahooapis.com
+DOMAIN-SUFFIX,yamibuy.com
 DOMAIN-SUFFIX,yandex.com
 DOMAIN-SUFFIX,yastatic.net
 DOMAIN-SUFFIX,yimg.com
@@ -983,3 +1017,4 @@ DOMAIN-SUFFIX,ytimg.com
 DOMAIN-SUFFIX,zaobao.com
 DOMAIN-SUFFIX,zdassets.com
 DOMAIN-SUFFIX,zendesk.com
+DOMAIN-SUFFIX,zippo.com
