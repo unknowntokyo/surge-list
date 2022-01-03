@@ -1,4 +1,4 @@
-const ssid1 = "SSID1";
+const ssid1 = "Linksys_5G";
 const ssid2 = "SSID2";
 const name = "DNS over HTTPS";
 let home = ($network.wifi.ssid === ssid1) || ($network.wifi.ssid === ssid2);
