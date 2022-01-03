@@ -11,10 +11,10 @@ const getModuleStatus = new Promise((resolve) => {
 
 getModuleStatus.then((enabled) => {
   if (home && enabled) {
-    //家里,开启了模块 => 关闭
+    //家里,关闭模块
 	enableModule(false);
   } else if (!home && !enabled) {
-    //不是家里,未开启模块 => 开启
+    //不在家里,开启模块
 	enableModule(true);
   } else {
 	//其他情況 => 重复触发 => 结束
