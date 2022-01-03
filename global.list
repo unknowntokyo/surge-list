@@ -252,6 +252,9 @@ DOMAIN-SUFFIX,dropboxmail.com
 DOMAIN-SUFFIX,dropboxpartners.com
 DOMAIN-SUFFIX,dropboxstatic.com
 DOMAIN-SUFFIX,dropboxusercontent.com
+DOMAIN-SUFFIX,duck.co
+DOMAIN-SUFFIX,duck.com
+DOMAIN-SUFFIX,duckduckco.com
 DOMAIN-SUFFIX,duckduckgo.com
 DOMAIN-SUFFIX,duckgo.com
 DOMAIN-SUFFIX,dueapp.com
@@ -305,6 +308,7 @@ DOMAIN-SUFFIX,firebaseapp.com
 DOMAIN-SUFFIX,firebaseio.com
 DOMAIN-SUFFIX,fitbit.com
 DOMAIN-SUFFIX,fixer.io
+DOMAIN-SUFFIX,fixtracking.com
 DOMAIN-SUFFIX,flexihub.com
 DOMAIN-SUFFIX,flickr.com
 DOMAIN-SUFFIX,flipboard.com
@@ -340,6 +344,7 @@ DOMAIN-SUFFIX,globalfoundries.com
 DOMAIN-SUFFIX,gm.com
 DOMAIN-SUFFIX,gmail.com
 DOMAIN-SUFFIX,go.dev
+DOMAIN-SUFFIX,goduckgo.com
 DOMAIN-SUFFIX,golang.org
 DOMAIN-SUFFIX,goodnotes.com
 DOMAIN-SUFFIX,gotinder.com
@@ -447,6 +452,7 @@ DOMAIN-SUFFIX,jquery.com
 DOMAIN-SUFFIX,jsboxbbs.com
 DOMAIN-SUFFIX,jsdelivr.com
 DOMAIN-SUFFIX,jsdelivr.net
+DOMAIN-SUFFIX,justduckit.com
 DOMAIN-SUFFIX,kairosoft.net
 DOMAIN-SUFFIX,kappa.com
 DOMAIN-SUFFIX,kaspersky.com
@@ -653,6 +659,8 @@ DOMAIN-SUFFIX,prime-video.com
 DOMAIN-SUFFIX,primevideo.info
 DOMAIN-SUFFIX,primevideo.org
 DOMAIN-SUFFIX,primevideo.tv
+DOMAIN-SUFFIX,privacysimplified.com
+DOMAIN-SUFFIX,privatebrowsingmyths.com
 DOMAIN-SUFFIX,producthunt.com
 DOMAIN-SUFFIX,pros.ee
 DOMAIN-SUFFIX,proximabeta.com
@@ -772,6 +780,7 @@ DOMAIN-SUFFIX,spotifycodes.com
 DOMAIN-SUFFIX,spotify-everywhere.com
 DOMAIN-SUFFIX,spotifyforbrands.com
 DOMAIN-SUFFIX,spotifyjobs.com
+DOMAIN-SUFFIX,spreadprivacy.com
 DOMAIN-SUFFIX,springer.com
 DOMAIN-SUFFIX,ssl-images-amazon.com
 DOMAIN-SUFFIX,sstatic.net
