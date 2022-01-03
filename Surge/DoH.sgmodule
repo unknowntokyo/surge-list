@@ -1,0 +1,7 @@
+#!name=DNS over HTTPS
+#!desc=开启 DoH 加密解析
+
+[General]
+doh-server = https://dns.alidns.com/dns-query
+doh-format = wireformat
+doh-follow-outbound-mode = false
