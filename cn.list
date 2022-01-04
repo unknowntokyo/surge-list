@@ -8,7 +8,10 @@ DOMAIN,time.asia.apple.com
 DOMAIN,time-ios.apple.com
 DOMAIN,weather-analytics-events.apple.com
 DOMAIN,weather-data.apple.com
+DOMAIN-SUFFIX,01zhuanche.com
 DOMAIN-SUFFIX,10010.com
+DOMAIN-SUFFIX,10101111.com
+DOMAIN-SUFFIX,10101111cdn.com
 DOMAIN-SUFFIX,115.com
 DOMAIN-SUFFIX,115cdn.com
 DOMAIN-SUFFIX,115cdn.net
@@ -292,6 +295,8 @@ DOMAIN-SUFFIX,deyoulife.com
 DOMAIN-SUFFIX,dgtle.com
 DOMAIN-SUFFIX,diandian.com
 DOMAIN-SUFFIX,dianping.com
+DOMAIN-SUFFIX,didapinche.com
+DOMAIN-SUFFIX,didachuxing.com
 DOMAIN-SUFFIX,didialift.com
 DOMAIN-SUFFIX,didichuxing.com
 DOMAIN-SUFFIX,didiglobal.com
@@ -617,6 +622,7 @@ DOMAIN-SUFFIX,mxhichina.com
 DOMAIN-SUFFIX,my.router
 DOMAIN-SUFFIX,myalicdn.com
 DOMAIN-SUFFIX,myapp.com
+DOMAIN-SUFFIX,myhuaweicloud.com
 DOMAIN-SUFFIX,myqcloud.com
 DOMAIN-SUFFIX,myrouter.local
 DOMAIN-SUFFIX,mysipo.com
@@ -836,6 +842,7 @@ DOMAIN-SUFFIX,turnoffthelights.com
 DOMAIN-SUFFIX,u17.com
 DOMAIN-SUFFIX,u-cdn.com
 DOMAIN-SUFFIX,u-cdn.net
+DOMAIN-SUFFIX,ucarinc.com
 DOMAIN-SUFFIX,ucgslb.com
 DOMAIN-SUFFIX,ucgslb.info
 DOMAIN-SUFFIX,ucgslb.net
@@ -1035,3 +1042,5 @@ IP-CIDR,119.29.29.29/32,no-resolve
 # Tencent
 IP-CIDR,182.254.116.0/24
 IP-CIDR,203.205.254.0/23
+
+DOMAIN-KEYWORD,-cn
