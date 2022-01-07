@@ -194,6 +194,7 @@ DOMAIN-SUFFIX,bootcss.com
 DOMAIN-SUFFIX,bqimg.com
 DOMAIN-SUFFIX,bwton.com
 DOMAIN-SUFFIX,byteac.com
+DOMAIN-SUFFIX,byteacctimg.com
 DOMAIN-SUFFIX,byteactivity.com
 DOMAIN-SUFFIX,bytecdn.com
 DOMAIN-SUFFIX,byted.org
@@ -207,6 +208,7 @@ DOMAIN-SUFFIX,bytedns2.com
 DOMAIN-SUFFIX,bytednsdoc.com
 DOMAIN-SUFFIX,byted-static.com
 DOMAIN-SUFFIX,bytefcdn.com
+DOMAIN-SUFFIX,bytegecko.com
 DOMAIN-SUFFIX,bytegoofy.com
 DOMAIN-SUFFIX,byteimg.com
 DOMAIN-SUFFIX,bytescm.com
@@ -326,6 +328,7 @@ DOMAIN-SUFFIX,douban.com
 DOMAIN-SUFFIX,douban.fm
 DOMAIN-SUFFIX,doubanio.com
 DOMAIN-SUFFIX,douyin.com
+DOMAIN-SUFFIX,douyinpic.com
 DOMAIN-SUFFIX,douyinstatic.com
 DOMAIN-SUFFIX,douyu.com
 DOMAIN-SUFFIX,douyu.tv
@@ -1038,6 +1041,8 @@ DOMAIN-SUFFIX,zhipin.com
 DOMAIN-SUFFIX,zhuanstatic.com
 DOMAIN-SUFFIX,zhuanzhuan.com
 DOMAIN-SUFFIX,zhubajie.com
+DOMAIN-SUFFIX,zijieapi.com
+DOMAIN-SUFFIX,zjcdn.com
 DOMAIN-SUFFIX,zuoyebang.cc
 DOMAIN-SUFFIX,zuoyebang.com
 DOMAIN-SUFFIX,zybang.com
