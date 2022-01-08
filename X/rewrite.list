@@ -1,4 +1,4 @@
-hostname = duckduckgo.com, mp.weixin.qq.com,sub.store,www.google.cn,www.zhihu.com,*.baidu.com,
+hostname = bdsp-x.jd.com,duckduckgo.com, mp.weixin.qq.com,ms.jr.jd.com,oss.umetrip.com,sub.store,www.google.cn,www.zhihu.com,*.baidu.com,
 simple_cert_hostname=sub.store
 
 ^https?://(www.)?(g|google).cn url 302 https://www.google.co.jp
