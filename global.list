@@ -199,6 +199,7 @@ DOMAIN-SUFFIX,cloudflarestream.com
 DOMAIN-SUFFIX,cloudflaretest.com
 DOMAIN-SUFFIX,cloudflarewarp.com
 DOMAIN-SUFFIX,cloudfront.net
+DOMAIN-SUFFIX,cloudfunctions.net
 DOMAIN-SUFFIX,cloudmagic.com
 DOMAIN-SUFFIX,clubhouse.com
 DOMAIN-SUFFIX,cnbc.com
@@ -810,6 +811,7 @@ DOMAIN-SUFFIX,sonypicturestelevision.com
 DOMAIN-SUFFIX,sonypicturestelevisiongames.com
 DOMAIN-SUFFIX,soundcloud.com
 DOMAIN-SUFFIX,sourceforge.io
+DOMAIN-SUFFIX,spacex.com
 DOMAIN-SUFFIX,speedtest.net
 DOMAIN-SUFFIX,speedtestcustom.com
 DOMAIN-SUFFIX,splunkcloud.com
