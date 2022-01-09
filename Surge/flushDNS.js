@@ -1,9 +1,7 @@
 !(async () => {
     let panel = { title: "Flush DNS" },
         showServer = true,
-        dnsCache,
-        module = "DNS over HTTPS",
-        moduleState = httpAPI("/v1/modules").enabled.includes(module);
+        dnsCache;
     if (typeof $argument != "undefined") {
         let arg = Object.fromEntries($argument.split("&").map((item) => item.split("=")));
         if (arg.title) panel.title = arg.title;
@@ -17,7 +15,7 @@
     }
     if ($trigger == "button") await httpAPI("/v1/dns/flush");
     let delay = ((await httpAPI("/v1/test/dns_delay")).delay * 1000).toFixed(0);
-    panel.content = `延迟：${delay}ms${dnsCache ? `\nserver:\n${dnsCache}` : ""}\n`+`DoH：${moduleState ? "开启" : "关闭"}`;
+    panel.content = `延迟：${delay}ms${dnsCache ? `\nserver:\n${dnsCache}` : ""}`;
     $done(panel);
 })();
 
