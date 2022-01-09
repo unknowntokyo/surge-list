@@ -35,8 +35,6 @@ DOMAIN-SUFFIX,alfredapp.com
 DOMAIN-SUFFIX,altapps.net
 DOMAIN-SUFFIX,amazon.com
 DOMAIN-SUFFIX,amazonaws.com
-DOMAIN-SUFFIX,amazonprimevideo.cn
-DOMAIN-SUFFIX,amazonprimevideo.com.cn
 DOMAIN-SUFFIX,amazonprimevideos.com
 DOMAIN-SUFFIX,amazonvideo.cc
 DOMAIN-SUFFIX,amazonvideo.com
@@ -55,7 +53,6 @@ DOMAIN-SUFFIX,aol.com
 DOMAIN-SUFFIX,aolcdn.com
 DOMAIN-SUFFIX,aolnews.com
 DOMAIN-SUFFIX,aorus.com
-DOMAIN-SUFFIX,aoruszone.cn
 DOMAIN-SUFFIX,apache.org
 DOMAIN-SUFFIX,apigee.com
 DOMAIN-SUFFIX,apkcombo.com
@@ -99,9 +96,7 @@ DOMAIN-SUFFIX,azurewebsites.net
 DOMAIN-SUFFIX,bandwagonhost.com
 DOMAIN-SUFFIX,battle.net
 DOMAIN-SUFFIX,bbc.com
-DOMAIN-SUFFIX,beibao.cn
 DOMAIN-SUFFIX,beibao.com
-DOMAIN-SUFFIX,beibao.com.cn
 DOMAIN-SUFFIX,belkin.com
 DOMAIN-SUFFIX,bestbuy.com
 DOMAIN-SUFFIX,bestbuy.com.mx
@@ -140,7 +135,6 @@ DOMAIN-SUFFIX,blog.com
 DOMAIN-SUFFIX,blogcdn.com
 DOMAIN-SUFFIX,blogger.com
 DOMAIN-SUFFIX,blogspot.com
-DOMAIN-SUFFIX,bloomberg.cn
 DOMAIN-SUFFIX,bloomberg.com
 DOMAIN-SUFFIX,bloombergapps.com
 DOMAIN-SUFFIX,bluemix.com
@@ -325,7 +319,6 @@ DOMAIN-SUFFIX,flexihub.com
 DOMAIN-SUFFIX,flickr.com
 DOMAIN-SUFFIX,flickr.net
 DOMAIN-SUFFIX,flipboard.com
-DOMAIN-SUFFIX,flipchina.cn
 DOMAIN-SUFFIX,flurry.com
 DOMAIN-SUFFIX,flypy.com
 DOMAIN-SUFFIX,fontawesome.com
@@ -374,7 +367,6 @@ DOMAIN-SUFFIX,goduckgo.com
 DOMAIN-SUFFIX,golang.org
 DOMAIN-SUFFIX,goodnotes.com
 DOMAIN-SUFFIX,gotinder.com
-DOMAIN-SUFFIX,gputechconf.cn
 DOMAIN-SUFFIX,gputechconf.com
 DOMAIN-SUFFIX,gratisography.com
 DOMAIN-SUFFIX,gravatar.com
@@ -587,17 +579,11 @@ DOMAIN-SUFFIX,netdna-cdn.com
 DOMAIN-SUFFIX,netgear.com
 DOMAIN-SUFFIX,netlify.com
 DOMAIN-SUFFIX,netskao.com
-DOMAIN-SUFFIX,ngaa.cn
-DOMAIN-SUFFIX,ngaa.com.cn
 DOMAIN-SUFFIX,ngaa.info
-DOMAIN-SUFFIX,ngaa.net.cn
-DOMAIN-SUFFIX,ngaa.org.cn
 DOMAIN-SUFFIX,ngaa.shop
 DOMAIN-SUFFIX,ngaa.top
-DOMAIN-SUFFIX,ngaacdn.cn
 DOMAIN-SUFFIX,ngaacdn.com
 DOMAIN-SUFFIX,ngaacdn.net
-DOMAIN-SUFFIX,ngaagslb.cn
 DOMAIN-SUFFIX,ngaagslb.com
 DOMAIN-SUFFIX,ngaagslb.net
 DOMAIN-SUFFIX,nicegram.app
@@ -732,7 +718,6 @@ DOMAIN-SUFFIX,redditstatic.com
 DOMAIN-SUFFIX,reebok.com
 DOMAIN-SUFFIX,reuters.com
 DOMAIN-SUFFIX,reuters.tv
-DOMAIN-SUFFIX,reutersagency.cn
 DOMAIN-SUFFIX,reutersmedia.net
 DOMAIN-SUFFIX,revenuecat.com
 DOMAIN-SUFFIX,ripe.net
