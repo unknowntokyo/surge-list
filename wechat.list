@@ -1,5 +1,5 @@
 PROCESS-NAME,/Applications/WeChat.app/Contents/MacOS/WeChat
-USER-AGENT,MicroMessenger*
+USER-AGENT,MicroMessenger Client
 USER-AGENT,WeChat*
 DOMAIN-SUFFIX,servicewechat.com
 DOMAIN-SUFFIX,wechat.com
