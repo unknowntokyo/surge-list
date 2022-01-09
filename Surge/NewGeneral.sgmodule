@@ -2,22 +2,6 @@
 #!desc=URL重定向 & 微信去公众号广告 & Q-Search & 比价
 
 [Host]
-aaplimg.com = server:119.29.29.29
-apple.com = server:119.29.29.29
-apple-cloudkit.com = server:119.29.29.29
-apple-mapkit.com = server:119.29.29.29
-cdn-apple.com = server:119.29.29.29
-mzstatic.com = server:119.29.29.29
-*.aaplimg.com = server:119.29.29.29
-*.apple.com = server:119.29.29.29
-*.apple-cloudkit.com = server:119.29.29.29
-*.apple-mapkit.com = server:119.29.29.29
-*.cdn-apple.com = server:119.29.29.29
-*.mzstatic.com = server:119.29.29.29
-*apple.com.akadns.net = server:119.29.29.29
-*.apple.com.edgekey.net = server:119.29.29.29
-*.apple.com.edgekey.net.globalredir.akadns.net = server:119.29.29.29
-*icloud.com.akadns.net = server:119.29.29.29
 *.alicdn.com = server:223.5.5.5
 *.alipay.com = server:223.5.5.5
 *.aliyun.com = server:223.5.5.5
