@@ -16,7 +16,7 @@
         dnsCache = [...new Set(dnsCache.map((d) => d.server))].toString().replace(/,/g, "\n");
     }
     if ($trigger == "button") moduleState = (await httpAPI("/v1/modules")).enabled.includes(module);
-    if ($trigger == "button") await httpAPI("/v1/dns/flush");
+    await httpAPI("/v1/dns/flush");
     let delay = ((await httpAPI("/v1/test/dns_delay")).delay * 1000).toFixed(0);
     panel.content = `延迟：${delay}ms${dnsCache ? `\nserver:\n${dnsCache}` : ""}\n`+`DoH：${moduleState ? "开启" : "关闭"}`;
     $done(panel);
