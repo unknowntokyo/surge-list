@@ -3,7 +3,7 @@
         showServer = true,
         dnsCache,
         module = "DNS over HTTPS",
-        moduleState = (await httpAPI("/v1/modules")).enabled.includes(module);
+        moduleState = httpAPI("/v1/modules").enabled.includes(module);
     if (typeof $argument != "undefined") {
         let arg = Object.fromEntries($argument.split("&").map((item) => item.split("=")));
         if (arg.title) panel.title = arg.title;
