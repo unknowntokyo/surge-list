@@ -2,7 +2,7 @@
     let panel = { title: "Flush DNS" },
         showServer = true,
         module = "DNS over HTTPS",
-        moduleState = (await httpAPI("/v1/modules")).enabled.includes(module),
+        moduleState,
         dnsCache;
     if (typeof $argument != "undefined") {
         let arg = Object.fromEntries($argument.split("&").map((item) => item.split("=")));
@@ -16,6 +16,11 @@
         dnsCache = [...new Set(dnsCache.map((d) => d.server))].toString().replace(/,/g, "\n");
     }
     if ($trigger == "button") await httpAPI("/v1/dns/flush");
+    moduleState = (await httpAPI("/v1/modules")).enabled.includes(module);
+        let moduleBody = {};
+        moduleBody[module] = moduleState;
+        await httpAPI("/v1/modules", "POST", moduleBody);
+        await sleep(100);
     let delay = ((await httpAPI("/v1/test/dns_delay")).delay * 1000).toFixed(0);
     panel.content = `延迟：${delay}ms${dnsCache ? `\nserver:\n${dnsCache}` : ""}\n`+`DoH：${moduleState ? "开启" : "关闭"}`;
     $done(panel);
@@ -27,4 +32,8 @@ function httpAPI(path = "", method = "POST", body = null) {
             resolve(result);
         });
     });
+}
+
+function sleep(time) {
+    return new Promise((resolve) => setTimeout(resolve, time));
 }
