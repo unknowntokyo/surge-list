@@ -15,9 +15,9 @@ switch (datacenter){
       break
     default:
       if (carrier != "") {
-      var description = 'IP地址：' + ip + '\n' + '运营商：' + carrier + '\n' + '数据中心：' + datacenter;
+      var description = ip + '\n' + carrier + '\n' + datacenter;
       } else {
-      var description = 'IP地址：' + ip + '\n' + '数据中心：' + datacenter;
+      var description = ip + '\n' + datacenter;
       }
       break
   }
