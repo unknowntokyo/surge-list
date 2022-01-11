@@ -1,4 +1,4 @@
-hostname = bdsp-x.jd.com,duckduckgo.com, mp.weixin.qq.com,ms.jr.jd.com,oss.umetrip.com,sub.store,www.google.cn,www.zhihu.com,*.baidu.com,
+hostname = api.m.jd.com,bdsp-x.jd.com,duckduckgo.com, mp.weixin.qq.com,ms.jr.jd.com,oss.umetrip.com,sub.store,www.google.cn,www.zhihu.com,*.baidu.com,
 simple_cert_hostname=sub.store
 
 ^https?://(www.)?(g|google).cn url 302 https://www.google.co.jp
@@ -28,6 +28,8 @@ simple_cert_hostname=sub.store
 ^https?://mp\.weixin\.qq\.com/mp/getappmsgad url script-response-body https://raw.githubusercontent.com/NobyDa/Script/master/QuantumultX/File/Wechat.js
 
 ^https?:\/\/sub\.store url script-analyze-echo-response https://raw.githubusercontent.com/Peng-YM/Sub-Store/master/backend/sub-store.min.js
+
+^https?://api\.m\.jd\.com/client\.action\?functionId=(wareBusiness|serverConfig|basicConfig) url script-response-body https://raw.githubusercontent.com/yichahucha/surge/master/jd_price.js
 
 ^https?:\/\/(?!d\.pcs).*(?<!map)\.baidu\.com url request-header (\r\n)User-Agent:.+iPhone.+(\r\n) request-header $1User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 13_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.1.1 Mobile/15E148 Safari/16C50 Quark/604.1 T7/10.3 SearchCraft/2.6.3 (Baidu; P1 8.0.0)$2
 
