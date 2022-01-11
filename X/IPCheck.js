@@ -8,16 +8,16 @@ var datacenter = obj['org'];
 switch (datacenter){
     case "":
       if (carrier != "") {
-      var description = ip + '\n' + carrier;
+      var description = 'IP地址：' + ip + '\n运营商：' + carrier;
       } else {
-      var description = ip;
+      var description = 'IP地址：' + ip;
       }
       break
     default:
       if (carrier != "" && carrier != datacenter) {
-      var description = ip + '\n' + carrier + '\n' + datacenter;
+      var description = 'IP地址：' + ip + '\n运营商：' + carrier + '\n数据中心：' + datacenter;
       } else {
-      var description = ip + '\n' + datacenter;
+      var description = 'IP地址：' + ip + '\n数据中心：' + datacenter;
       }
       break
   }
