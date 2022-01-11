@@ -14,7 +14,7 @@ switch (datacenter){
       }
       break
     default:
-      if (carrier != ""&&carrier != datacenter) {
+      if (carrier != "" && carrier != datacenter) {
       var description = ip + '\n' + carrier + '\n' + datacenter;
       } else {
       var description = ip + '\n' + datacenter;
