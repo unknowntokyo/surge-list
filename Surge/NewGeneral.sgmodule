@@ -1,5 +1,5 @@
 #!name=Rewrite & Script
-#!desc=URL重定向 & 微信去公众号广告 & Q-Search & 比价
+#!desc=URL重定向 & 微信去公众号广告 & Q-Search & 京东比价
 
 [Host]
 *.alicdn.com = server:223.5.5.5
