@@ -1,4 +1,4 @@
-var list = ["中国","江苏","宁波"];
+var list = ["中国","江苏","浙江"];
 const url = "https://view.inews.qq.com/g2/getOnsInfo?name=disease_h5";
 var ala="";
 var num1="";
