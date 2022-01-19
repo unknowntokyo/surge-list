@@ -241,6 +241,7 @@ DOMAIN-SUFFIX,dell.com
 DOMAIN-SUFFIX,derwentinnovation.com
 DOMAIN-SUFFIX,dgg.gg
 DOMAIN-SUFFIX,dial.meet
+DOMAIN-SUFFIX,dictionary.com
 DOMAIN-SUFFIX,digitalocean.com
 DOMAIN-SUFFIX,dior.com
 DOMAIN-SUFFIX,discord.com
@@ -403,8 +404,6 @@ DOMAIN-SUFFIX,go.dev
 DOMAIN-SUFFIX,goal.com
 DOMAIN-SUFFIX,godoc.org
 DOMAIN-SUFFIX,goduckgo.com
-DOMAIN-SUFFIX,gogle.com
-DOMAIN-SUFFIX,gogole.com
 DOMAIN-SUFFIX,go-lang.com
 DOMAIN-SUFFIX,golang.com
 DOMAIN-SUFFIX,go-lang.net
@@ -467,6 +466,8 @@ DOMAIN-SUFFIX,ibm.com
 DOMAIN-SUFFIX,ibytedtos.com
 DOMAIN-SUFFIX,ibyteimg.com
 DOMAIN-SUFFIX,idc.wiki
+DOMAIN-SUFFIX,ldoceonline.com
+DOMAIN-SUFFIX,lexico.com
 DOMAIN-SUFFIX,ifdream.net
 DOMAIN-SUFFIX,ifixit.com
 DOMAIN-SUFFIX,ift.tt
@@ -603,6 +604,7 @@ DOMAIN-SUFFIX,mega.io
 DOMAIN-SUFFIX,mega.nz
 DOMAIN-SUFFIX,megaupload.com
 DOMAIN-SUFFIX,mercedes-benz.com
+DOMAIN-SUFFIX,merriam-webster.com
 DOMAIN-SUFFIX,meta.com
 DOMAIN-SUFFIX,micron.com
 DOMAIN-SUFFIX,microsoft.com
@@ -933,7 +935,7 @@ DOMAIN-SUFFIX,tesla.com
 DOMAIN-SUFFIX,teslamotors.com
 DOMAIN-SUFFIX,test-app.link
 DOMAIN-SUFFIX,tgstat.com
-DOMAIN-SUFFIX,theporndude.com
+DOMAIN-SUFFIX,thesaurus.com
 DOMAIN-SUFFIX,thomsoninnovate.org
 DOMAIN-SUFFIX,thomsonreuters.com
 DOMAIN-SUFFIX,threema.ch
@@ -1065,7 +1067,6 @@ DOMAIN-SUFFIX,wimpmusic.com
 DOMAIN-SUFFIX,wipo.int
 DOMAIN-SUFFIX,wipsglobal.com
 DOMAIN-SUFFIX,wireguard.com
-DOMAIN-SUFFIX,withgoogle.com
 DOMAIN-SUFFIX,w-mt.co
 DOMAIN-SUFFIX,wolframalpha.com
 DOMAIN-SUFFIX,wordpress.com

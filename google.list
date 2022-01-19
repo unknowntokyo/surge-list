@@ -13,6 +13,8 @@ DOMAIN-SUFFIX,g.co
 DOMAIN-SUFFIX,g.dev
 DOMAIN-SUFFIX,g.page
 DOMAIN-SUFFIX,gcr.io
+DOMAIN-SUFFIX,gogle.com
+DOMAIN-SUFFIX,gogole.com
 DOMAIN-SUFFIX,goo.gl
 DOMAIN-SUFFIX,google.cn
 DOMAIN-SUFFIX,google.co.jp
@@ -40,4 +42,5 @@ DOMAIN-SUFFIX,gvt6.com
 DOMAIN-SUFFIX,gvt7.com
 DOMAIN-SUFFIX,gvt9.com
 DOMAIN-SUFFIX,hey.gle
+DOMAIN-SUFFIX,withgoogle.com
 DOMAIN-KEYWORD,google
