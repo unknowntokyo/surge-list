@@ -44,9 +44,6 @@ DOMAIN-SUFFIX,amazonvideo.com
 DOMAIN-SUFFIX,amd.com
 DOMAIN-SUFFIX,amemv.com
 DOMAIN-SUFFIX,amplitude.com
-DOMAIN-SUFFIX,ampproject.com
-DOMAIN-SUFFIX,ampproject.net
-DOMAIN-SUFFIX,ampproject.org
 DOMAIN-SUFFIX,android.com
 DOMAIN-SUFFIX,androidfilehost.com
 DOMAIN-SUFFIX,androidify.com
@@ -386,7 +383,6 @@ DOMAIN-SUFFIX,gratisography.com
 DOMAIN-SUFFIX,gravatar.com
 DOMAIN-SUFFIX,greasyfork.org
 DOMAIN-SUFFIX,greatfire.org
-DOMAIN-SUFFIX,gstatic.com
 DOMAIN-SUFFIX,gwm-global.com
 DOMAIN-SUFFIX,hackl0us.com
 DOMAIN-SUFFIX,havoc-os.com
