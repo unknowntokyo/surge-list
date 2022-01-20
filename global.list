@@ -772,8 +772,8 @@ DOMAIN-SUFFIX,pros.ee
 DOMAIN-SUFFIX,pse.is
 DOMAIN-SUFFIX,pubg.com
 DOMAIN-SUFFIX,pubgmobile.com
-DOMAIN,pubnub.com
-DOMAIN,pubnubapi.com
+DOMAIN-SUFFIX,pubnub.com
+DOMAIN-SUFFIX,pubnubapi.com
 DOMAIN-SUFFIX,puma.com
 DOMAIN-SUFFIX,pximg.net
 DOMAIN-SUFFIX,python.org
