@@ -211,6 +211,7 @@ DOMAIN-SUFFIX,cloudfront.net
 DOMAIN-SUFFIX,cloudfunctions.net
 DOMAIN-SUFFIX,cloudmagic.com
 DOMAIN-SUFFIX,clubhouse.com
+DOMAIN-SUFFIX,clubhouseapi.com
 DOMAIN-SUFFIX,cnbc.com
 DOMAIN-SUFFIX,cnbcfm.com
 DOMAIN-SUFFIX,cnet.com
@@ -525,6 +526,7 @@ DOMAIN-SUFFIX,jetbrains.com
 DOMAIN-SUFFIX,jetbrains.net
 DOMAIN-SUFFIX,jetbrains.space
 DOMAIN-SUFFIX,jetbrains.team
+DOMAIN-SUFFIX,joinclubhouse.com
 DOMAIN-SUFFIX,jp
 DOMAIN-SUFFIX,jquery.com
 DOMAIN-SUFFIX,jsboxbbs.com
@@ -770,6 +772,8 @@ DOMAIN-SUFFIX,pros.ee
 DOMAIN-SUFFIX,pse.is
 DOMAIN-SUFFIX,pubg.com
 DOMAIN-SUFFIX,pubgmobile.com
+DOMAIN,pubnub.com
+DOMAIN,pubnubapi.com
 DOMAIN-SUFFIX,puma.com
 DOMAIN-SUFFIX,pximg.net
 DOMAIN-SUFFIX,python.org
