@@ -10,6 +10,7 @@
   let total = info.total;
   let expire = args.expire || info.expire;
   let content = [`用量：${bytesToSize(used)} | ${bytesToSize(total)}`];
+    $persistentStore.write("Proxy", "test");
   let groupName = (await httpAPI("/v1/policy_groups/select?group_name=" + encodeURIComponent("Proxy") + "")).policy;
   $surge.setSelectGroupPolicy(groupName, "CordCloud");
 
