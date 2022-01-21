@@ -7,7 +7,7 @@
   
   //YTOO已使用流量超过90GB时，Proxy策略组自动切换至CordCloud策略，50GB以下默认使用Load-Balance策略
   let usedTraffic = bytesToSize(used).replace("GB", "");
-  let groupName = (await httpAPI("/v1/policy_groups/select?group_name=" + encodeURIComponent("Proxy") + "")).policy;
+  let groupName = (await httpAPI("/v1/policy_groups/select?group_name=Proxy")).policy;
   console.log(groupName);
   if (groupName != "CordCloud" && usedTraffic > 90 && resetDayLeft > 3) {
   $surge.setSelectGroupPolicy("Proxy", "CordCloud");
