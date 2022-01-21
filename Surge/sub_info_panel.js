@@ -6,7 +6,7 @@
 
   let used = info.download + info.upload;
   let usedTraffic = bytesToSize(used).replace("GB", "");
-  if (usedTraffic > 90) {
+  if (usedTraffic > 40) {
   $surge.setSelectGroupPolicy("Proxy", "CordCloud");
   }
   let total = info.total;
