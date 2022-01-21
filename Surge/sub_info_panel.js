@@ -5,7 +5,7 @@
   let resetDayLeft = getRmainingDays(parseInt(args["reset_day"]));
 
   let used = info.download + info.upload;
-  let usedTraffic = String(bytesToSize(used)).replace("GB", "")
+  let usedTraffic = bytesToSize(used).replace("GB", "")
   if (usedTraffic > 90) {
   $surge.setSelectGroupPolicy("Proxy", "CordCloud");
   }
