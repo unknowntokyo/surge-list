@@ -12,8 +12,7 @@
   if (resetDayLeft > 3) {
   $surge.setSelectGroupPolicy("Proxy", "CordCloud");
   }
-  }
-  if (groupName == "CordCloud" && usedTraffic <= 90) {
+  } else if (groupName == "CordCloud" && usedTraffic <= 90) {
     $surge.setSelectGroupPolicy("Proxy", "Load-Balance");
   }
   let total = info.total;
