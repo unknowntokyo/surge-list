@@ -3,12 +3,12 @@
   let info = await getDataInfo(args.url);
   if (!info) $done();
   let resetDayLeft = getRmainingDays(parseInt(args["reset_day"]));
-
   let used = info.download + info.upload;
-  let usedTraffic = bytesToSize(used).replace("GB", "");
+  
   //YTOO已使用流量超过90GB时，Proxy策略组自动切换至CordCloud策略，默认使用Load-Balance策略
+  let usedTraffic = bytesToSize(used).replace("GB", "");
   let groupName = (await httpAPI("/v1/policy_groups/select?group_name=" + encodeURIComponent("Proxy") + "")).policy;
-      console.log(groupName);
+  console.log(groupName);
   if (groupName != "CordCloud" && usedTraffic > 90 && resetDayLeft > 3) {
   $surge.setSelectGroupPolicy("Proxy", "CordCloud");
   } else if (groupName == "CordCloud" && usedTraffic <= 50) {
