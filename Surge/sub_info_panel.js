@@ -8,7 +8,6 @@
   //YTOO已使用流量超过90GB时，Proxy策略组自动切换至CordCloud策略，50GB以下默认使用Load-Balance策略
   let usedTraffic = bytesToSize(used).replace("GB", "");
   let groupName = (await httpAPI("/v1/policy_groups/select?group_name="+encodeURIComponent("Proxy")+"")).policy;
-  console.log(groupName);
   if (groupName != "CordCloud" && usedTraffic > 90 && resetDayLeft > 3) {
   $surge.setSelectGroupPolicy("Proxy", "CordCloud");
   } else if (groupName == "CordCloud" && usedTraffic <= 50) {
@@ -122,4 +121,12 @@ function formatTime(time) {
   let month = dateObj.getMonth() + 1;
   let day = dateObj.getDate();
   return year + "年" + month + "月" + day + "日";
+};
+
+function httpAPI(path = "", method = "GET", body = null) {
+    return new Promise((resolve) => {
+        $httpAPI(method, path, body, (result) => {
+            resolve(result);
+        });
+    });
 }
