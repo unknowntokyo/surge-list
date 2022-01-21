@@ -6,9 +6,14 @@
 
   let used = info.download + info.upload;
   let usedTraffic = bytesToSize(used).replace("GB", "");
-  //YTOO已使用流量超过90GB时，Proxy策略自动切换至CordCloud
-  if (usedTraffic > 90) {
+  //YTOO已使用流量超过90GB时，Proxy策略组自动切换至CordCloud策略，默认使用Load-Balance策略
+  let groupName = (await httpAPI("/v1/policy_groups/select?group_name=" + encodeURIComponent("Proxy") + "")).policy;
+  if (groupName != "CordCloud" && usedTraffic > 90) {
+  if (resetDayLeft > 3) {
   $surge.setSelectGroupPolicy("Proxy", "CordCloud");
+  }
+  } else if (groupName == "CordCloud" && usedTraffic <= 90) {
+    $surge.setSelectGroupPolicy("Proxy", "Load-Balance");
   }
   let total = info.total;
   let expire = args.expire || info.expire;
