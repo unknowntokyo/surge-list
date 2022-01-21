@@ -6,6 +6,7 @@
 
   let used = info.download + info.upload;
   let usedTraffic = bytesToSize(used).replace("GB", "");
+  //YTOO已使用流量超过90GB时，Proxy策略自动切换至CordCloud
   if (usedTraffic > 40) {
   $surge.setSelectGroupPolicy("Proxy", "CordCloud");
   }
