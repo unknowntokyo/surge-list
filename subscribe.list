@@ -11,7 +11,7 @@ DOMAIN-SUFFIX,githubassets.com
 DOMAIN-SUFFIX,githubplus.com
 DOMAIN-SUFFIX,githubusercontent.com
 DOMAIN-SUFFIX,githubstatus.com
-//DOMAIN-SUFFIX,sub.store
+DOMAIN-SUFFIX,sub.store
 DOMAIN-SUFFIX,sublink.dev
 DOMAIN-SUFFIX,texon.io
 DOMAIN-SUFFIX,vercel.app
