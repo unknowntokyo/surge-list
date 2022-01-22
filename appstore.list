@@ -1,3 +1,4 @@
+# App Store
 USER-AGENT,AppStore*
 USER-AGENT,App%20Store*
 USER-AGENT,com.apple.appstored*
