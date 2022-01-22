@@ -1,5 +1,5 @@
 hostname = api.m.jd.com,bdsp-x.jd.com,duckduckgo.com, mp.weixin.qq.com,ms.jr.jd.com,oss.umetrip.com,sub.store,www.google.cn,www.zhihu.com,*.baidu.com,
-//simple_cert_hostname=sub.store
+simple_cert_hostname=sub.store
 
 ^https?://(www.)?(g|google).cn url 302 https://www.google.co.jp
 
@@ -26,8 +26,6 @@ hostname = api.m.jd.com,bdsp-x.jd.com,duckduckgo.com, mp.weixin.qq.com,ms.jr.jd.
 ^https:\/\/duckduckgo.com\/\?q=(?!dl(c|e|j)(\+|%20))([^&]+).+ url 302 https://www.google.co.jp/search?q=$3&num=30
 
 ^https?://mp\.weixin\.qq\.com/mp/getappmsgad url script-response-body https://raw.githubusercontent.com/NobyDa/Script/master/QuantumultX/File/Wechat.js
-
-//^https?:\/\/sub\.store url script-analyze-echo-response https://raw.githubusercontent.com/Peng-YM/Sub-Store/master/backend/sub-store.min.js
 
 ^https?://api\.m\.jd\.com/client\.action\?functionId=(wareBusiness|serverConfig|basicConfig) url script-response-body https://raw.githubusercontent.com/yichahucha/surge/master/jd_price.js
 
