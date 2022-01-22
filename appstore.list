@@ -9,3 +9,9 @@ DOMAIN-SUFFIX,apple-mapkit.com
 DOMAIN-SUFFIX,appsto.re
 DOMAIN-SUFFIX,appstore.com
 DOMAIN-SUFFIX,mzstatic.com
+
+# iOS Update
+DOMAIN,gdmf.apple.com
+DOMAIN,mesu.apple.com
+DOMAIN,updates-http.cdn-apple.com
+DOMAIN,xp.apple.com
