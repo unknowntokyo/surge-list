@@ -12,6 +12,5 @@ DOMAIN-SUFFIX,appstore.com
 DOMAIN-SUFFIX,mzstatic.com
 
 # iOS Update
+DOMAIN-SUFFIX,cdn-apple.com
 DOMAIN,gdmf.apple.com
-DOMAIN,updates.cdn-apple.com
-DOMAIN,updates-http.cdn-apple.com
