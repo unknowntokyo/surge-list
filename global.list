@@ -30,6 +30,7 @@ DOMAIN-SUFFIX,agora.io
 DOMAIN-SUFFIX,ahcdn.com
 DOMAIN-SUFFIX,aida64.com
 DOMAIN-SUFFIX,airtable.com
+DOMAIN-SUFFIX,aisin.com
 DOMAIN-SUFFIX,alcatel-home.com
 DOMAIN-SUFFIX,alcatelmobile.com
 DOMAIN-SUFFIX,alexa.com
@@ -155,6 +156,7 @@ DOMAIN-SUFFIX,bmw.com
 DOMAIN-SUFFIX,bmwusa.com
 DOMAIN-SUFFIX,booth.pm
 DOMAIN-SUFFIX,bootstrapcdn.com
+DOMAIN-SUFFIX,bosch.com
 DOMAIN-SUFFIX,bostondynamics.com
 DOMAIN-SUFFIX,branch.io
 DOMAIN-SUFFIX,broadcom.com
@@ -221,6 +223,7 @@ DOMAIN-SUFFIX,cn-ki.net
 DOMAIN-SUFFIX,cnn.com
 DOMAIN-SUFFIX,codespot.com
 DOMAIN-SUFFIX,coding.net
+DOMAIN-SUFFIX,continental.com
 DOMAIN-SUFFIX,converse.com
 DOMAIN-SUFFIX,cookielaw.org
 DOMAIN-SUFFIX,core-wireless.com
@@ -241,6 +244,7 @@ DOMAIN-SUFFIX,ddh.gg
 DOMAIN-SUFFIX,debug.com
 DOMAIN-SUFFIX,deepl.com
 DOMAIN-SUFFIX,dell.com
+DOMAIN-SUFFIX,denso.com
 DOMAIN-SUFFIX,derwentinnovation.com
 DOMAIN-SUFFIX,dgg.gg
 DOMAIN-SUFFIX,dial.meet
@@ -444,6 +448,7 @@ DOMAIN-SUFFIX,hicloud.com
 DOMAIN-SUFFIX,higithub.com
 DOMAIN-SUFFIX,himalaya.com
 DOMAIN-SUFFIX,hinet.net
+DOMAIN-SUFFIX,hitachi.com
 DOMAIN-SUFFIX,hk
 DOMAIN-SUFFIX,hkbn.net
 DOMAIN-SUFFIX,hkbnes.net
@@ -467,6 +472,7 @@ DOMAIN-SUFFIX,hulusports.com
 DOMAIN-SUFFIX,hulustream.com
 DOMAIN-SUFFIX,huluteam.com
 DOMAIN-SUFFIX,hulutv.com
+DOMAIN-SUFFIX,hyundai.com
 DOMAIN-SUFFIX,ibm
 DOMAIN-SUFFIX,ibm.com
 DOMAIN-SUFFIX,ibytedtos.com
@@ -820,6 +826,7 @@ DOMAIN-SUFFIX,sandisk.com
 DOMAIN-SUFFIX,savefile.su
 DOMAIN-SUFFIX,sbuxcard.com
 DOMAIN-SUFFIX,sc-cdn.net
+DOMAIN-SUFFIX,schaeffler.com
 DOMAIN-SUFFIX,sciencedaily.com
 DOMAIN-SUFFIX,scmp.com
 DOMAIN-SUFFIX,scriptable.app
@@ -1120,4 +1127,5 @@ DOMAIN-SUFFIX,ytimg.com
 DOMAIN-SUFFIX,zaobao.com
 DOMAIN-SUFFIX,zdassets.com
 DOMAIN-SUFFIX,zendesk.com
+DOMAIN-SUFFIX,zf.com
 DOMAIN-SUFFIX,zippo.com
