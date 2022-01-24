@@ -1,59 +1,6 @@
 #!name=Rewrite & Script
 #!desc=URL重定向 & 微信去公众号文章广告 & Q-Search & 京东比价
 
-[Host]
-# > Apple
-aaplimg.com = server:119.29.29.29
-apple.com = server:119.29.29.29
-apple.com.cn = server:119.29.29.29
-apple-cloudkit.com = server:119.29.29.29
-apple-mapkit.com = server:119.29.29.29
-cdn-apple.com = server:119.29.29.29
-icloud.com = server:119.29.29.29
-icloud.com.cn = server:119.29.29.29
-mzstatic.com = server:119.29.29.29
-*.aaplimg.com = server:119.29.29.29
-*.apple.com = server:119.29.29.29
-*.apple-cloudkit.com = server:119.29.29.29
-*.apple-mapkit.com = server:119.29.29.29
-*.cdn-apple.com = server:119.29.29.29
-*.icloud.com = server:119.29.29.29
-*.icloud.com.cn = server:119.29.29.29
-*.mzstatic.com = server:119.29.29.29
-*apple.com.akadns.net = server:119.29.29.29
-*.apple.com.edgekey.net = server:119.29.29.29
-*.apple.com.edgekey.net.globalredir.akadns.net = server:119.29.29.29
-*icloud.com.akadns.net = server:119.29.29.29
-
-# > BAT
-*.alicdn.com = server:223.5.5.5
-*.alipay.com = server:223.5.5.5
-*.aliyun.com = server:223.5.5.5
-*.taobao.com = server:223.5.5.5
-*.tmall.com = server:223.5.5.5
-*.bilibili.com = server:119.29.29.29
-*.jd.com = server:119.29.29.29
-*.qq.com = server:119.29.29.29
-*.tencent.com = server:119.29.29.29
-*.weixin.com = server:119.29.29.29
-*.126.com = server:119.29.29.29
-*.126.net = server:119.29.29.29
-*.127.net = server:119.29.29.29
-*.163.com = server:119.29.29.29
-*.mi.com = server:119.29.29.29
-*.xiaomi.com = server:119.29.29.29
-
-# > Router
-dlinkrouter.local = server:syslib
-linksyse7350.local = server:syslib
-linksyssmartwifi.com = server:syslib
-miwifi.com = server:syslib
-my.router = server:syslib
-myrouter.local = server:syslib
-router.asus.com = server:syslib
-routerlogin.com = server:syslib
-routerlogin.net = server:syslib
-
 [URL Rewrite]
 ^https?://(www.)?(g|google).cn https://www.google.co.jp 302
 
