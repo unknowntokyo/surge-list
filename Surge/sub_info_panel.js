@@ -5,13 +5,31 @@
   let resetDayLeft = getRmainingDays(parseInt(args["reset_day"]));
   let used = info.download + info.upload;
   
-  //YTOO已使用流量超过80GB，且距离流量重置日不足5天时，Proxy策略组自动切换至Texon's Lab策略；已使用流量在50GB以下时，默认使用Load-Balance策略。
+  //YTOO已使用流量超过90GB，Proxy策略组自动切换至Texon's Lab策略；已使用流量不足90GB时，默认使用Load-Balance策略。
   let usedTraffic = bytesToSize(used).replace("GB", "");
-  let groupName = (await httpAPI("/v1/policy_groups/select?group_name="+encodeURIComponent("Proxy")+"")).policy;
-  if (groupName != "Texon's Lab" && usedTraffic >80 && resetDayLeft < 5) {
-  $surge.setSelectGroupPolicy("Proxy", "Texon's Lab");
-  } else if (groupName == "Texon's Lab" && usedTraffic < 80) {
-    $surge.setSelectGroupPolicy("Proxy", "Load-Balance");
+  let groupName = (await httpAPI("/v1/policy_groups/select?group_name="+encodeURIComponent("Proxy")+"")).policy; 
+  switch (groupName){
+    case "Load-Balance":
+      if (usedTraffic >90) {
+      $surge.setSelectGroupPolicy("Proxy", "Texon's Lab");
+      }
+      break; 
+    case "Texon's Lab":
+      if (usedTraffic <= 90) {
+      $surge.setSelectGroupPolicy("Proxy", "Load-Balance");
+      }
+      break;
+    case "AutoGroup":
+      if (usedTraffic >90) {
+      $surge.setSelectGroupPolicy("Proxy", "Texon's Lab");
+      }
+      break; 
+    case "FallBack":
+      if (usedTraffic >90) {
+      $surge.setSelectGroupPolicy("Proxy", "Texon's Lab");
+      }
+      break; 
+    default:
   }
   let total = info.total;
   let expire = args.expire || info.expire;

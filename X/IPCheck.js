@@ -12,13 +12,12 @@ switch (datacenter){
       } else {
       var description = 'IP地址：' + ip;
       }
-      break
+      break;
     default:
       if (carrier != "" && carrier != datacenter) {
       var description = 'IP地址：' + ip + '\n运营商：' + carrier + '\n数据中心：' + datacenter;
       } else {
       var description = 'IP地址：' + ip + '\n数据中心：' + datacenter;
       }
-      break
   }
   $done({title, subtitle, ip, description});
