@@ -10,7 +10,7 @@
   let groupName = (await httpAPI("/v1/policy_groups/select?group_name="+encodeURIComponent("Proxy")+"")).policy;
   if (groupName != "Texon's Lab" && usedTraffic >80 && resetDayLeft < 5) {
   $surge.setSelectGroupPolicy("Proxy", "Texon's Lab");
-  } else if (groupName == "Texon's Lab" && usedTraffic < 50) {
+  } else if (groupName == "Texon's Lab" && usedTraffic < 80) {
     $surge.setSelectGroupPolicy("Proxy", "Load-Balance");
   }
   let total = info.total;
