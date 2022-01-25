@@ -17,7 +17,7 @@
         let moduleBody = {};
         moduleBody[module] = !moduleState;
         await httpAPI("/v1/modules", "POST", moduleBody);
-        await sleep(100);
+        await sleep(10);
     }
     moduleState = (await httpAPI("/v1/modules")).enabled.includes(module);
     if (moduleState) panel["icon-color"] = color2 ? color2 : "#E94335";
