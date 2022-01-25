@@ -35,7 +35,6 @@
         if (capture == mitmall){
             await httpAPI("/v1/features/capture", "POST", { enabled: !capture });
         await httpAPI("/v1/modules", "POST", moduleBody);
-        await sleep(10);
     }
     }
     capture = (await httpAPI("/v1/features/capture")).enabled;
@@ -70,8 +69,4 @@ function httpAPI(path = "", method = "GET", body = null) {
             resolve(result);
         });
     });
-}
-
-function sleep(time) {
-    return new Promise((resolve) => setTimeout(resolve, time));
 }

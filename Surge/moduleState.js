@@ -17,7 +17,6 @@
         let moduleBody = {};
         moduleBody[module] = !moduleState;
         await httpAPI("/v1/modules", "POST", moduleBody);
-        await sleep(10);
     }
     moduleState = (await httpAPI("/v1/modules")).enabled.includes(module);
     if (moduleState) panel["icon-color"] = color2 ? color2 : "#E94335";
@@ -32,8 +31,4 @@ function httpAPI(path = "", method = "GET", body = null) {
             resolve(result);
         });
     });
-}
-
-function sleep(time) {
-    return new Promise((resolve) => setTimeout(resolve, time));
 }
