@@ -1102,8 +1102,3 @@ DOMAIN-SUFFIX,zuoyebang.cc
 DOMAIN-SUFFIX,zuoyebang.com
 DOMAIN-SUFFIX,zybang.com
 DOMAIN-SUFFIX,zzzstudio.net
-IP-CIDR,119.29.29.29/32,no-resolve
-
-# Tencent
-IP-CIDR,182.254.116.0/24
-IP-CIDR,203.205.254.0/23
