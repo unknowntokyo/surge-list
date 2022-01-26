@@ -1,5 +1,5 @@
 #!name=DNS over HTTPS
-#!desc=开启 DoH 加密解析
+#!desc=开启 DoH 加密解析，避免DNS劫持
 
 [General]
 doh-server = https://dns.alidns.com/dns-query
