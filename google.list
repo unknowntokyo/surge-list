@@ -5,9 +5,11 @@ DOMAIN-SUFFIX,amp.dev
 DOMAIN-SUFFIX,ampproject.com
 DOMAIN-SUFFIX,ampproject.net
 DOMAIN-SUFFIX,ampproject.org
+DOMAIN-SUFFIX,api.ai
 DOMAIN-SUFFIX,app-measurement.com
 DOMAIN-SUFFIX,appmeasurement.com
 DOMAIN-SUFFIX,app-measurement.net
+DOMAIN-SUFFIX,g.ai
 DOMAIN-SUFFIX,g.cn
 DOMAIN-SUFFIX,g.co
 DOMAIN-SUFFIX,g.dev
@@ -16,6 +18,7 @@ DOMAIN-SUFFIX,gcr.io
 DOMAIN-SUFFIX,gogle.com
 DOMAIN-SUFFIX,gogole.com
 DOMAIN-SUFFIX,goo.gl
+DOMAIN-SUFFIX,google.ai
 DOMAIN-SUFFIX,google.cn
 DOMAIN-SUFFIX,google.co.jp
 DOMAIN-SUFFIX,google.com
