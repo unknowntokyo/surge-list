@@ -1,6 +1,6 @@
 // DoH网络白名单脚本 AutoDoH = type=event,event-name=network-changed,timeout=7,script-path=https://raw.githubusercontent.com/unknowntokyo/surge-list/master/Surge/AutoDoH.js,script-update-interval=86400
 
-const Whitessid1 = "L";
+const Whitessid1 = "qL";
 const Whitessid2 = "Linksys";
 const Whitessid3 = "Linksys_5G";
 const Whitessid4 = "WhiteSSID4";
