@@ -13,7 +13,7 @@ const getModuleStatus = new Promise((resolve) => {
 
 getModuleStatus.then((enabled) => {
   if (home && enabled) {
-    //家里,关闭模块
+    //在家里,关闭模块
 	enableModule(false);
   } else if (!home && !enabled) {
     //不在家里,开启模块
