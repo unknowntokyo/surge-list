@@ -1,4 +1,7 @@
-# > TLD域名需在 TLD.list 手动补充
+# > TLD域名需在 Ext.list 手动补充
+PROCESS-NAME,/Applications/MacUpdater.app/Contents/MacOS/MacUpdater
+PROCESS-NAME,/Applications/Speedtest.app/Contents/MacOS/Speedtest
+USER-AGENT,SpeedTest*
 DOMAIN-SUFFIX,de
 DOMAIN-SUFFIX,eu
 DOMAIN-SUFFIX,hk
