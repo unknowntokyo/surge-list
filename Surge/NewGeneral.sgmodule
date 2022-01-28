@@ -1,25 +1,6 @@
 #!name=Rewrite & Script
 #!desc=URL重定向 & 微信去公众号文章广告 & Q-Search & 京东比价
 
-[Rule]
-# > TLD域名需在 NewGeneral.sgmodule 手动补充
-DOMAIN-SUFFIX,cn,DIRECT
-DOMAIN-SUFFIX,de,Proxy
-DOMAIN-SUFFIX,eu,Proxy
-DOMAIN-SUFFIX,hk,Proxy
-DOMAIN-SUFFIX,in,Proxy
-DOMAIN-SUFFIX,jp,Proxy
-DOMAIN-SUFFIX,kr,Proxy
-DOMAIN-SUFFIX,nl,Proxy
-DOMAIN-SUFFIX,ru,Proxy
-DOMAIN-SUFFIX,sg,Proxy
-DOMAIN-SUFFIX,tk,Proxy
-DOMAIN-SUFFIX,tw,Proxy
-DOMAIN-SUFFIX,uk,Proxy
-DOMAIN-SUFFIX,us,Proxy
-DOMAIN-SUFFIX,ibm,Proxy
-DOMAIN-SUFFIX,mit,Proxy
-
 [URL Rewrite]
 ^https?://(www.)?(g|google).cn https://www.google.co.jp 302
 

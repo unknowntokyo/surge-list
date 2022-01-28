@@ -1,4 +1,4 @@
-# > TLD域名需在 NewGeneral.sgmodule 手动补充
+# > TLD域名需在 TLD.list 手动补充
 router.asus.com
 time.apple.com
 time.asia.apple.com
