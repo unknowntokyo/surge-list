@@ -13,10 +13,10 @@ const getModuleStatus = new Promise((resolve) => {
 
 getModuleStatus.then((enabled) => {
   if (Workplace && !enabled) {
-    //在公司WIFI下,开启模块
+    //在公司网络环境下,开启DoH
 	enableModule(true);
   } else if (!Workplace && enabled) {
-    //非公司WIFI下,关闭模块
+    //在移动网络/非公司网络环境下,关闭DoH
 	enableModule(false);
   } else {
 	//其他情況 => 重复触发 => 结束
