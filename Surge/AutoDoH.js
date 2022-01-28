@@ -1,7 +1,7 @@
-// AutoDoH = type=event,event-name=network-changed,script-path=https://raw.githubusercontent.com/unknowntokyo/surge-list/master/Surge/AutoDoH.js,script-update-interval=86400
+// AutoDoH = type=event,event-name=network-changed,timeout=7,script-path=https://raw.githubusercontent.com/unknowntokyo/surge-list/master/Surge/AutoDoH.js,script-update-interval=86400
 
-const ssid1 = "Linksys_5G";
-const ssid2 = "ZEEKR";
+const ssid1 = "Linksys_Test";
+const ssid2 = "Test2";
 const name = "DNS over HTTPS";
 let Workplace = ($network.wifi.ssid === ssid1) || ($network.wifi.ssid === ssid2);
 
