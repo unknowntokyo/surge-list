@@ -1,6 +1,6 @@
 !(async () => {
-    let panel = { title: "Flush DNS" },
-        showServer = true,
+    let panel = { title: "Flush DNS" };
+        showServer = true;
         dnsCache;
     if (typeof $argument != "undefined") {
         let arg = Object.fromEntries($argument.split("&").map((item) => item.split("=")));
