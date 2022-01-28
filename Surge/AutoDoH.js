@@ -16,7 +16,7 @@ const getModuleStatus = new Promise((resolve) => {
 
 getModuleStatus.then((enabled) => {
   if (!ExcludeArea && !enabled) {
-    //在非白名单网络环境下,开启DoH
+    //在黑名单网络环境下,开启DoH
 	enableModule(true);
   } else if (ExcludeArea && enabled) {
     //在白名单网络环境下,关闭DoH
