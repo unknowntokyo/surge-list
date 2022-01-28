@@ -28,8 +28,8 @@ getModuleStatus.then((enabled) => {
 	$done();
   }
 });
+})();
 
 function enableModule(status) {
   $httpAPI("POST", "v1/modules", { [name]: status }, () => $done());
-}
 }
