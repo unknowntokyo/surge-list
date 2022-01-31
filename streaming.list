@@ -1,12 +1,3 @@
-# > CDN/Cloud
-DOMAIN-SUFFIX,akamai.com
-DOMAIN-SUFFIX,akamai.net
-DOMAIN-SUFFIX,akamaiedge.net
-DOMAIN-SUFFIX,akamaihd.net
-DOMAIN-SUFFIX,akamaistream.net
-DOMAIN-SUFFIX,akamaized.net
-DOMAIN-SUFFIX,amazonaws.com
-
 # > YouTube
 PROCESS-NAME,/Applications/MacUpdater.app/Contents/MacOS/MacUpdater
 USER-AGENT,*youtube*
@@ -400,3 +391,12 @@ USER-AGENT,ViuTV*
 DOMAIN,api.viu.now.com
 DOMAIN-SUFFIX,viu.com
 DOMAIN-SUFFIX,viu.tv
+
+# > CDN/Cloud
+DOMAIN-SUFFIX,akamai.com
+DOMAIN-SUFFIX,akamai.net
+DOMAIN-SUFFIX,akamaiedge.net
+DOMAIN-SUFFIX,akamaihd.net
+DOMAIN-SUFFIX,akamaistream.net
+DOMAIN-SUFFIX,akamaized.net
+DOMAIN-SUFFIX,amazonaws.com
