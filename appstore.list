@@ -1,4 +1,4 @@
-# App Store
+# > App Store
 USER-AGENT,AppStore*
 USER-AGENT,App%20Store*
 USER-AGENT,com.apple.appstored*
@@ -11,6 +11,6 @@ DOMAIN-SUFFIX,appsto.re
 DOMAIN-SUFFIX,appstore.com
 DOMAIN-SUFFIX,mzstatic.com
 
-# iOS Update
+# > iOS Update
 DOMAIN-SUFFIX,cdn-apple.com
 DOMAIN,gdmf.apple.com
