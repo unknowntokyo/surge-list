@@ -9,10 +9,13 @@ DOMAIN-SUFFIX,telegra.ph
 DOMAIN-SUFFIX,telegram.dog
 DOMAIN-SUFFIX,telegram.me
 DOMAIN-SUFFIX,telegram.org
+DOMAIN-SUFFIX,telegram.plus
 DOMAIN-SUFFIX,telegram.space
 DOMAIN-SUFFIX,telegramdownload.com
+DOMAIN-SUFFIX,telegre.at
 DOMAIN-SUFFIX,telesco.pe
 DOMAIN-SUFFIX,tg.dev
+DOMAIN-SUFFIX,tjhorner.dev
 DOMAIN-SUFFIX,tx.me
 IP-CIDR,91.105.192.0/23,no-resolve
 IP-CIDR,91.108.0.0/16,no-resolve
