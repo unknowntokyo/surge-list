@@ -9,8 +9,10 @@ switch (datacenter){
     case "":
       if (carrier != "") {
       var description = 'IP地址：' + ip + '\n运营商：' + carrier;
+      subtitle = carrier
       } else {
       var description = 'IP地址：' + ip;
+      subtitle = ip
       }
       break;
     default:
@@ -20,10 +22,4 @@ switch (datacenter){
       var description = 'IP地址：' + ip + '\n数据中心：' + datacenter;
       }
   }
-switch (subtitle){
-    case "":
-        $done({title, ip, description});
-      break;
-    default:
-        $done({title, subtitle, ip, description});
-  }
+  $done({title, subtitle, ip, description});
