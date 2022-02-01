@@ -9,7 +9,7 @@ const AREA_TEST_FILM_ID = 80018499
     let newStatus = status
     let reg = regionCode
     if (status < 0) {
-      console.log("连接超时了，再测一次")
+      console.log("连接超时，请再试一次")
       await timeout(1000).catch(() => { })
       let { status, regionCode } = await testPolicy();
       newStatus = status
@@ -81,9 +81,9 @@ const AREA_TEST_FILM_ID = 80018499
         let { status, regionCode } = await testPolicy();
         newStatus = status
         reg = regionCode
-        /* 检测超时 再测一次 */
+        /* 检测超时，请再试一次 */
         if (status < 0) {
-          console.log(selectName[i] + ": 连接超时了，再测一次")
+          console.log(selectName[i] + ": 连接超时，请再试一次")
           await timeout(1000).catch(() => { })
           let { status, regionCode } = await testPolicy();
           newStatus = status
