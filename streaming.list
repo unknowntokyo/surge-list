@@ -231,9 +231,13 @@ DOMAIN-SUFFIX,joox.com
 DOMAIN-KEYWORD,jooxweb-api
 
 # > KKBOX
+DOMAIN-SUFFIX,kfs.io
+DOMAIN-SUFFIX,kk.stream
 DOMAIN-SUFFIX,kkbox.com
 DOMAIN-SUFFIX,kkbox.com.tw
-DOMAIN-SUFFIX,kfs.io
+DOMAIN-SUFFIX,kktix.com
+DOMAIN-SUFFIX,kktv.com.tw
+DOMAIN-SUFFIX,kktv.me
 
 # > Overcast
 USER-AGENT,Overcast*
