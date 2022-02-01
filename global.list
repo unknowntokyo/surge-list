@@ -1,4 +1,3 @@
-# > TLD域名需在 TLD.list 手动补充
 .1conan.com
 .1mg.com
 .2checkout.com
@@ -127,7 +126,6 @@
 .bbc.com
 .beibao.com
 .belkin.com
-.berkeley.edu
 .bestbuy.com
 .bestbuy.com.mx
 .bestbuy.info
@@ -154,7 +152,6 @@
 .binance.com
 .binance.im
 .binance.me
-.binance.us
 .bing.com
 .bingner.com
 .bintray.com
@@ -294,7 +291,6 @@
 .ddg.co
 .ddg.gg
 .ddh.gg
-.de
 .debug.com
 .deepdyve.com
 .deepl.com
@@ -394,7 +390,6 @@
 .espn.net
 .espncdn.com
 .espnqa.com
-.eu
 .euronews.com
 .europepmc.org
 .evise.com
@@ -408,7 +403,6 @@
 .fb.me
 .fbcdn.net
 .fc2.com
-.fda.gov
 .f-droid.org
 .feedly.com
 .feedx.net
@@ -528,7 +522,6 @@
 .hindawi.com
 .hinet.net
 .hitachi.com
-.hk
 .hkbn.net
 .hkbnes.net
 .hockeyapp.net
@@ -545,13 +538,11 @@
 .humblebundle.com
 .huobi.com
 .hyundai.com
-.ibm
 .ibm.com
 .ibruce.info
 .ib-soft.net
 .ibytedtos.com
 .ibyteimg.com
-.ic.ac.uk
 .icevirtuallibrary.com
 .ichitaso.com
 .idc.wiki
@@ -568,11 +559,9 @@
 .img.ly
 .imgur.com
 .imgurinc.com
-.imperial.ac.uk
 .imperial.insendi.com
 .imperialbusiness.school
 .imtoken.fans
-.in
 .in.com
 .incendo.ws
 .indiatimes.com
@@ -628,11 +617,9 @@
 .jetbrains.net
 .jetbrains.space
 .jetbrains.team
-.jhu.edu
 .jmlr.org
 .jneurosci.org
 .joinclubhouse.com
-.jp
 .jquery.com
 .jsboxbbs.com
 .jsdelivr.com
@@ -656,10 +643,8 @@
 .konami.com
 .kotlinlang.org
 .kpmg.com
-.kr
 .kuke.com
 .lastpass.com
-.lawdata.com.tw
 .ldoceonline.com
 .leaseweb.com
 .legendary.com
@@ -726,7 +711,6 @@
 .medlife.com
 .medplusmart.com
 .mega.io
-.mega.nz
 .megaupload.com
 .mercedes-benz.com
 .merckgroup.com
@@ -739,8 +723,6 @@
 .minecraft.net
 .minecraftshop.com
 .misaka.io
-.mit
-.mit.edu
 .mit.net
 .mitpressjournals.org
 .mitsea.com
@@ -760,7 +742,6 @@
 .mozilla.org
 .mozillademos.org
 .mozit.cloud
-.mpg.de
 .msauth.net
 .mtcgame.com
 .muddywatersresearch.com
@@ -769,7 +750,6 @@
 .muscdn.com
 .musical.ly
 .myilibrary.com
-.nasa.gov
 .nature.com
 .nbc.co
 .nbc.com
@@ -777,7 +757,6 @@
 .nbcsports.com
 .nbcudigitaladops.com
 .nbcuni.com
-.ncbi.nlm.nih.gov
 .ndmdhs.com
 .nejm.org
 .nektony.com
@@ -813,7 +792,6 @@
 .nissan-europe.com
 .nissan-global.com
 .nissanusa.com
-.nl
 .nokia.com
 .notebookcheck.com
 .notion.new
@@ -864,7 +842,6 @@
 .oup.com
 .ouplaw.com
 .ovid.com
-.ox.ac.uk
 .oxfordaasc.com
 .oxfordartonline.com
 .oxfordbibliographies.com
@@ -930,7 +907,6 @@
 .pplusstatic.com
 .ppy.sh
 .pricespider.com
-.princeton.edu
 .privacysimplified.com
 .privatebrowsingmyths.com
 .producthunt.com
@@ -981,7 +957,6 @@
 .rpxcorp.com
 .rsc.org
 .rsshub.app
-.ru
 .ryleyangus.com
 .sagepub.com
 .samsung.com
@@ -993,7 +968,6 @@
 .samsungqbe.com
 .sandisk.com
 .saurik.com
-.savefile.su
 .sbuxcard.com
 .sc-cdn.net
 .schaeffler.com
@@ -1004,7 +978,6 @@
 .sciencemag.org
 .sciencenets.com
 .scientificamerican.com
-.sci-hub.tw
 .scitation.org
 .scmp.com
 .scopus.com
@@ -1021,7 +994,6 @@
 .severcat.app
 .sf.net
 .sfx.ms
-.sg
 .sgpstatp.com
 .shadowsocks.org
 .sharp.com
@@ -1124,7 +1096,6 @@
 .t.meet
 .tableau.com
 .tampermonkey.net
-.tandf.co.uk
 .tandfonline.com
 .tapbots.com
 .tapbots.net
@@ -1160,7 +1131,6 @@
 .tiny.cc
 .tinychat.com
 .tinypic.com
-.tk
 .tmblr.co
 .toyota.com
 .toyota-europe.com
@@ -1172,7 +1142,6 @@
 .tumblr.co
 .tumblr.com
 .tuxfamily.org
-.tw
 .twickd.com
 .twrp.me
 .typekit.com
@@ -1182,25 +1151,18 @@
 .uber.com
 .ubertags.com
 .ubisoft.com
-.uchicago.edu
-.ucla.edu
-.uk
 .ukwhoswho.com
-.umass.edu
 .umbro.com
 .umc.com
 .un.org
 .unc0ver.dev
-.uni-bielefeld.de
 .unity3d.com
 .universitypressscholarship.com
 .unpkg.com
 .unsplash.com
 .uploadhouse.com
 .ups.com
-.us
 .userscloud.com
-.uspto.gov
 .v2ex.co
 .v2ex.com
 .v2fly.org
@@ -1221,7 +1183,6 @@
 .vimeo.com
 .visa.com
 .vmware.com
-.voa.gov
 .voa.mobi
 .voaafaanoromoo.com
 .voaafrique.com
@@ -1276,7 +1237,6 @@
 .whatsapp.com
 .whatsapp.net
 .whispersystems.org
-.whitehouse.gov
 .who.is
 .whoer.net
 .wikihow.com
@@ -1292,7 +1252,6 @@
 .wipo.int
 .wipsglobal.com
 .wireguard.com
-.wkap.nl
 .w-mt.co
 .wolframalpha.com
 .wordpress.com
@@ -1319,7 +1278,6 @@
 .xteko.com
 .yahoo.com
 .yahooapis.com
-.yale.edu
 .yamibuy.com
 .yandex.com
 .yandex.net
