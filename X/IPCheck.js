@@ -20,7 +20,7 @@ switch (datacenter){
       var description = 'IP地址：' + ip + '\n数据中心：' + datacenter;
       }
   }
-  switch (subtitle){
+switch (subtitle){
     case "":
         $done({title, ip, description});
       break;
