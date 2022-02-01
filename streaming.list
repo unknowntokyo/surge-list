@@ -397,7 +397,7 @@ DOMAIN,api.viu.now.com
 DOMAIN-SUFFIX,viu.com
 DOMAIN-SUFFIX,viu.tv
 
-# > CDN/Cloud
+# > CDN/AWS
 DOMAIN-SUFFIX,akamai.com
 DOMAIN-SUFFIX,akamai.net
 DOMAIN-SUFFIX,akamaiedge.net
