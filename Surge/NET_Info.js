@@ -17,7 +17,6 @@ $httpClient.get('http://ip-api.com/json/?lang=en', function (error, response, da
        "icon-color":"#369CF3",
     });
   });
-
 })();
 
 function httpAPI(path = "", method = "GET", body = null) {
