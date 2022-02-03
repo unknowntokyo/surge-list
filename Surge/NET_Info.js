@@ -9,7 +9,8 @@ $httpClient.get('http://ip-api.com/json/?lang=en', function (error, response, da
     const jsonData = JSON.parse(data);
   switch (`${jsonData.org}`){
     case "":
-          $done({
+      if (`${jsonData.isp}` != "") {
+      $done({
       title:"节点信息："+rootName,
       content:
 		`IP地址：${jsonData.query}\n`+
@@ -17,9 +18,19 @@ $httpClient.get('http://ip-api.com/json/?lang=en', function (error, response, da
       icon: "checkmark.icloud.fill",
        "icon-color":"#369CF3",
     });
+      } else {
+      $done({
+      title:"节点信息："+rootName,
+      content:
+		`IP地址：${jsonData.query}`,
+      icon: "checkmark.icloud.fill",
+       "icon-color":"#369CF3",
+    });
+      }
       break;
     default:
-          $done({
+      if (`${jsonData.isp}` != "" && `${jsonData.isp}` != `${jsonData.org}`) {
+      $done({
       title:"节点信息："+rootName,
       content:
 		`IP地址：${jsonData.query}\n`+
@@ -28,6 +39,16 @@ $httpClient.get('http://ip-api.com/json/?lang=en', function (error, response, da
       icon: "checkmark.icloud.fill",
        "icon-color":"#369CF3",
     });
+      } else {
+      $done({
+      title:"节点信息："+rootName,
+      content:
+		`IP地址：${jsonData.query}\n`+
+      `运营商：${jsonData.isp}`,
+      icon: "checkmark.icloud.fill",
+       "icon-color":"#369CF3",
+     });
+    }
    }
   });
 })();
