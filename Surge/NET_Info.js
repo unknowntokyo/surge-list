@@ -7,7 +7,7 @@ let rootName = (await httpAPI("/v1/policy_groups/select?group_name="+encodeURICo
 
 $httpClient.get('http://ip-api.com/json/?lang=en', function (error, response, data) {
     const jsonData = JSON.parse(data);
-    let datacenter = ${jsonData.org};
+    var datacenter = ${jsonData.org};
   switch (datacenter){
     case "":
           $done({
