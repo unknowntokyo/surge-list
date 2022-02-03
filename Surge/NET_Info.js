@@ -7,8 +7,7 @@ let rootName = (await httpAPI("/v1/policy_groups/select?group_name="+encodeURICo
 
 $httpClient.get('http://ip-api.com/json/?lang=en', function (error, response, data) {
     const jsonData = JSON.parse(data);
-    var datacenter = ${jsonData.org};
-  switch (datacenter){
+  switch (`${jsonData.org}`){
     case "":
           $done({
       title:"节点信息："+rootName,
