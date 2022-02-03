@@ -18,7 +18,6 @@ $httpClient.get('http://ip-api.com/json/?lang=en', function (error, response, da
       icon: "checkmark.icloud.fill",
        "icon-color":"#369CF3",
     });
-  });
       break;
     default:
           $done({
@@ -30,7 +29,6 @@ $httpClient.get('http://ip-api.com/json/?lang=en', function (error, response, da
       icon: "checkmark.icloud.fill",
        "icon-color":"#369CF3",
     });
-  });
   }
 })();
 
