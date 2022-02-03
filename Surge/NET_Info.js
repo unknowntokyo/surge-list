@@ -13,8 +13,7 @@ $httpClient.get('http://ip-api.com/json/?lang=en', function (error, response, da
       $done({
       title:"节点信息："+rootName,
       content:
-		`IP地址：${jsonData.query}\n`+
-      `运营商：${jsonData.isp}`,
+		`IP地址：${jsonData.query}\n` + `运营商：${jsonData.isp}\n` + `城市：${jsonData.city}`,
       icon: "checkmark.icloud.fill",
        "icon-color":"#369CF3",
     });
@@ -22,7 +21,7 @@ $httpClient.get('http://ip-api.com/json/?lang=en', function (error, response, da
       $done({
       title:"节点信息："+rootName,
       content:
-		`IP地址：${jsonData.query}`,
+		`IP地址：${jsonData.query}\n` + `城市：${jsonData.city}`,
       icon: "checkmark.icloud.fill",
        "icon-color":"#369CF3",
     });
@@ -33,9 +32,7 @@ $httpClient.get('http://ip-api.com/json/?lang=en', function (error, response, da
       $done({
       title:"节点信息："+rootName,
       content:
-		`IP地址：${jsonData.query}\n`+
-      `运营商：${jsonData.isp}\n` +
-		`数据中心：${jsonData.org}`,
+		`IP地址：${jsonData.query}\n` + `运营商：${jsonData.isp}\n` + `数据中心：${jsonData.org}`,
       icon: "checkmark.icloud.fill",
        "icon-color":"#369CF3",
     });
@@ -43,8 +40,7 @@ $httpClient.get('http://ip-api.com/json/?lang=en', function (error, response, da
       $done({
       title:"节点信息："+rootName,
       content:
-		`IP地址：${jsonData.query}\n`+
-      `运营商：${jsonData.isp}`,
+		`IP地址：${jsonData.query}\n` + `运营商：${jsonData.isp}\n` + `城市：${jsonData.city}`,
       icon: "checkmark.icloud.fill",
        "icon-color":"#369CF3",
      });
