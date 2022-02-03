@@ -7,8 +7,8 @@ DOMAIN-SUFFIX,ampproject.net
 DOMAIN-SUFFIX,ampproject.org
 DOMAIN-SUFFIX,api.ai
 DOMAIN-SUFFIX,app-measurement.com
-DOMAIN-SUFFIX,appmeasurement.com
 DOMAIN-SUFFIX,app-measurement.net
+DOMAIN-SUFFIX,appmeasurement.com
 DOMAIN-SUFFIX,g.ai
 DOMAIN-SUFFIX,g.cn
 DOMAIN-SUFFIX,g.co
@@ -23,9 +23,9 @@ DOMAIN-SUFFIX,google.cn
 DOMAIN-SUFFIX,google.co.jp
 DOMAIN-SUFFIX,google.com
 DOMAIN-SUFFIX,google.com.hk
+DOMAIN-SUFFIX,googleapis-cn.com
 DOMAIN-SUFFIX,googleapis.cn
 DOMAIN-SUFFIX,googleapis.com
-DOMAIN-SUFFIX,googleapis-cn.com
 DOMAIN-SUFFIX,googleapps.com
 DOMAIN-SUFFIX,googleblog.com
 DOMAIN-SUFFIX,googlebot.com
