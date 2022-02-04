@@ -361,6 +361,11 @@ USER-AGENT,mytv*
 DOMAIN-SUFFIX,mytvsuper.com
 DOMAIN-SUFFIX,tvb.com
 
+# > NBA
+DOMAIN-SUFFIX,opin.media
+DOMAIN-SUFFIX,nba.com
+DOMAIN-SUFFIX,neulion.com
+
 # > Pandora
 USER-AGENT,Pandora*
 DOMAIN-SUFFIX,pandora.com
