@@ -3,8 +3,34 @@
   let info = await getDataInfo(args.url);
   if (!info) $done();
   let resetDayLeft = getRmainingDays(parseInt(args["reset_day"]));
-
   let used = info.download + info.upload;
+  
+  //YTOO已使用流量超过85GB，Proxy策略组自动切换至Texon's Lab策略；已使用流量不足85GB时，默认使用Load-Balance策略。
+  let usedTraffic = bytesToSize(used).replace("GB", "");
+  let groupName = (await httpAPI("/v1/policy_groups/select?group_name="+encodeURIComponent("Proxy")+"")).policy; 
+  switch (groupName){
+    case "Load-Balance":
+      if (usedTraffic >85) {
+      $surge.setSelectGroupPolicy("Proxy", "Texon's Lab");
+      }
+      break; 
+    case "Texon's Lab":
+      if (usedTraffic <= 85) {
+      $surge.setSelectGroupPolicy("Proxy", "Load-Balance");
+      }
+      break;
+    case "AutoGroup":
+      if (usedTraffic >85) {
+      $surge.setSelectGroupPolicy("Proxy", "Texon's Lab");
+      }
+      break; 
+    case "FallBack":
+      if (usedTraffic >85) {
+      $surge.setSelectGroupPolicy("Proxy", "Texon's Lab");
+      }
+      break; 
+    default:
+  }
   let total = info.total;
   let expire = args.expire || info.expire;
   let content = [`用量：${bytesToSize(used)} | ${bytesToSize(total)}`];
@@ -113,4 +139,12 @@ function formatTime(time) {
   let month = dateObj.getMonth() + 1;
   let day = dateObj.getDate();
   return year + "年" + month + "月" + day + "日";
+};
+
+function httpAPI(path = "", method = "GET", body = null) {
+    return new Promise((resolve) => {
+        $httpAPI(method, path, body, (result) => {
+            resolve(result);
+        });
+    });
 }
