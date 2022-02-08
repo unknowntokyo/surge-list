@@ -34,7 +34,7 @@
     default:
   }
   let expire = args.expire || info.expire;
-  let content = [`用量：${bytesToSize(used)} | ${bytesToSize(total)} ${toPercent(proportion)}`];
+  let content = [`用量：${bytesToSize(used)} | ${bytesToSize(total)}`];
   if (resetDayLeft) {
     content.push(`重置：剩余${resetDayLeft}天`);
   }
@@ -50,7 +50,7 @@
   minutes = minutes > 9 ? minutes : "0" + minutes;
 
   $done({
-    title: `${args.title} | ${hour}:${minutes}`,
+    title: `${args.title} | ${hour}:${minutes} | 已用${toPercent(proportion)}`,
     content: content.join("\n"),
     icon: args.icon || "airplane.circle",
     "icon-color": args.color || "#007aff",
