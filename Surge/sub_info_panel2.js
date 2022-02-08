@@ -152,6 +152,6 @@ function httpAPI(path = "", method = "GET", body = null) {
 }
 
 function toPercent(proportion) {
-  const percent = Number(proportion*100).toFixed(2);
+  const percent = Number(proportion*100).toFixed(0);
   return percent + "%";
 }
