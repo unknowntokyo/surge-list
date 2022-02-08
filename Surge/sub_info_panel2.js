@@ -35,10 +35,10 @@
     default:
   }
   let expire = args.expire || info.expire;
-  let content = [`用量：${bytesToSize(used)} 已用${toPercent(proportion)}\n套餐：${bytesToSize(total)} 剩余${toPercent(proportion1)}`];
-
   if (resetDayLeft) {
-    content.push(`重置：剩余${resetDayLeft}天`);
+  let content = [`用量：${bytesToSize(used)} 已用${toPercent(proportion)}\n套餐：${bytesToSize(total)} 剩余${toPercent(proportion1)} ${resetDayLeft}天后重置`];
+  } else {
+  let content = [`用量：${bytesToSize(used)} 已用${toPercent(proportion)}\n套餐：${bytesToSize(total)} 剩余${toPercent(proportion1)}`];
   }
   if (expire) {
     if (/^[\d.]+$/.test(expire)) expire *= 1000;
