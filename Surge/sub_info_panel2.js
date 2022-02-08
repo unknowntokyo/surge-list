@@ -4,6 +4,8 @@
   if (!info) $done();
   let resetDayLeft = getRmainingDays(parseInt(args["reset_day"]));
   let used = info.download + info.upload;
+  let total = info.total;
+  let proportion = used / total;
   
   //YTOO已使用流量超过85GB，Proxy策略组自动切换至Texon's Lab策略；已使用流量不足85GB时，默认使用Load-Balance策略。
   let usedTraffic = bytesToSize(used).replace("GB", "");
@@ -31,9 +33,8 @@
       break; 
     default:
   }
-  let total = info.total;
   let expire = args.expire || info.expire;
-  let content = [`用量：${bytesToSize(used)} | ${bytesToSize(total)}`];
+  let content = [`用量：${bytesToSize(used)} ${toPercent(proportion)} | ${bytesToSize(total)}`];
 
   if (resetDayLeft) {
     content.push(`重置：剩余${resetDayLeft}天`);
