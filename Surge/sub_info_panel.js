@@ -6,7 +6,7 @@
 
   let used = info.download + info.upload;
   let total = info.total;
-  let proportion = used/total;
+  let proportion = used / total;
   let expire = args.expire || info.expire;
   let content = [`用量：${bytesToSize(used)} ${toPercent(proportion)} | ${bytesToSize(total)}`];
 
@@ -114,4 +114,9 @@ function formatTime(time) {
   let month = dateObj.getMonth() + 1;
   let day = dateObj.getDate();
   return year + "年" + month + "月" + day + "日";
+}
+
+function toPercent(proportion) {
+  const percent = Number(proportion*100).toFixed(2);
+  return ${percent}%
 }
