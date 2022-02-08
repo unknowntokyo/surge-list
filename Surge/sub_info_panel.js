@@ -119,5 +119,5 @@ function formatTime(time) {
 
 function toPercent(proportion) {
   const percent = Number(proportion*100).toFixed(2);
-  return ${percent} + "%";
+  return percent + "%";
 }
