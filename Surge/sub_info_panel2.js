@@ -36,7 +36,7 @@
   }
   let expire = args.expire || info.expire;
   if (resetDayLeft) {
-  let content = [`用量：${bytesToSize(used)} 已用${toPercent(proportion)}\n套餐：${bytesToSize(total)} 剩余${toPercent(proportion1)} ${resetDayLeft}天后重置`];
+    let content = [`用量：${bytesToSize(used)} 已用${toPercent(proportion)}\n套餐：${bytesToSize(total)} 剩余${toPercent(proportion1)} ${resetDayLeft}天后重置`];
   } else {
   let content = [`用量：${bytesToSize(used)} 已用${toPercent(proportion)}\n套餐：${bytesToSize(total)} 剩余${toPercent(proportion1)}`];
   }
