@@ -35,7 +35,7 @@
     default:
   }
   let expire = args.expire || info.expire;
-  let content = [`用量：${bytesToSize(used)} 已用${toPercent(proportion)} | ${bytesToSize(total)} 剩余${toPercent(proportion1)}`];
+  let content = [`用量：${bytesToSize(used)} 已用${toPercent(proportion)}\n套餐：${bytesToSize(total)} 剩余${toPercent(proportion1)}`];
 
   if (resetDayLeft) {
     content.push(`重置：剩余${resetDayLeft}天`);
@@ -153,5 +153,5 @@ function httpAPI(path = "", method = "GET", body = null) {
 
 function toPercent(proportion) {
   const percent = Number(proportion*100).toFixed(2);
-  return ${percent} + "%";
+  return percent + "%";
 }

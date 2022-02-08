@@ -9,7 +9,7 @@
   let proportion = used / total;
   let proportion1 = (total - used) / total;
   let expire = args.expire || info.expire;
-  let content = [`用量：${bytesToSize(used)} 已用${toPercent(proportion)} | ${bytesToSize(total)} 剩余${toPercent(proportion1)}`];
+  let content = [`用量：${bytesToSize(used)} 已用${toPercent(proportion)}\n套餐：${bytesToSize(total)} 剩余${toPercent(proportion1)}`];
 
   if (resetDayLeft) {
     content.push(`重置：剩余${resetDayLeft}天`);
