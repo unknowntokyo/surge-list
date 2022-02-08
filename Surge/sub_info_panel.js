@@ -6,9 +6,9 @@
 
   let used = info.download + info.upload;
   let total = info.total;
-  let proportion = used / total;
+  let proportion = (total - used) / total;
   let expire = args.expire || info.expire;
-  let content = [`用量：${bytesToSize(used)} | ${bytesToSize(total)} 已用${toPercent(proportion)}`];
+  let content = [`用量：${bytesToSize(used)} | ${bytesToSize(total)} 剩余${toPercent(proportion)}`];
   if (resetDayLeft) {
     content.push(`重置：剩余${resetDayLeft}天`);
   }
