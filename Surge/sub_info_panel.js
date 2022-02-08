@@ -6,7 +6,7 @@
 
   let used = info.download + info.upload;
   let total = info.total;
-  let proportion = used / total;
+  let proportion = used/total;
   let expire = args.expire || info.expire;
   let content = [`用量：${bytesToSize(used)} ${toPercent(proportion)} | ${bytesToSize(total)}`];
 
