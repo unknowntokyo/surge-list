@@ -7,10 +7,11 @@
   let used = info.download + info.upload;
   let total = info.total;
   let proportion = used / total;
+  let proportion1 = (total - used) / total;
   let expire = args.expire || info.expire;
   let content = [`用量：${bytesToSize(used)} | ${bytesToSize(total)} ${toPercent(proportion)}`];
   if (resetDayLeft) {
-    content.push(`重置：剩余${resetDayLeft}天`);
+    content.push(`重置：剩余${resetDayLeft}天 ${toPercent(proportion1)}`);
   }
   if (expire) {
     if (/^[\d.]+$/.test(expire)) expire *= 1000;
