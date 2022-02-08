@@ -9,10 +9,9 @@
   let proportion = used / total;
   let proportion1 = (total - used) / total;
   let expire = args.expire || info.expire;
+  let content = [`用量：${bytesToSize(used)} ${toPercent(proportion)} | ${bytesToSize(total)} ${toPercent(proportion1)}`];
   if (resetDayLeft) {
-    let content = [`用量：${bytesToSize(used)} 已用${toPercent(proportion)}\n套餐：${bytesToSize(total)} 剩余${toPercent(proportion1)} ${resetDayLeft}天后重置`];
-  } else {
-  let content = [`用量：${bytesToSize(used)} 已用${toPercent(proportion)}\n套餐：${bytesToSize(total)} 剩余${toPercent(proportion1)}`];
+    content.push(`重置：剩余${resetDayLeft}天`);
   }
   if (expire) {
     if (/^[\d.]+$/.test(expire)) expire *= 1000;
