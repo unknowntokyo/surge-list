@@ -1,6 +1,6 @@
 // DoH SSID 黑名单脚本 AutoDoH = type=event,event-name=network-changed,timeout=7,script-path=https://raw.githubusercontent.com/unknowntokyo/surge-list/master/Surge/AutoDoH.js,script-update-interval=86400
 
-const Banedssid1 = "BanedSSID1";
+const Banedssid1 = "aWiFi-TFBG-1902";
 const Banedssid2 = "BanedSSID2";
 const Banedssid3 = "BanedSSID3";
 const Banedssid4 = "BanedSSID4";
