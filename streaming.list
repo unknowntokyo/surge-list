@@ -372,6 +372,9 @@ USER-AGENT,Pandora*
 DOMAIN-SUFFIX,pandora.com
 DOMAIN-SUFFIX,pandora.tv
 
+# > Paramount
+DOMAIN-SUFFIX,paramount.com
+
 # > Twitch
 DOMAIN-SUFFIX,ext-twitch.tv
 DOMAIN-SUFFIX,jtvnw.net
