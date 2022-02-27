@@ -5,6 +5,9 @@ USER-AGENT,YouTube*
 USER-AGENT,YouTubeMusic*
 USER-AGENT,com.google.ios.youtube*
 USER-AGENT,com.google.ios.youtubemusic*
+DOMAIN-SUFFIX,app-measurement.com
+DOMAIN-SUFFIX,app-measurement.net
+DOMAIN-SUFFIX,appmeasurement.com
 DOMAIN-SUFFIX,ggpht.cn
 DOMAIN-SUFFIX,ggpht.com
 DOMAIN-SUFFIX,googlevideo.com
