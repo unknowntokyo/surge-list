@@ -378,6 +378,9 @@ DOMAIN-SUFFIX,pandora.tv
 # > Paramount
 DOMAIN-SUFFIX,paramount.com
 
+# > PLEX TV
+DOMAIN-SUFFIX,plex.tv
+
 # > Twitch
 DOMAIN-SUFFIX,ext-twitch.tv
 DOMAIN-SUFFIX,jtvnw.net
