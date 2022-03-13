@@ -1,6 +1,7 @@
 PROCESS-NAME,/Applications/WeChat.app/Contents/MacOS/WeChat
 USER-AGENT,MicroMessenger*
 USER-AGENT,WeChat*
+DOMAIN-SUFFIX,myqcloud.com
 DOMAIN-SUFFIX,qlogo.cn
 DOMAIN-SUFFIX,qpic.cn
 DOMAIN-SUFFIX,qq.com
