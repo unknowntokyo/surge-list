@@ -5,13 +5,11 @@ DOMAIN,ads.google.com
 DOMAIN,ads.ookla.com
 DOMAIN,ads.vidoomy.com
 DOMAIN,ads.youtube.com
-DOMAIN,adsh.m.taobao.com
 DOMAIN,ads-twitter.com
 DOMAIN,api.adform.com
 DOMAIN,api.segment.io
 DOMAIN,atanx2.alicdn.com
 DOMAIN,badad.googleplex.com
-DOMAIN,c-adash.m.taobao.com
 DOMAIN,collector.githubapp.com
 DOMAIN,engine.mobileapptracking.com
 DOMAIN,gma.alicdn.com
@@ -30,14 +28,12 @@ DOMAIN,pagead.l.google.com
 DOMAIN,pagead-tpc.l.google.com
 DOMAIN,partnerad.l.google.com
 DOMAIN,pgdt.gtimg.cn
-DOMAIN,pindao.huoban.taobao.com
 DOMAIN,pmir.3g.qq.com
 DOMAIN,pmir.m.qq.com
 DOMAIN,push.mobile.meituan.com
 DOMAIN,res.limei.com
 DOMAIN,safe.m.qq.com
 DOMAIN,service.urchin.com
-DOMAIN,show.re.taobao.com
 DOMAIN,stat.api.dianping.com
 DOMAIN,static.diditaxi.com.cn
 DOMAIN,su.bdimg.com
@@ -52,9 +48,6 @@ DOMAIN-SUFFIX,acs86.com
 DOMAIN-SUFFIX,act.qq.com
 DOMAIN-SUFFIX,ad.xiaomi.com
 DOMAIN-SUFFIX,ad2you.com
-DOMAIN-SUFFIX,adash.m.taobao.com
-DOMAIN-SUFFIX,adashbc.m.taobao.com
-DOMAIN-SUFFIX,adashx.m.taobao.com
 DOMAIN-SUFFIX,ad-brix.com
 DOMAIN-SUFFIX,adchina.com
 DOMAIN-SUFFIX,adcolony.com
@@ -93,7 +86,6 @@ DOMAIN-SUFFIX,alipaylog.com
 DOMAIN-SUFFIX,allyes.cn
 DOMAIN-SUFFIX,allyes.com
 DOMAIN-SUFFIX,amazon-adsystem.com
-DOMAIN-SUFFIX,amdc.m.taobao.com
 DOMAIN-SUFFIX,anquan.org
 DOMAIN-SUFFIX,api.cmt.mob.com
 DOMAIN-SUFFIX,api.exc.mob.com
@@ -175,7 +167,6 @@ DOMAIN-SUFFIX,localytics.com
 DOMAIN-SUFFIX,log.umsns.com
 DOMAIN-SUFFIX,m.data.mob.com
 DOMAIN-SUFFIX,ma.baidu.com
-DOMAIN-SUFFIX,m-adash.m.taobao.com
 DOMAIN-SUFFIX,madmini.com
 DOMAIN-SUFFIX,mathtag.com
 DOMAIN-SUFFIX,mediav.com
@@ -198,7 +189,6 @@ DOMAIN-SUFFIX,optimizelyapis.com
 DOMAIN-SUFFIX,p0y.cn
 DOMAIN-SUFFIX,pagechoice.net
 DOMAIN-SUFFIX,pglstatp-toutiao.com
-DOMAIN-SUFFIX,pics.taobaocdn.com
 DOMAIN-SUFFIX,pingtcss.qq.com
 DOMAIN-SUFFIX,pixel.wp.com
 DOMAIN-SUFFIX,pixfuture.com
@@ -208,12 +198,10 @@ DOMAIN-SUFFIX,qtmojo.com
 DOMAIN-SUFFIX,report.qq.com
 DOMAIN-SUFFIX,revsci.net
 DOMAIN-SUFFIX,rj.baidu.com
-DOMAIN-SUFFIX,rj.m.taobao.com
 DOMAIN-SUFFIX,scorecardresearch.com
 DOMAIN-SUFFIX,segment.com
 DOMAIN-SUFFIX,serving-sys.com
 DOMAIN-SUFFIX,shifen.com
-DOMAIN-SUFFIX,simaba.taobao.com
 DOMAIN-SUFFIX,smartadserver.com
 DOMAIN-SUFFIX,spcode.baidu.com
 DOMAIN-SUFFIX,static.bshare.cn
@@ -221,7 +209,6 @@ DOMAIN-SUFFIX,static.map.bdimg.com
 DOMAIN-SUFFIX,static.su.baidu.com
 DOMAIN-SUFFIX,stats.chinaz.com
 DOMAIN-SUFFIX,stats.jpush.cn
-DOMAIN-SUFFIX,strip.taobaocdn.com
 DOMAIN-SUFFIX,sugar.zhihu.com
 DOMAIN-SUFFIX,supersonicads.com
 DOMAIN-SUFFIX,tajs.qq.com
