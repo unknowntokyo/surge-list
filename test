@@ -1,8 +1,0 @@
-function operator(proxies) {
-  proxies.map(res => {
-    if (res.type == ’trojan‘) {
-      res.udp = `${res.udp||false}, server-cert-fingerprint-sha256=e4 92 97 7b 86 dd 3a f9 82 ec 3d ea 38 74 b8 d5 d3 d1 c3 7e aa f8 04 af 13 25 12 b8 b2 3e 20 83`;
-    }
-  })
-  return proxies
-}
