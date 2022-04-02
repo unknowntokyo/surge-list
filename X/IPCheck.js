@@ -1,11 +1,11 @@
 var body = $response.body;
 var obj = JSON.parse(body);
-var title = '' + ' '+ obj['country'];
 var subtitle = obj['org'];
 var ip = obj['query'];
 var carrier = obj['isp'];
 var city = obj['city'];
 var datacenter = obj['org'];
+var title = '' + ' '+ ip;
 switch (datacenter){
     case "":
       if (carrier != "") {
