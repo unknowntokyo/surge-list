@@ -5,7 +5,7 @@ var ip = obj['query'];
 var carrier = obj['isp'];
 var city = obj['city'];
 var datacenter = obj['org'];
-var title = '' + ' '+ ip;
+var title = '' + ' '+ obj['country'];
 switch (datacenter){
     case "":
       if (carrier != "") {
