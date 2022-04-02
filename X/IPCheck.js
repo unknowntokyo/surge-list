@@ -5,7 +5,8 @@ var ip = obj['query'];
 var carrier = obj['isp'];
 var city = obj['city'];
 var datacenter = obj['org'];
-var title = '' + ' '+ obj['country'];
+var ioc = new Map([["HK","HKG"],["TW","TPE"],["SG","SGP"],["JP","JPN"],["KR","KOR"],["US","USA"]]);
+var title = '' + ' '+ ioc.get(obj['countryCode']);
 switch (datacenter){
     case "":
       if (carrier != "") {
