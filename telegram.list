@@ -1,6 +1,8 @@
 DOMAIN-SUFFIX,comments.app
+DOMAIN-SUFFIX,contest.com
 DOMAIN-SUFFIX,graph.org
 DOMAIN-SUFFIX,nicegram.app
+DOMAIN-SUFFIX,quiz.directory
 DOMAIN-SUFFIX,stel.com
 DOMAIN-SUFFIX,t.me
 DOMAIN-SUFFIX,tdesktop.com
@@ -17,6 +19,7 @@ DOMAIN-SUFFIX,telesco.pe
 DOMAIN-SUFFIX,tg.dev
 DOMAIN-SUFFIX,tjhorner.dev
 DOMAIN-SUFFIX,tx.me
+DOMAIN-SUFFIX,usercontent.dev
 IP-CIDR,91.105.192.0/23,no-resolve
 IP-CIDR,91.108.0.0/16,no-resolve
 IP-CIDR,95.161.64.0/20,no-resolve
