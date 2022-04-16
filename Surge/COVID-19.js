@@ -21,11 +21,25 @@ function num(location, result) {
     num22=num2.replace(/\s/g, "");
     blank11="";
     blank22="";
+    if (num11.length%2===0) {
+    for (var i = 0; i < 17-num11.length; i++) {
+    blank11+=" ";
+    }
+    }
+    else {
     for (var i = 0; i < 18-num11.length; i++) {
     blank11+=" ";
     }
+    }
+    if (num22.length%2===0) {
+    for (var i = 0; i < 15-num11.length-num22.length; i++) {
+    blank22+=" ";
+    }
+    }
+    else {
     for (var i = 0; i < 16-num11.length-num22.length; i++) {
     blank22+=" ";
+    }
     }
     ala = ala +loc +blank11+num11.padStart(num11.length,"\u0020")+blank22+num22.padStart(num22.length,"\u0020")+ "\n";
   } else {
