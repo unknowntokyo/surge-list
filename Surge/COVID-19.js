@@ -19,7 +19,7 @@ function num(location, result) {
   num2=loc_now_res[1].padStart(5,"\u0020");
     num11=num1.replace(/\s/g, "");
     num22=num2.replace(/\s/g, "");
-    for (var i = 0; i < 15-num11.length; i++) {
+    for (var i = 0; i < 9-num11.length; i++) {
     blank11+=" ";
     }
     for (var i = 0; i < 15-num22.length; i++) {
