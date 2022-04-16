@@ -19,13 +19,15 @@ function num(location, result) {
   num2=loc_now_res[1].padStart(5,"\u0020");
     num11=num1.replace(/\s/g, "");
     num22=num2.replace(/\s/g, "");
-    for (var i = 0; i < 7-num11.length; i++) {
+    blank11="";
+    blank22="";
+    for (var i = 0; i < 18-num11.length; i++) {
     blank11+=" ";
     }
-    for (var i = 0; i < 9-num22.length; i++) {
+    for (var i = 0; i < 16-num11.length-num22.length; i++) {
     blank22+=" ";
     }
-    ala = ala +loc +blank11+num11.padStart(5,"\u0020")+blank22+num22.padStart(5,"\u0020")+ "\n";
+    ala = ala +loc +blank11+num11.padStart(num11.length,"\u0020")+blank22+num22.padStart(num22.length,"\u0020")+ "\n";
   } else {
     ala = ala + loc + "           查无数据\n";
   }
