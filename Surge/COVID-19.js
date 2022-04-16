@@ -5,7 +5,10 @@ var num1="";
 var num2="";
 var num11="";
 var num22="";
-var num33="";
+var len11="";
+var len22="";
+var blank11="";
+var blank22="";
 function num(location, result) {
   var loc = location;
   var resu = result;
@@ -18,8 +21,15 @@ function num(location, result) {
   num2=loc_now_res[1].padStart(5,"\u0020");
     num11=num1.replace(/\s/g, "");
     num22=num2.replace(/\s/g, "");
-    num33="        "+num22;
-    ala = ala +loc +"            " +num11.padStart(5,"\u0020")+num33.padStart(10,"\u0020")+ "\n";
+    len11=len(str(num11));
+    len22=len(str(num22));
+    for (var i = 0; i < 15-len11; i++) {
+    blank11+=" ";
+    }
+    for (var i = 0; i < 15-len22; i++) {
+    blank22+=" ";
+    }
+    ala = ala +loc +blank11+num11.padStart(5,"\u0020")+blank22+num22.padStart(5,"\u0020")+ "\n";
   } else {
     ala = ala + loc + "           查无数据\n";
   }
