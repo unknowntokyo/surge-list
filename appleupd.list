@@ -11,6 +11,9 @@ DOMAIN-SUFFIX,appsto.re
 DOMAIN-SUFFIX,appstore.com
 DOMAIN-SUFFIX,mzstatic.com
 
+# > TestFlight
+testflight.apple.com
+
 # > iOS, iPadOS, and watchOS updates
 DOMAIN,appldnld.apple.com
 DOMAIN,gg.apple.com
