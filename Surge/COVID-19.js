@@ -24,7 +24,7 @@ function num(location, result) {
     for (var i = 0; i < 18-num11.length; i++) {
     blank11+=" ";
     }
-    if (num22.length%2===0) {
+    if ((num11.length+num22.length)%2===0) {
     for (var i = 0; i < 15-num11.length-num22.length; i++) {
     blank22+=" ";
     }
