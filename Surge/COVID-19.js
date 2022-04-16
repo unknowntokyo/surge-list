@@ -33,7 +33,7 @@ $httpClient.get(url, function(error, response, data){
     num(list[i], res);
     if (i == list.length - 1) {
      $done({
-       title: "COVID-19:   新增   |   无症状   |   "+hour+":"+minutes,
+       title: "COVID-19:   确诊   |   无症状   |   "+hour+":"+minutes,
        icon:"heart.text.square",
        "icon-color":"#E94335",
        content: ala.replace(/\n$/, "").replace("中国", "全国")
