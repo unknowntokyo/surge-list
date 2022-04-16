@@ -9,7 +9,7 @@ function num(location, result) {
   var loc = location;
   var resu = result;
   var loc_new = new RegExp(loc + "[\\s\\S]*?confirm[\\s\\S]{3}(\\d+)");
-  var loc_now = new RegExp(loc + "[\\s\\S]*?nowConfirm[\\s\\S]{3}(\\d+)");
+  var loc_now = new RegExp(loc + "[\\s\\S]*?wzz_add[\\s\\S]{3}(\\d+)");
   let loc_new_res = loc_new.exec(resu);
   let loc_now_res = loc_now.exec(resu);
   if (loc_new_res) {
@@ -33,7 +33,7 @@ $httpClient.get(url, function(error, response, data){
     num(list[i], res);
     if (i == list.length - 1) {
      $done({
-       title: "COVID-19:   新增   |   现存   |   "+hour+":"+minutes,
+       title: "COVID-19:   新增   |   无症状   |   "+hour+":"+minutes,
        icon:"heart.text.square",
        "icon-color":"#E94335",
        content: ala.replace(/\n$/, "").replace("中国", "全国")
