@@ -338,4 +338,4 @@ function testYTB() {
       result["YouTube"] = "<b>YouTube Premium: </b>检测超时 🚦"
       //resolve("timeout")
     })
-})})}
+})}
