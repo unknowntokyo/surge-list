@@ -1,6 +1,32 @@
+/***
+
+Thanks to & modified from 
+1. https://gist.githubusercontent.com/Hyseen/b06e911a41036ebc36acf04ddebe7b9a/raw/nf_check.js
+2. https://github.com/AtlantisGawrGura/Quantumult-X-Scripts/blob/main/media.js
+3. https://github.com/CoiaPrant/MediaUnlock_Test/blob/main/check.sh
+
+
+For Quantumult-X 598+ ONLY!!
+2022-02-22 - 14:20
+
+[task_local]
+
+event-interaction https://raw.githubusercontent.com/KOP-XIAO/QuantumultX/master/Scripts/streaming-ui-check.js, tag=流媒体-解锁查询, img-url=checkmark.seal.system, enabled=true
+
+
+
+@XIAO_KOP
+
+**/
+
 const BASE_URL = 'https://www.netflix.com/title/';
 const BASE_URL_YTB = "https://www.youtube.com/premium";
 const BASE_URL_DISNEY = 'https://www.disneyplus.com';
+const BASE_URL_Dazn = "https://startup.core.indazn.com/misl/v5/Startup";
+const BASE_URL_Param = "https://www.paramountplus.com/"
+const FILM_ID = 81215567
+const BASE_URL_Discovery_token = "https://us1-prod-direct.discoveryplus.com/token?deviceId=d1a4a5d25212400d1e6985984604d740&realm=go&shortlived=true"
+const BASE_URL_Discovery = "https://us1-prod-direct.discoveryplus.com/users/me"
 
 const link = { "media-url": "https://raw.githubusercontent.com/KOP-XIAO/QuantumultX/master/img/southpark/7.png" } 
 const policy_name = "Netflix" //填入你的 netflix 策略组名
@@ -29,13 +55,19 @@ var opts1 = {
   redirection: false
 };
 
+
 var flags = new Map([[ "AC" , "🇦🇨" ] ,["AE","🇦🇪"], [ "AF" , "🇦🇫" ] , [ "AI" , "🇦🇮" ] , [ "AL" , "🇦🇱" ] , [ "AM" , "🇦🇲" ] , [ "AQ" , "🇦🇶" ] , [ "AR" , "🇦🇷" ] , [ "AS" , "🇦🇸" ] , [ "AT" , "🇦🇹" ] , [ "AU" , "🇦🇺" ] , [ "AW" , "🇦🇼" ] , [ "AX" , "🇦🇽" ] , [ "AZ" , "🇦🇿" ] , ["BA", "🇧🇦"], [ "BB" , "🇧🇧" ] , [ "BD" , "🇧🇩" ] , [ "BE" , "🇧🇪" ] , [ "BF" , "🇧🇫" ] , [ "BG" , "🇧🇬" ] , [ "BH" , "🇧🇭" ] , [ "BI" , "🇧🇮" ] , [ "BJ" , "🇧🇯" ] , [ "BM" , "🇧🇲" ] , [ "BN" , "🇧🇳" ] , [ "BO" , "🇧🇴" ] , [ "BR" , "🇧🇷" ] , [ "BS" , "🇧🇸" ] , [ "BT" , "🇧🇹" ] , [ "BV" , "🇧🇻" ] , [ "BW" , "🇧🇼" ] , [ "BY" , "🇧🇾" ] , [ "BZ" , "🇧🇿" ] , [ "CA" , "🇨🇦" ] , [ "CF" , "🇨🇫" ] , [ "CH" , "🇨🇭" ] , [ "CK" , "🇨🇰" ] , [ "CL" , "🇨🇱" ] , [ "CM" , "🇨🇲" ] , [ "CN" , "🇨🇳" ] , [ "CO" , "🇨🇴" ] , [ "CP" , "🇨🇵" ] , [ "CR" , "🇨🇷" ] , [ "CU" , "🇨🇺" ] , [ "CV" , "🇨🇻" ] , [ "CW" , "🇨🇼" ] , [ "CX" , "🇨🇽" ] , [ "CY" , "🇨🇾" ] , [ "CZ" , "🇨🇿" ] , [ "DE" , "🇩🇪" ] , [ "DG" , "🇩🇬" ] , [ "DJ" , "🇩🇯" ] , [ "DK" , "🇩🇰" ] , [ "DM" , "🇩🇲" ] , [ "DO" , "🇩🇴" ] , [ "DZ" , "🇩🇿" ] , [ "EA" , "🇪🇦" ] , [ "EC" , "🇪🇨" ] , [ "EE" , "🇪🇪" ] , [ "EG" , "🇪🇬" ] , [ "EH" , "🇪🇭" ] , [ "ER" , "🇪🇷" ] , [ "ES" , "🇪🇸" ] , [ "ET" , "🇪🇹" ] , [ "EU" , "🇪🇺" ] , [ "FI" , "🇫🇮" ] , [ "FJ" , "🇫🇯" ] , [ "FK" , "🇫🇰" ] , [ "FM" , "🇫🇲" ] , [ "FO" , "🇫" ] , [ "FR" , "🇫🇷" ] , [ "GA" , "🇬🇦" ] , [ "GB" , "🇬🇧" ] , [ "HK" , "🇭🇰" ] ,["HU","🇭🇺"], [ "ID" , "🇮🇩" ] , [ "IE" , "🇮🇪" ] , [ "IL" , "🇮🇱" ] , [ "IM" , "🇮🇲" ] , [ "IN" , "🇮🇳" ] , [ "IS" , "🇮🇸" ] , [ "IT" , "🇮🇹" ] , [ "JP" , "🇯🇵" ] , [ "KR" , "🇰🇷" ] , [ "LU" , "🇱🇺" ] , [ "MO" , "🇲🇴" ] , [ "MX" , "🇲🇽" ] , [ "MY" , "🇲🇾" ] , [ "NL" , "🇳🇱" ] , [ "PH" , "🇵🇭" ] , [ "RO" , "🇷🇴" ] , [ "RS" , "🇷🇸" ] , [ "RU" , "🇷🇺" ] , [ "RW" , "🇷🇼" ] , [ "SA" , "🇸🇦" ] , [ "SB" , "🇧" ] , [ "SC" , "🇸🇨" ] , [ "SD" , "🇸🇩" ] , [ "SE" , "🇸🇪" ] , [ "SG" , "🇸🇬" ] , [ "TH" , "🇹🇭" ] , [ "TN" , "🇹🇳" ] , [ "TO" , "🇹🇴" ] , [ "TR" , "🇹🇷" ] , [ "TV" , "🇹🇻" ] , [ "TW" , "🇨🇳" ] , [ "UK" , "🇬🇧" ] , [ "UM" , "🇺🇲" ] , [ "US" , "🇺🇸" ] , [ "UY" , "🇺🇾" ] , [ "UZ" , "🇺🇿" ] , [ "VA" , "🇻🇦" ] , [ "VE" , "🇻🇪" ] , [ "VG" , "🇻🇬" ] , [ "VI" , "🇻🇮" ] , [ "VN" , "🇻🇳" ] , [ "ZA" , "🇿🇦"]])
 
 let result = {
   "title": '    📺  流媒体服务查询',
   "YouTube": '<b>YouTube: </b>检测失败，请重试 ❗️',
   "Netflix": '<b>Netflix: </b>检测失败，请重试 ❗️',
+  "Dazn": "<b>Dazn: </b>检测失败，请重试 ❗️",
   "Disney": "<b>Disneyᐩ: </b>检测失败，请重试 ❗️",
+  "Paramount" : "<b>Paramountᐩ: </b>检测失败，请重试 ❗️",
+  "Discovery" : "<b>Discoveryᐩ: </b>检测失败，请重试 ❗️",
+  //"Google": "Google 定位: 检测失败，请重试"
+
 }
 const message = {
   action: "get_policy_state",
@@ -44,7 +76,9 @@ const message = {
 
 ;(async () => {
   testYTB()
-  let [{ region, status }] = await Promise.all([testDisneyPlus(),testNf(FILM_ID)])
+  testDazn()
+  testParam()
+  let [{ region, status }] = await Promise.all([testDisneyPlus(),testNf(FILM_ID),testDiscovery()])
   console.log(result["Netflix"])
   console.log(`testDisneyPlus: region=${region}, status=${status}`)
   if (status==STATUS_COMING) {
@@ -61,7 +95,7 @@ const message = {
     result["Disney"] = "<b>Disneyᐩ:</b> 检测超时 🚦 "
   }
 
-  let content = "------------------------------"+"</br>"+([result["YouTube"],result["Netflix"],result["Disney"]]).join("</br></br>")
+  let content = "------------------------------"+"</br>"+([result["YouTube"],result["Netflix"],result["Disney"],result["Dazn"],result["Paramount"],result["Discovery"]]).join("</br></br>")
   content = content + "</br>------------------------------</br>"+"<font color=#CD5C5C >"+"<b>节点</b> ➟ " + $environment.params+ "</font>"
   content =`<p style="text-align: center; font-family: -apple-system; font-size: large; font-weight: thin">` + content + `</p>`
 //  cnt = `<p style="text-align: center; font-family: -apple-system; font-size: large; font-weight: thin">` +'----------------------</br></br>'+result["Disney"]+'</br></br>----------------------</br>'+$environment.params + `</p>`
@@ -72,7 +106,7 @@ $configuration.sendMessage(message).then(resolve => {
     }
     if (resolve.ret) {
       let output=JSON.stringify(resolve.ret[message.content])? JSON.stringify(resolve.ret[message.content]).replace(/\"|\[|\]/g,"").replace(/\,/g," ➟ ") : $environment.params
-      let content = "--------------------------------------</br>"+([result["Disney"],result["Netflix"],result["YouTube"]]).join("</br></br>")
+      let content = "--------------------------------------</br>"+([result["Dazn"],result["Discovery"],result["Paramount"],result["Disney"],result["Netflix"],result["YouTube"]]).join("</br></br>")
       content = content + "</br>--------------------------------------</br>"+"<font color=#CD5C5C>"+"<b>节点</b> ➟ " + output+ "</font>"
       content =`<p style="text-align: center; font-family: -apple-system; font-size: large; font-weight: thin">` + content + `</p>`
       //$notify(typeof(output),output)
@@ -96,7 +130,7 @@ $configuration.sendMessage(message).then(resolve => {
     }
     if (resolve.ret) {
       let output=JSON.stringify(resolve.ret[message.content])? JSON.stringify(resolve.ret[message.content]).replace(/\"|\[|\]/g,"").replace(/\,/g," ➟ ") : $environment.params
-      let content = "--------------------------------------</br>"+([result["Disney"],result["Netflix"],result["YouTube"]]).join("</br></br>")
+      let content = "--------------------------------------</br>"+([result["Dazn"],result["Discovery"],result["Paramount"],result["Disney"],result["Netflix"],result["YouTube"]]).join("</br></br>")
       content = content + "</br>--------------------------------------</br>"+"<font color=#CD5C5C>"+"<b>节点</b> ➟ " + output+ "</font>"
       content =`<p style="text-align: center; font-family: -apple-system; font-size: large; font-weight: thin">` + content + `</p>`
       //$notify(typeof(output),output)
@@ -120,6 +154,9 @@ async function testDisneyPlus() {
     let { region, cnbl } = await Promise.race([testHomePage(), timeout(7000)])
     console.log(`homepage: region=${region}, cnbl=${cnbl}`)
     // 即将登陆
+//  if (cnbl == 2) {
+//    return { region, status: STATUS_COMING }
+//  }
     let { countryCode, inSupportedLocation } = await Promise.race([getLocationInfo(), timeout(7000)])
     console.log(`getLocationInfo: countryCode=${countryCode}, inSupportedLocation=${inSupportedLocation}`)
     
@@ -249,6 +286,7 @@ function timeout(delay = 5000) {
   })
 }
 
+
 function testNf(filmId) {
   return new Promise((resolve, reject) =>{
     let option = {
@@ -338,4 +376,85 @@ function testYTB() {
       result["YouTube"] = "<b>YouTube Premium: </b>检测超时 🚦"
       //resolve("timeout")
     })
-})}
+}
+
+function testDazn() { 
+  
+  const extra =`{
+    "LandingPageKey":"generic",
+    "Platform":"web",
+    "PlatformAttributes":{},
+    "Manufacturer":"",
+    "PromoCode":"",
+    "Version":"2"
+  }`
+  let option = {
+    url: BASE_URL_Dazn,
+    method: "POST",
+    opts: opts,
+    timeout: 2800,
+    headers: {
+      'User-Agent':
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.87 Safari/537.36',
+      "Content-Type": "application/json"
+    },
+    body: extra
+  }
+
+  $task.fetch(option).then(response=> {
+    let data = response.body
+    //data = extra
+    let header = JSON.stringify(response.headers)
+    console.log("Dazn:"+response.statusCode)
+    //console.log("Dazn:"+data)
+    //$done(data)
+    if (response.statusCode !== 200) {
+      //reject('Error')
+      result["Dazn"] = "<b>Dazn: </b>检测失败 ❗️"
+    } else if (response.statusCode == 200) {//console.log(data.split("countryCode")[1])
+      //console.log(data)
+      let region = ''
+      let re = new RegExp('"GeolocatedCountry":"(.*?)"', 'gm')
+      let ret = re.exec(data)
+      if (ret != null && ret.length === 2) {
+        region = ret[1]
+        result["Dazn"] = "<b>Dazn: </b>支持 "+arrow+ "⟦"+flags.get(region.toUpperCase())+"⟧ 🎉"
+      } else {
+        result["Dazn"] = "<b>Dazn: </b>未支持 🚫"
+
+      }
+      //resolve(region)
+            console.log("Dazn:"+region+ result["Dazn"])
+    }
+  }, reason => {
+    result["Dazn"] = "<b>Dazn: </b>检测超时 🚦"
+    //resolve("timeout")
+  })
+}
+
+function testParam() { 
+  let option = {
+    url: BASE_URL_Param,
+    opts: opts1,
+    timeout: 2800,
+    headers: {
+      'User-Agent':
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.61 Safari/537.36'
+    },
+  }
+  $task.fetch(option).then(response=> {
+    //let data = response.body
+    console.log("Paramountᐩ:"+response.statusCode)
+    if (response.statusCode == 200) {
+      //reject('Error')
+      result["Paramount"] = "<b>Paramountᐩ: </b>支持 🎉 "
+    } else if (response.statusCode == 302) {
+      //resolve('Not Available')
+      result["Paramount"] = "<b>Paramountᐩ: </b>未支持 🚫"
+    } 
+      console.log("Paramountᐩ:"+ result["Paramount"])
+  }, reason => {
+    result["Paramount"] = "<b>Paramountᐩ: </b>检测超时 🚦"
+    //resolve("timeout")
+  })
+}
