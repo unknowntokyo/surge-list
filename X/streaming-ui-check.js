@@ -351,9 +351,6 @@ function testYTB() {
     })
 }
 
-
-
-
 function testDiscovery() {
   return new Promise((resolve, reject) =>{
     let option = {
