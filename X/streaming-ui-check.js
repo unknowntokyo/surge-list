@@ -145,6 +145,7 @@ function testNf(filmId) {
         console.log("nf:"+region)
         result["Netflix"] = "<b>Netflix: </b>全解锁"+arrow+ flags.get(region.toUpperCase())
         //$notify("nf:"+result["Netflix"])
+
         resolve("nf:"+result["Netflix"])
         return 
       }
@@ -172,12 +173,13 @@ function testYTB() {
       let data = response.body
       console.log("ytb:"+response.statusCode)
       if (response.statusCode !== 200) {
-        //reject('Error')
-        result["YouTube"] = "<b>YouTube Premium: </b>检测失败 ❗️"
+        
+        result["YouTube"] = "<b>YouTube: </b>检测失败 ❗️"
       } else if (data.indexOf('Premium is not available in your country') !== -1) {
-          //resolve('Not Available')
-        result["YouTube"] = "<b>YouTube Premium: </b>不支持 ❌"
-      } else if (data.indexOf('Premium is not available in your country') == -1) {//console.log(data.split("countryCode")[1])
+          
+        result["YouTube"] = "<b>YouTube: </b>不支持Premium ❌"
+      } else if (data.indexOf('Premium is not available in your country') == -1) {
+      
       let region = ''
       let re = new RegExp('"GL":"(.*?)"', 'gm')
       let ret = re.exec(data)
@@ -189,11 +191,11 @@ function testYTB() {
         region = 'US'
       }
       //resolve(region)
-      result["YouTube"] = "<b>YouTube Premium: </b>支持Premium "+arrow+ flags.get(region.toUpperCase())
+      result["YouTube"] = "<b>YouTube: </b>支持Premium "+arrow+ flags.get(region.toUpperCase())
       console.log("ytb:"+region+ result["YouTube"])
       }
     }, reason => {
-      result["YouTube"] = "<b>YouTube Premium: </b>检测超时 🚦"
+      result["YouTube"] = "<b>YouTube: </b>检测超时 🚦"
       //resolve("timeout")
     })
 }
