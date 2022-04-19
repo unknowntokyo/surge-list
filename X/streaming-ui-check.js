@@ -130,7 +130,7 @@ function testNf(filmId) {
       } else if (response.statusCode === 403) {
         
         //console.log("nfnf")
-        result["Netflix"] = "<b>Netflix: </b>未解锁 ❌"
+        result["Netflix"] = "<b>Netflix: </b>未解锁 ✘"
         console.log("nf:"+result["Netflix"])
         //$notify("nf:"+result["Netflix"])
         resolve('Not Available')
@@ -177,7 +177,7 @@ function testYTB() {
         result["YouTube"] = "<b>YouTube: </b>检测失败 ❗️"
       } else if (data.indexOf('Premium is not available in your country') !== -1) {
           
-        result["YouTube"] = "<b>YouTube: </b>不支持Premium ❌"
+        result["YouTube"] = "<b>YouTube: </b>不支持Premium ✘"
       } else if (data.indexOf('Premium is not available in your country') == -1) {
       
       let region = ''
@@ -191,7 +191,7 @@ function testYTB() {
         region = 'US'
       }
       //resolve(region)
-      result["YouTube"] = "<b>YouTube: </b>支持Premium "+arrow+ flags.get(region.toUpperCase())
+      result["YouTube"] = "<b>YouTube: </b>支持Premium"+arrow+ flags.get(region.toUpperCase())
       console.log("ytb:"+region+ result["YouTube"])
       }
     }, reason => {
