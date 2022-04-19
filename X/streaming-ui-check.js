@@ -1,7 +1,6 @@
 const BASE_URL = 'https://www.netflix.com/title/';
 const BASE_URL_YTB = "https://www.youtube.com/premium";
 const BASE_URL_DISNEY = 'https://www.disneyplus.com';
-const BASE_URL_Dazn = "https://startup.core.indazn.com/misl/v5/Startup";
 const FILM_ID = 81215567
 const BASE_URL_Discovery_token = "https://us1-prod-direct.discoveryplus.com/token?deviceId=d1a4a5d25212400d1e6985984604d740&realm=go&shortlived=true"
 const BASE_URL_Discovery = "https://us1-prod-direct.discoveryplus.com/users/me"
@@ -40,7 +39,6 @@ let result = {
   "title": '    📺  流媒体服务查询',
   "YouTube": '<b>YouTube: </b>检测失败，请重试 ❗️',
   "Netflix": '<b>Netflix: </b>检测失败，请重试 ❗️',
-  "Dazn": "<b>Dazn: </b>检测失败，请重试 ❗️",
   "Disney": "<b>Disneyᐩ: </b>检测失败，请重试 ❗️",
   "Discovery" : "<b>Discoveryᐩ: </b>检测失败，请重试 ❗️",
   //"Google": "Google 定位: 检测失败，请重试"
@@ -53,7 +51,6 @@ const message = {
 
 ;(async () => {
   testYTB()
-  testDazn()
   let [{ region, status }] = await Promise.all([testDisneyPlus(),testNf(FILM_ID),testDiscovery()])
   console.log(result["Netflix"])
   console.log(`testDisneyPlus: region=${region}, status=${status}`)
@@ -354,59 +351,7 @@ function testYTB() {
     })
 }
 
-function testDazn() { 
-  
-  const extra =`{
-    "LandingPageKey":"generic",
-    "Platform":"web",
-    "PlatformAttributes":{},
-    "Manufacturer":"",
-    "PromoCode":"",
-    "Version":"2"
-  }`
-  let option = {
-    url: BASE_URL_Dazn,
-    method: "POST",
-    opts: opts,
-    timeout: 2800,
-    headers: {
-      'User-Agent':
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.87 Safari/537.36',
-      "Content-Type": "application/json"
-    },
-    body: extra
-  }
 
-  $task.fetch(option).then(response=> {
-    let data = response.body
-    //data = extra
-    let header = JSON.stringify(response.headers)
-    console.log("Dazn:"+response.statusCode)
-    //console.log("Dazn:"+data)
-    //$done(data)
-    if (response.statusCode !== 200) {
-      //reject('Error')
-      result["Dazn"] = "<b>Dazn: </b>检测失败 ❗️"
-    } else if (response.statusCode == 200) {//console.log(data.split("countryCode")[1])
-      //console.log(data)
-      let region = ''
-      let re = new RegExp('"GeolocatedCountry":"(.*?)"', 'gm')
-      let ret = re.exec(data)
-      if (ret != null && ret.length === 2) {
-        region = ret[1]
-        result["Dazn"] = "<b>Dazn: </b>支持 "+arrow+ "⟦"+flags.get(region.toUpperCase())+"⟧ 🎉"
-      } else {
-        result["Dazn"] = "<b>Dazn: </b>未支持 🚫"
-
-      }
-      //resolve(region)
-            console.log("Dazn:"+region+ result["Dazn"])
-    }
-  }, reason => {
-    result["Dazn"] = "<b>Dazn: </b>检测超时 🚦"
-    //resolve("timeout")
-  })
-}
 
 
 function testDiscovery() {
