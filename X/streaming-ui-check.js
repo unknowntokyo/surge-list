@@ -2,7 +2,6 @@ const BASE_URL = 'https://www.netflix.com/title/';
 const BASE_URL_YTB = "https://www.youtube.com/premium";
 const BASE_URL_DISNEY = 'https://www.disneyplus.com';
 const BASE_URL_Dazn = "https://startup.core.indazn.com/misl/v5/Startup";
-const BASE_URL_Param = "https://www.paramountplus.com/"
 const FILM_ID = 81215567
 const BASE_URL_Discovery_token = "https://us1-prod-direct.discoveryplus.com/token?deviceId=d1a4a5d25212400d1e6985984604d740&realm=go&shortlived=true"
 const BASE_URL_Discovery = "https://us1-prod-direct.discoveryplus.com/users/me"
@@ -43,7 +42,6 @@ let result = {
   "Netflix": '<b>Netflix: </b>检测失败，请重试 ❗️',
   "Dazn": "<b>Dazn: </b>检测失败，请重试 ❗️",
   "Disney": "<b>Disneyᐩ: </b>检测失败，请重试 ❗️",
-  "Paramount" : "<b>Paramountᐩ: </b>检测失败，请重试 ❗️",
   "Discovery" : "<b>Discoveryᐩ: </b>检测失败，请重试 ❗️",
   //"Google": "Google 定位: 检测失败，请重试"
 
@@ -56,7 +54,6 @@ const message = {
 ;(async () => {
   testYTB()
   testDazn()
-  testParam()
   let [{ region, status }] = await Promise.all([testDisneyPlus(),testNf(FILM_ID),testDiscovery()])
   console.log(result["Netflix"])
   console.log(`testDisneyPlus: region=${region}, status=${status}`)
@@ -410,19 +407,6 @@ function testDazn() {
     //resolve("timeout")
   })
 }
-
-function testParam() { 
-  let option = {
-    url: BASE_URL_Param,
-    opts: opts1,
-    timeout: 2800,
-    headers: {
-      'User-Agent':
-      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.61 Safari/537.36'
-    },
-  }
-}
-
 
 
 function testDiscovery() {
