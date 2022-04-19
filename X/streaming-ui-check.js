@@ -123,14 +123,14 @@ function testNf(filmId) {
       console.log("nf:"+response.statusCode)
       if (response.statusCode === 404) {
         
-        result["Netflix"] = "<b>Netflix: </b>支持自制剧集 ⚠️"
+        result["Netflix"] = "<b>Netflix: </b>仅自制 ⚠️"
         console.log("nf:"+result["Netflix"])
         resolve('Not Found')
         return 
       } else if (response.statusCode === 403) {
         
         //console.log("nfnf")
-        result["Netflix"] = "<b>Netflix: </b>未支持 🚫"
+        result["Netflix"] = "<b>Netflix: </b>未解锁 ❌"
         console.log("nf:"+result["Netflix"])
         //$notify("nf:"+result["Netflix"])
         resolve('Not Available')
@@ -143,7 +143,7 @@ function testNf(filmId) {
           region = 'us'
         }
         console.log("nf:"+region)
-        result["Netflix"] = "<b>Netflix: </b>完整支持"+arrow+ "⟦"+flags.get(region.toUpperCase())+"⟧ 🎉"
+        result["Netflix"] = "<b>Netflix: </b>全解锁"+arrow+ flags.get(region.toUpperCase())
         //$notify("nf:"+result["Netflix"])
         resolve("nf:"+result["Netflix"])
         return 
@@ -176,7 +176,7 @@ function testYTB() {
         result["YouTube"] = "<b>YouTube Premium: </b>检测失败 ❗️"
       } else if (data.indexOf('Premium is not available in your country') !== -1) {
           //resolve('Not Available')
-        result["YouTube"] = "<b>YouTube Premium: </b>未支持 🚫"
+        result["YouTube"] = "<b>YouTube Premium: </b>不支持 ❌"
       } else if (data.indexOf('Premium is not available in your country') == -1) {//console.log(data.split("countryCode")[1])
       let region = ''
       let re = new RegExp('"GL":"(.*?)"', 'gm')
@@ -189,7 +189,7 @@ function testYTB() {
         region = 'US'
       }
       //resolve(region)
-      result["YouTube"] = "<b>YouTube Premium: </b>支持 "+arrow+ "⟦"+flags.get(region.toUpperCase())+"⟧ 🎉"
+      result["YouTube"] = "<b>YouTube Premium: </b>支持Premium "+arrow+ flags.get(region.toUpperCase())
       console.log("ytb:"+region+ result["YouTube"])
       }
     }, reason => {
