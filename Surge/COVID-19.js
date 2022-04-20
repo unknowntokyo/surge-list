@@ -25,12 +25,12 @@ function num(location, result) {
     blank11+=" ";
     }
     if ((num11.length+num22.length)%2===0) {
-    for (var i = 0; i < 16-num11.length-num22.length; i++) {
+    for (var i = 0; i < 17-num11.length-num22.length; i++) {
     blank22+=" ";
     }
     }
     else {
-    for (var i = 0; i < 17-num11.length-num22.length; i++) {
+    for (var i = 0; i < 16-num11.length-num22.length; i++) {
     blank22+=" ";
     }
     }
