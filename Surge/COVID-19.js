@@ -22,16 +22,16 @@ function num(location, result) {
     num22=num2.replace(/\s/g, "");
     blank11="";
     blank22="";
-    for (var i = 0; i < 17-num11.length; i++) {
+    for (var i = 0; i < 17-maps(num11).length; i++) {
     blank11+=" ";
     }
     if ((num11.length+num22.length)%2===0) {
-    for (var i = 0; i < 17-num11.length-num22.length; i++) {
+    for (var i = 0; i < 17-maps(num11).length-maps(num22).length; i++) {
     blank22+=" ";
     }
     }
     else {
-    for (var i = 0; i < 16-num11.length-num22.length; i++) {
+    for (var i = 0; i < 16-maps(num11).length-maps(num22).length; i++) {
     blank22+=" ";
     }
     }
