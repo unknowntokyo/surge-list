@@ -10,13 +10,18 @@ var blank22="";
 function num(location, result) {
   var loc = location;
   var resu = result;
-  var loc_new = new RegExp(loc + "[\\s\\S]*?confirm[\\s\\S]{3}(\\d+)");
-  var loc_now = new RegExp(loc + "[\\s\\S]*?wzz_add[\\s\\S]{3}(\\d+)");
-  let loc_new_res = loc_new.exec(resu);
-  let loc_now_res = loc_now.exec(resu);
-  if (loc_new_res) {
-  num1=loc_new_res[1].padStart(5,"\u0020");
-  num2=loc_now_res[1].padStart(5,"\u0020");
+  var loc_newcf = new RegExp(loc + "[\\s\\S]*?confirm[\\s\\S]{3}(\\d+)");
+  if (loc==="中国") {
+  var loc_wzz = new RegExp(loc + "[\\s\\S]*?noInfect[\\s\\S]{3}(\\d+)");
+  }
+  else {
+  var loc_wzz = new RegExp(loc + "[\\s\\S]*?wzz_add[\\s\\S]{3}(\\d+)");
+  }
+  let loc_newcf_res = loc_newcf.exec(resu);
+  let loc_wzz_res = loc_wzz.exec(resu);
+  if (loc_newcf_res) {
+  num1=loc_newcf_res[1].padStart(6,"\u0020");
+  num2=loc_wzz_res[1].padStart(6,"\u0020");
     num11=num1.replace(/\s/g, "");
     num22=num2.replace(/\s/g, "");
     blank11="";
