@@ -30,7 +30,7 @@ function num(location, result) {
     }
     }
     else {
-    for (var i = 0; i < 15-num11.length-num22.length; i++) {
+    for (var i = 0; i < 16-num11.length-num22.length; i++) {
     blank22+=" ";
     }
     }
