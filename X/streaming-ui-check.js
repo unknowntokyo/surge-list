@@ -1,8 +1,7 @@
 const BASE_URL = 'https://www.netflix.com/title/';
 const BASE_URL_YTB = "https://www.youtube.com/premium";
 const FILM_ID = 81215567
-
-const link = { "media-url": "https://raw.githubusercontent.com/KOP-XIAO/QuantumultX/master/img/southpark/7.png" } 
+const link = { "media-url": "https://raw.githubusercontent.com/unknowntokyo/surge-list/master/X/unknown.png" } 
 const policy_name = "Netflix" //填入你的 netflix 策略组名
 
 const arrow = " ➟ "
@@ -74,7 +73,6 @@ $configuration.sendMessage(message).then(resolve => {
   //$done({"title":result["title"],"htmlMessage":content})
 })()
 .finally(() => {
-  
   $configuration.sendMessage(message).then(resolve => {
     if (resolve.error) {
       console.log(resolve.error);
