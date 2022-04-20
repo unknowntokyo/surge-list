@@ -7,7 +7,6 @@ var num11="";
 var num22="";
 var blank11="";
 var blank22="";
-var numrep = new Map([[ "0" , "⓪" ] ,[ "1" , "➊" ] ,["2","➋"], [ "3" , "➌" ] , [ "4" , "➍" ] , [ "5" , "➎" ] , [ "6" , "➏" ] , [ "7" , "➐" ] , [ "8" , "➑" ] , [ "9" , "➒" ]]);
 function num(location, result) {
   var loc = location;
   var resu = result;
@@ -22,35 +21,24 @@ function num(location, result) {
     num22=num2.replace(/\s/g, "");
     blank11="";
     blank22="";
-    for (var i = 0; i < 17-maps(num11).length; i++) {
+    for (var i = 0; i < 17-num11.length; i++) {
     blank11+=" ";
     }
     if ((num11.length+num22.length)%2===0) {
-    for (var i = 0; i < 17-maps(num11).length-maps(num22).length; i++) {
+    for (var i = 0; i < 17-num11.length-num22.length; i++) {
     blank22+=" ";
     }
     }
     else {
-    for (var i = 0; i < 16-maps(num11).length-maps(num22).length; i++) {
+    for (var i = 0; i < 16-num11.length-num22.length; i++) {
     blank22+=" ";
     }
     }
-    ala = ala +loc +blank11+maps(num11.padStart(num11.length,"\u0020"))+blank22+maps(num22.padStart(num22.length,"\u0020"))+ "\n";
+    ala = ala +loc +blank11+num11.padStart(num11.length,"\u0020")+blank22+num22.padStart(num22.length,"\u0020")+ "\n";
   } else {
     ala = ala + loc + "           查无数据\n";
   }
 };
-
-function maps(number) {
-    var k="";
-for (var i = number.length; i > 0; i--) {
-    var numArr = number.split("");
-    var j = numArr[numArr.length-i];
-    k = k.concat(numrep.get(j));
-    }
-return k;
-};
-
 $httpClient.get(url, function(error, response, data){
   let res = data;
   let now = new Date();
