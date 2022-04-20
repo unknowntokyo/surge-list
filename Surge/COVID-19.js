@@ -7,6 +7,7 @@ var num11="";
 var num22="";
 var blank11="";
 var blank22="";
+var numrep = new Map([[ "0" , "⓪" ] ,[ "1" , "①" ] ,["2","②"], [ "3" , "③" ] , [ "4" , "④" ] , [ "5" , "⑤" ] , [ "6" , "⑥" ] , [ "7" , "⑦" ] , [ "8" , "⑧" ] , [ "9" , "⑨" ]]);
 function num(location, result) {
   var loc = location;
   var resu = result;
@@ -34,11 +35,22 @@ function num(location, result) {
     blank22+=" ";
     }
     }
-    ala = ala +loc +blank11+num11.padStart(num11.length,"\u0020")+blank22+num22.padStart(num22.length,"\u0020")+ "\n";
+    ala = ala +loc +blank11+maps(num11.padStart(num11.length,"\u0020"))+blank22+maps(num22.padStart(num22.length,"\u0020"))+ "\n";
   } else {
     ala = ala + loc + "           查无数据\n";
   }
 };
+
+function maps(number) {
+    var k="";
+for (var i = number.length; i > 0; i--) {
+    var numArr = number.split("");
+    var j = numArr[numArr.length-i];
+    k = k.concat(numrep.get(j));
+    }
+return k;
+};
+
 $httpClient.get(url, function(error, response, data){
   let res = data;
   let now = new Date();
