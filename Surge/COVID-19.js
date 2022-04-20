@@ -28,10 +28,10 @@ function num(location, result) {
     for (var i = 0; i < 17-num11.length-num22.length; i++) {
     blank22+=" ";
     }
+    }
     else {
     for (var i = 0; i < 16-num11.length-num22.length; i++) {
     blank22+=" ";
-    }
     }
     }
     ala = ala +loc +blank11+num11.padStart(num11.length,"\u0020")+blank22+num22.padStart(num22.length,"\u0020")+ "\n";
