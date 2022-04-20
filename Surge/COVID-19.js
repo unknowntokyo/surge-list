@@ -1,4 +1,4 @@
-var list = ["中国","宁波","徐州","上海"];
+var list = ["宁波","徐州","上海"];
 const url = "https://view.inews.qq.com/g2/getOnsInfo?name=disease_h5";
 var ala="";
 var num1="";
@@ -11,12 +11,7 @@ function num(location, result) {
   var loc = location;
   var resu = result;
   var loc_newcf = new RegExp(loc + "[\\s\\S]*?confirm[\\s\\S]{3}(\\d+)");
-  if (loc==="中国") {
-  var loc_wzz = new RegExp(loc + "[\\s\\S]*?noInfect[\\s\\S]{3}(\\d+)");
-  }
-  else {
   var loc_wzz = new RegExp(loc + "[\\s\\S]*?wzz_add[\\s\\S]{3}(\\d+)");
-  }
   let loc_newcf_res = loc_newcf.exec(resu);
   let loc_wzz_res = loc_wzz.exec(resu);
   if (loc_newcf_res) {
