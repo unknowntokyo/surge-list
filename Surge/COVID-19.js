@@ -17,7 +17,7 @@ function num(location, result) {
   num2=loc_wzz_res[1].padStart(6,"\u0020");
     num11=num1.replace(/\s/g, "");
     num22=num2.replace(/\s/g, "");
-    ala = ala +loc +"：确诊"+num11.padStart(num11.length,"\u0020")+"人，无症状"+num22.padStart(num22.length,"\u0020")+ "人\n";
+    ala = ala +loc +"：确诊"+num11.padStart(num11.length,"\u0020")+"例，无症状"+num22.padStart(num22.length,"\u0020")+ "例\n";
   } else {
     ala = ala + loc + "：无数据\n";
   }
@@ -33,10 +33,10 @@ $httpClient.get(url, function(error, response, data){
     num(list[i], res);
     if (i == list.length - 1) {
      $done({
-       title: "COVID-19："+hour+":"+minutes,
+       title: "COVID-19",
        icon:"heart.text.square",
        "icon-color":"#E94335",
-       content: ala.replace(/\n$/, "").replace("中国", "全国")
+       content: ala.replace(/\n$/, "")
      });
     }
   }
