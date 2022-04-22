@@ -34,7 +34,7 @@ function num(location, result) {
     blank22+=" ";
     }
     }
-    ala = ala +loc +blank11+num11.padStart(num11.length,"\u0020")+blank22+num22.padStart(num22.length,"\u0020")+ "\n";
+    ala = ala +loc +"：确诊"+num11.padStart(num11.length,"\u0020")+"人，无症状"+num22.padStart(num22.length,"\u0020")+ "人\n";
   } else {
     ala = ala + loc + "           查无数据\n";
   }
