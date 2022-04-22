@@ -5,9 +5,7 @@ var num1="";
 var num2="";
 var num11="";
 var num22="";
-var blank11="";
-var blank22="";
-var numrep = new Map([[ "0" , "⓪" ] ,[ "1" , "➊" ] ,["2","➋"], [ "3" , "➌" ] , [ "4" , "➍" ] , [ "5" , "➎" ] , [ "6" , "➏" ] , [ "7" , "➐" ] , [ "8" , "➑" ] , [ "9" , "➒" ]]);
+var numrep = new Map([[ "1" , "➊" ] ,["2","➋"], [ "3" , "➌" ] , [ "4" , "➍" ] , [ "5" , "➎" ] , [ "6" , "➏" ] , [ "7" , "➐" ] , [ "8" , "➑" ] , [ "9" , "➒" ]]);
 function num(location, result) {
   var loc = location;
   var resu = result;
@@ -20,24 +18,9 @@ function num(location, result) {
   num2=loc_wzz_res[1].padStart(6,"\u0020");
     num11=num1.replace(/\s/g, "");
     num22=num2.replace(/\s/g, "");
-    blank11="";
-    blank22="";
-    for (var i = 0; i < 17-maps(num11).length; i++) {
-    blank11+=" ";
-    }
-    if ((num11.length+num22.length)%2===0) {
-    for (var i = 0; i < 17-maps(num11).length-maps(num22).length; i++) {
-    blank22+=" ";
-    }
-    }
-    else {
-    for (var i = 0; i < 16-maps(num11).length-maps(num22).length; i++) {
-    blank22+=" ";
-    }
-    }
-    ala = ala +loc +blank11+maps(num11.padStart(num11.length,"\u0020"))+blank22+maps(num22.padStart(num22.length,"\u0020"))+ "\n";
+    ala = ala +loc +"：确诊"+maps(num11.padStart(num11.length,"\u0020"))+"例，无症状"+maps(num22.padStart(num22.length,"\u0020"))+ "例\n";
   } else {
-    ala = ala + loc + "           查无数据\n";
+    ala = ala + loc + "：无数据\n";
   }
 };
 
@@ -62,10 +45,10 @@ $httpClient.get(url, function(error, response, data){
     num(list[i], res);
     if (i == list.length - 1) {
      $done({
-       title: "COVID-19:   确诊   |   无症状   |   "+hour+":"+minutes,
+       title: "COVID-19",
        icon:"heart.text.square",
        "icon-color":"#E94335",
-       content: ala.replace(/\n$/, "").replace("中国", "全国")
+       content: ala.replace(/\n$/, "").replace("确诊0例", "无").replace("无症状0例", "无").replace("无，无", "无")
      });
     }
   }
