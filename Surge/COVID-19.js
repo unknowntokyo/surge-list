@@ -5,7 +5,6 @@ var num1="";
 var num2="";
 var num11="";
 var num22="";
-var numrep = new Map([[ "1" , "➊" ] ,["2","➋"], [ "3" , "➌" ] , [ "4" , "➍" ] , [ "5" , "➎" ] , [ "6" , "➏" ] , [ "7" , "➐" ] , [ "8" , "➑" ] , [ "9" , "➒" ]]);
 function num(location, result) {
   var loc = location;
   var resu = result;
@@ -18,22 +17,11 @@ function num(location, result) {
   num2=loc_wzz_res[1].padStart(6,"\u0020");
     num11=num1.replace(/\s/g, "");
     num22=num2.replace(/\s/g, "");
-    ala = ala +loc +"：确诊"+maps(num11.padStart(num11.length,"\u0020"))+"例，无症状"+maps(num22.padStart(num22.length,"\u0020"))+ "例\n";
+    ala = ala +loc +"：确诊"+num11.padStart(num11.length,"\u0020")+"例，无症状"+num22.padStart(num22.length,"\u0020")+ "例\n";
   } else {
     ala = ala + loc + "：无数据\n";
   }
 };
-
-function maps(number) {
-    var k="";
-for (var i = number.length; i > 0; i--) {
-    var numArr = number.split("");
-    var j = numArr[numArr.length-i];
-    k = k.concat(numrep.get(j));
-    }
-return k;
-};
-
 $httpClient.get(url, function(error, response, data){
   let res = data;
   let now = new Date();
