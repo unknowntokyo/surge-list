@@ -32,8 +32,8 @@ var ChineseSimplified = new Map([[ "HK" , "HKG" ] ,[ "JP" , "JPN" ] , [ "KR" , "
 
 let result = {
   "title": '    🔫  流媒体解锁检测',
-  "YouTube": '<b>YouTube: </b>检测失败，请重试 ❗️',
-  "Netflix": '<b>Netflix: </b>检测失败，请重试 ❗️',
+  "YouTube": '<b>YouTube：</b>检测失败，请重试 ❗️',
+  "Netflix": '<b>Netflix：</b>检测失败，请重试 ❗️',
 
 }
 const message = {
@@ -121,14 +121,14 @@ function testNf(filmId) {
       console.log("nf:"+response.statusCode)
       if (response.statusCode === 404) {
         
-        result["Netflix"] = "<b>Netflix: </b>仅自制 ⚠️"
+        result["Netflix"] = "<b>Netflix：</b>仅自制 ⚠️"
         console.log("nf:"+result["Netflix"])
         resolve('Not Found')
         return 
       } else if (response.statusCode === 403) {
         
         //console.log("nfnf")
-        result["Netflix"] = "<b>Netflix: </b>未解锁 ✘"
+        result["Netflix"] = "<b>Netflix：</b>未解锁 ✘"
         console.log("nf:"+result["Netflix"])
         //$notify("nf:"+result["Netflix"])
         resolve('Not Available')
@@ -141,14 +141,14 @@ function testNf(filmId) {
           region = 'us'
         }
         console.log("nf:"+region)
-        result["Netflix"] = "<b>Netflix: </b>全解锁"+arrow+ ChineseSimplified.get(region.toUpperCase())
+        result["Netflix"] = "<b>Netflix：</b>全解锁"+arrow+ ChineseSimplified.get(region.toUpperCase())
         //$notify("nf:"+result["Netflix"])
 
         resolve("nf:"+result["Netflix"])
         return 
       }
     }, reason => {
-      result["Netflix"] = "<b>Netflix: </b>检测超时 🚦"
+      result["Netflix"] = "<b>Netflix：</b>检测超时 🚦"
       console.log(result["Netflix"])
       resolve("timeout")
     }
@@ -172,10 +172,10 @@ function testYTB() {
       console.log("ytb:"+response.statusCode)
       if (response.statusCode !== 200) {
         
-        result["YouTube"] = "<b>YouTube: </b>检测失败 ❗️"
+        result["YouTube"] = "<b>YouTube：</b>检测失败 ❗️"
       } else if (data.indexOf('Premium is not available in your country') !== -1) {
           
-        result["YouTube"] = "<b>YouTube: </b>未解锁 ✘"
+        result["YouTube"] = "<b>YouTube：</b>未解锁 ✘"
       } else if (data.indexOf('Premium is not available in your country') == -1) {
       
       let region = ''
@@ -189,11 +189,11 @@ function testYTB() {
         region = 'US'
       }
       //resolve(region)
-      result["YouTube"] = "<b>YouTube: </b>已解锁"+arrow+ ChineseSimplified.get(region.toUpperCase())
+      result["YouTube"] = "<b>YouTube：</b>已解锁"+arrow+ ChineseSimplified.get(region.toUpperCase())
       console.log("ytb:"+region+ result["YouTube"])
       }
     }, reason => {
-      result["YouTube"] = "<b>YouTube: </b>检测超时 🚦"
+      result["YouTube"] = "<b>YouTube：</b>检测超时 🚦"
       //resolve("timeout")
     })
 }
