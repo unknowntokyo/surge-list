@@ -414,6 +414,10 @@ DOMAIN,api.viu.now.com
 DOMAIN-SUFFIX,viu.com
 DOMAIN-SUFFIX,viu.tv
 
+# > OLEVOD
+DOMAIN-SUFFIX,olevod.com
+DOMAIN-SUFFIX,olemovienews.com
+
 # > CDN/AWS
 DOMAIN-SUFFIX,akamai.com
 DOMAIN-SUFFIX,akamai.net
