@@ -47,7 +47,7 @@ const message = {
   console.log(result["Netflix"])
 
   let content = "------------------------------"+"</br>"+([result["YouTube"],result["Netflix"]]).join("</br></br>")
-  content = content + "</br>------------------------------</br>"+"<font color=#008A95 >"+"<b>节点</b> ➟ " + $environment.params+ "</font>"
+  content = content + "</br>------------------------------</br>"+"<font color=#008A95>"+"<b>节点</b> ➟ " + $environment.params+ "</font>"
   content =`<p style="text-align: center; font-family: -apple-system; font-size: large; font-weight: thin">` + content + `</p>`
 
 $configuration.sendMessage(message).then(resolve => {
