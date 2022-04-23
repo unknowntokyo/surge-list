@@ -28,7 +28,7 @@ var opts1 = {
   redirection: false
 };
 
-var ChineseSimplified = new Map([[ "HK" , "香港" ] ,[ "JP" , "日本" ] , [ "KR" , "韩国" ] , [ "SG" , "狮城" ] , [ "TW" , "台湾" ] , [ "US" , "美国" ]])
+var ChineseSimplified = new Map([[ "HK" , "HKG" ] ,[ "JP" , "JPN" ] , [ "KR" , "KOR" ] , [ "SG" , "SGP" ] , [ "TW" , "TPE" ] , [ "US" , "USA" ]])
 
 let result = {
   "title": '    🔫  流媒体解锁检测',
