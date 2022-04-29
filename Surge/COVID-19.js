@@ -31,7 +31,7 @@ $httpClient.get(url, function(error, response, data){
        title: "COVID-19",
        icon:"heart.text.square",
        "icon-color":"#E94335",
-       content: ala.replace(/\n$/, "").replace("确诊0例", "无").replace("无症状0例", "无").replace("无，无", "无")
+       content: ala.replace(/\n$/, "").replace("确诊0例，无症状0例", "无").replace("确诊0例，", "").replace("，无症状0例", "")
      });
     }
   }
