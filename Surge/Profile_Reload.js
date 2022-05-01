@@ -6,7 +6,7 @@ $httpAPI("POST", "/v1/profiles/reload", {}, data => {
    minutes = minutes > 9 ? minutes : "0" + minutes;
     $done({
         title: "配置重载",
-        content: "配置重载成功，"+now+" "+hour+":"+minutes,
+        content: "Success，"+hour+":"+minutes,
         icon: "terminal",
         "icon-color": "#00B1FF",
      })
