@@ -9,7 +9,7 @@ $httpAPI("POST", "/v1/profiles/reload", {}, data => {
    minutes = minutes > 9 ? minutes : "0" + minutes;
     $done({
         title: "配置重载",
-        content: "Last runtime："+year+"/"+month+"/"+date+" "++hour+":"+minutes,
+        content: "Last runtime："+year+"/"+month+"/"+date+" "+hour+":"+minutes,
         icon: "terminal",
         "icon-color": "#00B1FF",
      })
