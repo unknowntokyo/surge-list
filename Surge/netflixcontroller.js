@@ -94,7 +94,7 @@ let params = getParams($argument)
       }
     }
     //遍历检测当选策略
-    console.log("当前检测：" + groupName)
+    console.log("当前检测: " + groupName)
     let newStatus;
     let reg;
     for (let i = 0; i < selectName.length; ++i) {
@@ -115,7 +115,7 @@ let params = getParams($argument)
         newStatus = status
         reg = regionCode
       }
-      console.log("检测结果：" + selectName[i] + " | " + statusName(newStatus))
+      console.log("检测结果: " + selectName[i] + " | " + statusName(newStatus))
       //填充数据
       dataname = selectName[i]
       data[dataname] = reg
@@ -174,16 +174,16 @@ let params = getParams($argument)
   }
 
   if (fullUnlock.includes(rootName)) {
-    panel['content'] = `状态：完整支持Netflix\n地区：${data[rootName]}`
+    panel['content'] = `状态: 完整支持Netflix\n地区: ${data[rootName]}`
     panel['icon'] = params.icon1
     panel['icon-color'] = params.color1
   } else if (onlyOriginal.includes(rootName)) {
-    panel['content'] = `状态：仅支持自制内容～`
+    panel['content'] = `状态: 仅支持自制内容～`
     panel['icon'] = params.icon2
     panel['icon-color'] = params.color2
   } else {
     console.log("test")
-    panel['content'] = `状态：未解锁`
+    panel['content'] = `状态: 未解锁`
     panel['icon'] = params.icon3
     panel['icon-color'] = params.color3
   }

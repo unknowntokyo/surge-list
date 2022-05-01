@@ -8,13 +8,13 @@
   let total = info.total;
   let proportion = used / total;
   let expire = args.expire || info.expire;
-  let content = [`用量: ${bytesToSize(used)} | ${bytesToSize(total)}`];
+  let content = [`用量:  ${bytesToSize(used)} | ${bytesToSize(total)}`];
   if (resetDayLeft) {
-    content.push(`重置: 剩余${resetDayLeft}天`);
+    content.push(`重置:  剩余${resetDayLeft}天`);
   }
   if (expire && expire !== "false") {
     if (/^[\d.]+$/.test(expire)) expire *= 1000;
-    content.push(`到期: ${formatTime(expire)}`);
+    content.push(`到期:  ${formatTime(expire)}`);
   }
 
   $done({
