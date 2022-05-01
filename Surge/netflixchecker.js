@@ -9,7 +9,7 @@ const AREA_TEST_FILM_ID = 80018499
     let newStatus = status
     let reg = regionCode
     if (status < 0) {
-      console.log("连接超时，请再试一次")
+      console.log("连接超时, 请再试一次")
       await timeout(1000).catch(() => { })
       let { status, regionCode } = await testPolicy();
       newStatus = status
@@ -70,7 +70,7 @@ const AREA_TEST_FILM_ID = 80018499
 
 
       //遍历检测当选策略
-      console.log("当前检测：" + groupName)
+      console.log("当前检测: " + groupName)
       for (let i = 0; i < selectName.length; ++i) {
         //切换节点
         $surge.setSelectGroupPolicy(groupName, selectName[i]);
@@ -81,15 +81,15 @@ const AREA_TEST_FILM_ID = 80018499
         let { status, regionCode } = await testPolicy();
         newStatus = status
         reg = regionCode
-        /* 检测超时，请再试一次 */
+        /* 检测超时, 请再试一次 */
         if (status < 0) {
-          console.log(selectName[i] + ": 连接超时，请再试一次")
+          console.log(selectName[i] + ": 连接超时, 请再试一次")
           await timeout(1000).catch(() => { })
           let { status, regionCode } = await testPolicy();
           newStatus = status
           reg = regionCode
         }
-        console.log("检测结果：" + selectName[i] + " | " + statusName(newStatus))
+        console.log("检测结果: " + selectName[i] + " | " + statusName(newStatus))
         //填充数据
         dataname = selectName[i]
         data[dataname] = reg

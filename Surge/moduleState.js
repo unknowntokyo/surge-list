@@ -21,7 +21,7 @@
     moduleState = (await httpAPI("/v1/modules")).enabled.includes(module);
     if (moduleState) panel["icon-color"] = color2 ? color2 : "#E94335";
     else color1 ? (panel["icon-color"] = color1) : "#00B1FF";
-    panel.content = `状态：${moduleState ? "开启" : "关闭"}`;
+    panel.content = `状态: ${moduleState ? "开启" : "关闭"}`;
     $done(panel);
 })();
 

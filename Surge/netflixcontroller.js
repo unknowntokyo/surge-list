@@ -109,7 +109,7 @@ let params = getParams($argument)
 
       /* 检测超时 再测一次 */
       if (newStatus < 0) {
-        console.log(selectName[i] + ": 连接超时了，再测一次")
+        console.log(selectName[i] + ": 连接超时了, 再测一次")
         await timeout(1000).catch(() => { })
         let { status, regionCode, policyName } = await testPolicy(selectName[i]);
         newStatus = status

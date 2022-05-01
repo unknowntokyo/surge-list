@@ -14,7 +14,7 @@ let tnow = new Date();
 let tnowf =
   tnow.getFullYear() + "-" + (tnow.getMonth() + 1) + "-" + tnow.getDate();
 
-/* 计算2个日期相差的天数，不包含今天，如：2016-12-13到2016-12-15，相差2天
+/* 计算2个日期相差的天数, 不包含今天, 如: 2016-12-13到2016-12-15, 相差2天
  * @param startDateString
  * @param endDateString
  * @returns
@@ -45,7 +45,7 @@ function now() {
   }
 }
 
-//如果是0天，发送emoji;
+//如果是0天, 发送emoji;
 let nowlist = now();
 function today(day) {
   let daythis = day;
@@ -61,5 +61,5 @@ title:"节假日倒计时",
 icon:"hourglass",
 'icon-color': "#1E88FB",
 content:
-tlist[nowlist][0]+"："+(today(tnumcount(nowlist))+"天").replace("🎉天", "🎉")+tlist[nowlist][2]+"\n"+tlist[Number(nowlist) + Number(1)][0] +"："+ tnumcount(Number(nowlist) + Number  (1))+ "天"+tlist[Number(nowlist) + Number(1)][2]+"\n"+tlist[Number(nowlist) + Number(2)][0]+"："+tnumcount(Number(nowlist) + Number(2))+"天"+tlist[Number(nowlist) + Number(2)][2]
+tlist[nowlist][0]+": "+(today(tnumcount(nowlist))+"天").replace("🎉天", "🎉")+tlist[nowlist][2]+"\n"+tlist[Number(nowlist) + Number(1)][0] +": "+ tnumcount(Number(nowlist) + Number  (1))+ "天"+tlist[Number(nowlist) + Number(1)][2]+"\n"+tlist[Number(nowlist) + Number(2)][0]+": "+tnumcount(Number(nowlist) + Number(2))+"天"+tlist[Number(nowlist) + Number(2)][2]
 })
