@@ -5,10 +5,11 @@ DOMAIN-SUFFIX,iot-tencent.com
 DOMAIN-SUFFIX,myqcloud.com
 DOMAIN-SUFFIX,qlogo.cn
 DOMAIN-SUFFIX,qpic.cn
-DOMAIN-SUFFIX,qq.com
 DOMAIN-SUFFIX,servicewechat.com
 DOMAIN-SUFFIX,tencent-cloud.com
 DOMAIN-SUFFIX,tencent-cloud.net
+DOMAIN-SUFFIX,tencentcloud-aiot.com
+DOMAIN-SUFFIX,tencentcloudapi.com
 DOMAIN-SUFFIX,tencent.com
 DOMAIN-SUFFIX,tencentcs.com
 DOMAIN-SUFFIX,tenpay.com
