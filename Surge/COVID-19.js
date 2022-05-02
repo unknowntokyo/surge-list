@@ -32,7 +32,7 @@ $httpClient.get(url, function(error, response, data){
        title: "COVID-19",
        icon:"heart.text.square",
        "icon-color":"#E94335",
-       content: ala
+       content: ala.replace(/\n$/, ""),
      });
     }
   }
