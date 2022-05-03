@@ -29,7 +29,7 @@ $httpClient.get(url, function(error, response, data){
     num(list[i], res);
     if (i == list.length - 1) {
      $done({
-       title: "COVID-19",
+       title:"COVID-19",
        icon:"heart.text.square",
        "icon-color":"#E94335",
        content: ala.replace(/\n$/, ""),

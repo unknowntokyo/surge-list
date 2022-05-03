@@ -1,5 +1,5 @@
 !(async () => {
-    let panel = { title: "Flush DNS" },
+    let panel = { title:"Flush DNS" },
         showServer = true,
         dnsCache;
     if (typeof $argument != "undefined") {
