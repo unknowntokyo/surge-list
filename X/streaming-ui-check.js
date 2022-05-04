@@ -47,7 +47,7 @@ const message = {
   console.log(result["Netflix"])
 
   let content = "------------------------------"+"</br>"+([result["YouTube"],result["Netflix"]]).join("</br></br>")
-  content = content + "</br>------------------------------</br>"+"<font color=#1AB19A>"+"<b>节点</b> ➟ " + $environment.params+ "</font>"
+  content = content + "</br>------------------------------</br>"+"<font color=#007AFF>"+"<b>节点</b> ➟ " + $environment.params+ "</font>"
   content =`<p style="text-align: center; font-family: -apple-system; font-size: large; font-weight: thin">` + content + `</p>`
 
 $configuration.sendMessage(message).then(resolve => {
@@ -58,7 +58,7 @@ $configuration.sendMessage(message).then(resolve => {
     if (resolve.ret) {
       let output=JSON.stringify(resolve.ret[message.content])? JSON.stringify(resolve.ret[message.content]).replace(/\"|\[|\]/g,"").replace(/\,/g," ➟ ") : $environment.params
       let content = "--------------------------------------</br>"+([result["Netflix"],result["YouTube"]]).join("</br></br>")
-      content = content + "</br>--------------------------------------</br>"+"<font color=#1AB19A>"+"<b>节点</b> ➟ " + output+ "</font>"
+      content = content + "</br>--------------------------------------</br>"+"<font color=#007AFF>"+"<b>节点</b> ➟ " + output+ "</font>"
       content =`<p style="text-align: center; font-family: -apple-system; font-size: large; font-weight: thin">` + content + `</p>`
       //$notify(typeof(output),output)
       console.log(output);
@@ -81,7 +81,7 @@ $configuration.sendMessage(message).then(resolve => {
     if (resolve.ret) {
       let output=JSON.stringify(resolve.ret[message.content])? JSON.stringify(resolve.ret[message.content]).replace(/\"|\[|\]/g,"").replace(/\,/g," ➟ ") : $environment.params
       let content = "--------------------------------------</br>"+([result["Netflix"],result["YouTube"]]).join("</br></br>")
-      content = content + "</br>--------------------------------------</br>"+"<font color=#1AB19A>"+"<b>节点</b> ➟ " + output+ "</font>"
+      content = content + "</br>--------------------------------------</br>"+"<font color=#007AFF>"+"<b>节点</b> ➟ " + output+ "</font>"
       content =`<p style="text-align: center; font-family: -apple-system; font-size: large; font-weight: thin">` + content + `</p>`
       //$notify(typeof(output),output)
       console.log(output);
