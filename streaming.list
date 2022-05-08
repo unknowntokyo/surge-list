@@ -415,6 +415,10 @@ DOMAIN,api.viu.now.com
 DOMAIN-SUFFIX,viu.com
 DOMAIN-SUFFIX,viu.tv
 
+# > MUDVOD
+DOMAIN-SUFFIX,biggggg.com
+DOMAIN-SUFFIX,mudvod.tv
+
 # > OLEVOD
 DOMAIN-SUFFIX,olevod.com
 DOMAIN-SUFFIX,olemovienews.com
