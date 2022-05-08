@@ -1,10 +1,10 @@
 var body = $response.body;
 var obj = JSON.parse(body);
-var subtitle = obj['org'];
+var subtitle = String(obj['org']).replace(/\([^\)]*\)/g,"");
 var ip = obj['query'];
 var carrier = obj['isp'];
 var city = obj['city'];
-var datacenter = obj['org'].replace(\([^\)]*\), "");
+var datacenter = String(obj['org']).replace(/\([^\)]*\)/g,"");
 var ioc = new Map([["HK","HKG"],["TW","TPE"],["SG","SGP"],["JP","JPN"],["KR","KOR"],["US","USA"]]);
 var title = '' + ' '+ ioc.get(obj['countryCode']);
 switch (datacenter){
