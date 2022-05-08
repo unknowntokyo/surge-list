@@ -4,7 +4,7 @@ var subtitle = obj['org'];
 var ip = obj['query'];
 var carrier = obj['isp'];
 var city = obj['city'];
-var datacenter = obj['org'];
+var datacenter = obj['org'].replace(\([^\)]*\), "");
 var ioc = new Map([["HK","HKG"],["TW","TPE"],["SG","SGP"],["JP","JPN"],["KR","KOR"],["US","USA"]]);
 var title = '' + ' '+ ioc.get(obj['countryCode']);
 switch (datacenter){
