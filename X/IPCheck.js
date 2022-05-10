@@ -1,6 +1,6 @@
 var body = $response.body;
 var obj = JSON.parse(body);
-if (String(obj['org']).length < 20) {
+if (String(obj['org']).length < 30) {
 var subtitle = obj['org'];
 } else {
 var subtitle = String(obj['org']).replace( /\([^\)]*\)/g,"");
