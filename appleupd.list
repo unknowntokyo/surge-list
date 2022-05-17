@@ -12,7 +12,7 @@ DOMAIN-SUFFIX,appstore.com
 DOMAIN-SUFFIX,mzstatic.com
 
 # > TestFlight
-testflight.apple.com
+DOMAIN,testflight.apple.com
 
 # > iOS, iPadOS, and watchOS updates
 DOMAIN,appldnld.apple.com
