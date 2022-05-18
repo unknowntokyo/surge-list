@@ -1,5 +1,6 @@
 USER-AGENT,com.google.ios.youtubemusic*
 USER-AGENT,YouTubeMusic*
+DOMAIN-SUFFIX,abc.xyz
 DOMAIN-SUFFIX,about.google
 DOMAIN-SUFFIX,amp.dev
 DOMAIN-SUFFIX,ampproject.com
