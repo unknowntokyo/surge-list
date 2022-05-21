@@ -9,7 +9,7 @@ var ip = obj['query'];
 var carrier = obj['isp'];
 var city = obj['city'];
 var datacenter = subtitle;
-var ioc = new Map([["HK","HKG"],["TW","TPE"],["SG","SGP"],["JP","JPN"],["KR","KOR"],["US","USA"]]);
+var ioc = new Map([["DE","DER"],["FR","FRA"],["GB","GBR"],["HK","HKG"],["JP","JPN"],["KR","KOR"],["SG","SGP"],["TR","TUR"],["TW","TPE"],["US","USA"]]);
 var title = '' + ' '+ ioc.get(obj['countryCode']);
 switch (datacenter){
     case "":
