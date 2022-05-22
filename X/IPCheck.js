@@ -3,7 +3,10 @@ var obj = JSON.parse(body);
 if (String(obj['org']).length < 35) {
 var subtitle = obj['org'];
 } else {
-var subtitle = String(obj['org']).replace( /\([^\)]*\)/g,"").replace(" Limited","");
+var subtitle = String(obj['org']).replace( /\([^\)]*\)/g,"");
+  if (subtitle.length >= 35) {
+   subtitle = subtitle.replace(" Limited","");
+  }
 }
 var ip = obj['query'];
 var carrier = obj['isp'];
