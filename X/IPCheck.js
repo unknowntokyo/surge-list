@@ -5,7 +5,7 @@ var subtitle = obj['org'];
 } else {
 var subtitle = String(obj['org']).replace( /\([^\)]*\)/g,"");
 }
-if subtitle.length >= 35) {
+if String(subtitle).length >= 35) {
    subtitle = obj['query'];
 }
 var ip = obj['query'];
