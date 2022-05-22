@@ -31,7 +31,7 @@ var opts1 = {
 var ChineseSimplified = new Map([[ "DE" , "DER" ] ,[ "FR" , "FRA" ] ,[ "GB" , "GBR" ] ,[ "HK" , "HKG" ] ,[ "JP" , "JPN" ] , [ "KR" , "KOR" ] , [ "SG" , "SGP" ] ,[ "TR" , "TUR" ] , [ "TW" , "TPE" ] , [ "US" , "USA" ]])
 
 let result = {
-  "title": '         流媒体解锁检测',
+  "title": '          流媒体解锁检测',
   "YouTube": '<b>YouTube:  </b>检测失败, 请重试 ❗️',
   "Netflix": '<b>Netflix:  </b>检测失败, 请重试 ❗️',
 
