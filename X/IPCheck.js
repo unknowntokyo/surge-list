@@ -4,6 +4,9 @@ if (String(obj['org']).length < 35) {
 var subtitle = obj['org'];
 } else {
 var subtitle = String(obj['org']).replace( /\([^\)]*\)/g,"");
+  if (subtitle.length >= 35) {
+   subtitle = obj['query'];
+  }
 }
 var ip = obj['query'];
 var carrier = obj['isp'];
