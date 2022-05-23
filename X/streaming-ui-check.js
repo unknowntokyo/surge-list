@@ -28,7 +28,7 @@ var opts1 = {
   redirection: false
 };
 
-var ChineseSimplified = new Map([["AE","UAE"],["AR","ARG"],["AU","AUS"],["BR","BRA"],["CA","CAN"],["CH","SUI"],["CN","CHN"],["CZ","CZE"],["DE","DER"],["ES","ESP"],["FR","FRA"],["GB","GBR"],["HK","HKG"],["HU","HUN"],["ID","INA"],["IE","IRL"],["IL","ISR"],["IN","IND"],["IT","ITA"],["JP","JPN"],["KR","KOR"],["MX","MEX"],["MY","MAS"],["NL","NED"],["NO","NOR"],["NZ","NZL"],["PH","PHI"],["PK","PAK"],["RU","RUS"],["SE","SWE"],["SG","SGP"],["TH","THA"],["TR","TUR"],["TW","TPE"],["UA","UKR"],["US","USA"],["VN","VIE"],["ZA","RSA"]])
+var CountryCode = new Map([["HK","HKG"],["JP","JPN"],["KR","KOR"],["SG","SGP"],["TW","TPE"],["US","USA"]])
 
 let result = {
   "title": '          流媒体解锁检测',
@@ -81,7 +81,7 @@ $configuration.sendMessage(message).then(resolve => {
     if (resolve.ret) {
       let output=JSON.stringify(resolve.ret[message.content])? JSON.stringify(resolve.ret[message.content]).replace(/\"|\[|\]/g,"").replace(/\,/g," ➟ ") : $environment.params
       let content = "--------------------------------------</br>"+([result["Netflix"],result["YouTube"]]).join("</br></br>")
-      content = content + "</br>--------------------------------------</br>"+"<font color=#007AFF>"+"<b>节点</b> ➟ " + output+ "</font>"
+      content = content + "</br>--------------------------------------</br>"+"<font color=#007AFF>"+"<b>节点</b> ➟ " + output + "</font>"
       content =`<p style="text-align: center; font-family: -apple-system; font-size: large; font-weight: thin">` + content + `</p>`
       //$notify(typeof(output),output)
       console.log(output);
@@ -141,7 +141,7 @@ function testNf(filmId) {
           region = 'us'
         }
         console.log("nf:"+region)
-        result["Netflix"] = "<b>Netflix:  </b>全解锁"+arrow+ ChineseSimplified.get(region.toUpperCase())
+        result["Netflix"] = "<b>Netflix:  </b>全解锁"+arrow+CountryCode.get(region.toUpperCase())
         //$notify("nf:"+result["Netflix"])
 
         resolve("nf:"+result["Netflix"])
@@ -189,7 +189,7 @@ function testYTB() {
         region = 'US'
       }
       //resolve(region)
-      result["YouTube"] = "<b>YouTube:  </b>已解锁"+arrow+ ChineseSimplified.get(region.toUpperCase())
+      result["YouTube"] = "<b>YouTube:  </b>已解锁"+arrow+CountryCode.get(region.toUpperCase())
       console.log("ytb:"+region+ result["YouTube"])
       }
     }, reason => {
