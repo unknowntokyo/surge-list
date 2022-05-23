@@ -12,7 +12,7 @@ var ip = obj['query'];
 var carrier = obj['isp'];
 var city = obj['city'];
 var datacenter = subtitle;
-var ioc = new Map([["DE","DER"],["FR","FRA"],["GB","GBR"],["HK","HKG"],["JP","JPN"],["KR","KOR"],["SG","SGP"],["TR","TUR"],["TW","TPE"],["US","USA"]]);
+var ioc = new Map([["AE","UAE"],["AU","AUS"],["BR","BRA"],["CA","CAN"],["CN","CHN"],["CZ","CZE"],["DE","DER"],["ES","ESP"],["FR","FRA"],["GB","GBR"],["HK","HKG"],["HU","HUN"],["ID","INA"],["IL","ISR"],["IN","IND"],["IT","ITA"],["JP","JPN"],["KR","KOR"],["MY","MAS"],["NL","NED"],["PH","PHI"],["RA","ARG"],["RU","RUS"],["SG","SGP"],["TH","THA"],["TR","TUR"],["TW","TPE"],["US","USA"],["VN","VIE"]]);
 var title = '' + ' '+ ioc.get(obj['countryCode']);
 switch (datacenter){
     case "":
