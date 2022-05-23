@@ -12,7 +12,7 @@ var ip = obj['query'];
 var carrier = obj['isp'];
 var city = obj['city'];
 var datacenter = subtitle;
-var ioc = new Map([["AE","UAE"],["AR","ARG"],["AU","AUS"],["BR","BRA"],["CA","CAN"],["CN","CHN"],["CZ","CZE"],["DE","DER"],["ES","ESP"],["FR","FRA"],["GB","GBR"],["HK","HKG"],["HU","HUN"],["ID","INA"],["IE","IRL"],["IL","ISR"],["IN","IND"],["IT","ITA"],["JP","JPN"],["KR","KOR"],["MX","MEX"],["MY","MAS"],["NL","NED"],["NZ","NZL"],["PH","PHI"],["RU","RUS"],["SG","SGP"],["TH","THA"],["TR","TUR"],["TW","TPE"],["UA","UKR"],["US","USA"],["VN","VIE"],["ZA","RSA"]]);
+var ioc = new Map([["AE","UAE"],["AR","ARG"],["AU","AUS"],["BR","BRA"],["CA","CAN"],["CH","SUI"],["CN","CHN"],["CZ","CZE"],["DE","DER"],["ES","ESP"],["FR","FRA"],["GB","GBR"],["HK","HKG"],["HU","HUN"],["ID","INA"],["IE","IRL"],["IL","ISR"],["IN","IND"],["IT","ITA"],["JP","JPN"],["KR","KOR"],["MX","MEX"],["MY","MAS"],["NL","NED"],["NO","NOR"],["NZ","NZL"],["PH","PHI"],["PK","PAK"],["RU","RUS"],["SE","SWE"],["SG","SGP"],["TH","THA"],["TR","TUR"],["TW","TPE"],["UA","UKR"],["US","USA"],["VN","VIE"],["ZA","RSA"]]);
 var title = '' + ' '+ ioc.get(obj['countryCode']);
 switch (datacenter){
     case "":
