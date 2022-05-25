@@ -1,5 +1,5 @@
 #!name=TUN Only
-#!desc=开启兼容模式TUN Only, 绕过部分APP的代理检测
+#!desc=开启兼容模式TUN Only，绕过部分APP的代理检测
 #!system=ios
 
 [General]
