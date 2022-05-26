@@ -145,9 +145,7 @@ unifi.ui.com = server:syslib
 ^https:\/\/duckduckgo.com\/\?q=(?!dl(c|e|j)(\+|%20))([^&]+).+ https://www.google.co.jp/search?q=$3&num=30 302
 
 [MITM]
-hostname = %APPEND% acs.m.taobao.com,api.m.jd.com,bdsp-x.jd.com,guide-acs.m.taobao.com,duckduckgo.com,mp.weixin.qq.com,ms.jr.jd.com,www.google.cn
+hostname = %APPEND% duckduckgo.com,mp.weixin.qq.com,www.google.cn
 
 [Script]
-http-response ^https?://api\.m\.jd\.com/client\.action\?functionId=(wareBusiness|serverConfig|basicConfig) requires-body=1,script-path=https://raw.githubusercontent.com/yichahucha/surge/master/jd_price.js
-
 http-response ^https?:\/\/mp\.weixin\.qq\.com\/mp\/getappmsgad requires-body=1,max-size=0,script-path=https://raw.githubusercontent.com/NobyDa/Script/master/QuantumultX/File/Wechat.js
