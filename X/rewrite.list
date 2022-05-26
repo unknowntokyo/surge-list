@@ -1,5 +1,4 @@
-hostname = api.m.jd.com,bdsp-x.jd.com,duckduckgo.com, mp.weixin.qq.com,ms.jr.jd.com,oss.umetrip.com,sub.store,www.google.cn,*.youtube.com,www.zhihu.com,*.baidu.com,
-simple_cert_hostname=sub.store
+hostname = api.m.jd.com,bdsp-x.jd.com,duckduckgo.com, mp.weixin.qq.com,ms.jr.jd.com,oss.umetrip.com,sub.store,www.google.cn,*.youtube.com,www.zhihu.com,*.baidu.com
 
 ^https?://(www.)?(g|google).cn url 302 https://www.google.co.jp
 
