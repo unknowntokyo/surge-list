@@ -1,6 +1,6 @@
 $httpAPI("POST", "/v1/profiles/reload", {}, data => {
    var now = new Date();
-   var month = now.getMonth()+1;
+   var month = now.getMonth();
    var date = now.getDate();
    var hour = now.getHours();
    var minutes = now.getMinutes();
