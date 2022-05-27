@@ -3,14 +3,13 @@
 
 [Host]
 # > Companies
+3.cn = server:syslib 
 *.126.com = server:https://1.12.12.12/dns-query
 *.126.net = server:https://1.12.12.12/dns-query
 *.127.net = server:https://1.12.12.12/dns-query
 *.163.com = server:https://1.12.12.12/dns-query
 *.360buyimg.com = server:syslib
-3.cn = server:syslib 
 *.1688.com = server:https://223.5.5.5/dns-query
-acg.tv = server:syslib
 *.aliapp.com = server:https://223.5.5.5/dns-query
 *.aliapp.org = server:https://223.5.5.5/dns-query
 *.alibaba.cn = server:https://223.5.5.5/dns-query
@@ -55,7 +54,6 @@ acg.tv = server:syslib
 *.bilivideo.com = server:syslib
 *.cdn-go.cn = server:https://1.12.12.12/dns-query
 *.china.alibaba.com = server:https://223.5.5.5/dns-query
-dwz.cn = server:https://223.5.5.5/dns-query
 *.gtimg.cn = server:https://1.12.12.12/dns-query
 *.hdslb.com = server:syslib
 *.hdslb.net = server:syslib
@@ -83,7 +81,6 @@ dwz.cn = server:https://223.5.5.5/dns-query
 *.smtcdns.com = server:https://1.12.12.12/dns-query
 *.smtcdns.net = server:https://1.12.12.12/dns-query
 *.taobao.com = server:https://223.5.5.5/dns-query
-tb.cn = server:https://223.5.5.5/dns-query
 *.tbcache.com = server:https://223.5.5.5/dns-query
 *.tencent-cloud.net = server:https://1.12.12.12/dns-query
 *.tencent.com = server:https://1.12.12.12/dns-query
@@ -92,7 +89,6 @@ tb.cn = server:https://223.5.5.5/dns-query
 *.tencentcloudcr.com = server:https://1.12.12.12/dns-query
 *.tencentcloudmarket.com = server:https://1.12.12.12/dns-query
 *.tmall.com = server:https://223.5.5.5/dns-query
-url.cn = server:https://1.12.12.12/dns-query
 *.wechat.com = server:https://1.12.12.12/dns-query
 *.weixin.com = server:https://1.12.12.12/dns-query
 *.weixin.qq.com = server:https://1.12.12.12/dns-query
@@ -100,6 +96,10 @@ url.cn = server:https://1.12.12.12/dns-query
 *.weiyun.com = server:https://1.12.12.12/dns-query
 *.wx.qq.com = server:https://1.12.12.12/dns-query
 *.xiaomi.com = server:https://1.12.12.12/dns-query
+acg.tv = server:syslib
+dwz.cn = server:https://223.5.5.5/dns-query
+tb.cn = server:https://223.5.5.5/dns-query
+url.cn = server:https://1.12.12.12/dns-query
 
 # > Router
 amplifi.lan = server:syslib
