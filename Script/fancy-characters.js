@@ -17,7 +17,7 @@ function operator(proxies) {
         const newName = [];
         for (let i = 0; i < name.length; i++) {
             const code = name.charCodeAt(i);
-            if (code < 48 || code > 91) {
+            if (code < 48 || code > 91 || code.match(RegExp(/0x/))) {
                 newName.push(name[i]);
             };
             const index = INDEX[code];
