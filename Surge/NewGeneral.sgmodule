@@ -50,6 +50,7 @@
 *.biliapi.com = server:syslib
 *.biliapi.net = server:syslib
 *.bilibili.com = server:syslib
+*.bilicdn?.com = server:syslib
 *.bilivideo.cn = server:syslib
 *.bilivideo.com = server:syslib
 *.cdn-go.cn = server:https://1.12.12.12/dns-query
