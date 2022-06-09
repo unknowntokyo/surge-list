@@ -34,3 +34,5 @@ DOMAIN-KEYWORD,cordcloud
 DOMAIN-KEYWORD,texon
 DOMAIN-KEYWORD,v2tun
 DOMAIN-KEYWORD,ytoo
+IP-CIDR,1.0.0.0/24,no-resolve
+IP-CIDR,1.1.1.0/24,no-resolve
