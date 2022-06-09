@@ -36,3 +36,5 @@ DOMAIN-KEYWORD,v2tun
 DOMAIN-KEYWORD,ytoo
 IP-CIDR,1.0.0.0/24,no-resolve
 IP-CIDR,1.1.1.0/24,no-resolve
+IP-CIDR,8.8.4.0/24,no-resolve
+IP-CIDR,8.8.8.0/24,no-resolve
