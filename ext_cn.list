@@ -4,3 +4,4 @@ PROCESS-NAME,/Applications/NeteaseMusic.app/Contents/MacOS/NeteaseMusic
 PROCESS-NAME,/Applications/pap.er.app/Contents/MacOS/Pap.er
 USER-AGENT,NeteaseMusic*
 DOMAIN-SUFFIX,cn
+IP-CIDR,119.29.0.0/16,no-resolve
