@@ -1,4 +1,4 @@
-hostname = duckduckgo.com, mp.weixin.qq.com,www.google.cn,www.zhihu.com,*.baidu.com
+hostname = duckduckgo.com, mp.weixin.qq.com, www.google.cn, www.zhihu.com, *.baidu.com
 
 ^https?://(www.)?(g|google).cn url 302 https://www.google.co.jp
 
