@@ -1,0 +1,9 @@
+function operator(proxies, targetPlatform) {
+    const { ALPN } = $arguments;
+    proxies.forEach(proxy => {
+        if (targetPlatform === "QX") {
+            proxy['tls-alpn'] = ALPN;
+        }
+    });
+    return proxies;
+}
