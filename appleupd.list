@@ -37,6 +37,3 @@ DOMAIN,swscan.apple.com
 # > macOS Recovery
 DOMAIN,oscdn.apple.com
 DOMAIN,osrecovery.apple.com
-
-# > SMTP
-DOMAIN-SUFFIX,mail.me.com
