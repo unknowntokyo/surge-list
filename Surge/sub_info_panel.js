@@ -9,7 +9,7 @@
   let proportion = used / total;
   let content = [`${bytesToSize(used)} Used`];
   if (resetDayLeft) {
-    content.join(` and Reset within ${resetDayLeft} days`);
+    content = content.join(` and Reset within ${resetDayLeft} days`);
   }
 
   $done({
