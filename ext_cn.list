@@ -1,4 +1,4 @@
-# > TLD域名需在 cn_ext.list 手动补充
+# > TLD域名需在 ext_cn.list 手动补充
 PROCESS-NAME,/Applications/Folx.app/Contents/MacOS/Folx
 PROCESS-NAME,/Applications/NeteaseMusic.app/Contents/MacOS/NeteaseMusic
 PROCESS-NAME,/Applications/pap.er.app/Contents/MacOS/Pap.er
