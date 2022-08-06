@@ -7,14 +7,9 @@
   let used = info.download + info.upload;
   let total = info.total;
   let proportion = used / total;
-  let expire = args.expire || info.expire;
-  let content = [`用量:  ${bytesToSize(used)} | ${bytesToSize(total)}`];
+  let content = [`${bytesToSize(used)} Used`];
   if (resetDayLeft) {
-    content.push(`重置:  剩余${resetDayLeft}天`);
-  }
-  if (expire && expire !== "false") {
-    if (/^[\d.]+$/.test(expire)) expire *= 1000;
-    content.push(`到期:  ${formatTime(expire)}`);
+    content.join(` and Reset within ${resetDayLeft} days`);
   }
 
   $done({
@@ -99,14 +94,6 @@ function bytesToSize(bytes) {
   sizes = ["B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"];
   let i = Math.floor(Math.log(bytes) / Math.log(k));
   return (bytes / Math.pow(k, i)).toFixed(2) + " " + sizes[i];
-}
-
-function formatTime(time) {
-  let dateObj = new Date(time);
-  let year = dateObj.getFullYear();
-  let month = dateObj.getMonth() + 1;
-  let day = dateObj.getDate();
-  return year + "年" + month + "月" + day + "日";
 }
 
 function toPercent(proportion) {
