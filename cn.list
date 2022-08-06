@@ -1,4 +1,5 @@
 # > TLD域名需在 cn_ext.list 手动补充
+.aaa.com
 router.asus.com
 time.apple.com
 time.asia.apple.com
