@@ -2,16 +2,11 @@
   let args = getArgs();
   let info = await getDataInfo(args.url);
   if (!info) $done();
-  let resetDayLeft = getRmainingDays(parseInt(args["reset_day"]));
 
   let used = info.download + info.upload;
   let total = info.total;
   let proportion = used / total;
-  if (resetDayLeft) {
-    let content = [`${bytesToSize(used)} Used, reset in ${resetDayLeft} days`];
-  } else {
-    let content = [`${bytesToSize(used)} Used`];
-  }
+  let content = [`${bytesToSize(used)} Used`];
 
   $done({
     title: `${args.title} | ${toPercent(proportion)}`,
@@ -69,24 +64,6 @@ async function getDataInfo(url) {
       .map((item) => item.split("="))
       .map(([k, v]) => [k, Number(v)])
   );
-}
-
-function getRmainingDays(resetDay) {
-  if (!resetDay) return;
-
-  let now = new Date();
-  let today = now.getDate();
-  let month = now.getMonth();
-  let year = now.getFullYear();
-  let daysInMonth;
-
-  if (resetDay > today) {
-    daysInMonth = 0;
-  } else {
-    daysInMonth = new Date(year, month + 1, 0).getDate();
-  }
-
-  return daysInMonth - today + resetDay;
 }
 
 function bytesToSize(bytes) {
