@@ -7,9 +7,10 @@
   let used = info.download + info.upload;
   let total = info.total;
   let proportion = used / total;
-  let content = [`${bytesToSize(used)} Used`];
   if (resetDayLeft) {
-    content = content + [`, reset in ${resetDayLeft} days`];
+    let content = [`${bytesToSize(used)} Used, reset in ${resetDayLeft} days`];
+  } else {
+    let content = [`${bytesToSize(used)} Used`];
   }
 
   $done({
