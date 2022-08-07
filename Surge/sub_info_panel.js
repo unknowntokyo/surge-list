@@ -2,11 +2,20 @@
   let args = getArgs();
   let info = await getDataInfo(args.url);
   if (!info) $done();
+  let resetDayLeft = getRmainingDays(parseInt(args["reset_day"]));
 
   let used = info.download + info.upload;
   let total = info.total;
   let proportion = used / total;
-  let content = [`${bytesToSize(used)} Used`];
+  let expire = args.expire || info.expire;
+  let content = [`用量:  ${bytesToSize(used)} | ${bytesToSize(total)}`];
+  if (resetDayLeft) {
+    content.push(`重置:  剩余${resetDayLeft}天`);
+  }
+  if (expire && expire !== "false") {
+    if (/^[\d.]+$/.test(expire)) expire *= 1000;
+    content.push(`到期:  ${formatTime(expire)}`);
+  }
 
   $done({
     title: `${args.title} | ${toPercent(proportion)}`,
@@ -66,12 +75,38 @@ async function getDataInfo(url) {
   );
 }
 
+function getRmainingDays(resetDay) {
+  if (!resetDay) return;
+
+  let now = new Date();
+  let today = now.getDate();
+  let month = now.getMonth();
+  let year = now.getFullYear();
+  let daysInMonth;
+
+  if (resetDay > today) {
+    daysInMonth = 0;
+  } else {
+    daysInMonth = new Date(year, month + 1, 0).getDate();
+  }
+
+  return daysInMonth - today + resetDay;
+}
+
 function bytesToSize(bytes) {
   if (bytes === 0) return "0B";
   let k = 1024;
   sizes = ["B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"];
   let i = Math.floor(Math.log(bytes) / Math.log(k));
   return (bytes / Math.pow(k, i)).toFixed(2) + " " + sizes[i];
+}
+
+function formatTime(time) {
+  let dateObj = new Date(time);
+  let year = dateObj.getFullYear();
+  let month = dateObj.getMonth() + 1;
+  let day = dateObj.getDate();
+  return year + "年" + month + "月" + day + "日";
 }
 
 function toPercent(proportion) {
