@@ -1,4 +1,6 @@
-hostname = duckduckgo.com, mp.weixin.qq.com, www.google.cn, www.zhihu.com, *.baidu.com
+hostname = duckduckgo.com, mp.weixin.qq.com, sub.store, www.google.cn, www.zhihu.com, *.baidu.com
+
+^https?:\/\/sub\.store url script-analyze-echo-response https://raw.githubusercontent.com/Peng-YM/Sub-Store/master/backend/sub-store.min.js
 
 ^https?://(www.)?(g|google).cn url 302 https://www.google.co.jp
 
