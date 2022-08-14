@@ -1,4 +1,4 @@
-geoip, telegram, unknown, multi-interface
-geoip, google, unknown
+geoip, telegram, L, multi-interface
+geoip, google, L
 geoip, netflix, Netflix
 geoip, cn, direct, multi-interface
