@@ -1,8 +1,8 @@
 DOMAIN-SUFFIX,comments.app
 DOMAIN-SUFFIX,contest.com
 DOMAIN-SUFFIX,easygram.io
-DOMAIN-SUFFIX,indream.app
 DOMAIN-SUFFIX,graph.org
+DOMAIN-SUFFIX,indream.app
 DOMAIN-SUFFIX,nicegram.app
 DOMAIN-SUFFIX,quiz.directory
 DOMAIN-SUFFIX,stel.com
@@ -10,6 +10,7 @@ DOMAIN-SUFFIX,t.me
 DOMAIN-SUFFIX,tdesktop.com
 DOMAIN-SUFFIX,telega.one
 DOMAIN-SUFFIX,telegra.ph
+DOMAIN-SUFFIX,telegram-cdn.org
 DOMAIN-SUFFIX,telegram.dog
 DOMAIN-SUFFIX,telegram.me
 DOMAIN-SUFFIX,telegram.org
