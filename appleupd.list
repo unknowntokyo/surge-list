@@ -11,6 +11,11 @@ DOMAIN-SUFFIX,appsto.re
 DOMAIN-SUFFIX,appstore.com
 DOMAIN-SUFFIX,mzstatic.com
 
+# > Weather
+DOMAIN,weather-analytics-events.apple.com
+DOMAIN,weather-data.apple.com
+DOMAIN,weather-map2.apple.com
+
 # > TestFlight
 DOMAIN,testflight.apple.com
 
