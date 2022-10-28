@@ -42,16 +42,3 @@ DOMAIN,mvod.itunes.apple.com
 DOMAIN,smp-device-content.apple.com
 DOMAIN,streamingaudio.itunes.apple.com
 DOMAIN,xp.apple.com
-
-# > LAN
-DOMAIN-SUFFIX,lan
-DOMAIN-SUFFIX,local
-DOMAIN-SUFFIX,localdomain
-DOMAIN-SUFFIX,localhost
-IP-CIDR,10.0.0.0/8
-IP-CIDR,100.64.0.0/10
-IP-CIDR,127.0.0.0/8
-IP-CIDR,172.16.0.0/12
-IP-CIDR,192.168.0.0/16
-IP-CIDR,224.0.0.0/4
-IP-CIDR6,fe80::/10
