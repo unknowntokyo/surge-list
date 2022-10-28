@@ -38,7 +38,7 @@ DOMAIN,swscan.apple.com
 DOMAIN,oscdn.apple.com
 DOMAIN,osrecovery.apple.com
 
-# >  iCloud
+# > iCloud
 DOMAIN-SUFFIX,aaplimg.com
 DOMAIN-SUFFIX,apple.co
 DOMAIN-SUFFIX,apple.com
