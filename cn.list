@@ -1,12 +1,5 @@
 # > TLD域名需在 ext_cn.list 手动补充
 router.asus.com
-time.apple.com
-time.asia.apple.com
-time-ios.apple.com
-weather-analytics-events.apple.com
-weather-data.apple.com
-weather-map.apple.com
-weather-map2.apple.com
 .01zhuanche.com
 .1sapp.com
 .2haohr.com
