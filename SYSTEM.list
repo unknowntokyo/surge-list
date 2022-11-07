@@ -27,8 +27,9 @@ DOMAIN-SUFFIX,time.apple.com
 DOMAIN-SUFFIX,time.asia.apple.com
 DOMAIN-SUFFIX,weather-analytics-events.apple.com
 DOMAIN-SUFFIX,weather-data.apple.com
-DOMAIN-SUFFIX,weather-map2.apple.com
+DOMAIN-SUFFIX,weather-edge.apple.com
 DOMAIN-SUFFIX,weather-map.apple.com
+DOMAIN-SUFFIX,weather-map2.apple.com
 DOMAIN,aod.itunes.apple.com
 DOMAIN,api.smoot.apple.cn
 DOMAIN,api.smoot.apple.com
