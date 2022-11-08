@@ -287,6 +287,10 @@ DOMAIN,gamer2-cds.cdn.hinet.net
 DOMAIN-SUFFIX,bahamut.com.tw
 DOMAIN-SUFFIX,gamer.com.tw
 
+# > 大师兄
+DOMAIN-SUFFIX,dsxys.com
+DOMAIN-SUFFIX,dsxys.live
+
 # > DAZN
 USER-AGENT,DAZN*
 DOMAIN-SUFFIX,dazn.com
@@ -327,6 +331,11 @@ DOMAIN-SUFFIX,foxplus.com
 DOMAIN-SUFFIX,theplatform.com
 DOMAIN-SUFFIX,uplynk.com
 
+# > 华文电视
+USER-AGENT,HWTVMobile*
+DOMAIN-SUFFIX,5itv.tv
+DOMAIN-SUFFIX,ocnttv.com
+
 # > HBO NOW & Max
 USER-AGENT,HBO%20NOW*
 USER-AGENT,HBOMAX*
@@ -341,11 +350,6 @@ USER-AGENT,HBO%20GO%20PROD*
 DOMAIN-SUFFIX,hbogoasia.com
 DOMAIN-SUFFIX,hbogoasia.hk
 DOMAIN-KEYWORD,.hbogoasia.
-
-# > 华文电视
-USER-AGENT,HWTVMobile*
-DOMAIN-SUFFIX,5itv.tv
-DOMAIN-SUFFIX,ocnttv.com
 
 # > Hulu
 DOMAIN-SUFFIX,hulu.com
