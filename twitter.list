@@ -1,4 +1,6 @@
 PROCESS-NAME,/Applications/Tweetbot.app/Contents/MacOS/Tweetbot
+DOMAIN-SUFFIX,joinmastodon.org
+DOMAIN-SUFFIX,mastodon.social
 DOMAIN-SUFFIX,periscope.tv
 DOMAIN-SUFFIX,pscp.tv
 DOMAIN-SUFFIX,t.co
