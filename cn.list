@@ -243,9 +243,11 @@ router.asus.com
 .bytegoofy.com
 .bytehwm.com
 .byteimg.com
+.bytemastatic.com
 .bytescm.com
 .bytesfield.com
 .bytesmanager.com
+.bytetcc.com
 .bytetos.com
 .bytexservice.com
 .c360dn.com
@@ -306,6 +308,7 @@ router.asus.com
 .cloudwalk.com
 .cmbchina.com
 .cmbimg.com
+.cmpassport.com
 .cmpay.com
 .cnbeta.com
 .cnbetacdn.com
@@ -424,6 +427,9 @@ router.asus.com
 .ecitic.com
 .ecloud-gdu.com
 .ecombdapi.com
+.ecombdimg.com
+.ecombdstatic.com
+.edge-byted.com
 .eet-china.com
 .ele.me
 .ele.to
