@@ -280,6 +280,9 @@ DOMAIN-SUFFIX,primevideo.tv
 DOMAIN-SUFFIX,pv-cdn.net
 DOMAIN-KEYWORD,avoddashs
 
+# > 爱看电影
+DOMAIN-SUFFIX,ikandy.fun
+
 # > Bahamut
 USER-AGENT,Anime*
 DOMAIN,gamer-cds.cdn.hinet.net
