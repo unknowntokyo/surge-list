@@ -66,7 +66,8 @@ unifi.ui.com = server:syslib
 ^https:\/\/duckduckgo.com\/\?q=(?!dl(c|e|j)(\+|%20))([^&]+).+ https://www.google.co.jp/search?q=$3&num=30 302
 
 [MITM]
-hostname = %APPEND% duckduckgo.com,mp.weixin.qq.com,www.google.cn
+hostname = %APPEND% ad.12306.cn,duckduckgo.com,mp.weixin.qq.com,www.google.cn
 
 [Script]
+12306去广告 = type=http-request,pattern=^https?:\/\/ad\.12306\.cn\/ad\/ser\/getAdList,requires-body=true,max-size=3145728,script-path=https://github.com/ddgksf2013/Scripts/raw/master/12306.js,timeout=5,script-update-interval=86400
 http-response ^https?:\/\/mp\.weixin\.qq\.com\/mp\/getappmsgad requires-body=1,max-size=0,script-path=https://raw.githubusercontent.com/NobyDa/Script/master/QuantumultX/File/Wechat.js
