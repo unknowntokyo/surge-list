@@ -41,6 +41,7 @@ DOMAIN,api.ad.xiaomi.com
 DOMAIN,api.adform.com
 DOMAIN,api.adnet.mob.com
 DOMAIN,api.segment.io
+DOMAIN-SUFFIX,api.share.mob.com
 DOMAIN,appnext-a.akamaihd.net
 DOMAIN,appnext.hs.llnwd.net
 DOMAIN,atanx2.alicdn.com
