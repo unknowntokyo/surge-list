@@ -1,6 +1,8 @@
 hostname = ad.12306.cn, duckduckgo.com, m5.amap.com, mp.weixin.qq.com, *pornhub.com, sub.store, www.google.cn, www.zhihu.com, *.baidu.com
 
-^https?:\/\/sub\.store url script-analyze-echo-response https://raw.githubusercontent.com/Peng-YM/Sub-Store/master/backend/sub-store.min.js
+^https?:\/\/sub\.store\/((download)|api\/(preview|sync|(utils\/node-info))) url script-analyze-echo-response https://github.com/sub-store-org/Sub-Store/releases/latest/download/sub-store-1.min.js
+
+^https?:\/\/sub\.store url script-analyze-echo-response https://github.com/sub-store-org/Sub-Store/releases/latest/download/sub-store-0.min.js
 
 ^https?://(www.)?(g|google).cn url 302 https://www.google.co.jp
 
