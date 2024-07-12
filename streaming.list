@@ -355,6 +355,9 @@ DOMAIN-SUFFIX,hbogoasia.com
 DOMAIN-SUFFIX,hbogoasia.hk
 DOMAIN-KEYWORD,.hbogoasia.
 
+# > 影巢
+DOMAIN-SUFFIX,hdhive.org
+
 # > Hulu
 DOMAIN-SUFFIX,hulu.com
 DOMAIN-SUFFIX,hulunet.com
