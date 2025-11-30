@@ -441,8 +441,6 @@ DOMAIN-SUFFIX,olemovienews.com
 DOMAIN-SUFFIX,1024image.com
 DOMAIN-SUFFIX,91p49.com
 DOMAIN-SUFFIX,91p51.com
-DOMAIN-SUFFIX,91porn.com
-DOMAIN-SUFFIX,91porny.com
 DOMAIN-SUFFIX,alonestreaming.com
 DOMAIN-SUFFIX,avgle.com
 DOMAIN-SUFFIX,hentaiplay.net
@@ -469,9 +467,6 @@ DOMAIN-SUFFIX,jiuse.cloud
 DOMAIN-SUFFIX,jiuse.io
 DOMAIN-SUFFIX,killcovid2021.com
 DOMAIN-SUFFIX,madou.club
-DOMAIN-SUFFIX,missav01.com
-DOMAIN-SUFFIX,missav.com
-DOMAIN-SUFFIX,netflav.com
 DOMAIN-SUFFIX,onejav.com
 DOMAIN-SUFFIX,phncdn.com
 DOMAIN-SUFFIX,phprcdn.com
@@ -509,8 +504,10 @@ DOMAIN-SUFFIX,xvideo.com
 DOMAIN-SUFFIX,xvideos-cdn.com
 DOMAIN-SUFFIX,youav.com
 DOMAIN-SUFFIX,youporn.com
+DOMAIN-KEYWORD,91porn
 DOMAIN-KEYWORD,hentai
 DOMAIN-KEYWORD,missav
+DOMAIN-KEYWORD,netflav
 
 # > CDN/AWS
 DOMAIN-SUFFIX,akamai.com
