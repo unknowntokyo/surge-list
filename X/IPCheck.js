@@ -12,7 +12,7 @@ var ip = obj['query'];
 var carrier = obj['isp'];
 var city = obj['city'];
 var datacenter = subtitle;
-var CountryCode = new Map([["HK","HKG"],["JP","JPN"],["KR","KOR"],["SG","SGP"],["TW","TPE"],["US","USA"]]);
+var CountryCode = new Map([["HK","HKG"],["TW","TPE"],["SG","SGP"],["JP","JPN"],["KR","KOR"],["US","USA"],["NL","NED"]]);
 var title = '' + ' ' + CountryCode.get(obj['countryCode']);
 switch (datacenter){
     case "":
