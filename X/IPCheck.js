@@ -1,10 +1,16 @@
 var body = $response.body;
 var obj = JSON.parse(body);
 var asn = obj['as'].match(/^AS\d+/)?.[0] || '';
-if (String(asn + ' ' + obj['org']).length < 20) {
-var subtitle = asn + ' ' +obj['org'];
+var info = "";
+if (obj['org'] != "") {
+  info = obj['org'];
 } else {
-var subtitle = String(asn + ' ' +obj['org']).replace( /\([^\)]*\)/g,"");
+  info = obj['asname']
+  }
+if (String(asn + ' ' + info).length < 20) {
+var subtitle = asn + ' ' + info;
+} else {
+var subtitle = String(asn + ' ' + info).replace( /\([^\)]*\)/g,"");
   if (subtitle.length >= 20) {
    subtitle = subtitle.replace(/(?: Limited| LLC|, Inc\.| Corporation| Co\.,\s*Ltd\.)/ig, "");
   }
