@@ -12,7 +12,7 @@ if (String(asn + ' ' + info).length < 50) {
 } else {
     var subtitle = String(asn + ' ' + info).replace(/\([^\)]*\)/g, "");
     if (subtitle.length >= 50) {
-        subtitle = subtitle.replace(/(?: Limited| LLC|, Inc|, Inc\.| Corporation| Co\.,\s*Ltd\.)/ig, "");
+        subtitle = subtitle.replace(/(?: Limited| LLC| LTD|, Inc|, Inc\.| Corporation| Co\.,\s*Ltd\.| PTE LTD)/ig, "");
     }
 }
 var ip = obj['query'];
