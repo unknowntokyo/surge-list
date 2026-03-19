@@ -3,7 +3,7 @@ var obj = JSON.parse(body);
 var asn = obj['as'].match(/^AS\d+/)?.[0] || '';
 var info = "";
 if (obj['org'] == "") {
-    info = obj['asname'];
+    info = obj['isp'];
 } else {
     info = obj['org'];
 }
