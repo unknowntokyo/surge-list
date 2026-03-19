@@ -7,11 +7,11 @@ if (obj['org'] != "") {
 } else {
     info = obj['isp'];
 }
-if (String(asn + ' ' + info).length < 20) {
+if (String(asn + ' ' + info).length < 50) {
     var subtitle = asn + ' ' + info;
 } else {
     var subtitle = String(asn + ' ' + info).replace(/\([^\)]*\)/g, "");
-    if (subtitle.length >= 20) {
+    if (subtitle.length >= 50) {
         subtitle = subtitle.replace(/(?: Limited| LLC|, Inc|, Inc\.| Corporation| Co\.,\s*Ltd\.)/ig, "");
     }
 }
