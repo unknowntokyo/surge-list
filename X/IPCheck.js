@@ -6,7 +6,7 @@ var subtitle = asn + ' ' +obj['org'];
 } else {
 var subtitle = String(asn + ' ' +obj['org']).replace( /\([^\)]*\)/g,"");
   if (subtitle.length >= 50) {
-   subtitle = subtitle.replace(" Limited","");
+   subtitle = subtitle.replace(/(?:^|\s+)(Limited|Corporation|Co\.,\s*Ltd\.)(?=\s+|$)/gi, ' ').replace(/\s+/g, ' ').trim();
   }
 }
 var ip = obj['query'];
