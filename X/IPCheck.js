@@ -6,7 +6,7 @@ var subtitle = asn + ' ' +obj['org'];
 } else {
 var subtitle = String(asn + ' ' +obj['org']).replace( /\([^\)]*\)/g,"");
   if (subtitle.length >= 20) {
-   subtitle = subtitle.replace(/(?: Limited| LLC| Corporation| Co\.,\s*Ltd\.)/ig, "");
+   subtitle = subtitle.replace(/(?: Limited| LLC|, Inc\.| Corporation| Co\.,\s*Ltd\.)/ig, "");
   }
 }
 var ip = obj['query'];
