@@ -2,10 +2,10 @@ var body = $response.body;
 var obj = JSON.parse(body);
 var asn = obj['as'].match(/^AS\d+/)?.[0] || '';
 var info = "";
-if (obj['org'] != "") {
-    info = obj['org'];
-} else {
+if (obj['org'] == "") {
     info = obj['asname'];
+} else {
+    info = obj['org'];
 }
 if (String(asn + ' ' + info).length < 20) {
     var subtitle = asn + ' ' + info;
