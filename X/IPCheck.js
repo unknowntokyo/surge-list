@@ -1,11 +1,11 @@
 var body = $response.body;
 var obj = JSON.parse(body);
 var asn = obj['as'].match(/^AS\d+/)?.[0] || '';
-if (String(asn + ' ' + obj['org']).length < 50) {
+if (String(asn + ' ' + obj['org']).length < 20) {
 var subtitle = asn + ' ' +obj['org'];
 } else {
 var subtitle = String(asn + ' ' +obj['org']).replace( /\([^\)]*\)/g,"");
-  if (subtitle.length >= 50) {
+  if (subtitle.length >= 20) {
    subtitle = subtitle.replace(/(?:^|\s+)(Limited|Corporation|Co\.,\s*Ltd\.)(?=\s+|$)/gi, ' ').replace(/\s+/g, ' ').trim();
   }
 }
