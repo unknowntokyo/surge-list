@@ -6,10 +6,9 @@ var subtitle = asn + ' ' +obj['org'];
 } else {
 var subtitle = String(asn + ' ' +obj['org']).replace( /\([^\)]*\)/g,"");
   if (subtitle.length >= 20) {
-   subtitle = subtitle.replace(/(?:^|\s+)(Limited|Corporation|Co\.,\s*Ltd\.)(?=\s+|$)/gi, ' ').replace(/\s+/g, ' ').trim();
-   subtitle = subtitle.replace(" Limited","");
-   subtitle = subtitle.replace(" Corporation","");
-   subtitle = subtitle.replace(" Co\.,\s*Ltd\.","");
+   subtitle = subtitle.replace(/ Limited/i, "");
+   subtitle = subtitle.replace(/ Corporation/i, "");
+   subtitle = subtitle.replace(/ Co\.,\s*Ltd\./i, "");
   }
 }
 var ip = obj['query'];
