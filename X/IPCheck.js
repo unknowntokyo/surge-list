@@ -5,7 +5,7 @@ var info = "";
 if (obj['org'] != "") {
     info = obj['org'];
 } else {
-    info = obj['asname'];
+    info = obj['isp'];
 }
 if (String(asn + ' ' + info).length < 20) {
     var subtitle = asn + ' ' + info;
