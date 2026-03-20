@@ -1,6 +1,9 @@
 const BASE_URL = 'https://www.netflix.com/title/';
 const BASE_URL_YTB = "https://www.youtube.com/premium";
-const FILM_ID = 81215567
+const FILM_ID = 81280792
+const BASE_URL_GPT = 'https://chat.openai.com/';
+const Region_URL_GPT = 'https://chat.openai.com/cdn-cgi/trace';
+
 const link = { "media-url": "https://raw.githubusercontent.com/unknowntokyo/surge-list/master/X/unknown.png" } 
 const policy_name = "Netflix" //填入你的 netflix 策略组名
 
@@ -31,10 +34,10 @@ var opts1 = {
 var CountryCode = new Map([["HK","HKG"],["JP","JPN"],["KR","KOR"],["SG","SGP"],["TW","TPE"],["US","USA"]])
 
 let result = {
-  "title": '          流媒体解锁检测',
+  "title": '    📺  流媒体服务查询',
   "YouTube": '<b>YouTube:  </b>检测失败, 请重试 ❗️',
   "Netflix": '<b>Netflix:  </b>检测失败, 请重试 ❗️',
-
+  "ChatGPT" : '<b>ChatGPT: </b>检测失败，请重试 ❗️'
 }
 const message = {
   action: "get_policy_state",
@@ -43,10 +46,10 @@ const message = {
 
 ;(async () => {
   testYTB()
-  let [{ region, status }] = await Promise.all([testNf(FILM_ID)])
+  let [{ region, status }] = await Promise.all([testNf(FILM_ID),testChatGPT()])
   console.log(result["Netflix"])
 
-  let content = "------------------------------"+"</br>"+([result["YouTube"],result["Netflix"]]).join("</br></br>")
+  let content = "------------------------------"+"</br>"+([result["YouTube"],result["Netflix"],result["ChatGPT"]]).join("</br></br>")
   content = content + "</br>------------------------------</br>"+"<font color=#007AFF>"+"<b>节点</b> ➟ " + $environment.params+ "</font>"
   content =`<p style="text-align: center; font-family: -apple-system; font-size: large; font-weight: thin">` + content + `</p>`
 
@@ -57,7 +60,7 @@ $configuration.sendMessage(message).then(resolve => {
     }
     if (resolve.ret) {
       let output=JSON.stringify(resolve.ret[message.content])? JSON.stringify(resolve.ret[message.content]).replace(/\"|\[|\]/g,"").replace(/\,/g," ➟ ") : $environment.params
-      let content = "--------------------------------------</br>"+([result["Netflix"],result["YouTube"]]).join("</br></br>")
+      let content = "--------------------------------------</br>"+([result["Netflix"],result["YouTube"],result["ChatGPT"]]).join("</br></br>")
       content = content + "</br>--------------------------------------</br>"+"<font color=#007AFF>"+"<b>节点</b> ➟ " + output+ "</font>"
       content =`<p style="text-align: center; font-family: -apple-system; font-size: large; font-weight: thin">` + content + `</p>`
       //$notify(typeof(output),output)
@@ -80,7 +83,7 @@ $configuration.sendMessage(message).then(resolve => {
     }
     if (resolve.ret) {
       let output=JSON.stringify(resolve.ret[message.content])? JSON.stringify(resolve.ret[message.content]).replace(/\"|\[|\]/g,"").replace(/\,/g," ➟ ") : $environment.params
-      let content = "--------------------------------------</br>"+([result["Netflix"],result["YouTube"]]).join("</br></br>")
+      let content = "--------------------------------------</br>"+([result["Netflix"],result["YouTube"],result["ChatGPT"]]).join("</br></br>")
       content = content + "</br>--------------------------------------</br>"+"<font color=#007AFF>"+"<b>节点</b> ➟ " + output + "</font>"
       content =`<p style="text-align: center; font-family: -apple-system; font-size: large; font-weight: thin">` + content + `</p>`
       //$notify(typeof(output),output)
@@ -121,14 +124,14 @@ function testNf(filmId) {
       console.log("nf:"+response.statusCode)
       if (response.statusCode === 404) {
         
-        result["Netflix"] = "<b>Netflix:  </b>仅自制 ⚠️"
+        result["Netflix"] = "<b>Netflix: </b>支持自制剧集 ⚠️"
         console.log("nf:"+result["Netflix"])
         resolve('Not Found')
         return 
       } else if (response.statusCode === 403) {
         
         //console.log("nfnf")
-        result["Netflix"] = "<b>Netflix:  </b>未解锁 ✘"
+        result["Netflix"] = "<b>Netflix: </b>未支持 🚫"
         console.log("nf:"+result["Netflix"])
         //$notify("nf:"+result["Netflix"])
         resolve('Not Available')
@@ -141,15 +144,14 @@ function testNf(filmId) {
           region = 'us'
         }
         console.log("nf:"+region)
-        result["Netflix"] = "<b>Netflix:  </b>全解锁"+arrow+CountryCode.get(region.toUpperCase())
+        result["Netflix"] = "<b>Netflix: </b>完整支持"+arrow+ "⟦"+flags.get(region.toUpperCase())+"⟧ 🎉"
         //$notify("nf:"+result["Netflix"])
-
         resolve("nf:"+result["Netflix"])
         return 
       }
       resolve("Netflix Test Error")
     }, reason => {
-      result["Netflix"] = "<b>Netflix:  </b>检测超时 🚦"
+      result["Netflix"] = "<b>Netflix: </b>检测超时 🚦"
       console.log(result["Netflix"])
       resolve("timeout")
     }
@@ -172,13 +174,12 @@ function testYTB() {
       let data = response.body
       console.log("ytb:"+response.statusCode)
       if (response.statusCode !== 200) {
-        
-        result["YouTube"] = "<b>YouTube:  </b>检测失败 ❗️"
+        //reject('Error')
+        result["YouTube"] = "<b>YouTube Premium: </b>检测失败 ❗️"
       } else if (data.indexOf('Premium is not available in your country') !== -1) {
-          
-        result["YouTube"] = "<b>YouTube:  </b>未解锁 ✘"
-      } else if (data.indexOf('Premium is not available in your country') == -1) {
-      
+          //resolve('Not Available')
+        result["YouTube"] = "<b>YouTube Premium: </b>未支持 🚫"
+      } else if (data.indexOf('Premium is not available in your country') == -1) {//console.log(data.split("countryCode")[1])
       let region = ''
       let re = new RegExp('"GL":"(.*?)"', 'gm')
       let ret = re.exec(data)
@@ -190,11 +191,58 @@ function testYTB() {
         region = 'US'
       }
       //resolve(region)
-      result["YouTube"] = "<b>YouTube:  </b>已解锁"+arrow+CountryCode.get(region.toUpperCase())
+      result["YouTube"] = "<b>YouTube Premium: </b>支持 "+arrow+ "⟦"+flags.get(region.toUpperCase())+"⟧ 🎉"
       console.log("ytb:"+region+ result["YouTube"])
       }
     }, reason => {
-      result["YouTube"] = "<b>YouTube:  </b>检测超时 🚦"
+      result["YouTube"] = "<b>YouTube Premium: </b>检测超时 🚦"
       //resolve("timeout")
     })
 }
+
+function testChatGPT() {
+  return new Promise((resolve, reject) =>{
+    let option = {
+      url: BASE_URL_GPT,
+      opts: opts1,
+      timeout: 2800,
+    }
+    $task.fetch(option).then(response=> {
+      let resp = JSON.stringify(response)
+      console.log("ChatGPT Main Test")
+      let jdg = resp.indexOf("text/plain")
+      if(jdg == -1) {
+      let option1 = {
+        url: Region_URL_GPT,
+        opts: opts1,
+        timeout: 2800,
+      }
+      $task.fetch(option1).then(response=> {
+        console.log("ChatGPT Region Test")
+        let region = response.body.split("loc=")[1].split("\n")[0]
+        console.log("ChatGPT Region: "+region)
+        let res = support_countryCodes.indexOf(region)
+        if (res != -1) {
+          result["ChatGPT"] = "<b>ChatGPT: </b>支持 "+arrow+ "⟦"+flags.get(region.toUpperCase())+"⟧ 🎉"
+          console.log("支持 ChatGPT")
+          resolve("支持 ChatGPT")
+          return
+        } else {
+          result["ChatGPT"] = "<b>ChatGPT: </b>未支持 🚫"
+          console.log("不支持 ChatGPT")
+          resolve("不支持 ChatGPT")
+          return
+        }
+      }, reason => {
+        console.log("Check-Error"+reason)
+        resolve("ChatGPT failed")
+      })
+    } else {
+      result["ChatGPT"] = "<b>ChatGPT: </b>未支持 🚫"
+      console.log("不支持 ChatGPT")
+      resolve("不支持 ChatGPT")
+    }
+    }, reason => {
+      console.log("ChatGPT-Error"+reason)
+      resolve("ChatGPT failed")
+    })})}
