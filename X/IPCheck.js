@@ -6,7 +6,7 @@ var ip = obj['ip'];
 var city = obj['city_name'];
 var asn = 'AS' + obj['asn'];
 var datacenter = obj['as_desc'];
-var subtitle = String(asn + ' ' + datacenter).replace(/\([^\)]*\)/g, "");
+var subtitle = String(asn + ' ' + datacenter).replace(/,/g, ' ').replace(/\./g, '').replace(/\([^\)]*\)/g, "");
 if (subtitle.length >= 50) {
     subtitle = subtitle.replace(/(?: Limited| LLC| LTD| GmbH|, Inc|, Inc\.| Corporation| Co\.,\s*Ltd\.| PTE LTD)/ig, "");
 }
