@@ -1,4 +1,4 @@
-// ==================== 常量定义 ====================
+// 常量定义
 const BASE_URL = 'https://www.netflix.com/title/';
 const BASE_URL_YTB = "https://www.youtube.com/premium";
 const FILM_ID = 81280792;
@@ -10,7 +10,7 @@ const CountryCode = new Map([
   ["NL", "NED"], ["DE", "GER"]
 ]);
 
-// 请求选项（共享）
+// 请求选项
 const opts = { policy: $environment.params };
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.61 Safari/537.36';
 
@@ -23,15 +23,13 @@ let result = {
 
 const arrow = " ➟ ";
 
-// ==================== 辅助函数 ====================
-// 构建最终 HTML 内容（避免重复代码）
+// 构建最终 HTML 内容
 function buildHtml(netflixMsg, youtubeMsg, nodeName) {
   const items = [netflixMsg, youtubeMsg].join("</br></br>");
   const content = `-------------------------------------</br>${items}</br>-------------------------------------</br><font color=#007AFF><b>节点</b> ➟ ${nodeName}</font>`;
   return `<p style="text-align: center; font-family: -apple-system; font-size: large; font-weight: thin">${content}</p>`;
 }
 
-// ==================== 检测 Netflix ====================
 function testNf(filmId) {
   return new Promise(resolve => {
     const option = {
@@ -81,16 +79,15 @@ function testNf(filmId) {
   });
 }
 
-// ==================== 检测 YouTube Premium ====================
 function testYTB() {
   return new Promise(resolve => {
     const option = {
       url: BASE_URL_YTB,
       opts: opts,
-      timeout: 4200,                    // 🔧 超时从 2800ms 增加到 6000ms，避免因网络波动或重定向超时
+      timeout: 4200,
       headers: { 
         'User-Agent': UA,
-        'Accept-Language': 'en-US,en;q=0.9'   // 🔧 添加语言头，模拟真实浏览器，减少被限流可能
+        'Accept-Language': 'en-US,en;q=0.9'
       }
     };
     $task.fetch(option).then(
@@ -107,7 +104,7 @@ function testYTB() {
           resolve("not available");
           return;
         }
-        // 提取地区（使用 match 代替 exec，避免 lastIndex 残留）
+        // 提取地区
         let region = 'US';
         const match = data.match(/"GL":"(.*?)"/);
         if (match && match.length === 2) {
@@ -128,12 +125,12 @@ function testYTB() {
   });
 }
 
-// ==================== 主流程 ====================
+// 主流程
 (async () => {
   // 并行检测
   await Promise.all([testNf(FILM_ID), testYTB()]);
 
-  // 获取策略组状态（用于节点名称）
+  // 获取策略组状态
   const message = {
     action: "get_policy_state",
     content: $environment.params
