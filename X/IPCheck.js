@@ -27,7 +27,7 @@ var title = '' + ' ' + CountryCode;
 var description = 
   '─────────────\n' +
   'IP: ' + ip + '\n' +
-  'IDC: ' + asName + '\n' +
+  'Org: ' + asName + '\n' +
   'ASN: ' + asn + '\n' +
   'City: ' + city + '\n' +
   '─────────────';
