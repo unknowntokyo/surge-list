@@ -11,7 +11,7 @@ if (subtitle.length >= 50) {
     subtitle = subtitle.replace(/(?: Limited| LLC| LTD| GmbH|, Inc|, Inc\.| Corporation| Co\.,\s*Ltd\.| PTE LTD)/ig, "");
 }
 
-var CountryCode = new Map([
+var CountryCodeMap = new Map([
     ["HK", "HKG"],
     ["TW", "TPE"],
     ["SG", "SGP"],
@@ -21,7 +21,8 @@ var CountryCode = new Map([
     ["NL", "NED"]
 ]);
 
-var title = '' + ' ' + CountryCode.get(obj['country_code']);
+var CountryCode = CountryCodeMap.get(obj['country_code']) || obj['country_code'];
+var title = '' + ' ' + CountryCode;
 var description = 
   '─────────────\n' +
   'IP: ' + ip + '\n' +
