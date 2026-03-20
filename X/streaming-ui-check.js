@@ -37,7 +37,7 @@ function testNf(filmId) {
     const option = {
       url: BASE_URL + filmId,
       opts: opts,
-      timeout: 2800,
+      timeout: 5200,
       headers: { 'User-Agent': UA }
     };
     $task.fetch(option).then(
