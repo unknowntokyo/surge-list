@@ -3,7 +3,7 @@ if ($response.statusCode !== 200) {
 }
 var obj = JSON.parse($response.body);
 var ip = obj['ip'];
-var city = obj['city_name'];
+var city = obj['city_name'] || 'unknown';
 var asn = 'AS' + obj['asn'];
 var datacenter = obj['as_desc'];
 var subtitle = String(asn + ' ' + datacenter).replace(/,/g, ' ').replace(/\./g, '').replace(/\([^\)]*\)/g, "");
