@@ -19,7 +19,8 @@ var CountryCodeMap = new Map([
     ["JP", "JPN"],
     ["KR", "KOR"],
     ["US", "USA"],
-    ["NL", "NED"]
+    ["NL", "NED"],
+    ["DE", "GER"]
 ]);
 
 var CountryCode = CountryCodeMap.get(obj['country_code']) || obj['country_code'];
