@@ -6,7 +6,8 @@ var ip = obj['ip'];
 var city = obj['city_name'] || 'unknown';
 var asn = 'AS' + obj['asn'];
 var datacenter = obj['as_desc'];
-var subtitle = (asn + ' ' + datacenter).replace(/,/g, ' ').replace(/\./g, '').replace(/\([^\)]*\)/g, "");
+datacenter = datacenter.replace(/,/g, ' ').replace(/\./g, '').replace(/\([^\)]*\)/g, "");
+var subtitle = asn + ' ' + datacenter;
 if (subtitle.length >= 50) {
     subtitle = subtitle.replace(/(?: Limited| LLC| LTD| GmbH|, Inc|, Inc\.| Corporation| Co\.,\s*Ltd\.| PTE LTD)/ig, "");
 }
