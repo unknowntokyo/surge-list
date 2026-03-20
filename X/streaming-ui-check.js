@@ -34,7 +34,7 @@ var opts1 = {
 var CountryCode = new Map([["HK","HKG"],["JP","JPN"],["KR","KOR"],["SG","SGP"],["TW","TPE"],["US","USA"]])
 
 let result = {
-  "title": '     流媒体服务查询',
+  "title": '        流媒体服务查询',
   "YouTube": '<b>YouTube:  </b>检测失败, 请重试 ❗️',
   "Netflix": '<b>Netflix:  </b>检测失败, 请重试 ❗️',
   "ChatGPT" : '<b>ChatGPT: </b>检测失败，请重试 ❗️'
