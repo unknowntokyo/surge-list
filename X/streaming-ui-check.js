@@ -144,7 +144,7 @@ function testNf(filmId) {
           region = 'us'
         }
         console.log("nf:"+region)
-        result["Netflix"] = "<b>Netflix: </b>完整支持"+arrow+ "⟦"+flags.get(region.toUpperCase())+"⟧ 🎉"
+        result["Netflix"] = "<b>Netflix: </b>完整支持"+arrow+CountryCode.get(region.toUpperCase())
         //$notify("nf:"+result["Netflix"])
         resolve("nf:"+result["Netflix"])
         return 
@@ -191,7 +191,7 @@ function testYTB() {
         region = 'US'
       }
       //resolve(region)
-      result["YouTube"] = "<b>YouTube Premium: </b>支持 "+arrow+ "⟦"+flags.get(region.toUpperCase())+"⟧ 🎉"
+      result["YouTube"] = "<b>YouTube Premium: </b>支持 "+arrow+CountryCode.get(region.toUpperCase())
       console.log("ytb:"+region+ result["YouTube"])
       }
     }, reason => {
