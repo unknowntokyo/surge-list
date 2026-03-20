@@ -26,7 +26,7 @@ var CountryCode = CountryCodeMap.get(obj['country_code']) || obj['country_code']
 var title = '' + ' ' + CountryCode;
 var description = 
   '-------------------------------------\n' +
-  '**IP:** ' + ip + '\n' +
+  'IP: ' + ip + '\n' +
   'Org: ' + asName + '\n' +
   'ASN: ' + asn + '\n' +
   'City: ' + city + '\n' +
