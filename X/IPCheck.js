@@ -27,9 +27,9 @@ var title = '' + ' ' + CountryCode;
 var description = 
   '─────────────\n' +
   'IP: ' + ip + '\n' +
-  '数据中心: ' + datacenter + '\n' +
+  'IDC: ' + datacenter + '\n' +
   'ASN: ' + asn + '\n' +
-  '城市: ' + city + '\n' +
+  'City: ' + city + '\n' +
   '─────────────';
 
 $done({ title, subtitle, ip, description });
