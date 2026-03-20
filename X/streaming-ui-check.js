@@ -3,14 +3,10 @@ const BASE_URL = 'https://www.netflix.com/title/';
 const BASE_URL_YTB = "https://www.youtube.com/premium";
 const FILM_ID = 81280792;
 
-// 预编译正则表达式（避免每次调用时重复创建）
-const GL_REGEX = /"GL":"(.*?)"/gm;
-
-// 国家代码映射（键已转为大写）
+// 国家代码映射
 const CountryCode = new Map([
   ["HK", "HKG"], ["JP", "JPN"], ["KR", "KOR"],
   ["SG", "SGP"], ["TW", "TPE"], ["US", "USA"]
-  , ["NL", "NED"], ["DE", "GER"]
 ]);
 
 // 请求选项（共享）
@@ -27,8 +23,11 @@ let result = {
 const arrow = " ➟ ";
 
 // ==================== 辅助函数 ====================
-function timeout(delay = 3000) {
-  return new Promise((_, reject) => setTimeout(() => reject('Timeout'), delay));
+// 构建最终 HTML 内容（避免重复代码）
+function buildHtml(netflixMsg, youtubeMsg, nodeName) {
+  const items = [netflixMsg, youtubeMsg].join("</br></br>");
+  const content = `-------------------------------------</br>${items}</br>-------------------------------------</br><font color=#007AFF><b>节点</b> ➟ ${nodeName}</font>`;
+  return `<p style="text-align: center; font-family: -apple-system; font-size: large; font-weight: thin">${content}</p>`;
 }
 
 // ==================== 检测 Netflix ====================
@@ -104,9 +103,9 @@ function testYTB() {
           resolve("not available");
           return;
         }
-        // 提取地区
+        // 提取地区（使用 match 代替 exec，避免 lastIndex 残留）
         let region = 'US';
-        const match = GL_REGEX.exec(data);
+        const match = data.match(/"GL":"(.*?)"/);
         if (match && match.length === 2) {
           region = match[1];
         } else if (data.indexOf('www.google.cn') !== -1) {
@@ -143,7 +142,7 @@ function testYTB() {
         $done();
         return;
       }
-      // 处理节点名称（从策略组状态中获取）
+      // 处理节点名称
       let nodeName = $environment.params;
       if (resolve.ret && resolve.ret[message.content]) {
         nodeName = JSON.stringify(resolve.ret[message.content])
@@ -151,11 +150,8 @@ function testYTB() {
           .replace(/\,/g, " ➟ ");
       }
 
-      // 构建最终 HTML 内容（仅一次）
-      const items = [result.Netflix, result.YouTube].join("</br></br>");
-      const content = `-------------------------------------</br>${items}</br>-------------------------------------</br><font color=#007AFF><b>节点</b> ➟ ${nodeName}</font>`;
-      const html = `<p style="text-align: center; font-family: -apple-system; font-size: large; font-weight: thin">${content}</p>`;
-
+      // 构建最终 HTML 内容
+      const html = buildHtml(result.Netflix, result.YouTube, nodeName);
       console.log(nodeName);
       $done({ title: result.title, htmlMessage: html });
     },
