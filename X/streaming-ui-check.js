@@ -37,7 +37,7 @@ function testNf(filmId) {
     const option = {
       url: BASE_URL + filmId,
       opts: opts,
-      timeout: 4500,
+      timeout: 4200,
       headers: { 'User-Agent': UA }
     };
     $task.fetch(option).then(
@@ -87,7 +87,7 @@ function testYTB() {
     const option = {
       url: BASE_URL_YTB,
       opts: opts,
-      timeout: 4500,                    // 🔧 超时从 2800ms 增加到 6000ms，避免因网络波动或重定向超时
+      timeout: 4200,                    // 🔧 超时从 2800ms 增加到 6000ms，避免因网络波动或重定向超时
       headers: { 
         'User-Agent': UA,
         'Accept-Language': 'en-US,en;q=0.9'   // 🔧 添加语言头，模拟真实浏览器，减少被限流可能
