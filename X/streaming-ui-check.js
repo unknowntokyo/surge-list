@@ -43,14 +43,14 @@ const message = {
 
 ;(async () => {
   // 并行执行 Netflix 和 YouTube 检测
-  let [{ region, status }] = await Promise.all([testNf(FILM_ID), testYTB()])
+  await Promise.all([testNf(FILM_ID), testYTB()])
   console.log(result["Netflix"])
 
   let content = "-------------------------------------"+"</br>"+([result["YouTube"],result["Netflix"]]).join("</br></br>")
   content = content + "</br>-------------------------------------</br>"+"<font color=#007AFF>"+"<b>节点</b> ➟ " + $environment.params+ "</font>"
   content =`<p style="text-align: center; font-family: -apple-system; font-size: large; font-weight: thin">` + content + `</p>`
 
-$configuration.sendMessage(message).then(resolve => {
+  $configuration.sendMessage(message).then(resolve => {
     if (resolve.error) {
       console.log(resolve.error);
       $done()
@@ -60,42 +60,13 @@ $configuration.sendMessage(message).then(resolve => {
       let content = "-------------------------------------</br>"+([result["Netflix"],result["YouTube"]]).join("</br></br>")
       content = content + "</br>-------------------------------------</br>"+"<font color=#007AFF>"+"<b>节点</b> ➟ " + output+ "</font>"
       content =`<p style="text-align: center; font-family: -apple-system; font-size: large; font-weight: thin">` + content + `</p>`
-      //$notify(typeof(output),output)
       console.log(output);
       $done({"title":result["title"],"htmlMessage":content})
-      
     }
-    //$done();|
   }, reject => {
-    // Normally will never happen.
     $done();
   });  
-  //$done({"title":result["title"],"htmlMessage":content})
-})()
-.finally(() => {
-  $configuration.sendMessage(message).then(resolve => {
-    if (resolve.error) {
-      console.log(resolve.error);
-      $done()
-    }
-    if (resolve.ret) {
-      let output=JSON.stringify(resolve.ret[message.content])? JSON.stringify(resolve.ret[message.content]).replace(/\"|\[|\]/g,"").replace(/\,/g," ➟ ") : $environment.params
-      let content = "-------------------------------------</br>"+([result["Netflix"],result["YouTube"]]).join("</br></br>")
-      content = content + "</br>-------------------------------------</br>"+"<font color=#007AFF>"+"<b>节点</b> ➟ " + output + "</font>"
-      content =`<p style="text-align: center; font-family: -apple-system; font-size: large; font-weight: thin">` + content + `</p>`
-      //$notify(typeof(output),output)
-      console.log(output);
-      $done({"title":result["title"],"htmlMessage":content})
-      
-    }
-    //$done();|
-  }, reject => {
-    // Normally will never happen.
-    $done();
-  });   
-    $done({"title":result["title"],"htmlMessage":`<p style="text-align: center; font-family: -apple-system; font-size: large; font-weight: thin">`+'-------------------------------------</br></br>'+"🚥 检测异常"+'</br></br>-------------------------------------</br>'+ output + `</p>`})
-}
-  );
+})();
 
 function timeout(delay = 3000) {
   return new Promise((resolve, reject) => {
@@ -117,20 +88,15 @@ function testNf(filmId) {
       },
     }
     $task.fetch(option).then(response => {
-      //$notify("nf:"+response.statusCode)
       console.log("nf:"+response.statusCode)
       if (response.statusCode === 404) {
-        
         result["Netflix"] = "<b>Netflix: </b>支持自制剧集 ⚠️"
         console.log("nf:"+result["Netflix"])
         resolve('Not Found')
         return 
       } else if (response.statusCode === 403) {
-        
-        //console.log("nfnf")
         result["Netflix"] = "<b>Netflix: </b>未支持 🚫"
         console.log("nf:"+result["Netflix"])
-        //$notify("nf:"+result["Netflix"])
         resolve('Not Available')
         return
       } else if (response.statusCode === 200) {
@@ -142,7 +108,6 @@ function testNf(filmId) {
         }
         console.log("nf:"+region)
         result["Netflix"] = "<b>Netflix: </b>完整支持"+arrow+CountryCode.get(region.toUpperCase())
-        //$notify("nf:"+result["Netflix"])
         resolve("nf:"+result["Netflix"])
         return 
       }
@@ -151,10 +116,8 @@ function testNf(filmId) {
       result["Netflix"] = "<b>Netflix: </b>检测超时 🚦"
       console.log(result["Netflix"])
       resolve("timeout")
-    }
-    )
-  }
-  )
+    })
+  })
 }
 
 function testYTB() {
@@ -172,28 +135,25 @@ function testYTB() {
       let data = response.body
       console.log("ytb:"+response.statusCode)
       if (response.statusCode !== 200) {
-        //reject('Error')
         result["YouTube"] = "<b>YouTube Premium: </b>检测失败 ❗️"
         resolve("error")
       } else if (data.indexOf('Premium is not available in your country') !== -1) {
-          //resolve('Not Available')
         result["YouTube"] = "<b>YouTube Premium: </b>未支持 🚫"
         resolve("not available")
-      } else if (data.indexOf('Premium is not available in your country') == -1) {//console.log(data.split("countryCode")[1])
-      let region = ''
-      let re = new RegExp('"GL":"(.*?)"', 'gm')
-      let ret = re.exec(data)
-      if (ret != null && ret.length === 2) {
-        region = ret[1]
-      } else if (data.indexOf('www.google.cn') !== -1) {
-        region = 'CN'
-      } else {
-        region = 'US'
-      }
-      //resolve(region)
-      result["YouTube"] = "<b>YouTube Premium: </b>支持 "+arrow+CountryCode.get(region.toUpperCase())
-      console.log("ytb:"+region+ result["YouTube"])
-      resolve(region)
+      } else if (data.indexOf('Premium is not available in your country') == -1) {
+        let region = ''
+        let re = new RegExp('"GL":"(.*?)"', 'gm')
+        let ret = re.exec(data)
+        if (ret != null && ret.length === 2) {
+          region = ret[1]
+        } else if (data.indexOf('www.google.cn') !== -1) {
+          region = 'CN'
+        } else {
+          region = 'US'
+        }
+        result["YouTube"] = "<b>YouTube Premium: </b>支持 "+arrow+CountryCode.get(region.toUpperCase())
+        console.log("ytb:"+region+ result["YouTube"])
+        resolve(region)
       }
     }, reason => {
       result["YouTube"] = "<b>YouTube Premium: </b>检测超时 🚦"
