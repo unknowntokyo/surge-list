@@ -149,7 +149,6 @@ function testNf(filmId) {
         resolve("nf:"+result["Netflix"])
         return 
       }
-      resolve("Netflix Test Error")
     }, reason => {
       result["Netflix"] = "<b>Netflix: </b>检测超时 🚦"
       console.log(result["Netflix"])
