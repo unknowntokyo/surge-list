@@ -26,10 +26,10 @@ var CountryCode = CountryCodeMap.get(obj['country_code']) || obj['country_code']
 var title = '' + ' ' + CountryCode;
 var description = 
   '-------------------------------------\n' +
-  '<b>IP:</b> ' + ip + '\n' +
-  '<b>Org:</b> ' + asName + '\n' +
-  '<b>ASN:</b> ' + asn + '\n' +
-  '<b>City:</b> ' + city + '\n' +
+  '**IP:** ' + ip + '\n' +
+  'Org: ' + asName + '\n' +
+  'ASN: ' + asn + '\n' +
+  'City: ' + city + '\n' +
   '-------------------------------------';
 
 $done({ title, subtitle, ip, description });
