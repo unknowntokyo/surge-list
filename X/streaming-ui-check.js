@@ -1,6 +1,6 @@
 const BASE_URL = 'https://www.netflix.com/title/';
 const BASE_URL_YTB = "https://www.youtube.com/premium";
-const FILM_ID = 81215567
+const FILM_ID = 81280792
 const BASE_URL_GPT = 'https://chat.openai.com/';
 const Region_URL_GPT = 'https://chat.openai.com/cdn-cgi/trace';
 
@@ -149,6 +149,7 @@ function testNf(filmId) {
         resolve("nf:"+result["Netflix"])
         return 
       }
+      resolve("Netflix Test Error")
     }, reason => {
       result["Netflix"] = "<b>Netflix: </b>检测超时 🚦"
       console.log(result["Netflix"])
@@ -222,7 +223,7 @@ function testChatGPT() {
         console.log("ChatGPT Region: "+region)
         let res = support_countryCodes.indexOf(region)
         if (res != -1) {
-          result["ChatGPT"] = "<b>ChatGPT: </b>支持 "+arrow+ "⟦"+flags.get(region.toUpperCase())+"⟧ 🎉"
+          result["ChatGPT"] = "<b>ChatGPT: </b>支持 "+arrow+CountryCode.get(region.toUpperCase())
           console.log("支持 ChatGPT")
           resolve("支持 ChatGPT")
           return
