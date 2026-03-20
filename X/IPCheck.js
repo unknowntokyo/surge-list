@@ -1,24 +1,16 @@
-var body = $response.body;
-var obj = JSON.parse(body);
-var asn = obj['as'].match(/^AS\d+/)?.[0] || '';
-var info = "";
-if (obj['org'] != "") {
-    info = obj['org'];
-} else {
-    info = obj['isp'];
+if ($response.statusCode !== 200) {
+  $done(null);
 }
-if (String(asn + ' ' + info).length < 50) {
-    var subtitle = asn + ' ' + info;
-} else {
-    var subtitle = String(asn + ' ' + info).replace(/\([^\)]*\)/g, "");
-    if (subtitle.length >= 50) {
-        subtitle = subtitle.replace(/(?: Limited| LLC| LTD| GmbH|, Inc|, Inc\.| Corporation| Co\.,\s*Ltd\.| PTE LTD)/ig, "");
-    }
+var obj = JSON.parse($response.body);
+var ip = obj['ip'];
+var city = obj['city_name'];
+var asn = 'AS' + obj['asn'];
+var datacenter = obj['as_desc'];
+var subtitle = String(asn + ' ' + datacenter).replace(/\([^\)]*\)/g, "");
+if (subtitle.length >= 50) {
+    subtitle = subtitle.replace(/(?: Limited| LLC| LTD| GmbH|, Inc|, Inc\.| Corporation| Co\.,\s*Ltd\.| PTE LTD)/ig, "");
 }
-var ip = obj['query'];
-var carrier = obj['isp'];
-var city = obj['city'];
-var datacenter = subtitle;
+
 var CountryCode = new Map([
     ["HK", "HKG"],
     ["TW", "TPE"],
@@ -28,22 +20,14 @@ var CountryCode = new Map([
     ["US", "USA"],
     ["NL", "NED"]
 ]);
-var title = '' + ' ' + CountryCode.get(obj['countryCode']);
-switch (datacenter) {
-    case "":
-        if (carrier != "") {
-            var description = 'IP地址: ' + ip + '\n运营商: ' + carrier + '\n城市: ' + city;
-            subtitle = carrier;
-        } else {
-            var description = 'IP地址: ' + ip + '\n城市: ' + city;
-            subtitle = ip;
-        }
-        break;
-    default:
-        if (carrier != "" && carrier != datacenter) {
-            var description = 'IP地址: ' + ip + '\n运营商: ' + carrier + '\n数据中心: ' + datacenter;
-        } else {
-            var description = 'IP地址: ' + ip + '\n数据中心: ' + datacenter + '\n城市: ' + city;
-        }
-}
+
+var title = '' + ' ' + CountryCode.get(obj['country_code']);
+var description = 
+  '─────────────\n' +
+  'IP: ' + ip + '\n' +
+  '数据中心: ' + datacenter + '\n' +
+  'ASN: ' + asn + '\n' +
+  '城市: ' + city + '\n' +
+  '─────────────';
+
 $done({ title, subtitle, ip, description });
