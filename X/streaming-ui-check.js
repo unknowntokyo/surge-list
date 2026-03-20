@@ -60,8 +60,8 @@ $configuration.sendMessage(message).then(resolve => {
     }
     if (resolve.ret) {
       let output=JSON.stringify(resolve.ret[message.content])? JSON.stringify(resolve.ret[message.content]).replace(/\"|\[|\]/g,"").replace(/\,/g," ➟ ") : $environment.params
-      let content = "--------------------------------------</br>"+([result["Netflix"],result["YouTube"],result["ChatGPT"]]).join("</br></br>")
-      content = content + "</br>--------------------------------------</br>"+"<font color=#007AFF>"+"<b>节点</b> ➟ " + output+ "</font>"
+      let content = "------------------------------</br>"+([result["Netflix"],result["YouTube"],result["ChatGPT"]]).join("</br></br>")
+      content = content + "</br>------------------------------</br>"+"<font color=#007AFF>"+"<b>节点</b> ➟ " + output+ "</font>"
       content =`<p style="text-align: center; font-family: -apple-system; font-size: large; font-weight: thin">` + content + `</p>`
       //$notify(typeof(output),output)
       console.log(output);
@@ -83,8 +83,8 @@ $configuration.sendMessage(message).then(resolve => {
     }
     if (resolve.ret) {
       let output=JSON.stringify(resolve.ret[message.content])? JSON.stringify(resolve.ret[message.content]).replace(/\"|\[|\]/g,"").replace(/\,/g," ➟ ") : $environment.params
-      let content = "--------------------------------------</br>"+([result["Netflix"],result["YouTube"],result["ChatGPT"]]).join("</br></br>")
-      content = content + "</br>--------------------------------------</br>"+"<font color=#007AFF>"+"<b>节点</b> ➟ " + output + "</font>"
+      let content = "------------------------------</br>"+([result["Netflix"],result["YouTube"],result["ChatGPT"]]).join("</br></br>")
+      content = content + "</br>------------------------------</br>"+"<font color=#007AFF>"+"<b>节点</b> ➟ " + output + "</font>"
       content =`<p style="text-align: center; font-family: -apple-system; font-size: large; font-weight: thin">` + content + `</p>`
       //$notify(typeof(output),output)
       console.log(output);
@@ -96,7 +96,7 @@ $configuration.sendMessage(message).then(resolve => {
     // Normally will never happen.
     $done();
   });   
-    $done({"title":result["title"],"htmlMessage":`<p style="text-align: center; font-family: -apple-system; font-size: large; font-weight: thin">`+'----------------------</br></br>'+"🚥 检测异常"+'</br></br>----------------------</br>'+ output + `</p>`})
+    $done({"title":result["title"],"htmlMessage":`<p style="text-align: center; font-family: -apple-system; font-size: large; font-weight: thin">`+'------------------------------</br></br>'+"🚥 检测异常"+'</br></br>------------------------------</br>'+ output + `</p>`})
 }
   );
 
