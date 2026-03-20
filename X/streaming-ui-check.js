@@ -10,6 +10,7 @@ const GL_REGEX = /"GL":"(.*?)"/gm;
 const CountryCode = new Map([
   ["HK", "HKG"], ["JP", "JPN"], ["KR", "KOR"],
   ["SG", "SGP"], ["TW", "TPE"], ["US", "USA"]
+  , ["NL", "NED"], ["DE", "GER"]
 ]);
 
 // 请求选项（共享）
