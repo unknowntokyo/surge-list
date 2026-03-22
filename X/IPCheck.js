@@ -1,36 +1,21 @@
-if ($response.statusCode !== 200) {
-  $done(null);
-}
-var obj = JSON.parse($response.body);
-var ip = obj['ip'];
-var city = obj['city_name'] || 'unknown';
-var asn = 'AS' + obj['asn'];
-var asName = obj['as_desc'];
-asName = asName.replace(/,/g, ' ').replace(/\./g, '').replace(/\([^\)]*\)/g, "");
+if ($response.statusCode !== 200) $done(null);
+let obj = JSON.parse($response.body);
+let ip = obj.ip;
+let city = obj.city_name || 'unknown';
+let asn = 'AS' + obj.asn;
+let asName = obj.as_desc;
+// 一次正则遍历完成所有字符替换：移除括号内容，并将逗号替换为空格、删除点号
+asName = asName.replace(/\([^\)]*\)|[,.]/g, match => {
+    if (match === '(') return '';
+    if (match === ',') return ' ';
+    return '';
+});
 if (asName.length >= 35) {
     asName = asName.replace(/(?: Limited| LLC| LTD| GmbH|, Inc|, Inc\.| Corporation| Co\.,\s*Ltd\.| PTE LTD)/ig, "");
 }
-var subtitle = asn + ' ' + asName;
-
-var CountryCodeMap = new Map([
-    ["HK", "HKG"],
-    ["TW", "TPE"],
-    ["SG", "SGP"],
-    ["JP", "JPN"],
-    ["KR", "KOR"],
-    ["US", "USA"],
-    ["NL", "NED"],
-    ["DE", "GER"]
-]);
-
-var CountryCode = CountryCodeMap.get(obj['country_code']) || obj['country_code'];
-var title = '' + ' ' + CountryCode;
-var description = 
-  '-------------------------------------\n' +
-  'IP: ' + ip + '\n' +
-  'Org: ' + asName + '\n' +
-  'ASN: ' + asn + '\n' +
-  'City: ' + city + '\n' +
-  '-------------------------------------';
-
+let subtitle = `${asn} ${asName}`;
+const codeMap = { HK: 'HKG', TW: 'TPE', SG: 'SGP', JP: 'JPN', KR: 'KOR', US: 'USA', NL: 'NED', DE: 'GER' };
+let countryCode = codeMap[obj.country_code] || obj.country_code;
+let title = ` ${countryCode}`;
+let description = `-------------------------------------\nIP: ${ip}\nOrg: ${asName}\nASN: ${asn}\nCity: ${city}\n-------------------------------------`;
 $done({ title, subtitle, ip, description });
