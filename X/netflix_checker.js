@@ -232,52 +232,36 @@ function getCountryFlagEmoji(countryCode) {
 
 const regionCache = new Map();
 const olympicCodeMap = new Map([
-    ['SG', 'SGP'],
-    ['TW', 'TPE'],
-    ['HK', 'HKG'],
-    ['MO', 'MAC'],
-    ['CN', 'CHN'],
-    ['US', 'USA'],
-    ['GB', 'GBR'],
-    ['JP', 'JPN'],
-    ['KR', 'KOR'],
-    ['FR', 'FRA'],
-    ['DE', 'GER'],
-    ['IT', 'ITA'],
-    ['ES', 'ESP'],
-    ['AU', 'AUS'],
-    ['CA', 'CAN'],
-    ['BR', 'BRA'],
-    ['IN', 'IND'],
-    ['RU', 'RUS'],
-    ['ZA', 'RSA'],
-    ['NL', 'NED'],
-    ['SE', 'SWE'],
-    ['NO', 'NOR'],
-    ['FI', 'FIN'],
-    ['DK', 'DEN'],
-    ['BE', 'BEL'],
-    ['CH', 'SUI'],
-    ['AT', 'AUT'],
-    ['PL', 'POL'],
-    ['CZ', 'CZE'],
-    ['HU', 'HUN'],
-    ['GR', 'GRE'],
-    ['PT', 'POR'],
-    ['IE', 'IRL'],
-    ['NZ', 'NZL'],
-    ['AR', 'ARG'],
-    ['CO', 'COL'],
-    ['MX', 'MEX'],
-    ['EG', 'EGY'],
-    ['NG', 'NGR'],
-    ['PK', 'PAK'],
-    ['BD', 'BAN'],
-    ['TH', 'THA'],
-    ['VN', 'VIE'],
-    ['MY', 'MAS'],
-    ['PH', 'PHI'],
-    ['ID', 'INA']
+    ['AF', 'AFG'], ['AL', 'ALB'], ['DZ', 'ALG'], ['AO', 'ANG'], ['AR', 'ARG'], ['AM', 'ARM'],
+    ['AU', 'AUS'], ['AT', 'AUT'], ['AZ', 'AZE'], ['BH', 'BRN'], ['BD', 'BAN'], ['BY', 'BLR'],
+    ['BE', 'BEL'], ['BZ', 'BIZ'], ['BJ', 'BEN'], ['BT', 'BHU'], ['BO', 'BOL'], ['BA', 'BIH'],
+    ['BW', 'BOT'], ['BR', 'BRA'], ['VG', 'IVB'], ['BN', 'BRU'], ['BG', 'BUL'], ['BF', 'BUR'],
+    ['BI', 'BDI'], ['KH', 'CAM'], ['CM', 'CMR'], ['CA', 'CAN'], ['CV', 'CPV'], ['KY', 'CAY'],
+    ['CF', 'CAF'], ['TD', 'CHA'], ['CL', 'CHI'], ['CN', 'CHN'], ['CO', 'COL'], ['KM', 'COM'],
+    ['CG', 'CGO'], ['CD', 'COD'], ['CR', 'CRC'], ['HR', 'CRO'], ['CY', 'CYP'], ['CZ', 'CZE'],
+    ['DK', 'DEN'], ['DJ', 'DJI'], ['DO', 'DOM'], ['EC', 'ECU'], ['EG', 'EGY'], ['SV', 'ESA'],
+    ['GQ', 'GEQ'], ['ER', 'ERI'], ['EE', 'EST'], ['ET', 'ETH'], ['FJ', 'FIJ'], ['FI', 'FIN'],
+    ['FR', 'FRA'], ['GA', 'GAB'], ['GM', 'GAM'], ['GE', 'GEO'], ['DE', 'GER'], ['GH', 'GHA'],
+    ['GR', 'GRE'], ['GL', 'GRL'], ['GT', 'GUA'], ['GN', 'GUI'], ['GY', 'GUY'], ['HT', 'HAI'],
+    ['HN', 'HON'], ['HK', 'HKG'], ['HU', 'HUN'], ['IS', 'ISL'], ['IN', 'IND'], ['ID', 'INA'],
+    ['IR', 'IRI'], ['IQ', 'IRQ'], ['IE', 'IRL'], ['IM', 'IOM'], ['IL', 'ISR'], ['IT', 'ITA'],
+    ['CI', 'CIV'], ['JM', 'JAM'], ['JP', 'JPN'], ['JO', 'JOR'], ['KZ', 'KAZ'], ['KE', 'KEN'],
+    ['KR', 'KOR'], ['KW', 'KUW'], ['KG', 'KGZ'], ['LA', 'LAO'], ['LV', 'LAT'], ['LB', 'LBN'],
+    ['LS', 'LES'], ['LR', 'LBR'], ['LY', 'LBA'], ['LT', 'LTU'], ['LU', 'LUX'], ['MO', 'MAC'],
+    ['MK', 'MKD'], ['MG', 'MAD'], ['MW', 'MAW'], ['MY', 'MAS'], ['MV', 'MDV'], ['ML', 'MLI'],
+    ['MT', 'MLT'], ['MR', 'MTN'], ['MU', 'MRI'], ['MX', 'MEX'], ['MD', 'MDA'], ['MC', 'MON'],
+    ['MN', 'MGL'], ['ME', 'MNE'], ['MA', 'MAR'], ['MZ', 'MOZ'], ['MM', 'MYA'], ['NA', 'NAM'],
+    ['NP', 'NEP'], ['NL', 'NED'], ['NZ', 'NZL'], ['NI', 'NCA'], ['NE', 'NIG'], ['NG', 'NGR'],
+    ['KP', 'PRK'], ['NO', 'NOR'], ['OM', 'OMA'], ['PK', 'PAK'], ['PA', 'PAN'], ['PY', 'PAR'],
+    ['PE', 'PER'], ['PH', 'PHI'], ['PL', 'POL'], ['PT', 'POR'], ['PR', 'PUR'], ['QA', 'QAT'],
+    ['RE', 'REU'], ['RO', 'ROU'], ['RU', 'RUS'], ['RW', 'RWA'], ['SM', 'SMR'], ['SA', 'KSA'],
+    ['SN', 'SEN'], ['RS', 'SRB'], ['SL', 'SLE'], ['SG', 'SGP'], ['SK', 'SVK'], ['SI', 'SLO'],
+    ['SO', 'SOM'], ['ZA', 'RSA'], ['ES', 'ESP'], ['LK', 'SRI'], ['SD', 'SUD'], ['SR', 'SUR'],
+    ['SZ', 'SWZ'], ['SE', 'SWE'], ['CH', 'SUI'], ['SY', 'SYR'], ['TW', 'TPE'], ['TJ', 'TJK'],
+    ['TZ', 'TAN'], ['TH', 'THA'], ['TG', 'TOG'], ['TO', 'TGA'], ['TT', 'TTO'], ['TN', 'TUN'],
+    ['TR', 'TUR'], ['TM', 'TKM'], ['VI', 'ISV'], ['UG', 'UGA'], ['UA', 'UKR'], ['AE', 'UAE'],
+    ['GB', 'GBR'], ['US', 'USA'], ['UY', 'URU'], ['UZ', 'UZB'], ['VA', 'VAT'], ['VE', 'VEN'],
+    ['VN', 'VIE'], ['YE', 'YEM'], ['YU', 'YUG'], ['ZR', 'ZAI'], ['ZM', 'ZAM'], ['ZW', 'ZIM']
 ]);
 
 function formatRegionInfo(region) {
@@ -285,7 +269,7 @@ function formatRegionInfo(region) {
     const upper = region.toUpperCase();
     if (regionCache.has(upper)) return regionCache.get(upper);
     const flag = getCountryFlagEmoji(upper);
-    let olympicCode = olympicCodeMap.get(upper) || upper;
+    const olympicCode = olympicCodeMap.get(upper) || upper;
     const result = `${flag} ${olympicCode}`;
     regionCache.set(upper, result);
     return result;
@@ -381,7 +365,7 @@ function generateProgressBar(current, total, width = 30) {
     const percent = (current / total) * 100;
     const filled = Math.round((percent / 100) * width);
     const empty = width - filled;
-    const bar = '.'.repeat(filled) + ' '.repeat(empty);
+    const bar = '●'.repeat(filled) + '·'.repeat(empty);
     return `${bar} ${percent.toFixed(1)}% (${current}/${total})`;
 }
 
