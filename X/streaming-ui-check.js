@@ -2,7 +2,7 @@
 const BASE_URL = 'https://www.netflix.com/title/';
 const BASE_URL_YTB = "https://www.youtube.com/premium";
 const FILM_ID = 81280792;
-const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.61 Safari/537.36';
+const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 const ARROW = " ➟ ";
 
 // 国家代码映射
