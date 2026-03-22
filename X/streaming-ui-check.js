@@ -38,7 +38,7 @@ function testNf(filmId) {
         $task.fetch(option).then(
             response => {
                 const status = response.statusCode;
-                console.log("nf:" + status);
+                console.log("NF:" + status);
                 if (status === 404) {
                     result.Netflix = "<b>Netflix: </b>支持自制剧集 ⚠️";
                 } else if (status === 403) {
@@ -53,14 +53,14 @@ function testNf(filmId) {
                             if (region === 'title') region = 'us';
                         }
                     }
-                    console.log("nf:" + region);
+                    console.log("NF:" + region);
                     const regionCode = CountryCode[region.toUpperCase()] || region.toUpperCase();
                     result.Netflix = `<b>Netflix: </b>完整支持${ARROW}${regionCode}`;
                 } else {
                     resolve("Netflix Test Error");
                     return;
                 }
-                console.log("nf:" + result.Netflix);
+                console.log("NF:" + result.Netflix);
                 resolve("done");
             },
             () => {
@@ -88,7 +88,7 @@ function testYTB() {
         $task.fetch(option).then(
             response => {
                 const status = response.statusCode;
-                console.log("ytb:" + status);
+                console.log("YTB:" + status);
                 if (status !== 200) {
                     result.YouTube = "<b>YouTube Premium: </b>检测失败 ❗️";
                     resolve("error");
@@ -111,7 +111,7 @@ function testYTB() {
                 }
                 const regionCode = CountryCode[region.toUpperCase()] || region.toUpperCase();
                 result.YouTube = `<b>YouTube Premium: </b>支持 ${ARROW}${regionCode}`;
-                console.log("ytb:" + region + result.YouTube);
+                console.log("YTB:" + region + result.YouTube);
                 resolve(region);
             },
             () => {
