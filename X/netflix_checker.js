@@ -275,27 +275,25 @@ function printGroup(title, items) {
     let maxPolicy = 0;
     let maxStatus = 0;
     let maxRegion = 0;
-    let maxTimeDigits = 0; // 数字部分最大字符数
+    let maxTimeDigits = 0;
     for (const { policy, region, time } of items) {
         maxPolicy = Math.max(maxPolicy, getDisplayWidth(policy));
         const statusText = STATUS_TEXT[items[0].status];
         maxStatus = Math.max(maxStatus, getDisplayWidth(statusText) + 2);
         const regionDisplay = region ? formatRegionInfo(region) : '-';
         maxRegion = Math.max(maxRegion, getDisplayWidth(regionDisplay));
-        const timeDigits = time.toString().length;
-        maxTimeDigits = Math.max(maxTimeDigits, timeDigits);
+        maxTimeDigits = Math.max(maxTimeDigits, time.toString().length);
     }
     const col1Width = maxPolicy + 2;
     const col2Width = maxStatus + 4;
     const col3Width = maxRegion + 4;
-    const col4Width = maxTimeDigits + 2; // 数字宽度 + "ms"宽度(2) + 左右空格? 我们只需数字右对齐，ms固定，最后列整体右对齐
+    const col4Width = maxTimeDigits + 2; // 数字宽度 + "ms"宽度
 
     for (const { policy, status, region, time } of items) {
         const icon = STATUS_ICON[status];
         const statusText = STATUS_TEXT[status];
         const regionDisplay = region ? formatRegionInfo(region) : '-';
-        const timeDigits = time.toString();
-        const timeStr = timeDigits.padStart(maxTimeDigits) + 'ms';
+        const timeStr = time.toString().padStart(maxTimeDigits) + 'ms';
         const line = padDisplay(policy, col1Width) +
                      padDisplay(`${icon} ${statusText}`, col2Width) +
                      padDisplay(regionDisplay, col3Width) +
@@ -331,7 +329,7 @@ function generateProgressBar(current, total, width = 30) {
     const percent = (current / total) * 100;
     const filled = Math.round((percent / 100) * width);
     const empty = width - filled;
-    const bar = '▓'.repeat(filled) + '▒'.repeat(empty);
+    const bar = '█'.repeat(filled) + '▒'.repeat(empty);
     return `${bar} ${percent.toFixed(1)}% (${current}/${total})`;
 }
 
