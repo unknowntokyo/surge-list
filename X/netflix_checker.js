@@ -275,27 +275,27 @@ function printGroup(title, items) {
     let maxPolicy = 0;
     let maxStatus = 0;
     let maxRegion = 0;
-    let maxTime = 0;
-    // 第一遍遍历：计算最大宽度
+    let maxTimeDigits = 0; // 数字部分最大字符数
     for (const { policy, region, time } of items) {
         maxPolicy = Math.max(maxPolicy, getDisplayWidth(policy));
         const statusText = STATUS_TEXT[items[0].status];
         maxStatus = Math.max(maxStatus, getDisplayWidth(statusText) + 2);
         const regionDisplay = region ? formatRegionInfo(region) : '-';
         maxRegion = Math.max(maxRegion, getDisplayWidth(regionDisplay));
-        maxTime = Math.max(maxTime, getDisplayWidth(`${time}ms`));
+        const timeDigits = time.toString().length;
+        maxTimeDigits = Math.max(maxTimeDigits, timeDigits);
     }
     const col1Width = maxPolicy + 2;
     const col2Width = maxStatus + 4;
     const col3Width = maxRegion + 4;
-    const col4Width = maxTime + 2;
+    const col4Width = maxTimeDigits + 2; // 数字宽度 + "ms"宽度(2) + 左右空格? 我们只需数字右对齐，ms固定，最后列整体右对齐
 
-    // 第二遍遍历：输出
     for (const { policy, status, region, time } of items) {
         const icon = STATUS_ICON[status];
         const statusText = STATUS_TEXT[status];
         const regionDisplay = region ? formatRegionInfo(region) : '-';
-        const timeStr = `${time}ms`;
+        const timeDigits = time.toString();
+        const timeStr = timeDigits.padStart(maxTimeDigits) + 'ms';
         const line = padDisplay(policy, col1Width) +
                      padDisplay(`${icon} ${statusText}`, col2Width) +
                      padDisplay(regionDisplay, col3Width) +
