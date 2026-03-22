@@ -17,5 +17,5 @@ let subtitle = `${asn} ${asName}`;
 const codeMap = { HK: 'HKG', TW: 'TPE', SG: 'SGP', JP: 'JPN', KR: 'KOR', US: 'USA', NL: 'NED', DE: 'GER' };
 let countryCode = codeMap[obj.country_code] || obj.country_code;
 let title = ` ${countryCode}`;
-let description = `-------------------------------------\nIP: ${ip}\nOrg: ${asName}\nASN: ${asn}\nCity: ${city}\n-------------------------------------`;
+let description = `-------------------------------------\nIP: **${ip}**\nOrg: ${asName}\nASN: ${asn}\nCity: ${city}\n-------------------------------------`;
 $done({ title, subtitle, ip, description });
