@@ -236,24 +236,51 @@ function formatRegionInfo(region) {
     return `${flag} ${regionName}`.trim();
 }
 
-function drawBox(lines, title = null, width = 60) {
-    const top = '╔' + '═'.repeat(width) + '╗';
-    const bottom = '╚' + '═'.repeat(width) + '╝';
+function getStringWidth(str) {
+    let width = 0;
+    for (let i = 0; i < str.length; i++) {
+        const code = str.charCodeAt(i);
+        if ((code >= 0x4e00 && code <= 0x9fff) ||
+            (code >= 0x3400 && code <= 0x4dbf) ||
+            (code >= 0xf900 && code <= 0xfaff) ||
+            (code >= 0xff00 && code <= 0xffef) ||
+            (code >= 0x20000 && code <= 0x2ffff)) {
+            width += 2;
+        } else {
+            width += 1;
+        }
+    }
+    return width;
+}
+
+function drawBox(lines, title = null) {
+    if (lines.length === 0) return '';
+    const contentWidth = Math.max(...lines.map(line => getStringWidth(line)));
+    const totalWidth = contentWidth + 4;
+    const top = '┌' + '─'.repeat(totalWidth) + '┐';
+    const bottom = '└' + '─'.repeat(totalWidth) + '┘';
     const output = [];
     if (title) {
-        const titleLine = `║ ${title.padEnd(width - 2)} ║`;
-        output.push(top, titleLine, '╠' + '═'.repeat(width) + '╣');
+        const titleStr = ` ${title} `;
+        const titleWidth = getStringWidth(titleStr);
+        const paddingLeft = Math.floor((totalWidth - titleWidth) / 2);
+        const paddingRight = totalWidth - titleWidth - paddingLeft;
+        const titleLine = '│' + ' '.repeat(paddingLeft) + titleStr + ' '.repeat(paddingRight) + '│';
+        output.push(top, titleLine, '├' + '─'.repeat(totalWidth) + '┤');
     } else {
         output.push(top);
     }
-    for (const line of lines) {
-        output.push(`║ ${line.padEnd(width - 2)} ║`);
+    for (let line of lines) {
+        const lineWidth = getStringWidth(line);
+        const padding = totalWidth - 2 - lineWidth;
+        const paddedLine = '│ ' + line + ' '.repeat(padding) + ' │';
+        output.push(paddedLine);
     }
     output.push(bottom);
     return output.join('\n');
 }
 
-function printGroup(title, items, width = 60) {
+function printGroup(title, items) {
     if (!items.length) return;
     const lines = [];
     for (const { policy, status, region, time } of items) {
@@ -262,16 +289,16 @@ function printGroup(title, items, width = 60) {
         const timeStr = `${time}ms`;
         lines.push(`${policy.padEnd(25)} ${icon} ${STATUS_TEXT[status].padEnd(8)} ${regionDisplay.padEnd(12)} ${timeStr.padStart(6)}`);
     }
-    console.log(drawBox(lines, `${title} (${items.length})`, width));
+    console.log(drawBox(lines, `${title} (${items.length})`));
 }
 
-function printOtherNodes(nodes, width = 60) {
+function printOtherNodes(nodes) {
     if (!nodes.length) return;
     const lines = [];
     const lineChunks = [];
     let current = '';
     for (const node of nodes) {
-        if ((current + node).length > width - 4) {
+        if ((current + node).length > 56) {
             lineChunks.push(current);
             current = node;
         } else {
@@ -282,10 +309,10 @@ function printOtherNodes(nodes, width = 60) {
     for (const chunk of lineChunks) {
         lines.push(chunk);
     }
-    console.log(drawBox(lines, '其他节点', width));
+    console.log(drawBox(lines, '其他节点'));
 }
 
-function printSummary(stats, totalTime, width = 60) {
+function printSummary(stats, totalTime) {
     const { total, full, original, notAvailable, timeout, error } = stats;
     const fullPercent = total ? Math.round(full / total * 100) : 0;
     const originalPercent = total ? Math.round(original / total * 100) : 0;
@@ -298,16 +325,31 @@ function printSummary(stats, totalTime, width = 60) {
     const notAvailableBar = '█'.repeat(Math.round(notAvailablePercent / 100 * barWidth));
     const timeoutBar = '█'.repeat(Math.round(timeoutPercent / 100 * barWidth));
 
-    const lines = [
-        `总节点数: ${total}`,
-        `✅ 完整解锁: ${full}  ${fullBar.padEnd(barWidth, '░')} ${fullPercent}%`,
-        `📺 仅自制剧: ${original}  ${originalBar.padEnd(barWidth, '░')} ${originalPercent}%`,
-        `❌ 不支持  : ${notAvailable}  ${notAvailableBar.padEnd(barWidth, '░')} ${notAvailablePercent}%`,
-        `⏱️ 超时    : ${timeout}  ${timeoutBar.padEnd(barWidth, '░')} ${timeoutPercent}%`,
-        `⚠️ 异常    : ${error}`,
-        `⏱️ 总耗时  : ${totalTime.toFixed(2)} 秒`
+    const col1Width = 12;
+    const col2Width = 6;
+
+    const rows = [
+        ['总节点数:', total.toString(), ''],
+        ['✅ 完整解锁:', full.toString(), `${fullBar.padEnd(barWidth, '░')} ${fullPercent}%`],
+        ['📺 仅自制剧:', original.toString(), `${originalBar.padEnd(barWidth, '░')} ${originalPercent}%`],
+        ['❌ 不支持  :', notAvailable.toString(), `${notAvailableBar.padEnd(barWidth, '░')} ${notAvailablePercent}%`],
+        ['⏱️ 超时    :', timeout.toString(), `${timeoutBar.padEnd(barWidth, '░')} ${timeoutPercent}%`],
+        ['⚠️ 异常    :', error.toString(), ''],
+        ['⏱️ 总耗时  :', totalTime.toFixed(2) + ' 秒', '']
     ];
-    console.log(drawBox(lines, '📊 检测统计', width));
+
+    const lines = rows.map(row => {
+        const col1 = row[0].padEnd(col1Width);
+        const col2 = row[1].padStart(col2Width);
+        const col3 = row[2];
+        if (col3) {
+            return `${col1} ${col2}   ${col3}`;
+        } else {
+            return `${col1} ${col2}`;
+        }
+    });
+
+    console.log(drawBox(lines, '📊 检测统计'));
 }
 
 async function testPolicies(groupName, policies = []) {
@@ -625,7 +667,7 @@ function Env(name, opts) {
     }
     return new class {
         constructor(t, e) {
-            this.name = t, this.http = new s(this), this.data = null, this.dataFile = "box.dat", this.logs = [], this.isMute = !1, this.isNeedRewrite = !1, this.logSeparator = "\n", this.encoding = "utf-8", this.startTime = (new Date).getTime(), Object.assign(this, e), this.log("", `\ud83d\udd14${this.name}, \u5f00\u59cb!`);
+            this.name = t, this.http = new s(this), this.data = null, this.dataFile = "box.dat", this.logs = [], this.isMute = !1, this.isNeedRewrite = !1, this.logSeparator = "\n", this.encoding = "utf-8", this.startTime = (new Date).getTime(), Object.assign(this, e);
         }
         isNode() {
             return "undefined" != typeof module && !!module.exports;
@@ -807,7 +849,7 @@ function Env(name, opts) {
             for (let e in i) new RegExp("(" + e + ")").test(t) && (t = t.replace(RegExp.$1, 1 == RegExp.$1.length ? i[e] : ("00" + i[e]).substr(("" + i[e]).length)));
             return t;
         }
-        msg(e = t, s = "", i = "", r) {
+        msg(e = name, s = "", i = "", r) {
             const o = t => {
                 if (!t) return t;
                 if ("string" == typeof t) return this.isLoon() ? t : this.isQuanX() ? { "open-url": t } : this.isSurge() ? { url: t } : void 0;
@@ -842,8 +884,7 @@ function Env(name, opts) {
             return new Promise(e => setTimeout(e, t));
         }
         done(t = {}) {
-            const e = (new Date).getTime(), s = (e - this.startTime) / 1e3;
-            this.log("", `\ud83d\udd14${this.name}, \u7ed3\u675f! \ud83d\udd5b ${s} \u79d2`), this.log(), (this.isSurge() || this.isQuanX() || this.isLoon()) && $done(t);
+            (this.isSurge() || this.isQuanX() || this.isLoon()) && $done(t);
         }
     }(name, opts);
 }
