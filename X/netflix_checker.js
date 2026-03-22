@@ -287,7 +287,7 @@ function printGroup(title, items) {
     const col1Width = maxPolicy + 2;
     const col2Width = maxStatus + 4;
     const col3Width = maxRegion + 4;
-    const col4Width = maxTimeDigits + 2; // 数字宽度 + "ms"宽度
+    const col4Width = maxTimeDigits + 2;
 
     for (const { policy, status, region, time } of items) {
         const icon = STATUS_ICON[status];
@@ -370,7 +370,6 @@ async function testPolicies(groupName, policies = []) {
             }
         }
 
-        // 按延迟升序排序
         fullAvailable.sort((a, b) => a.time - b.time);
         originalAvailable.sort((a, b) => a.time - b.time);
 
