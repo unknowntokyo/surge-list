@@ -361,26 +361,6 @@ function printSummary(totalTime) {
     console.log(`\n⏱️ 总耗时: ${totalTime.toFixed(2)} 秒`);
 }
 
-function generateProgressBar(current, total, width = 30) {
-    const percent = (current / total) * 100;
-    const filled = Math.round((percent / 100) * width);
-    const empty = width - filled;
-    
-    let bar = '';
-    for (let i = 0; i < width; i++) {
-        if (i < filled) {
-            const p = (i + 1) / width * 100;
-            if (p <= 25) bar += '🟥';
-            else if (p <= 50) bar += '🟨';
-            else if (p <= 75) bar += '🟦';
-            else bar += '🟩';
-        } else {
-            bar += ' ';
-        }
-    }
-    return `${bar} ${percent.toFixed(1)}% (${current}/${total})`;
-}
-
 async function testPolicies(groupName, policies = []) {
     const fullAvailable = [];
     const originalAvailable = [];
@@ -453,11 +433,11 @@ async function testPolicies(groupName, policies = []) {
         const result = await testWithCache(policy);
         processedCount++;
         if (!debug && !simpleOutput) {
-            const percent = (processedCount / total) * 100;
+            const percent = Math.floor((processedCount / total) * 100);
             for (const th of thresholds) {
                 if (percent >= th && !printedThresholds.has(th)) {
                     printedThresholds.add(th);
-                    console.log(`进度: ${generateProgressBar(processedCount, total)}`);
+                    console.log(`进度: ${percent}% (${processedCount}/${total})`);
                     break;
                 }
             }
@@ -466,7 +446,7 @@ async function testPolicies(groupName, policies = []) {
     }, { concurrency });
 
     if (!debug && !simpleOutput && !printedThresholds.has(100)) {
-        console.log(`进度: ${generateProgressBar(processedCount, total)}`);
+        console.log(`进度: 100% (${processedCount}/${total})`);
     }
 
     for (const res of resultsArray) allResults.set(res.policy, res);
