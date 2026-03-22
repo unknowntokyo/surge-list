@@ -248,11 +248,16 @@ function getDisplayWidth(str) {
     let width = 0;
     for (let i = 0; i < str.length; i++) {
         const code = str.charCodeAt(i);
+        // 中文字符范围
         if ((code >= 0x4e00 && code <= 0x9fff) ||
             (code >= 0x3400 && code <= 0x4dbf) ||
             (code >= 0xf900 && code <= 0xfaff) ||
             (code >= 0xff00 && code <= 0xffef) ||
-            (code >= 0x20000 && code <= 0x2ffff)) {
+            (code >= 0x20000 && code <= 0x2ffff) ||
+            // Emoji 常用范围（粗略）
+            (code >= 0x1f300 && code <= 0x1f6ff) ||
+            (code >= 0x1f900 && code <= 0x1f9ff) ||
+            (code >= 0x1fa70 && code <= 0x1faff)) {
             width += 2;
         } else {
             width += 1;
@@ -329,7 +334,7 @@ function generateProgressBar(current, total, width = 30) {
     const percent = (current / total) * 100;
     const filled = Math.round((percent / 100) * width);
     const empty = width - filled;
-    const bar = '█'.repeat(filled) + '▒'.repeat(empty);
+    const bar = '█'.repeat(filled) + '░'.repeat(empty);
     return `${bar} ${percent.toFixed(1)}% (${current}/${total})`;
 }
 
