@@ -231,13 +231,62 @@ function getCountryFlagEmoji(countryCode) {
 }
 
 const regionCache = new Map();
+const olympicCodeMap = new Map([
+    ['SG', 'SGP'],
+    ['TW', 'TPE'],
+    ['HK', 'HKG'],
+    ['MO', 'MAC'],
+    ['CN', 'CHN'],
+    ['US', 'USA'],
+    ['GB', 'GBR'],
+    ['JP', 'JPN'],
+    ['KR', 'KOR'],
+    ['FR', 'FRA'],
+    ['DE', 'GER'],
+    ['IT', 'ITA'],
+    ['ES', 'ESP'],
+    ['AU', 'AUS'],
+    ['CA', 'CAN'],
+    ['BR', 'BRA'],
+    ['IN', 'IND'],
+    ['RU', 'RUS'],
+    ['ZA', 'RSA'],
+    ['NL', 'NED'],
+    ['SE', 'SWE'],
+    ['NO', 'NOR'],
+    ['FI', 'FIN'],
+    ['DK', 'DEN'],
+    ['BE', 'BEL'],
+    ['CH', 'SUI'],
+    ['AT', 'AUT'],
+    ['PL', 'POL'],
+    ['CZ', 'CZE'],
+    ['HU', 'HUN'],
+    ['GR', 'GRE'],
+    ['PT', 'POR'],
+    ['IE', 'IRL'],
+    ['NZ', 'NZL'],
+    ['AR', 'ARG'],
+    ['CO', 'COL'],
+    ['MX', 'MEX'],
+    ['EG', 'EGY'],
+    ['NG', 'NGR'],
+    ['PK', 'PAK'],
+    ['BD', 'BAN'],
+    ['TH', 'THA'],
+    ['VN', 'VIE'],
+    ['MY', 'MAS'],
+    ['PH', 'PHI'],
+    ['ID', 'INA']
+]);
+
 function formatRegionInfo(region) {
     if (!region) return '-';
     const upper = region.toUpperCase();
     if (regionCache.has(upper)) return regionCache.get(upper);
     const flag = getCountryFlagEmoji(upper);
-    const regionName = REGIONS_MAP.get(upper)?.chinese ?? '';
-    const result = `${flag} ${regionName}`.trim();
+    let olympicCode = olympicCodeMap.get(upper) || upper;
+    const result = `${flag} ${olympicCode}`;
     regionCache.set(upper, result);
     return result;
 }
@@ -248,13 +297,11 @@ function getDisplayWidth(str) {
     let width = 0;
     for (let i = 0; i < str.length; i++) {
         const code = str.charCodeAt(i);
-        // 中文字符范围
         if ((code >= 0x4e00 && code <= 0x9fff) ||
             (code >= 0x3400 && code <= 0x4dbf) ||
             (code >= 0xf900 && code <= 0xfaff) ||
             (code >= 0xff00 && code <= 0xffef) ||
             (code >= 0x20000 && code <= 0x2ffff) ||
-            // Emoji 常用范围（粗略）
             (code >= 0x1f300 && code <= 0x1f6ff) ||
             (code >= 0x1f900 && code <= 0x1f9ff) ||
             (code >= 0x1fa70 && code <= 0x1faff)) {
@@ -334,7 +381,7 @@ function generateProgressBar(current, total, width = 30) {
     const percent = (current / total) * 100;
     const filled = Math.round((percent / 100) * width);
     const empty = width - filled;
-    const bar = '█'.repeat(filled) + '░'.repeat(empty);
+    const bar = '.'.repeat(filled) + ' '.repeat(empty);
     return `${bar} ${percent.toFixed(1)}% (${current}/${total})`;
 }
 
