@@ -5,13 +5,12 @@ const FILM_ID = 81280792;
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.61 Safari/537.36';
 const ARROW = " ➟ ";
 
-// 国家代码映射（普通对象，查找更快）
+// 国家代码映射
 const CountryCode = {
     HK: "HKG", JP: "JPN", KR: "KOR", SG: "SGP",
     TW: "TPE", US: "USA", NL: "NED", DE: "GER"
 };
 
-// 结果存储（默认值）
 const result = {
     title: '        流媒体服务查询',
     YouTube: '<b>YouTube: </b>检测失败, 请重试 ❗️',
