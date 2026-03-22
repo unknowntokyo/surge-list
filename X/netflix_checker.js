@@ -236,7 +236,6 @@ function formatRegionInfo(region) {
     return `${flag} ${regionName}`.trim();
 }
 
-// 计算字符串显示宽度（中文字符占2）
 function getDisplayWidth(str) {
     let width = 0;
     for (let i = 0; i < str.length; i++) {
@@ -254,7 +253,6 @@ function getDisplayWidth(str) {
     return width;
 }
 
-// 按显示宽度填充字符串（左对齐，右侧填充空格）
 function padDisplay(str, targetWidth) {
     const currentWidth = getDisplayWidth(str);
     if (currentWidth >= targetWidth) return str;
@@ -265,19 +263,17 @@ function padDisplay(str, targetWidth) {
 function printGroup(title, items) {
     if (!items.length) return;
     console.log(`\n${title} (${items.length})：`);
-    // 动态计算列宽
     let maxPolicy = 0;
     let maxStatus = 0;
     let maxRegion = 0;
     let maxTime = 0;
     for (const { policy, region, time } of items) {
         maxPolicy = Math.max(maxPolicy, getDisplayWidth(policy));
-        const statusText = STATUS_TEXT[items[0].status]; // 统一用当前组的状态
-        maxStatus = Math.max(maxStatus, getDisplayWidth(statusText) + 2); // 加图标宽度
+        const statusText = STATUS_TEXT[items[0].status];
+        maxStatus = Math.max(maxStatus, getDisplayWidth(statusText) + 2);
         maxRegion = Math.max(maxRegion, getDisplayWidth(region ? formatRegionInfo(region) : '-'));
         maxTime = Math.max(maxTime, getDisplayWidth(`${time}ms`));
     }
-    // 增加固定间距
     const col1Width = maxPolicy + 2;
     const col2Width = maxStatus + 4;
     const col3Width = maxRegion + 4;
@@ -317,14 +313,58 @@ function printOtherNodes(nodes) {
 
 function printSummary(stats, totalTime) {
     const { total, full, original, notAvailable, timeout, error } = stats;
+    const rows = [
+        { label: '总节点数:', value: total.toString() },
+        { label: '✅ 完整解锁:', value: full.toString() },
+        { label: '📺 仅自制剧:', value: original.toString() },
+        { label: '❌ 不支持  :', value: notAvailable.toString() },
+        { label: '⏱️ 超时    :', value: timeout.toString() },
+        { label: '⚠️ 异常    :', value: error.toString() },
+        { label: '⏱️ 总耗时  :', value: totalTime.toFixed(2) + ' 秒' }
+    ];
+
+    let maxLabelWidth = 0;
+    for (const row of rows) {
+        let width = 0;
+        for (const ch of row.label) {
+            const code = ch.charCodeAt(0);
+            if ((code >= 0x4e00 && code <= 0x9fff) ||
+                (code >= 0x3400 && code <= 0x4dbf) ||
+                (code >= 0xf900 && code <= 0xfaff) ||
+                (code >= 0xff00 && code <= 0xffef) ||
+                (code >= 0x20000 && code <= 0x2ffff)) {
+                width += 2;
+            } else {
+                width += 1;
+            }
+        }
+        maxLabelWidth = Math.max(maxLabelWidth, width);
+    }
+
+    let maxValueWidth = 0;
+    for (const row of rows) {
+        maxValueWidth = Math.max(maxValueWidth, row.value.length);
+    }
+
     console.log(`\n📊 检测统计`);
-    console.log(`  总节点数: ${total}`);
-    console.log(`  ✅ 完整解锁: ${full}`);
-    console.log(`  📺 仅自制剧: ${original}`);
-    console.log(`  ❌ 不支持  : ${notAvailable}`);
-    console.log(`  ⏱️ 超时    : ${timeout}`);
-    console.log(`  ⚠️ 异常    : ${error}`);
-    console.log(`  ⏱️ 总耗时  : ${totalTime.toFixed(2)} 秒`);
+    for (const row of rows) {
+        let labelPadded = '';
+        let currentWidth = 0;
+        for (const ch of row.label) {
+            const code = ch.charCodeAt(0);
+            const isWide = (code >= 0x4e00 && code <= 0x9fff) ||
+                           (code >= 0x3400 && code <= 0x4dbf) ||
+                           (code >= 0xf900 && code <= 0xfaff) ||
+                           (code >= 0xff00 && code <= 0xffef) ||
+                           (code >= 0x20000 && code <= 0x2ffff);
+            labelPadded += ch;
+            currentWidth += isWide ? 2 : 1;
+        }
+        const padCount = maxLabelWidth - currentWidth;
+        labelPadded += ' '.repeat(padCount);
+        const valuePadded = row.value.padStart(maxValueWidth);
+        console.log(`  ${labelPadded} ${valuePadded}`);
+    }
 }
 
 async function testPolicies(groupName, policies = []) {
