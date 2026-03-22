@@ -365,7 +365,19 @@ function generateProgressBar(current, total, width = 30) {
     const percent = (current / total) * 100;
     const filled = Math.round((percent / 100) * width);
     const empty = width - filled;
-    const bar = '●'.repeat(filled) + '·'.repeat(empty);
+    
+    let bar = '';
+    for (let i = 0; i < width; i++) {
+        if (i < filled) {
+            const p = (i + 1) / width * 100;
+            if (p <= 25) bar += '🟥';
+            else if (p <= 50) bar += '🟨';
+            else if (p <= 75) bar += '🟦';
+            else bar += '🟩';
+        } else {
+            bar += ' ';
+        }
+    }
     return `${bar} ${percent.toFixed(1)}% (${current}/${total})`;
 }
 
