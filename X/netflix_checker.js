@@ -311,60 +311,8 @@ function printOtherNodes(nodes) {
     }
 }
 
-function printSummary(stats, totalTime) {
-    const { total, full, original, notAvailable, timeout, error } = stats;
-    const rows = [
-        { label: '总节点数:', value: total.toString() },
-        { label: '✅ 完整解锁:', value: full.toString() },
-        { label: '📺 仅自制剧:', value: original.toString() },
-        { label: '❌ 不支持  :', value: notAvailable.toString() },
-        { label: '⏱️ 超时    :', value: timeout.toString() },
-        { label: '⚠️ 异常    :', value: error.toString() },
-        { label: '⏱️ 总耗时  :', value: totalTime.toFixed(2) + ' 秒' }
-    ];
-
-    let maxLabelWidth = 0;
-    for (const row of rows) {
-        let width = 0;
-        for (const ch of row.label) {
-            const code = ch.charCodeAt(0);
-            if ((code >= 0x4e00 && code <= 0x9fff) ||
-                (code >= 0x3400 && code <= 0x4dbf) ||
-                (code >= 0xf900 && code <= 0xfaff) ||
-                (code >= 0xff00 && code <= 0xffef) ||
-                (code >= 0x20000 && code <= 0x2ffff)) {
-                width += 2;
-            } else {
-                width += 1;
-            }
-        }
-        maxLabelWidth = Math.max(maxLabelWidth, width);
-    }
-
-    let maxValueWidth = 0;
-    for (const row of rows) {
-        maxValueWidth = Math.max(maxValueWidth, row.value.length);
-    }
-
-    console.log(`\n📊 检测统计`);
-    for (const row of rows) {
-        let labelPadded = '';
-        let currentWidth = 0;
-        for (const ch of row.label) {
-            const code = ch.charCodeAt(0);
-            const isWide = (code >= 0x4e00 && code <= 0x9fff) ||
-                           (code >= 0x3400 && code <= 0x4dbf) ||
-                           (code >= 0xf900 && code <= 0xfaff) ||
-                           (code >= 0xff00 && code <= 0xffef) ||
-                           (code >= 0x20000 && code <= 0x2ffff);
-            labelPadded += ch;
-            currentWidth += isWide ? 2 : 1;
-        }
-        const padCount = maxLabelWidth - currentWidth;
-        labelPadded += ' '.repeat(padCount);
-        const valuePadded = row.value.padStart(maxValueWidth);
-        console.log(`  ${labelPadded} ${valuePadded}`);
-    }
+function printSummary(totalTime) {
+    console.log(`\n⏱️ 总耗时: ${totalTime.toFixed(2)} 秒`);
 }
 
 async function testPolicies(groupName, policies = []) {
@@ -619,7 +567,7 @@ function isValidPolicy(policy) {
     $.setval(JSON.stringify(originalAvailablePolicies), 'Helge_0x00.Netflix_Original_Available_Policies');
 
     const totalTime = (Date.now() - overallStart) / 1000;
-    printSummary(stats, totalTime);
+    printSummary(totalTime);
 })().catch(error => {
     console.log(`\n❌ 错误: ${error}`);
     if (typeof error === 'string') $.msg($.name, '', `${error} ⚠️`);
