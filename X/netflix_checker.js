@@ -14,6 +14,14 @@ const STATUS_ICON = {
     [STATUS.ERROR]: '⚠️'
 };
 
+const STATUS_TEXT = {
+    [STATUS.FULL_AVAILABLE]: '完整支持',
+    [STATUS.ORIGINAL_AVAILABLE]: '仅自制剧',
+    [STATUS.NOT_AVAILABLE]: '不支持',
+    [STATUS.TIMEOUT]: '超时',
+    [STATUS.ERROR]: '异常'
+};
+
 const REQUEST_HEADERS = {
     'Accept-Language': 'en',
     'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.71 Safari/537.36'
@@ -227,53 +235,84 @@ function formatRegionInfo(region) {
     return `${flag} ${regionName}`.trim();
 }
 
+function drawBox(lines, title = null, width = 60) {
+    const top = '╔' + '═'.repeat(width) + '╗';
+    const bottom = '╚' + '═'.repeat(width) + '╝';
+    const output = [];
+    if (title) {
+        const titleLine = `║ ${title.padEnd(width - 2)} ║`;
+        output.push(top, titleLine, '╠' + '═'.repeat(width) + '╣');
+    } else {
+        output.push(top);
+    }
+    for (const line of lines) {
+        output.push(`║ ${line.padEnd(width - 2)} ║`);
+    }
+    output.push(bottom);
+    return output.join('\n');
+}
+
 function printHeader(title) {
     const line = '═'.repeat(60);
     console.log(`\n${line}\n  ${title}\n${line}`);
 }
 
-function printSeparator() {
-    console.log('─'.repeat(60));
-}
-
-function printResultTable(results) {
-    if (results.length === 0) return;
-
-    const maxPolicyLen = Math.max(...results.map(r => r.policy.length), 10);
-    const maxRegionLen = Math.max(...results.map(r => formatRegionInfo(r.region).length), 10);
-    const statusWidth = 12;
-    const timeWidth = 8;
-
-    console.log(
-        `${'策略'.padEnd(maxPolicyLen)} │ ${'状态'.padEnd(statusWidth)} │ ${'地区'.padEnd(maxRegionLen)} │ ${'耗时(ms)'.padEnd(timeWidth)}`
-    );
-    console.log(
-        `${'─'.repeat(maxPolicyLen)}─┼─${'─'.repeat(statusWidth)}─┼─${'─'.repeat(maxRegionLen)}─┼─${'─'.repeat(timeWidth)}`
-    );
-
-    for (const { policy, status, region, time } of results) {
-        const statusText = status === STATUS.FULL_AVAILABLE ? '完整支持' :
-                           status === STATUS.ORIGINAL_AVAILABLE ? '仅自制剧' : '';
-        const icon = STATUS_ICON[status] || '';
+function printGroup(title, items, width = 60) {
+    if (!items.length) return;
+    const lines = [];
+    for (const { policy, status, region, time } of items) {
+        const icon = STATUS_ICON[status];
         const regionDisplay = region ? formatRegionInfo(region) : '-';
-        console.log(
-            `${policy.padEnd(maxPolicyLen)} │ ${icon} ${statusText.padEnd(statusWidth - 2)} │ ${regionDisplay.padEnd(maxRegionLen)} │ ${String(time).padStart(timeWidth)}`
-        );
+        const timeStr = `${time}ms`;
+        lines.push(`${policy.padEnd(25)} ${icon} ${STATUS_TEXT[status].padEnd(8)} ${regionDisplay.padEnd(12)} ${timeStr.padStart(6)}`);
     }
+    console.log(drawBox(lines, `${title} (${items.length})`, width));
 }
 
-function printSummary(total, full, original, notAvailable, timeout, error, totalTime) {
-    const line = '─'.repeat(60);
-    console.log(`\n${line}`);
-    console.log(`📊 检测统计`);
-    console.log(`${line}`);
-    console.log(`  总节点数    : ${total}`);
-    console.log(`  ✅ 完整解锁 : ${full}`);
-    console.log(`  📺 仅自制剧 : ${original}`);
-    console.log(`  ❌ 不支持   : ${notAvailable}`);
-    console.log(`  ⏱️ 超时     : ${timeout}`);
-    console.log(`  ⚠️ 异常     : ${error}`);
-    console.log(`  ⏱️ 总耗时   : ${totalTime.toFixed(2)} 秒`);
+function printOtherNodes(nodes, width = 60) {
+    if (!nodes.length) return;
+    const lines = [];
+    const lineChunks = [];
+    let current = '';
+    for (const node of nodes) {
+        if ((current + node).length > width - 4) {
+            lineChunks.push(current);
+            current = node;
+        } else {
+            current = current ? `${current}  ${node}` : node;
+        }
+    }
+    if (current) lineChunks.push(current);
+    for (const chunk of lineChunks) {
+        lines.push(chunk);
+    }
+    console.log(drawBox(lines, '其他节点', width));
+}
+
+function printSummary(stats, totalTime, width = 60) {
+    const { total, full, original, notAvailable, timeout, error } = stats;
+    const fullPercent = total ? Math.round(full / total * 100) : 0;
+    const originalPercent = total ? Math.round(original / total * 100) : 0;
+    const notAvailablePercent = total ? Math.round(notAvailable / total * 100) : 0;
+    const timeoutPercent = total ? Math.round(timeout / total * 100) : 0;
+    const errorPercent = total ? Math.round(error / total * 100) : 0;
+
+    const barWidth = 30;
+    const fullBar = '█'.repeat(Math.round(fullPercent / 100 * barWidth));
+    const originalBar = '█'.repeat(Math.round(originalPercent / 100 * barWidth));
+    const notAvailableBar = '█'.repeat(Math.round(notAvailablePercent / 100 * barWidth));
+    const timeoutBar = '█'.repeat(Math.round(timeoutPercent / 100 * barWidth));
+
+    const lines = [
+        `总节点数: ${total}`,
+        `✅ 完整解锁: ${full}  ${fullBar.padEnd(barWidth, '░')} ${fullPercent}%`,
+        `📺 仅自制剧: ${original}  ${originalBar.padEnd(barWidth, '░')} ${originalPercent}%`,
+        `❌ 不支持  : ${notAvailable}  ${notAvailableBar.padEnd(barWidth, '░')} ${notAvailablePercent}%`,
+        `⏱️ 超时    : ${timeout}  ${timeoutBar.padEnd(barWidth, '░')} ${timeoutPercent}%`,
+        `⚠️ 异常    : ${error}`,
+        `⏱️ 总耗时  : ${totalTime.toFixed(2)} 秒`
+    ];
+    console.log(drawBox(lines, '📊 检测统计', width));
 }
 
 async function testPolicies(groupName, policies = []) {
@@ -291,6 +330,7 @@ async function testPolicies(groupName, policies = []) {
         let notAvailableCount = 0;
         let timeoutCount = 0;
         let errorCount = 0;
+        const otherNodes = [];
 
         for (const [policy, result] of resultsMap) {
             const { status, region, time } = result;
@@ -300,33 +340,19 @@ async function testPolicies(groupName, policies = []) {
                 originalAvailable.push({ policy, region, status, time });
             } else if (status === STATUS.NOT_AVAILABLE) {
                 notAvailableCount++;
+                otherNodes.push(`${policy} ❌`);
             } else if (status === STATUS.TIMEOUT) {
                 timeoutCount++;
+                otherNodes.push(`${policy} ⏱️`);
             } else if (status === STATUS.ERROR) {
                 errorCount++;
+                otherNodes.push(`${policy} ⚠️`);
             }
         }
 
-        const allResultsList = [
-            ...fullAvailable.map(r => ({ ...r, status: STATUS.FULL_AVAILABLE })),
-            ...originalAvailable.map(r => ({ ...r, status: STATUS.ORIGINAL_AVAILABLE }))
-        ];
-        if (allResultsList.length > 0) {
-            printResultTable(allResultsList);
-        }
-
-        const otherNodes = [];
-        for (const [policy, result] of resultsMap) {
-            const { status } = result;
-            if (status === STATUS.NOT_AVAILABLE) otherNodes.push(`${policy} ❌`);
-            else if (status === STATUS.TIMEOUT) otherNodes.push(`${policy} ⏱️`);
-            else if (status === STATUS.ERROR) otherNodes.push(`${policy} ⚠️`);
-        }
-        if (otherNodes.length) {
-            printSeparator();
-            console.log(`\n其他节点：`);
-            console.log(otherNodes.join('  '));
-        }
+        printGroup('完整支持', fullAvailable);
+        printGroup('仅自制剧', originalAvailable);
+        printOtherNodes(otherNodes);
 
         const failed = [];
         for (const [policy, result] of resultsMap) {
@@ -541,15 +567,7 @@ function isValidPolicy(policy) {
     $.setval(JSON.stringify(originalAvailablePolicies), 'Helge_0x00.Netflix_Original_Available_Policies');
 
     const totalTime = (Date.now() - overallStart) / 1000;
-    printSummary(
-        stats.total,
-        stats.full,
-        stats.original,
-        stats.notAvailable,
-        stats.timeout,
-        stats.error,
-        totalTime
-    );
+    printSummary(stats, totalTime);
 })().catch(error => {
     console.log(`\n❌ 错误: ${error}`);
     if (typeof error === 'string') $.msg($.name, '', `${error} ⚠️`);
