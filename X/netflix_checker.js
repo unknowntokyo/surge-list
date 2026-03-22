@@ -35,6 +35,7 @@ let retry = $.getval('Helge_0x00.Netflix_Retry') === 'true';
 let timeoutMs = parseInt($.getval('Helge_0x00.Netflix_Timeout')) || 8000;
 let sortByTime = $.getval('Helge_0x00.Netflix_Sort_By_Time') === 'true';
 let concurrency = parseInt($.getval('Helge_0x00.Netflix_Concurrency')) || 10;
+let simpleOutput = $.getval('Helge_0x00.Netflix_Simple_Output') === 'true';
 
 const REGIONS_MAP = new Map(Object.entries({
     AF: { chinese: '阿富汗', english: 'Afghanistan' },
@@ -252,11 +253,6 @@ function drawBox(lines, title = null, width = 60) {
     return output.join('\n');
 }
 
-function printHeader(title) {
-    const line = '═'.repeat(60);
-    console.log(`\n${line}\n  ${title}\n${line}`);
-}
-
 function printGroup(title, items, width = 60) {
     if (!items.length) return;
     const lines = [];
@@ -295,7 +291,6 @@ function printSummary(stats, totalTime, width = 60) {
     const originalPercent = total ? Math.round(original / total * 100) : 0;
     const notAvailablePercent = total ? Math.round(notAvailable / total * 100) : 0;
     const timeoutPercent = total ? Math.round(timeout / total * 100) : 0;
-    const errorPercent = total ? Math.round(error / total * 100) : 0;
 
     const barWidth = 30;
     const fullBar = '█'.repeat(Math.round(fullPercent / 100 * barWidth));
@@ -350,9 +345,11 @@ async function testPolicies(groupName, policies = []) {
             }
         }
 
-        printGroup('完整支持', fullAvailable);
-        printGroup('仅自制剧', originalAvailable);
-        printOtherNodes(otherNodes);
+        if (!simpleOutput) {
+            printGroup('完整支持', fullAvailable);
+            printGroup('仅自制剧', originalAvailable);
+            printOtherNodes(otherNodes);
+        }
 
         const failed = [];
         for (const [policy, result] of resultsMap) {
@@ -379,7 +376,7 @@ async function testPolicies(groupName, policies = []) {
     const resultsArray = await Promise.map(policies, async (policy) => {
         const result = await testWithCache(policy);
         processedCount++;
-        if (!debug && processedCount % 10 === 0) {
+        if (!debug && !simpleOutput && processedCount % 10 === 0) {
             console.log(`进度: ${processedCount}/${total}`);
         }
         return result;
@@ -543,8 +540,6 @@ function isValidPolicy(policy) {
 (async () => {
     const overallStart = Date.now();
     if (!$.isQuanX()) throw '该脚本仅支持在 Quantumult X 中运行';
-
-    printHeader('Netflix 解锁检测');
 
     const policies = await sendMessage({ action: 'get_customized_policy' });
     if (!isValidPolicy(policies[policyName])) {
