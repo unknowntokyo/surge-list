@@ -54,7 +54,7 @@ function testNf(filmId) {
                 }
                 const regionCode = CountryCode[region.toUpperCase()] || region.toUpperCase();
                 result.Netflix = `<b>Netflix: </b>完整支持${ARROW}${regionCode}`;
-                console.log(`Netflix: 完整支持 ${ARROW}${regionCode}`);
+                console.log(`Netflix: 完整支持${ARROW}${regionCode}`);
             } else {
                 // 其他状态码视为失败
                 result.Netflix = "<b>Netflix: </b>检测失败 ❗️";
@@ -106,8 +106,8 @@ function testYTB() {
                 region = 'CN';
             }
             const regionCode = CountryCode[region.toUpperCase()] || region.toUpperCase();
-            result.YouTube = `<b>YouTube Premium: </b>支持 ${ARROW}${regionCode}`;
-            console.log(`YouTube Premium: 支持 ${ARROW}${regionCode}`);
+            result.YouTube = `<b>YouTube Premium: </b>支持${ARROW}${regionCode}`;
+            console.log(`YouTube Premium: 支持${ARROW}${regionCode}`);
             resolve(region);
         }, () => {
             result.YouTube = "<b>YouTube Premium: </b>检测超时 🚦";
