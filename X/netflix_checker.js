@@ -236,7 +236,8 @@ function formatRegionInfo(region) {
     return `${flag} ${regionName}`.trim();
 }
 
-function getStringWidth(str) {
+// 计算字符串显示宽度（中文字符占2）
+function getDisplayWidth(str) {
     let width = 0;
     for (let i = 0; i < str.length; i++) {
         const code = str.charCodeAt(i);
@@ -253,52 +254,55 @@ function getStringWidth(str) {
     return width;
 }
 
-function drawBox(lines, title = null) {
-    if (lines.length === 0) return '';
-    const contentWidth = Math.max(...lines.map(line => getStringWidth(line)));
-    const totalWidth = contentWidth + 4;
-    const top = '┌' + '─'.repeat(totalWidth) + '┐';
-    const bottom = '└' + '─'.repeat(totalWidth) + '┘';
-    const output = [];
-    if (title) {
-        const titleStr = ` ${title} `;
-        const titleWidth = getStringWidth(titleStr);
-        const paddingLeft = Math.floor((totalWidth - titleWidth) / 2);
-        const paddingRight = totalWidth - titleWidth - paddingLeft;
-        const titleLine = '│' + ' '.repeat(paddingLeft) + titleStr + ' '.repeat(paddingRight) + '│';
-        output.push(top, titleLine, '├' + '─'.repeat(totalWidth) + '┤');
-    } else {
-        output.push(top);
-    }
-    for (let line of lines) {
-        const lineWidth = getStringWidth(line);
-        const padding = totalWidth - 2 - lineWidth;
-        const paddedLine = '│ ' + line + ' '.repeat(padding) + ' │';
-        output.push(paddedLine);
-    }
-    output.push(bottom);
-    return output.join('\n');
+// 按显示宽度填充字符串（左对齐，右侧填充空格）
+function padDisplay(str, targetWidth) {
+    const currentWidth = getDisplayWidth(str);
+    if (currentWidth >= targetWidth) return str;
+    const padCount = targetWidth - currentWidth;
+    return str + ' '.repeat(padCount);
 }
 
 function printGroup(title, items) {
     if (!items.length) return;
-    const lines = [];
+    console.log(`\n${title} (${items.length})：`);
+    // 动态计算列宽
+    let maxPolicy = 0;
+    let maxStatus = 0;
+    let maxRegion = 0;
+    let maxTime = 0;
+    for (const { policy, region, time } of items) {
+        maxPolicy = Math.max(maxPolicy, getDisplayWidth(policy));
+        const statusText = STATUS_TEXT[items[0].status]; // 统一用当前组的状态
+        maxStatus = Math.max(maxStatus, getDisplayWidth(statusText) + 2); // 加图标宽度
+        maxRegion = Math.max(maxRegion, getDisplayWidth(region ? formatRegionInfo(region) : '-'));
+        maxTime = Math.max(maxTime, getDisplayWidth(`${time}ms`));
+    }
+    // 增加固定间距
+    const col1Width = maxPolicy + 2;
+    const col2Width = maxStatus + 4;
+    const col3Width = maxRegion + 4;
+    const col4Width = maxTime + 2;
+
     for (const { policy, status, region, time } of items) {
         const icon = STATUS_ICON[status];
+        const statusText = STATUS_TEXT[status];
         const regionDisplay = region ? formatRegionInfo(region) : '-';
         const timeStr = `${time}ms`;
-        lines.push(`${policy.padEnd(25)} ${icon} ${STATUS_TEXT[status].padEnd(8)} ${regionDisplay.padEnd(12)} ${timeStr.padStart(6)}`);
+        const line = padDisplay(policy, col1Width) +
+                     padDisplay(`${icon} ${statusText}`, col2Width) +
+                     padDisplay(regionDisplay, col3Width) +
+                     timeStr.padStart(col4Width);
+        console.log(`  ${line}`);
     }
-    console.log(drawBox(lines, `${title} (${items.length})`));
 }
 
 function printOtherNodes(nodes) {
     if (!nodes.length) return;
-    const lines = [];
+    console.log(`\n其他节点：`);
     const lineChunks = [];
     let current = '';
     for (const node of nodes) {
-        if ((current + node).length > 56) {
+        if ((current + node).length > 80) {
             lineChunks.push(current);
             current = node;
         } else {
@@ -307,49 +311,20 @@ function printOtherNodes(nodes) {
     }
     if (current) lineChunks.push(current);
     for (const chunk of lineChunks) {
-        lines.push(chunk);
+        console.log(`  ${chunk}`);
     }
-    console.log(drawBox(lines, '其他节点'));
 }
 
 function printSummary(stats, totalTime) {
     const { total, full, original, notAvailable, timeout, error } = stats;
-    const fullPercent = total ? Math.round(full / total * 100) : 0;
-    const originalPercent = total ? Math.round(original / total * 100) : 0;
-    const notAvailablePercent = total ? Math.round(notAvailable / total * 100) : 0;
-    const timeoutPercent = total ? Math.round(timeout / total * 100) : 0;
-
-    const barWidth = 30;
-    const fullBar = '█'.repeat(Math.round(fullPercent / 100 * barWidth));
-    const originalBar = '█'.repeat(Math.round(originalPercent / 100 * barWidth));
-    const notAvailableBar = '█'.repeat(Math.round(notAvailablePercent / 100 * barWidth));
-    const timeoutBar = '█'.repeat(Math.round(timeoutPercent / 100 * barWidth));
-
-    const col1Width = 12;
-    const col2Width = 6;
-
-    const rows = [
-        ['总节点数:', total.toString(), ''],
-        ['✅ 完整解锁:', full.toString(), `${fullBar.padEnd(barWidth, '░')} ${fullPercent}%`],
-        ['📺 仅自制剧:', original.toString(), `${originalBar.padEnd(barWidth, '░')} ${originalPercent}%`],
-        ['❌ 不支持  :', notAvailable.toString(), `${notAvailableBar.padEnd(barWidth, '░')} ${notAvailablePercent}%`],
-        ['⏱️ 超时    :', timeout.toString(), `${timeoutBar.padEnd(barWidth, '░')} ${timeoutPercent}%`],
-        ['⚠️ 异常    :', error.toString(), ''],
-        ['⏱️ 总耗时  :', totalTime.toFixed(2) + ' 秒', '']
-    ];
-
-    const lines = rows.map(row => {
-        const col1 = row[0].padEnd(col1Width);
-        const col2 = row[1].padStart(col2Width);
-        const col3 = row[2];
-        if (col3) {
-            return `${col1} ${col2}   ${col3}`;
-        } else {
-            return `${col1} ${col2}`;
-        }
-    });
-
-    console.log(drawBox(lines, '📊 检测统计'));
+    console.log(`\n📊 检测统计`);
+    console.log(`  总节点数: ${total}`);
+    console.log(`  ✅ 完整解锁: ${full}`);
+    console.log(`  📺 仅自制剧: ${original}`);
+    console.log(`  ❌ 不支持  : ${notAvailable}`);
+    console.log(`  ⏱️ 超时    : ${timeout}`);
+    console.log(`  ⚠️ 异常    : ${error}`);
+    console.log(`  ⏱️ 总耗时  : ${totalTime.toFixed(2)} 秒`);
 }
 
 async function testPolicies(groupName, policies = []) {
