@@ -230,13 +230,21 @@ function getCountryFlagEmoji(countryCode) {
     return String.fromCodePoint(...codePoints);
 }
 
+const regionCache = new Map();
 function formatRegionInfo(region) {
-    const flag = getCountryFlagEmoji(region);
-    const regionName = REGIONS_MAP.get(region?.toUpperCase())?.chinese ?? '';
-    return `${flag} ${regionName}`.trim();
+    if (!region) return '-';
+    const upper = region.toUpperCase();
+    if (regionCache.has(upper)) return regionCache.get(upper);
+    const flag = getCountryFlagEmoji(upper);
+    const regionName = REGIONS_MAP.get(upper)?.chinese ?? '';
+    const result = `${flag} ${regionName}`.trim();
+    regionCache.set(upper, result);
+    return result;
 }
 
+const widthCache = new Map();
 function getDisplayWidth(str) {
+    if (widthCache.has(str)) return widthCache.get(str);
     let width = 0;
     for (let i = 0; i < str.length; i++) {
         const code = str.charCodeAt(i);
@@ -250,6 +258,7 @@ function getDisplayWidth(str) {
             width += 1;
         }
     }
+    widthCache.set(str, width);
     return width;
 }
 
@@ -267,11 +276,13 @@ function printGroup(title, items) {
     let maxStatus = 0;
     let maxRegion = 0;
     let maxTime = 0;
+    // 第一遍遍历：计算最大宽度
     for (const { policy, region, time } of items) {
         maxPolicy = Math.max(maxPolicy, getDisplayWidth(policy));
         const statusText = STATUS_TEXT[items[0].status];
         maxStatus = Math.max(maxStatus, getDisplayWidth(statusText) + 2);
-        maxRegion = Math.max(maxRegion, getDisplayWidth(region ? formatRegionInfo(region) : '-'));
+        const regionDisplay = region ? formatRegionInfo(region) : '-';
+        maxRegion = Math.max(maxRegion, getDisplayWidth(regionDisplay));
         maxTime = Math.max(maxTime, getDisplayWidth(`${time}ms`));
     }
     const col1Width = maxPolicy + 2;
@@ -279,6 +290,7 @@ function printGroup(title, items) {
     const col3Width = maxRegion + 4;
     const col4Width = maxTime + 2;
 
+    // 第二遍遍历：输出
     for (const { policy, status, region, time } of items) {
         const icon = STATUS_ICON[status];
         const statusText = STATUS_TEXT[status];
