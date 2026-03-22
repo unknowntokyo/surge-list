@@ -294,7 +294,7 @@ function printGroup(title, items) {
 
 function printOtherNodes(nodes) {
     if (!nodes.length) return;
-    console.log(`\n其他节点：`);
+    console.log(`\n其他节点 (${nodes.length})：`);
     const lineChunks = [];
     let current = '';
     for (const node of nodes) {
@@ -315,6 +315,14 @@ function printSummary(totalTime) {
     console.log(`\n⏱️ 总耗时: ${totalTime.toFixed(2)} 秒`);
 }
 
+function generateProgressBar(current, total, width = 30) {
+    const percent = (current / total) * 100;
+    const filled = Math.round((percent / 100) * width);
+    const empty = width - filled;
+    const bar = '█'.repeat(filled) + '░'.repeat(empty);
+    return `${bar} ${percent.toFixed(1)}% (${current}/${total})`;
+}
+
 async function testPolicies(groupName, policies = []) {
     const fullAvailable = [];
     const originalAvailable = [];
@@ -323,6 +331,7 @@ async function testPolicies(groupName, policies = []) {
 
     let processedCount = 0;
     const total = policies.length;
+    let lastPercent = -1;
 
     const processResults = (resultsMap) => {
         fullAvailable.length = 0;
@@ -349,6 +358,10 @@ async function testPolicies(groupName, policies = []) {
                 otherNodes.push(`${policy} ⚠️`);
             }
         }
+
+        // 按延迟升序排序
+        fullAvailable.sort((a, b) => a.time - b.time);
+        originalAvailable.sort((a, b) => a.time - b.time);
 
         if (!simpleOutput) {
             printGroup('完整支持', fullAvailable);
@@ -381,11 +394,19 @@ async function testPolicies(groupName, policies = []) {
     const resultsArray = await Promise.map(policies, async (policy) => {
         const result = await testWithCache(policy);
         processedCount++;
-        if (!debug && !simpleOutput && processedCount % 10 === 0) {
-            console.log(`进度: ${processedCount}/${total}`);
+        if (!debug && !simpleOutput) {
+            const percent = Math.floor((processedCount / total) * 100);
+            if (percent !== lastPercent && percent % 25 === 0) {
+                console.log(`进度: ${generateProgressBar(processedCount, total)}`);
+                lastPercent = percent;
+            }
         }
         return result;
     }, { concurrency });
+
+    if (!debug && !simpleOutput && processedCount === total && lastPercent !== 100) {
+        console.log(`进度: ${generateProgressBar(processedCount, total)}`);
+    }
 
     for (const res of resultsArray) allResults.set(res.policy, res);
 
