@@ -12,8 +12,9 @@ asName = asName.replace(/\([^\)]*\)|[,.]/g, match => {
 });
 let subtitle = `${asn} ${asName}`;
 if (subtitle.length >= 35) {
-    subtitle = subtitle.replace(/(?: Limited| LLC| LTD| Communication*| GmbH|, Inc|, Inc\.| Corporation| Co\.,\s*Ltd\.| PTE LTD)/ig, "");
-    asName = asName.replace(/(?: Limited| LLC| LTD| Communication*| GmbH|, Inc|, Inc\.| Corporation| Co\.,\s*Ltd\.| PTE LTD)/ig, "");
+    if (subtitle.includes(' ')) {
+    return subtitle.split(' ').slice(0, 3).join('');
+    }
 }
 const codeMap = { HK: 'HKG', TW: 'TPE', SG: 'SGP', JP: 'JPN', KR: 'KOR', US: 'USA', NL: 'NED', DE: 'GER' };
 let countryCode = codeMap[obj.country_code] || obj.country_code;
