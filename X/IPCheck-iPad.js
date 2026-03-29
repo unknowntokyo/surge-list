@@ -10,9 +10,6 @@ asName = asName.replace(/\([^\)]*\)|[,.]/g, match => {
     if (match === ',') return ' ';
     return '';
 });
-if (asName.length >= 35) {
-    asName = asName.replace(/(?: Limited| LLC| LTD| GmbH|, Inc|, Inc\.| Corporation| Co\.,\s*Ltd\.| PTE LTD)/ig, "");
-}
 let subtitle = `${asn} ${asName}`;
 const codeMap = { HK: 'HKG', TW: 'TPE', SG: 'SGP', JP: 'JPN', KR: 'KOR', US: 'USA', NL: 'NED', DE: 'GER' };
 let countryCode = codeMap[obj.country_code] || obj.country_code;
