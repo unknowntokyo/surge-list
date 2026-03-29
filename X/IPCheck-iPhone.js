@@ -11,9 +11,9 @@ asName = asName.replace(/\([^\)]*\)|[,.]/g, match => {
     return '';
 });
 let subtitle = `${asn} ${asName}`;
-if (subtitle.length >= 35) {
+if (subtitle.length > 33) {
     subtitle = subtitle.split(' ').slice(0, 4).join(' ');
-    if (subtitle.length >= 35) {
+    if (subtitle.length > 33) {
         subtitle = subtitle.split(' ').slice(0, 3).join(' ');
     }
 }
