@@ -13,7 +13,7 @@ asName = asName.replace(/\([^\)]*\)|[,.]/g, match => {
 let subtitle = `${asn} ${asName}`;
 if (subtitle.length >= 35) {
     if (subtitle.includes(' ')) {
-    subtitle = subtitle.split(' ').slice(0, 3).join('');
+    subtitle = subtitle.split(' ').slice(0, 3).join(' ');
     }
 }
 const codeMap = { HK: 'HKG', TW: 'TPE', SG: 'SGP', JP: 'JPN', KR: 'KOR', US: 'USA', NL: 'NED', DE: 'GER' };
