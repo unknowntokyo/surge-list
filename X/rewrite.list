@@ -14,7 +14,7 @@ hostname = ad.12306.cn, duckduckgo.com, *pornhub.com, sub.store, www.google.cn, 
 ^https:\/\/duckduckgo.com\/\?q=bd\+([^&]+).+ url 302 https://www.baidu.com/s?wd=$1
 
 # zh xxx (知乎)
-^https:\/\/duckduckgo.com\/\?q=bd\+([^&]+).+ url 302 https://www.zhihu.com/search?q=$1
+^https:\/\/duckduckgo.com\/\?q=zh\+([^&]+).+ url 302 https://www.zhihu.com/search?q=$1
 
 # ccn (App Store 临时切换至国区)
 ^https:\/\/duckduckgo.com\/\?q=ccn&.+ url 302 https://itunes.apple.com/WebObjects/MZStore.woa/wa/resetAndRedirect?dsf=143465&mt=8&url=/WebObjects/MZStore.woa/wa/viewSoftware?mt=8&id=1108187390&cc=cn&urlDesc
