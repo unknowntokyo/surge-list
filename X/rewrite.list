@@ -16,14 +16,14 @@ hostname = ad.12306.cn, duckduckgo.com, *pornhub.com, sub.store, www.google.cn, 
 # zh xxx (知乎)
 ^https:\/\/duckduckgo.com\/\?q=zh\+([^&]+).+ url 302 https://www.zhihu.com/search?q=$1
 
+# wk (Wikipedia 中文)
+^https:\/\/duckduckgo.com\/\?q=wk\+([^&]+).+ url 302 https://zh.wikipedia.org/wiki/$1
+
 # ccn (App Store 临时切换至国区)
 ^https:\/\/duckduckgo.com\/\?q=ccn&.+ url 302 https://itunes.apple.com/WebObjects/MZStore.woa/wa/resetAndRedirect?dsf=143465&mt=8&url=/WebObjects/MZStore.woa/wa/viewSoftware?mt=8&id=1108187390&cc=cn&urlDesc
 
 # uus (App Store 临时切换至美区)
 ^https:\/\/duckduckgo.com\/\?q=uus&.+ url 302 https://itunes.apple.com/WebObjects/MZStore.woa/wa/resetAndRedirect?dsf=143441&mt=8&url=/WebObjects/MZStore.woa/wa/viewSoftware?mt=8&id=1108187390&cc=us&urlDesc
-
-# wk (Wikipedia 中文)
-^https:\/\/duckduckgo.com\/\?q=wk\+([^&]+).+ url 302 https://zh.wikipedia.org/wiki/$1
 
 # xxx (无指令默认为 Google搜索) 
 ^https:\/\/duckduckgo.com\/\?q=([^&]+).+ url 302 https://www.google.co.jp/search?q=$1&num=30
