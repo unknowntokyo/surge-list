@@ -1,8 +1,8 @@
 hostname = ad.12306.cn, duckduckgo.com, *pornhub.com, sub.store, www.google.cn, www.zhihu.com, *.baidu.com
 
-^https?:\/\/sub\.store\/((download)|api\/(preview|sync|(utils\/node-info))) url script-analyze-echo-response https://fastly.jsdelivr.net/gh/sub-store-org/Sub-Store@release/sub-store-1.min.js
+^https?:\/\/sub\.store\/((download)|api\/(preview|sync|(utils\/node-info))) url script-analyze-echo-response https://testingcf.jsdelivr.net/gh/sub-store-org/Sub-Store@release/sub-store-1.min.js
 
-^https?:\/\/sub\.store url script-analyze-echo-response https://fastly.jsdelivr.net/gh/sub-store-org/Sub-Store@release/sub-store-0.min.js
+^https?:\/\/sub\.store url script-analyze-echo-response https://testingcf.jsdelivr.net/gh/sub-store-org/Sub-Store@release/sub-store-0.min.js
 
 ^https?://(www.)?(g|google).cn url 302 https://www.google.co.jp
 
@@ -28,10 +28,10 @@ hostname = ad.12306.cn, duckduckgo.com, *pornhub.com, sub.store, www.google.cn, 
 # xxx (无指令默认为 Google搜索) 
 ^https:\/\/duckduckgo.com\/\?q=([^&]+).+ url 302 https://www.google.co.jp/search?q=$1&num=30
 
-^https?:\/\/ad\.12306\.cn\/ad\/ser\/getAdList url script-response-body https://fastly.jsdelivr.net/gh/ddgksf2013/Scripts@master/12306.js
+^https?:\/\/ad\.12306\.cn\/ad\/ser\/getAdList url script-response-body https://testingcf.jsdelivr.net/gh/ddgksf2013/Scripts@master/12306.js
 
 ^https:\/\/(cn|www)\.pornhub\.com\/_xa\/ads url reject-dict
-^https?:/\/(cn|www)\.pornhub\.com\/($|(view|video).*$) url script-response-body https://fastly.jsdelivr.net/gh/ddgksf2013/Scripts@master/pornhub.js
+^https?:/\/(cn|www)\.pornhub\.com\/($|(view|video).*$) url script-response-body https://testingcf.jsdelivr.net/gh/ddgksf2013/Scripts@master/pornhub.js
 
 ^https?:\/\/(?!d\.pcs).*(?<!map)\.baidu\.com url request-header (\r\n)User-Agent:.+iPhone.+(\r\n) request-header $1User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 13_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.1.1 Mobile/15E148 Safari/16C50 Quark/604.1 T7/10.3 SearchCraft/2.6.3 (Baidu; P1 8.0.0)$2
 
