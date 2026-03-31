@@ -13,7 +13,7 @@ const CountryCode = {
 
 // 结果存储
 const result = {
-  title: '               流媒体服务查询',
+  title: '        流媒体服务查询',
   YouTube: '<strong>YouTube: </strong>检测失败 ❗️',
   Netflix: '<strong>Netflix: </strong>检测失败 ❗️'
 };
