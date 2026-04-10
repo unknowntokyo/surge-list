@@ -8,11 +8,7 @@
 
 const SCHEME = {
   Telegram: "tg",
-  Swiftgram: "sg",
   Turrit: "turrit",
-  iMe: "ime",
-  Nicegram: "ng",
-  Lingogram: "lingo",
 };
 
 function qval(qs, key) {
