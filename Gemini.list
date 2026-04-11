@@ -2,6 +2,9 @@ DOMAIN,ai.google.dev
 DOMAIN,alkalimakersuite-pa.clients6.google.com
 DOMAIN,makersuite.google.com
 DOMAIN,notebooklm.google.com
+DOMAIN,notifications-pa.googleapis.com
+DOMAIN,oauth2.googleapis.com
+DOMAIN,robinfrontend-pa.googleapis.com
 DOMAIN-SUFFIX,bard.google.com
 DOMAIN-SUFFIX,deepmind.com
 DOMAIN-SUFFIX,deepmind.google
