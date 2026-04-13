@@ -11,6 +11,12 @@ DOMAIN-SUFFIX,appsto.re
 DOMAIN-SUFFIX,appstore.com
 DOMAIN-SUFFIX,mzstatic.com
 
+# > TestFlight
+USER-AGENT,TestFlight*
+DOMAIN,beta.apple.com
+DOMAIN,testflight.apple.com
+DOMAIN-KEYWORD,testflight
+
 # >  Apple ID
 DOMAIN,appleid.apple.com
 DOMAIN,appleid.cdn-apple.com
