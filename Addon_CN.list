@@ -3,8 +3,9 @@ PROCESS-NAME,/Applications/Folx.app/Contents/MacOS/Folx
 PROCESS-NAME,/Applications/NeteaseMusic.app/Contents/MacOS/NeteaseMusic
 PROCESS-NAME,/Applications/pap.er.app/Contents/MacOS/Pap.er
 USER-AGENT,NeteaseMusic*
-DOMAIN-SUFFIX,xmancdn.com
 DOMAIN-SUFFIX,cn
+#FlowerCloud
+DOMAIN-SUFFIX,xmancdn.com
 IP-CIDR,1.12.12.12/32,no-resolve
 IP-CIDR,114.114.114.114/32,no-resolve
 IP-CIDR,119.29.29.29/32,no-resolve
