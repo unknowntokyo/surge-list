@@ -14,7 +14,6 @@ USER-AGENT,fmflocatord*
 USER-AGENT,geod*
 USER-AGENT,locationd*
 USER-AGENT,Maps*
-USER-AGENT,TestFlight*
 USER-AGENT,trustd*
 DOMAIN-SUFFIX,ess.apple.com
 DOMAIN-SUFFIX,lcdn-locator.apple.com
