@@ -1,19 +1,34 @@
-#!name=Rewrite for Safari
-#!desc=Safari搜索重定向
-[URL Rewrite]
-^https?:\/\/(www.)?(g|google)\.cn https://www.google.co.jp 302
-^https?:\/\/(ditu|maps).google\.cn https://maps.google.com 302
-# > bd xxx (百度)
-^https:\/\/duckduckgo.com\/\?q=bd\+([^&]+).+ https://www.baidu.com/s?wd=$1 302
-# > zh xxx (知乎)
-^https:\/\/duckduckgo.com\/\?q=zh\+([^&]+).+ https://www.zhihu.com/search?q=$1 302
-# > wk xxx (Wikipedia 中文)
-^https:\/\/duckduckgo.com\/\?q=wk\+([^&]+).+ https://zh.wikipedia.org/wiki/$1 302
-# > ccn (App Store 临时切换至国区)
-^https:\/\/duckduckgo.com\/\?q=ccn&.+ https://itunes.apple.com/WebObjects/MZStore.woa/wa/resetAndRedirect?dsf=143465&mt=8&url=/WebObjects/MZStore.woa/wa/viewSoftware?mt=8&id=1108187390&cc=cn&urlDesc 302
-# > uus (App Store 临时切换至美区)
-^https:\/\/duckduckgo.com\/\?q=uus&.+ https://itunes.apple.com/WebObjects/MZStore.woa/wa/resetAndRedirect?dsf=143441&mt=8&url=/WebObjects/MZStore.woa/wa/viewSoftware?mt=8&id=1108187390&cc=us&urlDesc 302
-# > xxx （无指令默认为 Google搜索）
-^https:\/\/duckduckgo.com\/\?q=([^&]+).+ https://www.google.co.jp/search?q=$1&num=30 302
-[MITM]
-hostname = %APPEND% duckduckgo.com,www.google.cn
+name: Rewrite for Safari
+description: Safari搜索重定向
+url_rewrites:
+- match: ^https?:\/\/(www.)?(g|google)\.cn
+  location: https://www.google.co.jp
+  status_code: 302
+- match: ^https?:\/\/(ditu|maps).google\.cn
+  location: https://maps.google.com
+  status_code: 302
+- match: ^https:\/\/duckduckgo.com\/\?q=bd\+([^&]+).+
+  location: https://www.baidu.com/s?wd=$1
+  status_code: 302
+- match: ^https:\/\/duckduckgo.com\/\?q=zh\+([^&]+).+
+  location: https://www.zhihu.com/search?q=$1
+  status_code: 302
+- match: ^https:\/\/duckduckgo.com\/\?q=wk\+([^&]+).+
+  location: https://zh.wikipedia.org/wiki/$1
+  status_code: 302
+- match: ^https:\/\/duckduckgo.com\/\?q=ccn&.+
+  location: https://itunes.apple.com/WebObjects/MZStore.woa/wa/resetAndRedirect?dsf=143465&mt=8&url=/WebObjects/MZStore.woa/wa/viewSoftware?mt=8&id=1108187390&cc=cn&urlDesc
+  status_code: 302
+- match: ^https:\/\/duckduckgo.com\/\?q=uus&.+
+  location: https://itunes.apple.com/WebObjects/MZStore.woa/wa/resetAndRedirect?dsf=143441&mt=8&url=/WebObjects/MZStore.woa/wa/viewSoftware?mt=8&id=1108187390&cc=us&urlDesc
+  status_code: 302
+- match: ^https:\/\/duckduckgo.com\/\?q=([^&]+).+
+  location: https://www.google.co.jp/search?q=$1&num=30
+  status_code: 302
+mitm:
+  hostnames:
+    includes:
+    - duckduckgo.com
+    - www.google.cn
+    excludes:
+    - buy.itunes.apple.com
