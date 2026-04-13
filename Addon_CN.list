@@ -12,4 +12,4 @@ IP-CIDR,119.29.29.29/32,no-resolve
 IP-CIDR,223.5.5.5/32,no-resolve
 IP-CIDR,223.6.6.6/32,no-resolve
 #CTC-02
-IP-CIDR,23.145.248.31,no-resolve
+IP-CIDR,23.145.248.0/24,no-resolve
