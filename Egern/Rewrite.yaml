@@ -35,9 +35,9 @@ mitm:
   hostnames:
     includes:
     - duckduckgo.com
-    - www.google.com
-    - www.google.com.hk
-    - www.google.cn
+    - '*.google.com'
+    - '*.google.com.hk'
+    - '*.google.cn'
     - g.cn
     excludes:
     - buy.itunes.apple.com
