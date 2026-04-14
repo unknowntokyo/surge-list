@@ -1,28 +1,28 @@
-name: Rewrite for Safari
-description: Safari搜索重定向
+name: Safari Search Redirect Pro
+description: Safari 搜索增强及 Google 地区重定向
 url_rewrites:
-- match: ^https?:\/\/(www\.)?(g\.cn|google\.(cn|com|com\.hk))
-  location: https://www.google.co.jp
+- match: ^https?:\/\/(www\.)?(g\.cn|google\.(cn|com|com\.hk))(\/.*)?$
+  location: https://www.google.co.jp$4
   status_code: 307
-- match: ^https?:\/\/(ditu|maps).google\.cn
+- match: ^https?:\/\/(ditu|maps)\.google\.cn
   location: https://maps.google.com
   status_code: 307
-- match: ^https:\/\/duckduckgo.com\/\?q=bd\+([^&]+).+
-  location: https://www.baidu.com/s?wd=$1
+- match: ^https:\/\/duckduckgo\.com\/\?q=bd(\+|%20)([^&]+).+
+  location: https://www.baidu.com/s?wd=$2
   status_code: 307
-- match: ^https:\/\/duckduckgo.com\/\?q=zh\+([^&]+).+
-  location: https://www.zhihu.com/search?q=$1
+- match: ^https:\/\/duckduckgo\.com\/\?q=zh(\+|%20)([^&]+).+
+  location: https://www.zhihu.com/search?q=$2
   status_code: 307
-- match: ^https:\/\/duckduckgo.com\/\?q=wk\+([^&]+).+
-  location: https://zh.wikipedia.org/wiki/$1
+- match: ^https:\/\/duckduckgo\.com\/\?q=wk(\+|%20)([^&]+).+
+  location: https://zh.wikipedia.org/wiki/$2
   status_code: 307
-- match: ^https:\/\/duckduckgo.com\/\?q=ccn&.+
+- match: ^https:\/\/duckduckgo\.com\/\?q=ccn&.+
   location: https://itunes.apple.com/WebObjects/MZStore.woa/wa/resetAndRedirect?dsf=143465&mt=8&url=/WebObjects/MZStore.woa/wa/viewSoftware?mt=8&id=1108187390&cc=cn&urlDesc
   status_code: 307
-- match: ^https:\/\/duckduckgo.com\/\?q=uus&.+
+- match: ^https:\/\/duckduckgo\.com\/\?q=uus&.+
   location: https://itunes.apple.com/WebObjects/MZStore.woa/wa/resetAndRedirect?dsf=143441&mt=8&url=/WebObjects/MZStore.woa/wa/viewSoftware?mt=8&id=1108187390&cc=us&urlDesc
   status_code: 307
-- match: ^https:\/\/duckduckgo.com\/\?q=([^&]+).+
+- match: ^https:\/\/duckduckgo\.com\/\?q=([^&]+).+
   location: https://www.google.co.jp/search?q=$1&num=30
   status_code: 307
 mitm:
@@ -34,4 +34,4 @@ mitm:
     - *.google.cn
     - g.cn
     excludes:
-    - buy.itunes.apple.com 
+    - buy.itunes.apple.com
