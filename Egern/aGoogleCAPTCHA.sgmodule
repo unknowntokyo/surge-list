@@ -1,17 +1,15 @@
 #!name=Google人机验证
 #!desc=Google搜索内容时并发使用多个策略/策略组，以避免可能出现的人机验证。
+#!author=NobyDa
+#!icon=https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Google_Search.png
 
+# Egern 远程模块最稳的参数定义
 arguments:
-  - name: engine
-    title: "脚本引擎"
-    type: string
-    default: "webview"
-    description: "脚本执行引擎，默认为 webview"
-  - name: policy_regex
-    title: "策略正则"
-    type: string
-    default: "Google"
-    description: "请输入你的代理策略组名称"
+  engine:
+    - webview
+    - JSIO
+    - auto
+  policy_regex: "Google"
 
 scripting:
   scripts:
@@ -21,8 +19,8 @@ scripting:
       script_url: https://raw.githubusercontent.com/NobyDa/Script/master/Surge/JS/Google_CAPTCHA.js
       require_body: true
       timeout: 10
-      # 引用变量
-      argument: "engine=${engine},argument=${policy_regex}"
+      # 引用方式：由于上面用了简写格式，这里直接引用
+      argument: "engine={engine},argument={policy_regex}"
 
 mitm:
   hostnames:
