@@ -8,7 +8,7 @@ scriptings:
   - http_request:
       name: GoogleCAPTCHA
       match: ^https?:\/\/www\.google\.(com\.hk|com)\/(search\?|$)
-      script_url: https://raw.githubusercontent.com/NobyDa/Script/master/Surge/JS/Google_CAPTCHA.js
+      script_url: https://raw.githubusercontent.com/unknowntokyo/surge-list/refs/heads/master/Egern/Google_CAPTCHA.js
       body_required: true
       timeout: 5
       arguments:
