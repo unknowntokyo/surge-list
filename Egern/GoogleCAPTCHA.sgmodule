@@ -1,6 +1,6 @@
 name: Google人机验证
 description: Google搜索内容时并发使用多个策略/策略组，以避免可能出现的人机验证。
-parameters:
+arguments:
   - name: engine
     title: 脚本引擎
     type: string
