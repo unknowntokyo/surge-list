@@ -2,7 +2,7 @@ name: Google人机验证
 description: "Google搜索内容时并发使用多个策略/策略组，以避免可能出现的人机验证。"
 
 compat_arguments:
-  engine: auto/jsc/webview，默认auto。
+  engine: auto/webview/jsc，默认auto。
   policy_regex: 策略/策略组名称
 scriptings:
   - http_request:
