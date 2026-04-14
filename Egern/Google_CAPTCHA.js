@@ -1,3 +1,5 @@
+// 1. 静态常量预置 (减少堆栈分配开销)
+const IGNORE_RE = /gen_204|complete|ogb|client_204|log|play|searchhistory|favicon|static/;
 const s = { done: false, t: null };
 
 const $ = {
@@ -12,50 +14,55 @@ const $ = {
 };
 
 !(async () => {
-  // 1. 拦截预检：200状态或已带 Bypass 标记的请求直接放行
-  const h = $request.headers;
-  if (($response?.status || $response?.statusCode) == 200 || h['X-Bypass']) return $.done();
+  // 2. 局部变量解构：减少对 $request 对象的高频属性访问
+  const { headers: h, url: u, method: m, bodyBytes: bB, body: b } = $request;
+  const st = $response?.status || $response?.statusCode;
 
-  // 2. 节点提取：适配 Egern 策略组 API
-  const p = (typeof $egern?.allPolicies === "function" ? $egern.allPolicies() : $egern?.getPolicies?.()) || {};
-  const n = Array.isArray(p) ? p : Object.keys(p);
-  const r = new RegExp($.data('GOOGLE_CAPTCHA_REGEX') || $argument || '');
-  const sel = n.filter(i => i && r.test(i)).sort(() => Math.random() - 0.5).slice(0, 3);
-  
+  // 3. 快速熔断：性能最高优先 (状态码判断比正则快)
+  if (st == 200 || h['X-Bypass'] || IGNORE_RE.test(u)) return $.done();
+
+  // 4. 节点筛选：获取策略并锁定 2 个并发 (请求数与成功率的最佳平衡点)
+  const ps = (typeof $egern?.allPolicies === 'function' ? $egern.allPolicies() : $egern?.getPolicies?.()) || {};
+  const ns = Array.isArray(ps) ? ps : Object.keys(ps);
+  const rx = new RegExp($.data('GOOGLE_CAPTCHA_REGEX') || $argument || '');
+  const sel = ns.filter(i => i && rx.test(i)).sort(() => Math.random() - 0.5).slice(0, 2);
+
   if (!sel.length) return $.done();
 
-  // 3. Header 清洗：移除旧 Cookie 并强制打上 Bypass 标记隔离递归
+  // 5. Header 与 Payload 准备：避免在循环内重复操作
   const head = { ...h, 'X-Bypass': '1' };
-  for (let k in head) if (k.toLowerCase() === 'cookie') delete head[k];
-  head['Cookie'] = `NID=511=${Math.random().toString(36).slice(2, 12)}`;
+  delete head['Cookie']; delete head['cookie'];
+  head['Cookie'] = `NID=511=${Math.random().toString(36).slice(2, 10)}`;
+  const pay = bB || b || undefined;
+  const targetUrl = u.replace(/^http:/, 'https:');
 
-  // 4. 并发竞争 (Race)：一次性发出 3 个，谁先成功用谁
-  const m = ($request.method || 'GET').toLowerCase();
+  // 6. 并发竞争执行 (Race)
   sel.forEach(node => {
     let active = true;
-    const tid = setTimeout(() => { active = false }, 3500); // 单路超时锁
+    const tid = setTimeout(() => { active = false }, 3000); 
 
-    $httpClient[m]({
-      url: $request.url.replace(/^http:/, "https:"),
-      headers: head, 
-      body: $request.bodyBytes || $request.body || undefined,
+    $httpClient[m.toLowerCase()]({
+      url: targetUrl,
+      headers: head,
+      body: pay,
       policy: node, 
       opts: { policy: node }
-    }, (err, res, body) => {
-      clearTimeout(tid);
-      // 只有在节点未超时且全局锁未开启时，才尝试访问 res 属性
-      if (active && !s.done && !err && res && (res.status || res.statusCode) == 200) {
-        $.done({ 
-          status: 200, 
-          headers: res.headers, 
-          body: body, 
-          bodyBytes: res.bodyBytes 
-        });
+    }, (err, res, data) => {
+      if (active && !s.done) {
+        clearTimeout(tid);
+        // 关键防护：确保 res 存在且状态为 200
+        if (!err && res && (res.status || res.statusCode) == 200) {
+          $.done({
+            status: 200,
+            headers: res.headers,
+            body: data,
+            bodyBytes: res.bodyBytes
+          });
+        }
       }
     });
   });
 
-  // 5. 10秒脚本生存总阈值：兜底回收，防止引擎挂起
-  s.t = setTimeout(() => $.done(), 10000);
-
+  // 7. 总锁回收：防止脚本长驻内存
+  s.t = setTimeout(() => $.done(), 7000);
 })().catch(() => $.done());
