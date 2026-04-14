@@ -7,13 +7,15 @@ compat_arguments:
 scriptings:
   - http_request:
       name: GoogleCAPTCHA
-      match: ^https?:\/\/www\.google\.(co\.jp|com)\/(search\?|$)
+      match: ^https?:\/\/www\.google\.(co\.jp|com|com\.hk|com\.tw)\/(search\?|$)
       script_url: https://raw.githubusercontent.com/NobyDa/Script/master/Surge/JS/Google_CAPTCHA.js
       body_required: true
-      timeout: 10
+      timeout: 5
       arguments:
         _compat.$argument: "engine={{{脚本引擎}}}&argument={{{策略正则}}}"
 mitm:
   hostnames:
     - "www.google.co.jp"
     - "www.google.com"
+    - "www.google.com.hk"
+    - "www.google.com.tw" 
