@@ -3,34 +3,34 @@ description: Safari搜索重定向
 url_rewrites:
 - match: ^https?:\/\/(www\.)?(g\.cn|google\.(cn|com|com\.hk))(\/.*)?$
   location: https://www.google.co.jp$4
-  status_code: 307
+  status_code: 302
 - match: ^https?:\/\/(ditu|maps)\.google\.cn
   location: https://maps.google.com
-  status_code: 307
+  status_code: 302
 # > bd xxx (百度) 
 - match: ^https:\/\/duckduckgo\.com\/\?q=bd(\+|%20)([^&]+).+
   location: https://www.baidu.com/s?wd=$2
-  status_code: 307
+  status_code: 302
 # > zh xxx (知乎) 
 - match: ^https:\/\/duckduckgo\.com\/\?q=zh(\+|%20)([^&]+).+
   location: https://www.zhihu.com/search?q=$2
-  status_code: 307
+  status_code: 302
 # > wk xxx (Wikipedia 中文)
 - match: ^https:\/\/duckduckgo\.com\/\?q=wk(\+|%20)([^&]+).+
   location: https://zh.wikipedia.org/wiki/$2
-  status_code: 307
+  status_code: 302
 # > ccn (App Store 临时切换至国区) 
 - match: ^https:\/\/duckduckgo\.com\/\?q=ccn&.+
   location: https://itunes.apple.com/WebObjects/MZStore.woa/wa/resetAndRedirect?dsf=143465&mt=8&url=/WebObjects/MZStore.woa/wa/viewSoftware?mt=8&id=1108187390&cc=cn&urlDesc
-  status_code: 307
+  status_code: 302
 # > uus (App Store 临时切换至美区) 
 - match: ^https:\/\/duckduckgo\.com\/\?q=uus&.+
   location: https://itunes.apple.com/WebObjects/MZStore.woa/wa/resetAndRedirect?dsf=143441&mt=8&url=/WebObjects/MZStore.woa/wa/viewSoftware?mt=8&id=1108187390&cc=us&urlDesc
-  status_code: 307
+  status_code: 302
 # > xxx （无指令默认为 Google搜索) 
 - match: ^https:\/\/duckduckgo\.com\/\?q=([^&]+).+
   location: https://www.google.co.jp/search?q=$1&num=30
-  status_code: 307
+  status_code: 302
 mitm:
   hostnames:
     includes:
