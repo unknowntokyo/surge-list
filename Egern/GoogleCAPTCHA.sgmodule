@@ -1,0 +1,27 @@
+name: Google人机验证
+description: Google搜索内容时并发使用多个策略/策略组，以避免可能出现的人机验证。
+parameters:
+  - name: engine
+    title: 脚本引擎
+    type: string
+    default: "webview"
+  - name: policy_regex
+    title: 策略正则
+    description: 请输入策略/策略组名
+    type: string
+    default: "Google"
+
+scripting:
+  scripts:
+    - name: GoogleCAPTCHA
+      type: http-response
+      match: ^https?:\/\/www\.google\.(co\.jp|com)\/(search\?|$)
+      script_url: https://raw.githubusercontent.com/NobyDa/Script/master/Surge/JS/Google_CAPTCHA.js
+      require_body: true
+      timeout: 10
+      argument: "engine=${engine},argument=${policy_regex}"
+
+mitm:
+  hostnames:
+    - "www.google.co.jp"
+    - "www.google.com"
