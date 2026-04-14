@@ -15,7 +15,8 @@ scriptings:
         _compat.$argument: "engine={{{脚本引擎}}}&argument={{{策略正则}}}"
 mitm:
   hostnames:
-    - "www.google.co.jp"
-    - "www.google.com"
-    - "www.google.com.hk"
-    - "www.google.com.tw" 
+    includes: 
+    - www.google.co.jp
+    - www.google.com
+    - www.google.com.hk
+    - www.google.com.tw
