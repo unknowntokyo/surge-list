@@ -1,7 +1,4 @@
-// 1. 静态常量预置 (减少堆栈分配开销)
-const IGNORE_RE = /gen_204|complete|ogb|client_204|log|play|searchhistory|favicon|static/;
 const s = { done: false, t: null };
-
 const $ = {
   data: (k) => $persistentStore.read(k),
   done: (obj) => {
@@ -14,14 +11,15 @@ const $ = {
 };
 
 !(async () => {
-  // 2. 局部变量解构：减少对 $request 对象的高频属性访问
-  const { headers: h, url: u, method: m, bodyBytes: bB, body: b } = $request;
+  const { headers: h, url: u, method: m } = $request;
   const st = $response?.status || $response?.statusCode;
 
-  // 3. 快速熔断：性能最高优先 (状态码判断比正则快)
-  if (st == 200 || h['X-Bypass'] || IGNORE_RE.test(u)) return $.done();
+  // 1. 极致拦截 (核心优化)：
+  // 只要 URL 包含这些关键词，或者是 200 状态，或者是已经重试过的请求，全部一秒都不耽误，立刻退出。
+  const isNoise = /gen_204|complete|xjs|client_204|log|play|searchhistory|favicon|static|collect|analytics/.test(u);
+  if (st == 200 || h['X-Bypass'] || isNoise) return $.done();
 
-  // 4. 节点筛选：获取策略并锁定 2 个并发 (请求数与成功率的最佳平衡点)
+  // 2. 策略筛选：仅取 2 个节点并发，极致平衡成功率与请求数
   const ps = (typeof $egern?.allPolicies === 'function' ? $egern.allPolicies() : $egern?.getPolicies?.()) || {};
   const ns = Array.isArray(ps) ? ps : Object.keys(ps);
   const rx = new RegExp($.data('GOOGLE_CAPTCHA_REGEX') || $argument || '');
@@ -29,14 +27,14 @@ const $ = {
 
   if (!sel.length) return $.done();
 
-  // 5. Header 与 Payload 准备：避免在循环内重复操作
+  // 3. 构造 Header 与变量预处理 (减少循环内计算)
   const head = { ...h, 'X-Bypass': '1' };
   delete head['Cookie']; delete head['cookie'];
   head['Cookie'] = `NID=511=${Math.random().toString(36).slice(2, 10)}`;
-  const pay = bB || b || undefined;
+  const pay = $request.bodyBytes || $request.body || undefined;
   const targetUrl = u.replace(/^http:/, 'https:');
 
-  // 6. 并发竞争执行 (Race)
+  // 4. 并发竞争执行
   sel.forEach(node => {
     let active = true;
     const tid = setTimeout(() => { active = false }, 3000); 
@@ -50,7 +48,6 @@ const $ = {
     }, (err, res, data) => {
       if (active && !s.done) {
         clearTimeout(tid);
-        // 关键防护：确保 res 存在且状态为 200
         if (!err && res && (res.status || res.statusCode) == 200) {
           $.done({
             status: 200,
@@ -63,6 +60,6 @@ const $ = {
     });
   });
 
-  // 7. 总锁回收：防止脚本长驻内存
+  // 5. 生存期总锁
   s.t = setTimeout(() => $.done(), 7000);
 })().catch(() => $.done());
