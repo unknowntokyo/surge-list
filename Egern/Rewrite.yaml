@@ -2,7 +2,7 @@ name: Rewrite for Safari
 description: Safari搜索重定向
 url_rewrites:
 - match: ^https?://(www.)?(g|google).cn
-  location: https://www.google.co.jp
+  location: https://www.google.com
   status_code: 307
 - match: ^https?:\/\/(ditu|maps)\.google\.cn
   location: https://maps.google.com
@@ -29,7 +29,7 @@ url_rewrites:
   status_code: 307
 # > xxx （无指令默认为 Google搜索) 
 - match: ^https:\/\/duckduckgo\.com\/\?q=([^&]+).+
-  location: https://www.google.co.jp/search?q=$1&num=30
+  location: https://www.google.com/search?q=$1&num=30
   status_code: 307
 mitm:
   hostnames:

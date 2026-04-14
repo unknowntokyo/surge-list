@@ -7,7 +7,7 @@ compat_arguments:
 scriptings:
   - http_request:
       name: GoogleCAPTCHA
-      match: ^https?:\/\/www\.google\.(co\.jp|com|com\.hk|com\.tw)\/(search\?|$)
+      match: ^https?:\/\/www\.google\.(com\.hk|com)\/(search\?|$)
       script_url: https://raw.githubusercontent.com/NobyDa/Script/master/Surge/JS/Google_CAPTCHA.js
       body_required: true
       timeout: 5
@@ -16,7 +16,5 @@ scriptings:
 mitm:
   hostnames:
     includes: 
-    - '*.google.co.jp'
     - '*.google.com'
     - '*.google.com.hk'
-    - '*.google.com.tw'
