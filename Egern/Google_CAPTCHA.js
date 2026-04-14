@@ -1,6 +1,5 @@
 const s = { done: false, t: null };
 const $ = {
-  data: (k) => $persistentStore.read(k),
   done: (obj) => {
     if (!s.done) {
       s.done = true;
@@ -14,21 +13,26 @@ const $ = {
   const { headers: h, url: u, method: m } = $request;
   const st = $response?.status || $response?.statusCode;
 
-  // 1. 极致静默拦截：匹配所有干扰项
-  const isNoise = /gen_204|complete|xjs|client_204|log|play|searchhistory|favicon|static|collect|analytics|compress/.test(u);
+  // 1. 白名单逻辑：只有 URL 包含 "search?" 或者是主域名的主请求，才进入重试
+  // 排除掉所有包含 gen_204, complete, xjs, client, log, static, icon 的杂碎
+  const isCoreSearch = u.includes('google.com/search?') || (u.includes('google.com/') && u.length < 30);
+  const isNoise = /gen_204|complete|xjs|client|log|static|favicon|preview|collect|analytics/.test(u);
 
-  // 2. 核心逻辑：如果是干扰项且返回 429，直接伪造 200 响应还给浏览器，彻底阻止其重试
-  if (isNoise) {
-    return $.done({ status: 200, headers: { 'Content-Type': 'text/plain' }, body: '' });
+  // 2. 核心拦截：如果是杂碎请求且状态不是 200，直接"喂"一个假的 200 给浏览器，物理闭嘴
+  if (!isCoreSearch || isNoise) {
+    if (st != 200) {
+      return $.done({ status: 200, headers: { 'Content-Type': 'text/plain' }, body: '' });
+    }
+    return $.done(); // 已是 200 的直接放行，不处理
   }
 
-  // 3. 正常放行：已经是 200 或者带 Bypass 标记的正常搜索请求
+  // 3. 正常拦截：主搜索请求已经是 200 或带有重试标记的直接放行
   if (st == 200 || h['X-Bypass']) return $.done();
 
-  // 4. 节点筛选：仅针对真正的搜索请求开启 2 路并发
+  // 4. 节点筛选：仅针对"主搜索"开启 2 路并发
   const ps = (typeof $egern?.allPolicies === 'function' ? $egern.allPolicies() : $egern?.getPolicies?.()) || {};
   const ns = Array.isArray(ps) ? ps : Object.keys(ps);
-  const rx = new RegExp($.data('GOOGLE_CAPTCHA_REGEX') || $argument || '');
+  const rx = new RegExp($persistentStore.read('GOOGLE_CAPTCHA_REGEX') || $argument || '');
   const sel = ns.filter(i => i && rx.test(i)).sort(() => Math.random() - 0.5).slice(0, 2);
 
   if (!sel.length) return $.done();
@@ -46,22 +50,10 @@ const $ = {
     const tid = setTimeout(() => { active = false }, 3500); 
 
     $httpClient[m.toLowerCase()]({
-      url: targetUrl,
-      headers: head,
-      body: pay,
-      policy: node, 
-      opts: { policy: node }
+      url: targetUrl, headers: head, body: pay, policy: node, opts: { policy: node }
     }, (err, res, data) => {
-      if (active && !s.done) {
-        clearTimeout(tid);
-        if (!err && res && (res.status || res.statusCode) == 200) {
-          $.done({
-            status: 200,
-            headers: res.headers,
-            body: data,
-            bodyBytes: res.bodyBytes
-          });
-        }
+      if (active && !s.done && !err && res && (res.status || res.statusCode) == 200) {
+        $.done({ status: 200, headers: res.headers, body: data, bodyBytes: res.bodyBytes });
       }
     });
   });
