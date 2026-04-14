@@ -1,9 +1,9 @@
 name: Google人机验证
-description: "Google搜索内容时并发使用多个策略/策略组，以避免可能出现的人机验证。"
+description: Google搜索内容时并发使用多个策略/策略组，以避免可能出现的人机验证。
 
 compat_arguments:
-  engine: auto/webview/jsc，默认auto。
-  policy_regex: 策略/策略组名称
+  脚本引擎: auto/webview/jsc，默认auto。
+  策略正则: 策略/策略组正则表达式
 scriptings:
   - http_request:
       name: GoogleCAPTCHA
@@ -12,7 +12,7 @@ scriptings:
       body_required: true
       timeout: 10
       arguments:
-        _compat.$argument: "engine={{{engine}}}&argument={{{policy_regex}}}"
+        _compat.$argument: "engine={{{脚本引擎}}}&argument={{{策略正则}}}"
 mitm:
   hostnames:
     - "www.google.co.jp"
