@@ -1,34 +1,37 @@
 name: Rewrite for Safari
 description: Safari搜索重定向
 url_rewrites:
-- match: ^https?:\/\/(www.)?(g|google)\.cn
+- match: ^https?:\/\/(www\.)?(g\.cn|google\.(cn|com|com\.hk))
   location: https://www.google.co.jp
-  status_code: 302
+  status_code: 307
 - match: ^https?:\/\/(ditu|maps).google\.cn
   location: https://maps.google.com
-  status_code: 302
+  status_code: 307
 - match: ^https:\/\/duckduckgo.com\/\?q=bd\+([^&]+).+
   location: https://www.baidu.com/s?wd=$1
-  status_code: 302
+  status_code: 307
 - match: ^https:\/\/duckduckgo.com\/\?q=zh\+([^&]+).+
   location: https://www.zhihu.com/search?q=$1
-  status_code: 302
+  status_code: 307
 - match: ^https:\/\/duckduckgo.com\/\?q=wk\+([^&]+).+
   location: https://zh.wikipedia.org/wiki/$1
-  status_code: 302
+  status_code: 307
 - match: ^https:\/\/duckduckgo.com\/\?q=ccn&.+
   location: https://itunes.apple.com/WebObjects/MZStore.woa/wa/resetAndRedirect?dsf=143465&mt=8&url=/WebObjects/MZStore.woa/wa/viewSoftware?mt=8&id=1108187390&cc=cn&urlDesc
-  status_code: 302
+  status_code: 307
 - match: ^https:\/\/duckduckgo.com\/\?q=uus&.+
   location: https://itunes.apple.com/WebObjects/MZStore.woa/wa/resetAndRedirect?dsf=143441&mt=8&url=/WebObjects/MZStore.woa/wa/viewSoftware?mt=8&id=1108187390&cc=us&urlDesc
-  status_code: 302
+  status_code: 307
 - match: ^https:\/\/duckduckgo.com\/\?q=([^&]+).+
   location: https://www.google.co.jp/search?q=$1&num=30
-  status_code: 302
+  status_code: 307
 mitm:
   hostnames:
     includes:
     - duckduckgo.com
-    - www.google.cn
+    - *.google.com
+    - *.google.com.hk
+    - *.google.cn
+    - g.cn
     excludes:
-    - buy.itunes.apple.com
+    - buy.itunes.apple.com 
