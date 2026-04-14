@@ -16,7 +16,7 @@ scriptings:
 mitm:
   hostnames:
     includes: 
-    - www.google.co.jp
-    - www.google.com
-    - www.google.com.hk
-    - www.google.com.tw
+    - '*.google.co.jp'
+    - '*.google.com'
+    - '*.google.com.hk'
+    - '*.google.com.tw'
