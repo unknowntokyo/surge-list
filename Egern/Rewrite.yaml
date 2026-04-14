@@ -2,7 +2,7 @@ name: Rewrite for Safari
 description: Safari搜索重定向
 url_rewrites:
 - match: ^https?:\/\/(www\.)?(g\.cn|google\.cn|google\.com\.hk|google\.com)(\/.*)?$
-  location: https://www.google.com/ncr
+  location: https://www.google.co.jp/ncr
   status_code: 307
 - match: ^https?:\/\/(ditu|maps)\.google\.cn
   location: https://maps.google.com
