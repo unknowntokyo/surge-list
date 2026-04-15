@@ -38,4 +38,14 @@ mitm:
     - '*.google.cn'
     - g.cn
     excludes:
-    - buy.itunes.apple.com
+    - '*.apple.com'
+    - '*.bugsnag.com'
+    - '*.crashlytics.com'
+    - '*.facebook.com'
+    - '*.firebaseapp.com'
+    - '*.firebaseio.com'
+    - '*.github.com'
+    - '*.icloud.com'
+    - '*.instagram.com'
+    - '*.mzstatic.com'
+    - '*.qq.com'
