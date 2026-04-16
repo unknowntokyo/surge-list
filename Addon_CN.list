@@ -6,6 +6,8 @@ USER-AGENT,NeteaseMusic*
 DOMAIN-SUFFIX,cn
 #FlowerCloud
 DOMAIN-SUFFIX,xmancdn.com
+#CTC-02
+IP-CIDR,23.145.248.0/24,no-resolve
 IP-CIDR,1.12.12.12/32,no-resolve
 IP-CIDR,114.114.114.114/32,no-resolve
 IP-CIDR,119.29.29.29/32,no-resolve
