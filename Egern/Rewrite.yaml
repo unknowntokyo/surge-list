@@ -38,6 +38,7 @@ mitm:
     - '*.google.cn'
     - g.cn
     excludes:
+    - e.crashlynatics.com
     - '*.apple.com'
     - '*.bugsnag.com'
     - '*.crashlytics.com'
