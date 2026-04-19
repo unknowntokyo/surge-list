@@ -1,5 +1,4 @@
-# > TLD域名需在 ext_cn.list 手动补充
-router.asus.com
+# > TLD域名需在 Addon_CN.list 手动补充
 .01zhuanche.com
 .1sapp.com
 .12365auto.com
@@ -159,6 +158,7 @@ router.asus.com
 .aqsiqauto.com
 .askci.com
 .askdiandian.com
+.asus.com
 .aukeys.com
 .aunapi.com
 .aurogon.com
@@ -181,6 +181,7 @@ router.asus.com
 .banyuetan.org
 .baomitu.com
 .baseus.com
+.beizi.biz
 .bcebos.com
 .bcy.net
 .bcyimg.com
@@ -270,6 +271,7 @@ router.asus.com
 .ccb.com
 .ccgslb.com
 .ccgslb.net
+.ccrgt.com
 .cctv.com
 .cctvpic.com
 .cdndm5.com
@@ -556,7 +558,6 @@ router.asus.com
 .himmpat.com
 .hisilicon.com
 .hitv.com
-.hiwifi.com
 .horizon.ai
 .hozonauto.com
 .hp.com
@@ -567,6 +568,7 @@ router.asus.com
 .huawei.com
 .huaweicloud.com
 .huaweicloudapis.com
+.hworld.com
 .huazhu.com
 .hunantv.com
 .hunliji.com
@@ -809,7 +811,6 @@ router.asus.com
 .miot-spec.org
 .mipcdn.com
 .miui.com
-.miwifi.com
 .mmstat.com
 .mob.com
 .mobike.com
@@ -833,13 +834,11 @@ router.asus.com
 .mubu.com
 .muchong.com
 .mxhichina.com
-.my.router
 .myalicdn.com
 .myapp.com
 .mydrivers.com
 .myhuaweicloud.com
 .myhwclouds.com
-.myrouter.local
 .mysipo.com
 .myssl.com
 .myzaker.com
@@ -965,8 +964,6 @@ router.asus.com
 .redeem.link
 .ribaoapi.com
 .ronghub.com
-.routerlogin.com
-.routerlogin.net
 .rr.tv
 .ruanmei.com
 .ruguoapp.com
@@ -1108,6 +1105,7 @@ router.asus.com
 .toutiao.com
 .toutiaoimg.com
 .toutiaostatic.com
+.tp-link.com
 .tracup.com
 .tttang.com
 .tubiaoxiu.com
@@ -1379,6 +1377,7 @@ router.asus.com
 .zimuzu.io
 .zimuzu.tv
 .zjcdn.com
+.ztedevices.com
 .zuche.com
 .zuchecdn.com
 .zuoyebang.cc
