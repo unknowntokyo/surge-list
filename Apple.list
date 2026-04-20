@@ -98,6 +98,7 @@ DOMAIN-SUFFIX,wwwicloud.com
 DOMAIN-KEYWORD,icloud.com.akadns.net
 
 # > Others
+DOMAIN,tether.edge.apple
 DOMAIN-SUFFIX,digicert.com
 DOMAIN-SUFFIX,edgekey.net
 DOMAIN-SUFFIX,musickit.net
