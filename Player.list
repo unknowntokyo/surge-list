@@ -463,8 +463,6 @@ DOMAIN-SUFFIX,javmoo.xyz
 DOMAIN-SUFFIX,javseen.com
 DOMAIN-SUFFIX,javtag.com
 DOMAIN-SUFFIX,javzoo.com
-DOMAIN-SUFFIX,jiuse.cloud
-DOMAIN-SUFFIX,jiuse.io
 DOMAIN-SUFFIX,killcovid2021.com
 DOMAIN-SUFFIX,madou.club
 DOMAIN-SUFFIX,onejav.com
@@ -493,21 +491,22 @@ DOMAIN-SUFFIX,porntubenews.com
 DOMAIN-SUFFIX,porntvblog.com
 DOMAIN-SUFFIX,pornvisit.com
 DOMAIN-SUFFIX,redtube.com
+DOMAIN-SUFFIX,sex.com
 DOMAIN-SUFFIX,sex3.com
 DOMAIN-SUFFIX,sex8.cc
 DOMAIN-SUFFIX,sex-11.com
-DOMAIN-SUFFIX,sex.com
 DOMAIN-SUFFIX,t66y.com
 DOMAIN-SUFFIX,theporndude.com
 DOMAIN-SUFFIX,tokyo-porn-tube.com
-DOMAIN-SUFFIX,xvideo.com
-DOMAIN-SUFFIX,xvideos-cdn.com
 DOMAIN-SUFFIX,youav.com
 DOMAIN-SUFFIX,youporn.com
-DOMAIN-KEYWORD,91porn
+DOMAIN-KEYWORD,porn
 DOMAIN-KEYWORD,hentai
+DOMAIN-KEYWORD,jiuse
 DOMAIN-KEYWORD,missav
 DOMAIN-KEYWORD,netflav
+DOMAIN-KEYWORD,sex
+DOMAIN-KEYWORD,xvideo
 
 # > CDN/AWS
 DOMAIN-SUFFIX,akamai.com
