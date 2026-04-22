@@ -288,7 +288,7 @@ export default async function (ctx) {
   const todayNoticeText = todayNoticeParts.join(" ｜ ");
 
   const stickyParts = pinnedHolidays.filter(n => pinnedMap.has(n)).map(n => `${n} ${pinnedMap.get(n)}天`);
-  const stickyText  = stickyParts.length > 0 ? `🔝 ${stickyParts.join("·")}` : "";
+  const stickyText  = stickyParts.length > 0 ? `${stickyParts.join("·")}` : "";
 
   const themeKey = (todayFests.size > 0 || todayFinance.size > 0) ? "fest"
     : (enableWeekendTheme && (currentDay === 0 || currentDay === 6)) ? "weekend" : "workday";
@@ -354,7 +354,7 @@ export default async function (ctx) {
           mkIcon("hourglass.circle.fill", C.main, 16),
           mkText("时光\n倒数", 14, "heavy", C.main, { maxLines: 2 }),
           mkSpacer(),
-          ...(stickyParts.length > 0 ? [mkText(`🔝 ${stickyParts[0]}`, 11, "bold", C.red, { maxLines: 1 })] : [])
+          ...(stickyParts.length > 0 ? [mkText(`${stickyParts[0]}`, 11, "bold", C.red, { maxLines: 1 })] : [])
         ], 6),
         mkSpacer(10),
         { type: "stack", direction: "column", gap: 8, flex: 1, children: smallRows }
