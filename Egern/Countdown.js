@@ -10,7 +10,7 @@
  * • 排序与显示：支持按倒数天数及分类优先级进行排序，支持指定节日跨分类置顶。
  * • 状态响应：根据工作日、周末、节假日当天状态切换背景渐变色；当天节日提示于中大号标题栏显示，小号于分类行内显示。
  *
- * 🔗 引用链接: https://raw.githubusercontent.com/jnlaoshu/MySelf/master/Egern/Widget/Countdown.js
+ * 🔗 作者: https://github.com/jnlaoshu/MySelf/tree/1c35eedff4e052e7dc4e9d87105e32f2490617cf/Egern/Widget
  * ⏱️ 更新时间: 2026.04.01 01:40
  * ==========================================
  */
