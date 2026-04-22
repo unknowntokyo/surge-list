@@ -182,11 +182,6 @@ export default async function (ctx) {
       if (autumnDate) legal.push(["秋假", autumnDate, 3]);
     }
 
-    const exclusive = [
-      ...customDays.map(item => [item.name, getCustomDate(y, item.date), 1, "custom"]),
-      ["高考", YMD(y, 6, 7), 2, "fixed"]
-    ];
-
     return {
       legal,
       folk: [
@@ -211,7 +206,7 @@ export default async function (ctx) {
 
   // ── 优先级运算系统 ───────────────────────────────────────────────────────
   const basePriority    = { legal: 3, folk: 2, intl: 1, exclusive: 2 };
-  const specialPriority = { 春节: 10, 国庆节: 9, 高考: 9, 交割: 8, 行权: 8, 元旦: 7, 清明节: 7, 端午节: 7, 中秋节: 7, 春假: 6, 秋假: 6, 除夕: 6 };
+  const specialPriority = { 春节: 10, 国庆节: 9, 交割: 8, 行权: 8, 元旦: 7, 清明节: 7, 端午节: 7, 中秋节: 7, 春假: 6, 秋假: 6, 除夕: 6 };
 
   const getPriority = (name, cat, sourceKind) => {
     if (!enablePrioritySort) return 1;
