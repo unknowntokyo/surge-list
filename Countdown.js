@@ -52,17 +52,17 @@ export default async function (ctx) {
   };
   const getStr = (key, defaultVal = "") => String(env[key] ?? defaultVal).trim();
 
-  const showSchoolHolidays    = getBool("SHOW_SCHOOL_HOLIDAYS", false);
-  const showFinanceDates      = getBool("SHOW_FINANCE_DATES", false);
+  const showSchoolHolidays    = getBool("SHOW_SCHOOL_HOLIDAYS", true);
+  const showFinanceDates      = getBool("SHOW_FINANCE_DATES", true);
   const enablePrioritySort    = getBool("ENABLE_PRIORITY_SORT", true);
   const enableExclusiveWeight = getBool("ENABLE_EXCLUSIVE_WEIGHT", true);
-  const enableWeekendTheme    = getBool("ENABLE_WEEKEND_THEME", false);
+  const enableWeekendTheme    = getBool("ENABLE_WEEKEND_THEME", true);
 
   const springDateStr   = getStr("SPRING_BREAK_DATE");
   const autumnDateStr   = getStr("AUTUMN_BREAK_DATE");
   const qingmingDateStr = getStr("QINGMING_DATE", "4/4");
 
-  const pinnedHolidays = getStr("PINNED_HOLIDAY", "高考").split(",").map(s => s.trim()).filter(Boolean);
+  const pinnedHolidays = getStr("PINNED_HOLIDAY").split(",").map(s => s.trim()).filter(Boolean);
 
   const customDays = [1,2,3,4,5,6].map(i => ({
     name: getStr(`EXCLUSIVE_NAME_${i}`, i === 1 ? getStr("EXCLUSIVE_NAME", "我的生日") : ""),
