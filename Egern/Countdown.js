@@ -351,7 +351,6 @@ export default async function (ctx) {
       type: "widget", padding: 14, backgroundGradient,
       children: [
         mkRow([
-          mkIcon("hourglass.circle.fill", C.main, 16),
           mkText("时光\n倒数", 14, "heavy", C.main, { maxLines: 2 }),
           mkSpacer(),
           ...(stickyParts.length > 0 ? [mkText(`${stickyParts[0]}`, 11, "bold", C.red, { maxLines: 1 })] : [])
@@ -393,7 +392,6 @@ export default async function (ctx) {
     type: "widget", padding: isLarge ? 16 : 12, backgroundGradient,
     children: [
       mkRow([
-        mkIcon("hourglass.circle.fill", C.main, layoutConfig.titleIcz),
         mkText("时光倒数", layoutConfig.titleFz, "heavy", C.main),
         mkSpacer(),
         ...(rightHeaderElements.length > 0 ? [mkRow(rightHeaderElements, 4)] : [])
