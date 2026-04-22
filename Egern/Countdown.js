@@ -364,7 +364,7 @@ export default async function (ctx) {
 
   // ── Medium & Large 尺寸渲染 ─────────────────────────────────────────────
   const layoutConfig = {
-    fz: isLarge ? 14 : 12.5, icz: isLarge ? 15 : 13, lw: isLarge ? 60 : 52, maxW: isLarge ? 36 : 45,
+    fz: isLarge ? 14 : 13.5, icz: isLarge ? 15 : 13.5, lw: isLarge ? 60 : 52, maxW: isLarge ? 36 : 45,
     rowGap: isLarge ? 6 : 4, titleFz: isLarge ? 17 : 15, titleIcz: isLarge ? 18 : 16, topFz: isLarge ? 12 : 11.5
   };
 
