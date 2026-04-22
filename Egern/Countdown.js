@@ -182,6 +182,10 @@ export default async function (ctx) {
       if (autumnDate) legal.push(["秋假", autumnDate, 3]);
     }
 
+    const exclusive = [
+      ...customDays.map(item => [item.name, getCustomDate(y, item.date), 1, "custom"]),
+    ];
+
     return {
       legal,
       folk: [
