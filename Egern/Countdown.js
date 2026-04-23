@@ -85,6 +85,7 @@ export default async function (ctx) {
     red:         { light: '#CA3B32', dark: '#FF453A'  },
     blue:        { light: '#3A5F85', dark: '#5E8EB8'  },
     teal:        { light: '#628C7B', dark: '#73A491'  },
+    green:        { light: '#34C759', dark: '#30D158'  },
     transparent: '#00000000'
   };
 
@@ -406,7 +407,7 @@ export default async function (ctx) {
       "用力生活，用力摸鱼"
     ];
     const randomNoticeText = titles[Math.floor(Math.random() * titles.length)];
-    rightHeaderElements.push(mkText(randomNoticeText, layoutConfig.topFz, "medium", C.Main))
+    rightHeaderElements.push(mkText(randomNoticeText, layoutConfig.topFz, "medium", C.green))
   }
   if (stickyText) {
     if (todayNoticeText) rightHeaderElements.push(mkText(" ｜ ", layoutConfig.topFz, "bold", C.red));
