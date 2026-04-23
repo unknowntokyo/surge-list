@@ -405,8 +405,8 @@ export default async function (ctx) {
       "今天的任务是：不干活！",
       "用力生活，用力摸鱼"
     ];
-    todayNoticeText = titles[Math.floor(Math.random() * titles.length)];
-    rightHeaderElements.push(mkText(todayNoticeText, layoutConfig.topFz, "medium", C.Main))
+    const randomNoticeText = titles[Math.floor(Math.random() * titles.length)];
+    rightHeaderElements.push(mkText(randomNoticeText, layoutConfig.topFz, "medium", C.Main))
   }
   if (stickyText) {
     if (todayNoticeText) rightHeaderElements.push(mkText(" ｜ ", layoutConfig.topFz, "bold", C.red));
