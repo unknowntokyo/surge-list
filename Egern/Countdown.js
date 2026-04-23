@@ -84,6 +84,7 @@ export default async function (ctx) {
     gold:        { light: '#B58A28', dark: '#D6A53A'  },
     red:         { light: '#CA3B32', dark: '#FF453A'  },
     blue:        { light: '#3A5F85', dark: '#5E8EB8'  },
+    blue2:        { light: '#007AFF', dark: '#0A84FF'  }, 
     teal:        { light: '#628C7B', dark: '#73A491'  },
     green:        { light: '#34C759', dark: '#30D158'  },
     transparent: '#00000000'
@@ -408,7 +409,7 @@ export default async function (ctx) {
     ];
     const randomNoticeText = titles[Math.floor(Math.random() * titles.length)];
 
-rightHeaderElements.push(mkIcon("tortoise.system", C.blue, layoutConfig.topFz));
+rightHeaderElements.push(mkIcon("tortoise", C.blue2, layoutConfig.topFz * 1.5));
 
 rightHeaderElements.push(mkText(randomNoticeText, layoutConfig.topFz, "medium", C.green))
   }
