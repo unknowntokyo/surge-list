@@ -407,7 +407,10 @@ export default async function (ctx) {
       "用力生活，用力摸鱼"
     ];
     const randomNoticeText = titles[Math.floor(Math.random() * titles.length)];
-    rightHeaderElements.push(mkText(randomNoticeText, layoutConfig.topFz, "medium", C.green))
+
+rightHeaderElements.push(mkIcon("tortoise.system", C.blue, layoutConfig.topFz));
+
+rightHeaderElements.push(mkText(randomNoticeText, layoutConfig.topFz, "medium", C.green))
   }
   if (stickyText) {
     if (todayNoticeText) rightHeaderElements.push(mkText(" ｜ ", layoutConfig.topFz, "bold", C.red));
