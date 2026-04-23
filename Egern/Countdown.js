@@ -384,6 +384,30 @@ export default async function (ctx) {
     rightHeaderElements.push(mkIcon("sparkles", C.red, layoutConfig.topFz));
     rightHeaderElements.push(mkText(todayNoticeText, layoutConfig.topFz, "bold", C.red));
   }
+  if (!todayNoticeText) {
+    const titles = [
+      "距离放假，还要摸鱼多少天？",
+      "坚持住，就快放假啦！",
+      "上班好累呀，下顿吃啥？",
+      "努力，我还能加班24小时！",
+      "今日宜：吃饭饭  忌：减肥",
+      "躺平中，等放假",
+      "只有摸鱼才是赚老板的钱",
+      "小乌龟慢慢爬",
+      "加油，明天会更好！",
+      "生活本该如此轻松",
+      "好累，但还能坚持一会儿",
+      "最近好像又胖了，唉",
+      "快放假啦，期待放松的时光",
+      "今天的目标是先活下去",
+      "给自己加个鸡腿！",
+      "只要努力工作，老板的午餐就是我的",
+      "今天的任务是：不干活！",
+      "用力生活，用力摸鱼"
+    ];
+    todayNoticeText = titles[Math.floor(Math.random() * titles.length)];
+    rightHeaderElements.push(mkText(todayNoticeText, layoutConfig.topFz, "medium", C.Main))
+  }
   if (stickyText) {
     if (todayNoticeText) rightHeaderElements.push(mkText(" ｜ ", layoutConfig.topFz, "bold", C.red));
     rightHeaderElements.push(mkText(stickyText, layoutConfig.topFz, "bold", C.red));
