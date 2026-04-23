@@ -77,7 +77,7 @@ export default async function (ctx) {
   const C = {
     bgWorkday:   [{ light: '#FFFFFF', dark: '#1C1C1E' }, { light: '#F2F2F7', dark: '#0C0C0E' }],
     bgWeekend:   [{ light: '#F4F8FF', dark: '#111827' }, { light: '#E6F2FF', dark: '#0B0F19' }],
-    bgFest:      [{ light: '#FFF8EC', dark: '#2A1F0E' }, { light: '#FFEFD5', dark: '#1A1208' }],
+    bgFest:      [{ light: '#FFFFFF', dark: '#1C1C1E' }, { light: '#F2F2F7', dark: '#0C0C0E' }],
     main:        { light: '#1C1C1E', dark: '#FFFFFF'  },
     sub:         { light: '#48484A', dark: '#D1D1D6'  },
     muted:       { light: '#8E8E93', dark: '#8E8E93'  },
