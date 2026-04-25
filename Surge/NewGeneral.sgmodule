@@ -1,5 +1,5 @@
 #!name=Rewrite & Script
-#!desc=Router & Q-Search & 12306去广告
+#!desc=Router & Q-Search & ChangeUA & 12306去广告
 #!author=unknownTokyo
 #!category=Selfuse
 
@@ -65,8 +65,14 @@ zte.home = server:syslib
 # > xxx （无指令默认为 Google搜索）
 ^https:\/\/duckduckgo.com\/\?q=([^&]+).+ https://www.google.co.jp/search?q=$1&num=30 302
 
+[Header Rewrite]
+# 知乎（部分替换为手机百度 Quark 的 User-Agent）
+http-request ^https?:\/\/www\.zhihu\.com header-replace-regex User-Agent .+iPhone.+ "Mozilla/5.0 (iPhone; CPU iPhone OS 26_4_1 like Mac OS X; zh-cn) AppleWebKit/601.1.46 (KHTML, like Gecko) Mobile/23E254 Quark/10.8.6.3006 Mobile"
+# 百度（全站替换为手机百度 Quark 的 User-Agent）
+http-request ^https?:\/\/(?!d\.pcs).*(?<!map)\.baidu\.com header-replace-regex User-Agent .+iPhone.+ "Mozilla/5.0 (iPhone; CPU iPhone OS 26_4_1 like Mac OS X; zh-cn) AppleWebKit/601.1.46 (KHTML, like Gecko) Mobile/23E254 Quark/10.8.6.3006 Mobile"
+
 [MITM]
-hostname = %APPEND% ad.12306.cn,duckduckgo.com,*.google.cn,g.cn
+hostname = %APPEND% *.baidu.com, *.google.cn, ad.12306.cn, duckduckgo.com, g.cn, www.zhihu.com
 
 [Script]
 12306去广告 = type=http-request,pattern=^https?:\/\/ad\.12306\.cn\/ad\/ser\/getAdList,requires-body=true,max-size=3145728,script-path=https://github.com/ddgksf2013/Scripts/raw/master/12306.js,timeout=5,script-update-interval=86400
