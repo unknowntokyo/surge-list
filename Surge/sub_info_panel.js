@@ -1,7 +1,17 @@
 (async () => {
   let args = getArgs();
   let info = await getDataInfo(args.url);
-  if (!info) $done();
+
+  if (!info) {
+    $done({
+      title: args.title || "流量信息获取",
+      content: "获取失败！",
+      icon: "exclamationmark.triangle",
+      "icon-color": "#FF3B30",
+    });
+    return;
+  }
+
   let resetDayLeft = getRmainingDays(parseInt(args["reset_day"]));
 
   let used = info.download + info.upload;
@@ -69,7 +79,7 @@ async function getDataInfo(url) {
 
   return Object.fromEntries(
     data
-      .match(/\w+=[\d.eE+]+/g)
+      .match(/\w+=[\d.eE+-]+/g)
       .map((item) => item.split("="))
       .map(([k, v]) => [k, Number(v)])
   );
@@ -96,7 +106,7 @@ function getRmainingDays(resetDay) {
 function bytesToSize(bytes) {
   if (bytes === 0) return "0B";
   let k = 1024;
-  sizes = ["B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"];
+  const sizes = ["B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"];
   let i = Math.floor(Math.log(bytes) / Math.log(k));
   return (bytes / Math.pow(k, i)).toFixed(2) + " " + sizes[i];
 }
