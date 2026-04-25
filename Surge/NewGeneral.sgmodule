@@ -66,7 +66,7 @@ zte.home = server:syslib
 ^https:\/\/duckduckgo.com\/\?q=([^&]+).+ https://www.google.co.jp/search?q=$1&num=30 302
 
 [MITM]
-hostname = %APPEND% ad.12306.cn,duckduckgo.com,www.google.cn
+hostname = %APPEND% ad.12306.cn,duckduckgo.com,*.google.cn,g.cn
 
 [Script]
 12306去广告 = type=http-request,pattern=^https?:\/\/ad\.12306\.cn\/ad\/ser\/getAdList,requires-body=true,max-size=3145728,script-path=https://github.com/ddgksf2013/Scripts/raw/master/12306.js,timeout=5,script-update-interval=86400
