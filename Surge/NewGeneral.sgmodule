@@ -1,44 +1,43 @@
 #!name=Rewrite & Script
-#!desc=Host & URL重定向 & 微信去公众号文章广告 & Q-Search
-
+#!desc=Router & Q-Search & 12306去广告
+#!author=unknownTokyo
+#!category=Selfuse
 [Host]
-# > Companies
-3.cn = server:syslib 
-*.360buyimg.com = server:syslib
-*.biliapi.com = server:syslib
-*.biliapi.net = server:syslib
-*.bilibili.com = server:syslib
-*.bilibilivideo.com = server:syslib
-*.bilicdn?.com = server:syslib
-*.bilivideo.cn = server:syslib
-*.bilivideo.com = server:syslib
-*.hdslb.com = server:syslib
-*.hdslb.net = server:syslib
-*.jcloudstatic.com = server:syslib
-*.jcloudstatic.net = server:syslib
-*.jd.com = server:syslib
-*.jdcloud.com = server:syslib
-*.jdgslb.com = server:syslib
-acg.tv = server:syslib
-
-# > Router
+# > Router Admin Panel
+*.id.ui.direct = server:syslib
+LinksysSmartWiFi.com = server:syslib
+_hotspot_.m2m = server:syslib
 amplifi.lan = server:syslib
 falogin.cn = server:syslib
-dlinkrouter.local = server:syslib
-linksyse7350.local = server:syslib
-linksyssmartwifi.com = server:syslib
+hiwifi.com = server:syslib
+hotspot.cslwifi.com = server:syslib
+instant.arubanetworks.com = server:syslib
+leike.cc = server:syslib
 mediarouter.home = server:syslib
+melogin.cn = server:syslib
 miwifi.com = server:syslib
-my.router = server:syslib
+moshujia.cn = server:syslib
 myrouter.local = server:syslib
+network.unifi.ui.com = server:syslib
 orbilogin.com = server:syslib
+p.to = server:syslib
+peiluyou.com = server:syslib
+phicomm.me = server:syslib
 router.asus.com = server:syslib
-routerlogin.com = server:syslib
-routerlogin.net = server:syslib
 router.synology.com = server:syslib
+routerlogin.net = server:syslib
+setmeup.arubanetworks.com = server:syslib
 sila.razer.com = server:syslib
+tendawifi.com = server:syslib
+tplinklogin.net = server:syslib
+tplinkwifi.net = server:syslib
 tplogin.cn = server:syslib
+unifi.local = server:syslib
 unifi.ui.com = server:syslib
+wifi.cmcc = server:syslib
+www.LinksysSmartWiFi.com = server:syslib
+www.miwifi.com = server:syslib
+zte.home = server:syslib
 
 [URL Rewrite]
 ^https?://(www.)?(g|google).cn https://www.google.co.jp 302
@@ -48,26 +47,25 @@ unifi.ui.com = server:syslib
 ^https?:\/\/(ditu|maps).google\.cn https://maps.google.com 302
 
 # > bd xxx (百度)
-^https:\/\/duckduckgo.com\/\?q=bd(\+|%20)([^&]+).+ https://www.baidu.com/s?wd=$2 302
+^https:\/\/duckduckgo.com\/\?q=bd\+([^&]+).+ https://www.baidu.com/s?wd=$1 302
 
 # > zh xxx (知乎)
-^https:\/\/duckduckgo.com\/\?q=zh(\+|%20)([^&]+).+ https://www.zhihu.com/search?q=$2 302
+^https:\/\/duckduckgo.com\/\?q=zh\+([^&]+).+ http://www.zhihu.com/search?q=$1 302
 
 # > ccn (App Store 临时切换至国区)
-^https:\/\/duckduckgo.com\/\?q=ccn&.+ https://itunes.apple.com/WebObjects/MZStore.woa/wa/resetAndRedirect?dsf=143465&mt=8&url=/WebObjects/MZStore.woa/wa/viewSoftware?mt=8&id=1108187390&cc=cn&urlDesc= 302
+^https:\/\/duckduckgo\.com\/\?q=ccn&.+ https://itunes.apple.com/WebObjects/MZStore.woa/wa/resetAndRedirect?dsf=143465&mt=8&url=/WebObjects/MZStore.woa/wa/viewSoftware?mt=8&id=1108187390&cc=cn&urlDesc 302
 
 # > uus (App Store 临时切换至美区)
-^https:\/\/duckduckgo.com\/\?q=uus&.+ https://itunes.apple.com/WebObjects/MZStore.woa/wa/resetAndRedirect?dsf=143441&mt=8&url=/WebObjects/MZStore.woa/wa/viewSoftware?mt=8&id=1108187390&cc=us&urlDesc= 302
+^https:\/\/duckduckgo\.com\/\?q=uus&.+ https://itunes.apple.com/WebObjects/MZStore.woa/wa/resetAndRedirect?dsf=143441&mt=8&url=/WebObjects/MZStore.woa/wa/viewSoftware?mt=8&id=1108187390&cc=us&urlDesc 302
 
 # > wk xxx (Wikipedia 中文)
-^https:\/\/duckduckgo.com\/\?q=wk(\+|%20)([^&]+).+ https://zh.wikipedia.org/wiki/$2 302
+^https:\/\/duckduckgo.com\/\?q=wk\+([^&]+).+ https://zh.wikipedia.org/wiki/$1 302
 
 # > xxx （无指令默认为 Google搜索）
-^https:\/\/duckduckgo.com\/\?q=(?!dl(c|e|j)(\+|%20))([^&]+).+ https://www.google.co.jp/search?q=$3&num=30 302
+^https:\/\/duckduckgo.com\/\?q=([^&]+).+ https://www.google.co.jp/search?q=$1&num=30 302
 
 [MITM]
 hostname = %APPEND% ad.12306.cn,duckduckgo.com,mp.weixin.qq.com,www.google.cn
 
 [Script]
 12306去广告 = type=http-request,pattern=^https?:\/\/ad\.12306\.cn\/ad\/ser\/getAdList,requires-body=true,max-size=3145728,script-path=https://github.com/ddgksf2013/Scripts/raw/master/12306.js,timeout=5,script-update-interval=86400
-http-response ^https?:\/\/mp\.weixin\.qq\.com\/mp\/getappmsgad requires-body=1,max-size=0,script-path=https://raw.githubusercontent.com/NobyDa/Script/master/QuantumultX/File/Wechat.js
