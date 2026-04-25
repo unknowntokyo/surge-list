@@ -2,6 +2,7 @@
 #!desc=Router & Q-Search & 12306去广告
 #!author=unknownTokyo
 #!category=Selfuse
+
 [Host]
 # > Router Admin Panel
 *.id.ui.direct = server:syslib
