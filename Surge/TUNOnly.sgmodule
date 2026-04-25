@@ -1,7 +1,0 @@
-#!name=TUN Only
-#!desc=开启兼容模式TUN Only，绕过部分APP的代理检测
-#!system=ios
-
-[General]
-compatibility-mode = 3
-force-http-engine-hosts = %APPEND% *a, *b, *c, *d, *e, *f, *g, *h, *i, *j, *k, *l, *m, *n, *o, *p, *q, *r, *s, *t, *u, *v, *w, *x, *y, *z
