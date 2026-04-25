@@ -73,7 +73,7 @@ http-request ^https?:\/\/www\.zhihu\.com header-replace-regex User-Agent .+iPhon
 http-request ^https?:\/\/(?!d\.pcs).*(?<!map)\.baidu\.com header-replace-regex User-Agent .+iPhone.+ "Mozilla/5.0 (iPhone; CPU iPhone OS 13_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.1.1 Mobile/15E148 Safari/16C50 Quark/604.1 T7/10.3 SearchCraft/2.6.3 (Baidu; P1 8.0.0)"
 
 [MITM]
-hostname = %APPEND% *.baidu.com, *.google.cn, ad.12306.cn, duckduckgo.com, g.cn, www.zhihu.com
+hostname = %APPEND% *.baidu.com, *.google.cn, ad.12306.cn, duckduckgo.com, g.cn, www.zhihu.com, -e.crashlynatics.com, -*.apple.com, -*.bugsnag.com, -*.crashlytics.com, -*.facebook.com, -*.firebaseapp.com, -*.firebaseio.com, -*.github.com, -*.icloud.com, -*.instagram.com, -*.mzstatic.com, -*.qq.com
 
 [Script]
 12306去广告 = type=http-request,pattern=^https?:\/\/ad\.12306\.cn\/ad\/ser\/getAdList,requires-body=true,max-size=3145728,script-path=https://github.com/ddgksf2013/Scripts/raw/master/12306.js,timeout=5,script-update-interval=86400
