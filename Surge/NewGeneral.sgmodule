@@ -1,5 +1,5 @@
 #!name=Rewrite & Script
-#!desc=Router & Q-Search & ChangeUA & 12306去广告
+#!desc=Router & Q-Search & ChangeUA
 #!author=unknownTokyo
 #!category=Selfuse
 
@@ -41,29 +41,29 @@ www.miwifi.com = server:syslib
 zte.home = server:syslib
 
 [URL Rewrite]
-^https?://(www.)?(g|google).cn https://www.google.co.jp 302
+^https?://(www.)?(g|google).cn https://www.google.co.jp 307
 
-^https?://(www.)?google.cn/search https://www.google.co.jp/search 302
+^https?://(www.)?google.cn/search https://www.google.co.jp/search 307
 
-^https?:\/\/(ditu|maps).google\.cn https://maps.google.com 302
+^https?:\/\/(ditu|maps).google\.cn https://maps.google.com 307
 
 # > bd xxx (百度)
-^https:\/\/duckduckgo.com\/\?q=bd\+([^&]+).+ https://www.baidu.com/s?wd=$1 302
+^https:\/\/duckduckgo.com\/\?q=bd\+([^&]+).+ https://www.baidu.com/s?wd=$1 307
 
 # > zh xxx (知乎)
-^https:\/\/duckduckgo.com\/\?q=zh\+([^&]+).+ http://www.zhihu.com/search?q=$1 302
+^https:\/\/duckduckgo.com\/\?q=zh\+([^&]+).+ http://www.zhihu.com/search?q=$1 307
 
 # > ccn (App Store 临时切换至国区)
-^https:\/\/duckduckgo\.com\/\?q=ccn&.+ https://itunes.apple.com/WebObjects/MZStore.woa/wa/resetAndRedirect?dsf=143465&mt=8&url=/WebObjects/MZStore.woa/wa/viewSoftware?mt=8&id=1108187390&cc=cn&urlDesc 302
+^https:\/\/duckduckgo\.com\/\?q=ccn&.+ https://itunes.apple.com/WebObjects/MZStore.woa/wa/resetAndRedirect?dsf=143465&mt=8&url=/WebObjects/MZStore.woa/wa/viewSoftware?mt=8&id=1108187390&cc=cn&urlDesc 307
 
 # > uus (App Store 临时切换至美区)
-^https:\/\/duckduckgo\.com\/\?q=uus&.+ https://itunes.apple.com/WebObjects/MZStore.woa/wa/resetAndRedirect?dsf=143441&mt=8&url=/WebObjects/MZStore.woa/wa/viewSoftware?mt=8&id=1108187390&cc=us&urlDesc 302
+^https:\/\/duckduckgo\.com\/\?q=uus&.+ https://itunes.apple.com/WebObjects/MZStore.woa/wa/resetAndRedirect?dsf=143441&mt=8&url=/WebObjects/MZStore.woa/wa/viewSoftware?mt=8&id=1108187390&cc=us&urlDesc 307
 
 # > wk xxx (Wikipedia 中文)
-^https:\/\/duckduckgo.com\/\?q=wk\+([^&]+).+ https://zh.wikipedia.org/wiki/$1 302
+^https:\/\/duckduckgo.com\/\?q=wk\+([^&]+).+ https://zh.wikipedia.org/wiki/$1 307
 
 # > xxx （无指令默认为 Google搜索）
-^https:\/\/duckduckgo.com\/\?q=([^&]+).+ https://www.google.co.jp/search?q=$1&num=30 302
+^https:\/\/duckduckgo.com\/\?q=([^&]+).+ https://www.google.co.jp/search?q=$1&num=30 307
 
 [Header Rewrite]
 # 知乎（部分替换为手机百度 Quark 的 User-Agent）
@@ -73,7 +73,4 @@ http-request ^https?:\/\/www\.zhihu\.com header-replace-regex User-Agent .+iPhon
 http-request ^https?:\/\/(?!d\.pcs).*(?<!map)\.baidu\.com header-replace-regex User-Agent .+iPhone.+ "Mozilla/5.0 (iPhone; CPU iPhone OS 13_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.1.1 Mobile/15E148 Safari/16C50 Quark/604.1 T7/10.3 SearchCraft/2.6.3 (Baidu; P1 8.0.0)"
 
 [MITM]
-hostname = %APPEND% *.baidu.com, *.google.cn, ad.12306.cn, duckduckgo.com, g.cn, www.zhihu.com, -e.crashlynatics.com, -*.apple.com, -*.bugsnag.com, -*.crashlytics.com, -*.facebook.com, -*.firebaseapp.com, -*.firebaseio.com, -*.github.com, -*.icloud.com, -*.instagram.com, -*.mzstatic.com, -*.qq.com
-
-[Script]
-12306去广告 = type=http-request,pattern=^https?:\/\/ad\.12306\.cn\/ad\/ser\/getAdList,requires-body=true,max-size=3145728,script-path=https://github.com/ddgksf2013/Scripts/raw/master/12306.js,timeout=5,script-update-interval=86400
+hostname = %APPEND% *.baidu.com, *.google.cn, duckduckgo.com, g.cn, www.zhihu.com, -e.crashlynatics.com, -*.apple.com, -*.bugsnag.com, -*.crashlytics.com, -*.facebook.com, -*.firebaseapp.com, -*.firebaseio.com, -*.github.com, -*.icloud.com, -*.instagram.com, -*.mzstatic.com, -*.pstatp.com, -*.qq.com, -*.snssdk.com
