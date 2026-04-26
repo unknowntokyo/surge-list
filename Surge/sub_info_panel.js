@@ -54,6 +54,11 @@ function getArgs() {
       .map((item) => item.split("="))
       .map(([k, v]) => [k, decodeURIComponent(v)])
   );
+        if (arg.title) panel.title = arg.title;
+        if (arg.icon) panel.icon = arg.icon;
+        if (arg.icon-color) panel.icon-color = arg.icon-color;
+        if (arg.reset_day) panel.reset_day = arg.reset_day;
+        if (arg.url) panel.url = arg.url;
 }
 
 function getUserInfo(url) {
