@@ -1,12 +1,11 @@
 #!name=Telegram 链接重定向
-#!desc=选择要跳转到的 Telegram 客户端。跳转选项：Telegram, Swiftgram, Turrit, iMe, Nicegram, Lingogram。
-#!system=ios
-#!arguments=client:Turrit
+#!desc=选择要跳转到的 Telegram 客户端。
+#!arguments=CLIENT:Turrit
+#!arguments-desc=跳转选项：Telegram, Swiftgram, Turrit, iMe, Nicegram, Lingogram。
 
 [MITM]
 hostname = %APPEND% t.me
 
 [Script]
 # Telegram 链接重定向脚本
-# 注意：Surge 通过文本替换方式将 %client% 填入 argument 字段
-Telegram重定向 = type=http-request,pattern=^https?://t\.me/.+,requires-body=0,max-size=0,script-path=https://raw.githubusercontent.com/IBL3ND/module/refs/heads/main/TgRedirect.js,argument=%client%,timeout=10
+Telegram重定向 = type=http-request,pattern=^https?://t\.me/.+,requires-body=0,max-size=0,script-path=https://raw.githubusercontent.com/IBL3ND/module/refs/heads/main/TgRedirect.js,argument=CLIENT=Turrit,timeout=10
