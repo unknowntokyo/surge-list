@@ -4,4 +4,4 @@
 #!category=Selfuse
 
 [MITM]
-hostname = *:0
+hostname = *

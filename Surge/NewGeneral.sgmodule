@@ -78,4 +78,4 @@ http-request ^https?:\/\/www\.zhihu\.com header-replace-regex User-Agent .+iPhon
 http-request ^https?:\/\/(?!d\.pcs).*(?<!map)\.baidu\.com header-replace-regex User-Agent .+iPhone.+ "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 SearchCraft/3.10.0 (Baidu; P2 16.6)"
 
 [MITM]
-hostname = %APPEND% *.baidu.com, *.google.cn, duckduckgo.com, g.cn, www.zhihu.com, -e.crashlynatics.com, -*.apple.com, -*.bugsnag.com, -*.crashlytics.com, -*.facebook.com, -*.firebaseapp.com, -*.firebaseio.com, -*.github.com, -*.google.co.jp, -*.google.com, -*.icloud.com, -*.instagram.com, -*.mzstatic.com, -*.pstatp.com, -*.snssdk.com
+hostname = %APPEND% *.baidu.com, *.google.cn, duckduckgo.com, g.cn, www.zhihu.com, -e.crashlynatics.com, -*.apple.com, -*.bugsnag.com, -*.crashlytics.com, -*.facebook.com, -*.firebaseapp.com, -*.firebaseio.com, -*.github.com, -*.google.co.jp, -*.google.com, -*.icloud.com, -*.instagram.com, -*.mzstatic.com, -*.pstatp.com, -*.snssdk.com, -<ip-address>
