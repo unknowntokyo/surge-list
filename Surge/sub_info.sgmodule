@@ -7,4 +7,4 @@
 SubInfo = script-name=SubInfo, update-interval=3600
 
 [Script]
-SubInfo = type=generic, timeout=5, script-path=https://raw.githubusercontent.com/unknowntokyo/surge-list/master/Surge/sub_info_panel.js, script-update-interval=86400, argument=title="流量信息"&icon="airplane.circle"&color="#00CA47"&reset_day=""&url="请填写订阅链接"&alert=0
+SubInfo = type=generic, timeout=5, script-path=https://raw.githubusercontent.com/unknowntokyo/surge-list/master/Surge/sub_info_panel.js, script-update-interval=86400, argument=title=流量信息&icon=airplane.circle&color=#00CA47&reset_day=1&url=请填写订阅链接&alert=0
