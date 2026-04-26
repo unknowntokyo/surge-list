@@ -1,0 +1,8 @@
+#!name=Sub Info
+#!desc=机场订阅流量监控
+
+[Panel]
+SubInfo = script-name=Sub Info, update-interval=3600
+
+[Script]
+Sub Info = type=generic, timeout=5, script-path=https://raw.githubusercontent.com/unknowntokyo/surge-list/master/Surge/sub_info_panel.js, script-update-interval=86400, argument=title={{{TITLE="流量信息"}}}&icon={{{ICON="airplane.circle"}}}&color={{{COLOR="#00CA47"}}}&reset_day={{{RESET_DAY=""}}}&url={{{URL="请填写订阅链接"}}}&alert=0

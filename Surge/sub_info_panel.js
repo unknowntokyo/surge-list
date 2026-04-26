@@ -1,5 +1,16 @@
 (async () => {
   let args = getArgs();
+
+  if (!args.url || args.url === "请填写订阅链接") {
+    $done({
+      title: args.title || "流量信息获取",
+      content: "请在参数设置中填写订阅链接(URL Encode)！",
+      icon: "exclamationmark.triangle",
+      "icon-color": "#FF3B30",
+    });
+    return;
+  }
+
   let info = await getDataInfo(args.url);
 
   if (!info) {
@@ -12,7 +23,7 @@
     return;
   }
 
-  let resetDayLeft = getRmainingDays(parseInt(args["reset_day"]));
+  let resetDayLeft = getRemainingDays(parseInt(args["reset_day"]));
 
   let used = info.download + info.upload;
   let total = info.total;
@@ -36,6 +47,7 @@
 })();
 
 function getArgs() {
+  if (typeof $argument === "undefined") return {};
   return Object.fromEntries(
     $argument
       .split("&")
@@ -45,7 +57,7 @@ function getArgs() {
 }
 
 function getUserInfo(url) {
-  let request = { headers: { "User-Agent": "Quantumult%20X" }, url };
+  let request = { headers: { "User-Agent": "Surge" }, url };
   return new Promise((resolve, reject) =>
     $httpClient.get(request, (err, resp) => {
       if (err != null) {
@@ -85,8 +97,8 @@ async function getDataInfo(url) {
   );
 }
 
-function getRmainingDays(resetDay) {
-  if (!resetDay) return;
+function getRemainingDays(resetDay) {
+  if (!resetDay || isNaN(resetDay)) return;
 
   let now = new Date();
   let today = now.getDate();
