@@ -1,5 +1,6 @@
 #!name=Sub Info
 #!desc=机场订阅流量监控
+#!arguments=title:机场流量监控,icon:icon,icon-color:#00CA47A,reset_day:1,url:
 #!author=unknownTokyo
 #!category=Selfuse
 
