@@ -40,6 +40,11 @@ www.LinksysSmartWiFi.com = server:syslib
 www.miwifi.com = server:syslib
 zte.home = server:syslib
 
+# > Local DNS Mapping
+localhost = 127.0.0.1
+iosapps.itunes.apple.com = iosapps.itunes.apple.com.download.ks-cdn.com
+updates.cdn-apple.com = updates.cdn-apple.com.mwcname.com
+
 [URL Rewrite]
 ^https?://(www.)?(g|google).cn https://www.google.co.jp 307
 
