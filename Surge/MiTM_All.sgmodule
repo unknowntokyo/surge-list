@@ -1,7 +1,7 @@
 #!name=MitM All
 #!desc=MitM All hostnames except whitelist
 #!author=unknownTokyo
-#!category=Selfuse
+#!category=自用
 
 [MITM]
 hostname = *
