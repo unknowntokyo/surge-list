@@ -1,4 +1,4 @@
-name: Rewrite & Script
+name: Rewrite
 description: Q-Search & ChangeUA
 url_rewrites:
 - match: ^https?://(www.)?(g|google).cn
