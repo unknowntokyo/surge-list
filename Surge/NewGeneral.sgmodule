@@ -71,11 +71,11 @@ updates.cdn-apple.com = updates.cdn-apple.com.mwcname.com
 ^https:\/\/duckduckgo.com\/\?q=([^&]+).+ https://www.google.co.jp/search?q=$1&num=30 307
 
 [Header Rewrite]
-# > 知乎（部分替换为简单搜索的UA）
-http-request ^https?:\/\/www\.zhihu\.com header-replace-regex User-Agent .+iPhone.+ "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 SearchCraft/3.10.0 (Baidu; P2 16.6)"
-
 # > 百度（全站替换为简单搜索的UA）
 http-request ^https?:\/\/(?!d\.pcs).*(?<!map)\.baidu\.com header-replace-regex User-Agent .+iPhone.+ "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 SearchCraft/3.10.0 (Baidu; P2 16.6)"
+
+# > 知乎（部分替换为简单搜索的UA）
+http-request ^https?:\/\/www\.zhihu\.com header-replace-regex User-Agent .+iPhone.+ "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 SearchCraft/3.10.0 (Baidu; P2 16.6)"
 
 [MITM]
 hostname = %APPEND% *.baidu.com, *.google.cn, duckduckgo.com, g.cn, www.zhihu.com, -e.crashlynatics.com, -*.apple.com, -*.bugsnag.com, -*.crashlytics.com, -*.facebook.com, -*.firebaseapp.com, -*.firebaseio.com, -*.github.com, -*.google.co.jp, -*.google.com, -*.icloud.com, -*.instagram.com, -*.mzstatic.com, -*.pstatp.com, -*.snssdk.com, -<ip-address>
