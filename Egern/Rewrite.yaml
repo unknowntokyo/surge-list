@@ -1,5 +1,5 @@
-name: Rewrite for Safari
-description: Safari搜索重定向
+name: Rewrite & Script
+description: Q-Search & ChangeUA
 url_rewrites:
 - match: ^https?://(www.)?(g|google).cn
   location: https://www.google.co.jp
@@ -36,7 +36,7 @@ url_rewrites:
   status_code: 307
 header_rewrites:
 - replace:
-    match: ^https:\/\/(?!d.pcs).*(?<!map).baidu.com
+    match: ^https:\/\/www.baidu.com
     name: User-Agent
     value: .+iPhone.+ "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 SearchCraft/3.10.0 (Baidu; P2 16.6)"
     type: request
