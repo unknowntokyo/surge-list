@@ -2,22 +2,25 @@ name: Rewrite for Safari
 description: Safari搜索重定向
 url_rewrites:
 - match: ^https?://(www.)?(g|google).cn
-  location: https://www.google.com
+  location: https://www.google.co.jp
   status_code: 307
-- match: ^https?:\/\/(ditu|maps)\.google\.cn
+- match: ^https?://(www.)?google.cn/search
+  location: https://www.google.co.jp/search
+  status_code: 307
+- match: ^https?:\/\/(ditu|maps).google\.cn
   location: https://maps.google.com
   status_code: 307
 # > bd xxx (百度) 
-- match: ^https:\/\/duckduckgo\.com\/\?q=bd(\+|%20)([^&]+).+
-  location: https://www.baidu.com/s?wd=$2
+- match: ^https:\/\/duckduckgo.com\/\?q=bd\+([^&]+).+
+  location: https://www.baidu.com/s?wd=$1
   status_code: 307
 # > zh xxx (知乎) 
-- match: ^https:\/\/duckduckgo\.com\/\?q=zh(\+|%20)([^&]+).+
-  location: https://www.zhihu.com/search?q=$2
+- match: ^https:\/\/duckduckgo.com\/\?q=zh\+([^&]+).+
+  location: http://www.zhihu.com/search?q=$1
   status_code: 307
 # > wk xxx (Wikipedia 中文)
-- match: ^https:\/\/duckduckgo\.com\/\?q=wk(\+|%20)([^&]+).+
-  location: https://zh.wikipedia.org/wiki/$2
+- match: ^https:\/\/duckduckgo.com\/\?q=wk\+([^&]+).+
+  location: https://zh.wikipedia.org/wiki/$1
   status_code: 307
 # > ccn (App Store 临时切换至国区) 
 - match: ^https:\/\/duckduckgo\.com\/\?q=ccn&.+
@@ -28,15 +31,28 @@ url_rewrites:
   location: https://itunes.apple.com/WebObjects/MZStore.woa/wa/resetAndRedirect?dsf=143441&mt=8&url=/WebObjects/MZStore.woa/wa/viewSoftware?mt=8&id=1108187390&cc=us&urlDesc
   status_code: 307
 # > xxx （无指令默认为 Google搜索) 
-- match: ^https:\/\/duckduckgo\.com\/\?q=([^&]+).+
-  location: https://www.google.com/search?q=$1&num=30
+- match: ^https:\/\/duckduckgo.com\/\?q=([^&]+).+
+  location: https://www.google.co.jp/search?q=$1&num=30
   status_code: 307
+header_rewrites:
+- replace:
+    match: ^https?:\/\/(?!d\.pcs).*(?<!map)\.baidu\.com
+    name: User-Agent
+    value: .+iPhone.+ "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 SearchCraft/3.10.0 (Baidu; P2 16.6)"
+    type: request
+- replace:
+    match: ^https?:\/\/www\.zhihu\.com
+    name: User-Agent
+    value: .+iPhone.+ "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 SearchCraft/3.10.0 (Baidu; P2 16.6)"
+    type: request 
 mitm:
   hostnames:
     includes:
-    - duckduckgo.com
+    - '*.baidu.com' 
     - '*.google.cn'
+    - duckduckgo.com
     - g.cn
+    - www.zhihu.com 
     excludes:
     - e.crashlynatics.com
     - '*.apple.com'
@@ -49,4 +65,7 @@ mitm:
     - '*.icloud.com'
     - '*.instagram.com'
     - '*.mzstatic.com'
-    - '*.qq.com'
+    - '*.google.co.jp'
+    - '*.google.com'
+    - '*.pstatp.com'
+    - '*.snssdk.com'    
