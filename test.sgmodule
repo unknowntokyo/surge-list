@@ -9,4 +9,4 @@
 热搜 = script-name=hotsearch_raw, update-interval=1800
 
 [Script]
-hotsearch_raw = type=generic, script-path=https://raw.githubusercontent.com/unknowntokyo/surge-list/refs/heads/master/hotsearch.js, argument="platform=weibo&title=微博热搜&count=8"
+hotsearch_raw = type=generic, script-path=https://raw.githubusercontent.com/unknowntokyo/surge-list/refs/heads/master/hotsearch.js, argument=platform={{{机场名}}}&title={{{机场名}}}&count={{{机场名}}}
