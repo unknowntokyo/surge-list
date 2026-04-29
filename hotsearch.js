@@ -13,7 +13,7 @@ $httpClient.get(URL, (error, response, data) => {
   const time = new Date().toLocaleTimeString('zh-CN', { hour12: false, hour: '2-digit', minute: '2-digit' });
 
   $done({
-    title: `${"抖音热搜"}`,
+    title: `抖音热搜`,
     content: content,
     icon: "flame.fill",
     "icon-color": "#FF3B30"
