@@ -1,0 +1,9 @@
+#!name=聚合热搜 (无异常捕获版)
+#!desc=极简逻辑，出错直接 crash 以便查日志。
+#!category=Panel
+
+[Panel]
+热搜 = script-name=hotsearch_raw, update-interval=1800
+
+[Script]
+hotsearch_raw = type=generic, script-path=https://raw.githubusercontent.com/unknowntokyo/surge-list/refs/heads/master/hotsearch.js, argument="platform=weibo&title=微博热搜&count=8"
