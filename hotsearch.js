@@ -7,8 +7,8 @@ const params = Object.fromEntries(
   ($argument || "").split("&").map(i => i.split("=").map(s => decodeURIComponent(s.trim())))
 );
 
-const PLATFORM = params.platform || "weibo";
-const COUNT = parseInt(params.count) || 8;
+const PLATFORM = params.platform || "douyin";
+const COUNT = parseInt(params.count) || 5;
 const URL = `https://api.zxki.cn/api/jhrs?type=${PLATFORM}`;
 
 $httpClient.get(URL, (error, response, data) => {
