@@ -1,12 +1,10 @@
 #!name=聚合热搜 (无异常捕获版)
 #!desc=极简逻辑，出错直接 crash 以便查日志。
-#!arguments=platform:douyin,count:5,title:抖音热搜
-#!arguments-desc=[参数设置]\n\n⓵ icon: 图标。\n\n⓶ icon-color: 图标颜色，#00CA47、#A636FC等。\n\n⓷ reset_day: 流量重置日期。\n\n⓸ url: 节点订阅链接encode。
 #!author=unknownTokyo
-#!category=Selfuse
+#!category=自用
 
 [Panel]
 热搜 = script-name=hotsearch_raw, update-interval=1800
 
 [Script]
-hotsearch_raw = type=generic, script-path=https://raw.githubusercontent.com/unknowntokyo/surge-list/refs/heads/master/hotsearch.js, argument=platform={{{机场名}}}&title={{{机场名}}}&count={{{机场名}}}
+hotsearch_raw = type=generic, script-path=https://raw.githubusercontent.com/unknowntokyo/surge-list/refs/heads/master/hotsearch.js

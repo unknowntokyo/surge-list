@@ -1,18 +1,8 @@
-/**
- * 极简硬核版 - Surge 热搜面板
- * 逻辑：直接执行，异常即崩溃
- */
-
-const params = Object.fromEntries(
-  ($argument || "").split("&").map(i => i.split("=").map(s => decodeURIComponent(s.trim())))
-);
-
-const PLATFORM = params.platform || "douyin";
-const COUNT = parseInt(params.count) || 5;
+const PLATFORM = "douyin";
+const COUNT = 5;
 const URL = `https://api.zxki.cn/api/jhrs?type=${PLATFORM}`;
 
 $httpClient.get(URL, (error, response, data) => {
-  // 不处理 error，直接解析
   const json = JSON.parse(data);
   const list = (Array.isArray(json) ? json : (json.data || json.list)).slice(0, COUNT);
   
@@ -23,7 +13,7 @@ $httpClient.get(URL, (error, response, data) => {
   const time = new Date().toLocaleTimeString('zh-CN', { hour12: false, hour: '2-digit', minute: '2-digit' });
 
   $done({
-    title: `${params.title || "热搜"} (${time})`,
+    title: `${"抖音热搜"}`,
     content: content,
     icon: "flame.fill",
     "icon-color": "#FF3B30"
