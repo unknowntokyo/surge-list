@@ -1,0 +1,5 @@
+[Panel]
+countdown = script-name=countdown, title="时光倒数", update-interval=3600
+
+[Script]
+countdown = type=generic, script-path=https://raw.githubusercontent.com/unknowntokyo/surge-list/master/Surge/countdown.js
