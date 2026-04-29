@@ -7,7 +7,7 @@ $httpClient.get(URL, (error, response, data) => {
   const list = (Array.isArray(json) ? json : (json.data || json.list)).slice(0, COUNT);
   
   const content = list.map((item, i) => {
-    return `${item.title || item.keyword}`;
+    return `${i + 1}. ${item.title || item.keyword}`;
   }).join('\n');
 
   $done({
