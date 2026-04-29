@@ -7,15 +7,13 @@ $httpClient.get(URL, (error, response, data) => {
   const list = (Array.isArray(json) ? json : (json.data || json.list)).slice(0, COUNT);
   
   const content = list.map((item, i) => {
-    return `${i + 1}. ${item.title || item.keyword} (${item.hot || "火"})`;
+    return `${i + 1}. ${item.title || item.keyword}`;
   }).join('\n');
-
-  const time = new Date().toLocaleTimeString('zh-CN', { hour12: false, hour: '2-digit', minute: '2-digit' });
 
   $done({
     title: `抖音热搜`,
     content: content,
-    icon: "flame.fill",
+    icon: "flame",
     "icon-color": "#FF3B30"
   });
 });

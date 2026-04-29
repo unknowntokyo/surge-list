@@ -1,0 +1,10 @@
+#!name=抖音热搜
+#!desc=抖音热搜榜单
+#!author=unknownTokyo
+#!category=自用
+
+[Panel]
+抖音热搜 = script-name=DYHS, update-interval=3600
+
+[Script]
+DYHS = type=generic, script-path=https://raw.githubusercontent.com/unknowntokyo/surge-list/master/Surge/DYHS.js
