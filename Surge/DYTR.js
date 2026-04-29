@@ -11,7 +11,7 @@ $httpClient.get(URL, (error, response, data) => {
   }).join('\n');
 
   $done({
-    title: `抖音热搜`,
+    title: `抖音热榜`,
     content: content,
     icon: "flame",
     "icon-color": "#FF3B30"

@@ -1,0 +1,10 @@
+#!name=抖音热榜
+#!desc=抖音热榜前五
+#!author=unknownTokyo
+#!category=自用
+
+[Panel]
+抖音热榜 = script-name=DYTR, update-interval=3600
+
+[Script]
+DYTR = type=generic, script-path=https://raw.githubusercontent.com/unknowntokyo/surge-list/master/Surge/DYTR.js
