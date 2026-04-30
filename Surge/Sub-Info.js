@@ -2,8 +2,8 @@
  * 由@mieqq编写
  * 原脚本地址：https://raw.githubusercontent.com/mieqq/mieqq/master/sub_info_panel.js
  * 由@Rabbit-Spec修改
- * 更新日期：2026.05.01
- * 版本：2.0
+ * 更新日期：2022.08.24
+ * 版本：1.5
 
 示例↓↓↓ 
 ----------------------------------------
@@ -52,7 +52,7 @@ let args = getArgs();
     content.push(`到期：${formatTime(expire)}`);
   }
 
-  const percent = total > 0 ? Math.round((used / total) * 100) : 0;
+const percent = total > 0 ? Math.round((used / total) * 100) : 0;
 
   $done({
     title: `${args.title} | ${percent}%`,
