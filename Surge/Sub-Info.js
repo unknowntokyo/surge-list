@@ -63,12 +63,44 @@ let args = getArgs();
 })();
 
 function getArgs() {
-  return Object.fromEntries(
-    $argument
-      .split("&")
-      .map((item) => item.split("="))
-      .map(([k, v]) => [k, decodeURIComponent(v)])
-  );
+  const arg = $argument || "";
+  const scriptKeys = ["reset_day", "title", "icon", "color", "expire", "method"];
+  let args = {};
+
+  const urlMarker = "url=";
+  const urlIdx = arg.indexOf(urlMarker);
+
+  if (urlIdx === -1) {
+
+    return Object.fromEntries(arg.split("&").map(i => i.split("=")).map(([k, v]) => [k, decodeURIComponent(v || "")]));
+  }
+
+  const beforeUrl = arg.substring(0, urlIdx);
+  beforeUrl.split("&").forEach(item => {
+    let [k, v] = item.split("=");
+    if (k) args[k] = decodeURIComponent(v || "");
+  });
+
+  let rawUrlValue = arg.substring(urlIdx + urlMarker.length);
+
+  let foundPanelParam = true;
+  while (foundPanelParam) {
+    foundPanelParam = false;
+    for (const key of scriptKeys) {
+      const searchKey = `&${key}=`;
+      const lastIdx = rawUrlValue.lastIndexOf(searchKey);
+
+      if (lastIdx !== -1) {
+        const potentialVal = rawUrlValue.substring(lastIdx + searchKey.length);
+        args[key] = decodeURIComponent(potentialVal);
+        rawUrlValue = rawUrlValue.substring(0, lastIdx);
+        foundPanelParam = true;
+      }
+    }
+  }
+
+  args.url = rawUrlValue;
+  return args;
 }
 
 function getUserInfo(url) {
