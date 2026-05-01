@@ -18,6 +18,10 @@ url_rewrites:
 - match: ^https:\/\/duckduckgo.com\/\?q=zh\+([^&]+).+
   location: http://www.zhihu.com/search?q=$1
   status_code: 307
+# > git xxx (GitHub)
+- match: ^https:\/\/duckduckgo.com\/\?q=git\+([^&]+).+
+  location: https://github.com/search?q=$1
+  status_code: 307 
 # > wk xxx (Wikipedia 中文)
 - match: ^https:\/\/duckduckgo.com\/\?q=wk\+([^&]+).+
   location: https://zh.wikipedia.org/wiki/$1

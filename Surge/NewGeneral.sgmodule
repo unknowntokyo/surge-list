@@ -61,11 +61,14 @@ updates.cdn-apple.com = updates.cdn-apple.com.mwcname.com
 # > ccn (App Store 临时切换至国区)
 ^https:\/\/duckduckgo\.com\/\?q=ccn&.+ https://itunes.apple.com/WebObjects/MZStore.woa/wa/resetAndRedirect?dsf=143465&mt=8&url=/WebObjects/MZStore.woa/wa/viewSoftware?mt=8&id=1108187390&cc=cn&urlDesc 307
 
-# > uus (App Store 临时切换至美区)
-^https:\/\/duckduckgo\.com\/\?q=uus&.+ https://itunes.apple.com/WebObjects/MZStore.woa/wa/resetAndRedirect?dsf=143441&mt=8&url=/WebObjects/MZStore.woa/wa/viewSoftware?mt=8&id=1108187390&cc=us&urlDesc 307
+# > git xxx (GitHub)
+^https:\/\/duckduckgo.com\/\?q=git\+([^&]+).+ https://github.com/search?q=$1 307
 
 # > wk xxx (Wikipedia 中文)
 ^https:\/\/duckduckgo.com\/\?q=wk\+([^&]+).+ https://zh.wikipedia.org/wiki/$1 307
+
+# > uus (App Store 临时切换至美区)
+^https:\/\/duckduckgo\.com\/\?q=uus&.+ https://itunes.apple.com/WebObjects/MZStore.woa/wa/resetAndRedirect?dsf=143441&mt=8&url=/WebObjects/MZStore.woa/wa/viewSoftware?mt=8&id=1108187390&cc=us&urlDesc 307
 
 # > xxx （无指令默认为 Google搜索）
 ^https:\/\/duckduckgo.com\/\?q=([^&]+).+ https://www.google.co.jp/search?q=$1&num=30 307
