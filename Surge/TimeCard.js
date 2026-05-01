@@ -18,7 +18,7 @@ const weights = { 春节: 10, 国庆: 9, 元旦: 7, 清明: 7, 端午: 7, 中秋
 for (let y = Y - 1; y <= Y + 1; y++) {
   const fests = [
     ["元旦", Date.UTC(y, 0, 1), 1], ["春节", l2sMs(y, 1, 1), 3], ["五一", Date.UTC(y, 4, 1), 1],
-    ["老婆", Date.UTC(y, 4, 12), 0], ["端午", l2sMs(y, 5, 5), 1], ["中秋", l2sMs(y, 8, 15), 1],
+    ["老婆🎂", Date.UTC(y, 4, 12), 0], ["端午", l2sMs(y, 5, 5), 1], ["中秋", l2sMs(y, 8, 15), 1],
     ["国庆", Date.UTC(y, 9, 1), 3], ["Ann", Date.UTC(y, 9, 4), 0], ["D.O.B", l2sMs(y, 12, 3), 0]
   ];
   for (const [n, ms, dur] of fests) {
@@ -42,7 +42,7 @@ const titles = [
 
 $done({
   title: titles[Math.floor(Math.random() * titles.length)],
-  content: (today.length ? `🎉今日：${today.join("·")}\n` : "") + (countdown ? `${countdown}` : ""),
+  content: (today.length ? `🎉今天是：${today.join("·")}\n` : "") + (countdown ? `${countdown}` : ""),
   icon: "hourglass.circle.fill",
   "icon-color": today.length ? "#FF3B30" : (now.getUTCDay() % 6 === 0 ? "#34C759" : "#8E8E93")
 });
