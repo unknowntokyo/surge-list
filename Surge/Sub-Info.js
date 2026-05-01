@@ -63,12 +63,15 @@ const percent = total > 0 ? Math.round((used / total) * 100) : 0;
 })();
 
 function getArgs() {
-  return Object.fromEntries(
-    $argument
-      .split("&")
-      .map((item) => item.split("="))
-      .map(([k, v]) => [k, decodeURIComponent(v)])
-  );
+  return $argument.split("&").reduce((acc, item) => {
+    const i = item.indexOf("=");
+    if (i !== -1) {
+      acc[item.substring(0, i)] = decodeURIComponent(item.substring(i + 1));
+    } else if (item) {
+      acc[item] = "";
+    }
+    return acc;
+  }, {});
 }
 
 function getUserInfo(url) {
