@@ -1,0 +1,14 @@
+#!name=Apple推送通知
+#!desc=接管Apple推送通知服务，需打开代理软件的包含APNs，规则请设置在其他Apple规则前。
+#!author=unknownTokyo
+#!category=自用
+
+[Rule]
+DOMAIN,identity.apple.com
+DOMAIN-SUFFIX,courier-push-apple.com.akadns.net
+DOMAIN-SUFFIX,push.apple.com
+IP-CIDR,17.0.0.0/8,no-resolve
+IP-CIDR6,2403:300:a42::/48,no-resolve
+IP-CIDR6,2403:300:a51::/48,no-resolve
+IP-CIDR6,2620:149:a44::/48,no-resolve
+IP-CIDR6,2a01:b740:a42::/48,no-resolve
