@@ -19,14 +19,14 @@ export default async function(ctx) {
     const startTime = Date.now();
     await ctx.http.get(SPEED_TEST_URL, {
       headers: { 'Cache-Control': 'no-cache' },
-      timeout: 30000
+      timeout: 5000
     });
     const duration = (Date.now() - startTime) / 1000;
     const speedMBs = MB / duration;
     const speedMbps = speedMBs * 8;
 
     speedData = {
-      mbps: Math.round(parseFloat(speedMbps.toFixed(1))),
+      mbps: Math.round(speedMbps),
       mBs: parseFloat(speedMBs.toFixed(2)),
       duration: duration.toFixed(2),
       timestamp: Date.now()
@@ -58,7 +58,7 @@ export default async function(ctx) {
   return {
     type: 'widget',
     padding: 16,
-    gap: 12,
+    gap: 8,
 
     backgroundColor: { 
       light: '#FFFFFF', 
@@ -66,7 +66,7 @@ export default async function(ctx) {
     },
 
     children: [
-
+      { type: 'spacer' },
       {
         type: 'stack',
         direction: 'row',
@@ -146,6 +146,7 @@ export default async function(ctx) {
           }
         ]
       }
+      { type: 'spacer' }
     ]
   };
 }
