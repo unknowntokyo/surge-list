@@ -120,6 +120,7 @@
               backgroundColor: color,
               cornerRadius: 2
             },
+            { type: 'spacer' }
           ]
         },
         { type: 'stack', height: 1 }, 
