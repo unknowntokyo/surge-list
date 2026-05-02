@@ -93,7 +93,6 @@
             }
           ]
         },
-        { type: 'stack', height: 1 },
         {
           type: 'stack',
           direction: 'row',
