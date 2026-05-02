@@ -2,7 +2,7 @@
   // 测试网络下载速度
 
   export default async function(ctx) {
-    const fontsize = Number(ctx.env.fontsize?.trim()) || 29;
+    const fontsize = Number(ctx.env.网速字体大小?.trim()) || 29;
     const MB = 5;
     const BYTES = MB * 1024 * 1024;
     const SPEED_TEST_URL = `https://speed.cloudflare.com/__down?bytes=${BYTES}`;
