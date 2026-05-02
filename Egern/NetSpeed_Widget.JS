@@ -58,7 +58,7 @@
     return {
       type: 'widget',
       padding: 16,
-      gap: 8,
+      gap: 16,
 
       backgroundColor: { 
         light: '#FFFFFF', 
@@ -66,7 +66,6 @@
       },
 
       children: [
-        { type: 'spacer' },
         {
           type: 'stack',
           direction: 'row',
