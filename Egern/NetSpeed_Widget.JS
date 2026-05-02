@@ -125,7 +125,7 @@
             { type: 'spacer' }
           ]
         },
-        { type: 'stack', height: 2 }, 
+        { type: 'stack', height: 1 }, 
         {
           type: 'stack',
           direction: 'row',
