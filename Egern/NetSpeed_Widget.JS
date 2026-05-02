@@ -26,7 +26,7 @@ export default async function(ctx) {
     const speedMbps = speedMBs * 8;
 
     speedData = {
-      mbps: parseFloat(speedMbps.toFixed(1)),
+      mbps: Math.round(parseFloat(speedMbps.toFixed(1))),
       mBs: parseFloat(speedMBs.toFixed(2)),
       duration: duration.toFixed(2),
       timestamp: Date.now()
