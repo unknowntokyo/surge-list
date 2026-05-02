@@ -2,6 +2,8 @@
 // 测试网络下载速度
 
 export default async function(ctx) {
+  const fontsizeStr = (ctx.env[`fontsize`] || "").trim() || "44";
+  const fontsize = parseInt(fontsizeStr, 10);
   const MB = 3;
   const BYTES = MB * 1024 * 1024;
   const SPEED_TEST_URL = `https://speed.cloudflare.com/__down?bytes=${BYTES}`;
@@ -102,7 +104,7 @@ export default async function(ctx) {
           {
             type: 'text',
             text: `${speedData.mbps} Mbps`,
-            font: { size: 24, weight: 'bold' },
+            font: { size: fontsize, weight: 'bold' },
             textColor: color
           },
           { type: 'spacer' }
