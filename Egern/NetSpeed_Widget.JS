@@ -105,6 +105,7 @@
           {
             type: 'text',
             text: isSmall ? `${speedData.mbps}\nMbps` : `${speedData.mbps} Mbps`,
+            textAlign: 'center', 
             font: { size: isSmall ? 32 : 44, weight: 'bold' },
             textColor: color
           },
