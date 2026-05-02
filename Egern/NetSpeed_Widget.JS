@@ -109,8 +109,6 @@
             { type: 'spacer' }
           ]
         },
-
-        { type: 'stack', height: 4 }, 
       
         {
           type: 'stack',
