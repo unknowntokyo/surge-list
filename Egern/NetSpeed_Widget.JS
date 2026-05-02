@@ -57,8 +57,8 @@
 
     return {
       type: 'widget',
-      padding: 16,
-      gap: 16,
+      padding: 12,
+      gap: 14,
 
       backgroundColor: { 
         light: '#FFFFFF', 
