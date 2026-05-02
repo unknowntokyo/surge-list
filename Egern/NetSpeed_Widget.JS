@@ -2,9 +2,8 @@
   // 测试网络下载速度
 
   export default async function(ctx) {
-    const fontsizeStr = (ctx.env[`fontsize`] || "").trim() || "44";
-    const fontsize = parseInt(fontsizeStr, 10);
-    const MB = 3;
+    const fontsize = Number(ctx.env.fontsize?.trim()) || 29;
+    const MB = 5;
     const BYTES = MB * 1024 * 1024;
     const SPEED_TEST_URL = `https://speed.cloudflare.com/__down?bytes=${BYTES}`;
     const CACHE_KEY = 'netspeed_cache';
@@ -46,12 +45,13 @@
       color = '#007AFF';
     }
 
-    let barWidth = 30;
-    if (speedData.mbps >= 80) barWidth = 140;
-    else if (speedData.mbps >= 50) barWidth = 110;
-    else if (speedData.mbps >= 20) barWidth = 80;
-    else if (speedData.mbps >= 10) barWidth = 55;
+    const minWidth = 30;
+    const maxWidth = 140;
+    const maxSpeed = 120;
 
+    let barWidth = minWidth + (speedData.mbps / maxSpeed) * (maxWidth - minWidth);
+    barWidth = Math.min(Math.max(barWidth, minWidth), maxWidth);
+    
     const now = new Date();
     const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
 
