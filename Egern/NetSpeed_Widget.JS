@@ -58,7 +58,7 @@
     return {
       type: 'widget',
       padding: 12,
-      //gap: 14,
+      gap: 14,
 
       backgroundColor: { 
         light: '#FFFFFF', 
@@ -93,7 +93,6 @@
             }
           ]
         },
-        { type: 'spacer' },
         {
           type: 'stack',
           direction: 'row',
@@ -124,6 +123,7 @@
             { type: 'spacer' }
           ]
         },
+        { type: 'stack', height: 1 }, 
         {
           type: 'stack',
           direction: 'row',
