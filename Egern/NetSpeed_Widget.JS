@@ -93,7 +93,7 @@
             }
           ]
         },
-
+        { type: 'stack', height: 1 },
         {
           type: 'stack',
           direction: 'row',
@@ -109,7 +109,7 @@
             { type: 'spacer' }
           ]
         },
-      
+        { type: 'stack', height: 1 },
         {
           type: 'stack',
           direction: 'row',
@@ -125,6 +125,7 @@
             { type: 'spacer' }
           ]
         },
+        { type: 'stack', height: 1 }, 
         {
           type: 'stack',
           direction: 'row',
