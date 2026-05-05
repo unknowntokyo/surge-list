@@ -32,8 +32,8 @@ let icon, color;
 
     const speedMbpsInt = Number((speed * 8).toFixed(0));
 
-    const a = Diydecide(0, 80, 120, Math.max(1, speedMbpsInt));
-    const b = Diydecide(0, 150, 300, Math.max(1, pingt)) + 3;
+    const a = Diydecide(0, 80, 120, speedMbpsInt);
+    const b = Diydecide(0, 150, 300, pingt) + 3;
 
     let shifts = {
       '1': arg?.iconslow,
