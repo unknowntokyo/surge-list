@@ -4,7 +4,7 @@ hostname = ad.12306.cn, duckduckgo.com, *pornhub.com, sub.store, www.google.cn, 
 
 ^https?:\/\/sub\.store url script-analyze-echo-response https://github.com/sub-store-org/Sub-Store/releases/latest/download/sub-store-0.min.js
 
-
+# > Google
 ^https?://(www.)?(g|google).cn url 302 https://www.google.co.jp
 
 ^https?://(www.)?google.cn/search url 302 https://www.google.co.jp/search

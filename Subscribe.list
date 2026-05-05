@@ -7,10 +7,13 @@ DOMAIN-SUFFIX,rawgithub.com
 DOMAIN-SUFFIX,sub.store
 DOMAIN-SUFFIX,sublink.dev
 DOMAIN-SUFFIX,vercel.app
+DOMAIN-KEYWORD,amytele
 DOMAIN-KEYWORD,cordcloud
 DOMAIN-KEYWORD,ctc
 DOMAIN-KEYWORD,flowercloud
 DOMAIN-KEYWORD,huacloud
+DOMAIN-KEYWORD,mesl
+DOMAIN-KEYWORD,nexitally
 DOMAIN-KEYWORD,v2tun
 DOMAIN-KEYWORD,ytoo
 IP-CIDR,1.0.0.0/24,no-resolve

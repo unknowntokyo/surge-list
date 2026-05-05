@@ -5,10 +5,14 @@ PROCESS-NAME,/Applications/pap.er.app/Contents/MacOS/Pap.er
 USER-AGENT,NeteaseMusic*
 DOMAIN-SUFFIX,cn
 DEST-PORT,22
-#FlowerCloud
+
+# > FlowerCloud
 DOMAIN-SUFFIX,xmancdn.com
-#CTC-02
+
+# > CTC-02
 IP-CIDR,47.115.49.0/24,no-resolve
+
+# > Domestic DNS
 IP-CIDR,1.12.12.12/32,no-resolve
 IP-CIDR,114.114.114.114/32,no-resolve
 IP-CIDR,119.29.29.29/32,no-resolve

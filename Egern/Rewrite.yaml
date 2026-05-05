@@ -1,6 +1,7 @@
 name: Rewrite
 description: Q-Search & ChangeUA
 url_rewrites:
+# > Google
 - match: ^https?://(www.)?(g|google).cn
   location: https://www.google.co.jp
   status_code: 307
@@ -10,34 +11,42 @@ url_rewrites:
 - match: ^https?:\/\/(ditu|maps).google\.cn
   location: https://maps.google.com
   status_code: 307
-# > bd xxx (百度) 
+  
+# > bd xxx (百度)
 - match: ^https:\/\/duckduckgo.com\/\?q=bd\+([^&]+).+
   location: https://www.baidu.com/s?wd=$1
   status_code: 307
-# > zh xxx (知乎) 
+  
+# > zh xxx (知乎)
 - match: ^https:\/\/duckduckgo.com\/\?q=zh\+([^&]+).+
   location: http://www.zhihu.com/search?q=$1
   status_code: 307
+  
 # > git xxx (GitHub)
 - match: ^https:\/\/duckduckgo.com\/\?q=git\+([^&]+).+
   location: https://github.com/search?q=$1
-  status_code: 307 
+  status_code: 307
+  
 # > wk xxx (Wikipedia 中文)
 - match: ^https:\/\/duckduckgo.com\/\?q=wk\+([^&]+).+
   location: https://zh.wikipedia.org/wiki/$1
   status_code: 307
-# > ccn (App Store 临时切换至国区) 
+  
+# > ccn (App Store 临时切换至国区)
 - match: ^https:\/\/duckduckgo\.com\/\?q=ccn&.+
   location: https://itunes.apple.com/WebObjects/MZStore.woa/wa/resetAndRedirect?dsf=143465&mt=8&url=/WebObjects/MZStore.woa/wa/viewSoftware?mt=8&id=1108187390&cc=cn&urlDesc
   status_code: 307
-# > uus (App Store 临时切换至美区) 
+  
+# > uus (App Store 临时切换至美区)
 - match: ^https:\/\/duckduckgo\.com\/\?q=uus&.+
   location: https://itunes.apple.com/WebObjects/MZStore.woa/wa/resetAndRedirect?dsf=143441&mt=8&url=/WebObjects/MZStore.woa/wa/viewSoftware?mt=8&id=1108187390&cc=us&urlDesc
   status_code: 307
-# > xxx （无指令默认为 Google搜索) 
+  
+# > xxx （无指令默认为 Google搜索)
 - match: ^https:\/\/duckduckgo.com\/\?q=([^&]+).+
   location: https://www.google.co.jp/search?q=$1&num=30
   status_code: 307
+  
 header_rewrites:
 - replace:
     match: ^https?:\/\/(?!d\.pcs)(?![^/]*map)[^/]*.baidu.com
