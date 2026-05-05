@@ -46,7 +46,7 @@ let icon, color;
     color = shifts[b];
 
     title = `NetSpeed`;
-    content = `下行速率: ${speedMbpsInt} Mbps [${speed.toFixed(2)} MB/s]\n测试耗时: ${duration.toFixed(2)}s\n网络延迟: ${pingt}ms`;
+    content = `下行速率: ${speedMbpsInt} Mbps [${speed.toFixed(2)} MB/s]\n测试耗时: ${duration.toFixed(2)}s\n网络延迟: ${pingt} ms`;
 
   } catch (e) {
     $.logErr(e);
