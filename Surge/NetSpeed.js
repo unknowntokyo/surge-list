@@ -29,9 +29,7 @@ let icon, color;
     
     const duration = Math.max((Date.now() - start) / 1000, 0.001);
     const speed = mb / duration;
-
     const speedMbpsInt = Math.round(speed * 8);
-
     const a = Diydecide(0, 80, 120, speedMbpsInt);
     const b = Diydecide(0, 150, 300, pingt) + 3;
 
