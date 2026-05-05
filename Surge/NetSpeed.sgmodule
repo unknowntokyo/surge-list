@@ -1,6 +1,7 @@
 #!name=NetSpeed
 #!desc=花里胡哨才是生产力 测试网络下载速度、延迟并根据速度和延迟改变图标和颜色，乌龟、兔子还是闪电？
 #!auther=@xream @wuhu_zzz @keywos @整点猫咪 技术指导：整点薯条
+#!category=自用
 ##各种花里胡哨参数，通过argument传入，用=连接key及相应value，用&链接各种key，可以任意选择想填入的参数
 ##title：标题
 ##mb:流量 默认3MB，最大可发送4MB，参数&mb=4
