@@ -1,5 +1,7 @@
 name: Rewrite
 description: Q-Search & ChangeUA
+author: unknowntokyo
+icon: https://raw.githubusercontent.com/unknowntokyo/surge-list/master/X/Safari.png
 url_rewrites:
 # > Google
 - match: ^https?://(www.)?(g|google).cn
