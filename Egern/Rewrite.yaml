@@ -2,6 +2,12 @@ name: Rewrite
 description: Q-Search & ChangeUA
 author: unknowntokyo
 icon: https://raw.githubusercontent.com/unknowntokyo/surge-list/master/X/Safari.png
+rules:
+- protocol:
+    name: REJECT WebRTC
+    match: stun
+    policy: REJECT-NO-DROP
+    disabled: false
 url_rewrites:
 # > Google
 - match: ^https?://(www.)?(g|google).cn
