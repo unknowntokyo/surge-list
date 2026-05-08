@@ -1,11 +1,15 @@
   // NetSpeed 小组件
   // 测试网络下载速度
+  // 在小组件环境变量中添加：
+  // 名称：policy
+  // 值：策略组名称
 
   export default async function(ctx) {
+    const POLICY = ctx.env.policy || 'DIRECT';
     const MB = 5;
     const BYTES = MB * 1024 * 1024;
     const SPEED_TEST_URL = `https://speed.cloudflare.com/__down?bytes=${BYTES}`;
-    const CACHE_KEY = 'netspeed_cache';
+    const CACHE_KEY = 'netspeed_cache_${POLICY}';
     
     let speedData = { mbps: 0, mBs: 0, duration: 0, timestamp: 0 };
     try {
@@ -17,7 +21,8 @@
       const startTime = Date.now();
       await ctx.http.get(SPEED_TEST_URL, {
         headers: { 'Cache-Control': 'no-cache' },
-        timeout: 10000
+        timeout: 10000,
+        policy: POLICY
       });
       const duration = (Date.now() - startTime) / 1000;
       const speedMBs = MB / duration;
@@ -82,7 +87,7 @@
             },
             {
               type: 'text',
-              text: ' NetSpeed',
+              text: ' ${POLICY}',
               font: { size: isSmall ? 'caption2' : 'caption1', weight: 'semibold' },
               textColor: color
             },
