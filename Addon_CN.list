@@ -6,9 +6,6 @@ USER-AGENT,NeteaseMusic*
 DOMAIN-SUFFIX,cn
 DEST-PORT,22
 
-# > FlowerCloud
-DOMAIN-SUFFIX,xmancdn.com
-
 # > CTC-02
 IP-CIDR,47.115.49.0/24,no-resolve
 
