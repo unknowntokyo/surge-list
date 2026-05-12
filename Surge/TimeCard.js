@@ -53,8 +53,8 @@ const FIXED_FESTS = [
   { name: "元旦",   type: "solar", m: 1,  d: 1,  dur: 1 }, 
   { name: "春节",   type: "lunar", m: 1,  d: 1,  dur: 3 },
   { name: "清明",   type: "term",  n: 7,         dur: 1 },
-  { name: "劳动节", type: "solar", m: 5,  d: 1,  dur: 1 },
-  { name: "老婆",   type: "solar", m: 5,  d: 12, dur: 1 },
+  { name: "五一", type: "solar", m: 5,  d: 1,  dur: 1 },
+  { name: "老婆🎂",   type: "solar", m: 5,  d: 12, dur: 1 },
   { name: "端午",   type: "lunar", m: 5,  d: 5,  dur: 1 },
   { name: "中秋",   type: "lunar", m: 8,  d: 15, dur: 1 },
   { name: "国庆",   type: "solar", m: 10, d: 1,  dur: 3 },
@@ -105,7 +105,7 @@ const rawText = sortedList.slice(0, 4)
   .join("，");
 
 const todayNoticeText = todayFests.length > 0 
-  ? `🎉今日 ${todayFests.slice(0, 2).join("·")}${todayFests.length > 2 ? "…" : ""}` 
+  ? `🎉今日:${todayFests.slice(0, 2).join("·")}${todayFests.length > 2 ? "…" : ""}` 
   : "";
 
 const isWeekend = (bjDate.getDay() === 0 || bjDate.getDay() === 6);
