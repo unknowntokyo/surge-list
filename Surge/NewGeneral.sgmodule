@@ -42,6 +42,7 @@ zte.home = server:syslib
 
 # > Local DNS Mapping
 localhost = 127.0.0.1
+sub.store = 127.0.0.1
 iosapps.itunes.apple.com = iosapps.itunes.apple.com.download.ks-cdn.com
 updates.cdn-apple.com = updates.cdn-apple.com.mwcname.com
 
