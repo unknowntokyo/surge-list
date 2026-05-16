@@ -20,7 +20,6 @@ let icon, color;
 
     const pingstart = Date.now();
     const ping = await $.http.get({ url: `http://cp.cloudflare.com/generate_204` });
-    if (ping.status !== 204 && ping.status !== 200) throw new Error('Ping失败');
     const pingt = Date.now() - pingstart;
 
     const start = Date.now();
