@@ -1,5 +1,8 @@
 /**
  * 📌 桌面小组件: 🛡️ IP 纯净度
+ *小组件环境变量：
+ *1.名称policy，值为策略组名称，默认DIRECT
+ *2.名称markip，值为true或false，默认false
  */
 function maskIP(ip) {
   if (!ip) return ''

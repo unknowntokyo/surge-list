@@ -1,8 +1,8 @@
-  // NetSpeed 小组件
-  // 测试网络下载速度
-  // 在小组件环境变量中添加：
-  // 名称：policy
-  // 值：策略组名称
+/**
+ * 📌 桌面小组件: NetSpeed 小组件
+ *小组件环境变量：
+ *名称policy，值为策略组名称，默认DIRECT
+ */
 
   export default async function(ctx) {
     const POLICY = ctx.env.policy || 'DIRECT'; 
