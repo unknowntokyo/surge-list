@@ -28,8 +28,13 @@ export default async function(ctx) {
   let code = d.countryCode || "";
   if (code.toUpperCase() === 'TW') code = 'CN';
   const flag = code ? String.fromCodePoint(...code.toUpperCase().split('').map(c => 127397 + c.charCodeAt())) : "🌐";
-  const loc = `${flag} ${d.country || ""} ${d.city || ""}`.trim() || "未知位置";
-
+  let loc = "";
+  if (d.country !== d.city) {
+    loc = `${flag} ${d.country || ""} ${d.city || ""}`.trim() || "未知位置";
+  }
+  else {
+    loc = `${flag} ${d.city || ""}`.trim() || "未知位置";
+  }
   const nativeText = d.isResidential === true ? "🏠 原生住宅" : (d.isResidential === false ? "🏢 商业机房" : "未知");
 
   const risk = d.fraudScore;
