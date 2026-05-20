@@ -1,8 +1,20 @@
 /**
  * 📌 桌面小组件: 🛡️ IP 纯净度
  */
+function maskIP(ip) {
+  if (!ip) return ''
+  // IPv4
+  if (ip.includes('.')) {
+    const p = ip.split('.')
+    return `${p[0]}.${p[1]}.*.*`
+  }
+  // IPv6
+  const p6 = ip.split(':')
+  return `${p6[0]}:${p6[1]}:*:*:*:*:*:*`
+}
 export default async function(ctx) {
-  const POLICY = ctx.env.policy || 'DIRECT'; 
+  const POLICY = ctx.env.policy || 'DIRECT';
+  const MarkIP = ctx.env.markip || ' false'; 
   const BG_COLOR = { light: '#FFFFFF', dark: '#2C2C2E' };
   const C_TITLE = { light: '#1A1A1A', dark: '#FFD700' };
   const C_SUB   = { light: '#666666', dark: '#B0B0B0' };
@@ -23,6 +35,7 @@ export default async function(ctx) {
 
   const ip = d.ip || "获取失败";
   const ipLabel = ip.includes(':') ? "IPv6" : "IPv4";
+  const showIP = MarkIP ? maskIP(ip) : ip
   const asn = d.asn ? `AS${d.asn} ${d.asOrganization || ""}`.trim() : "未知";
 
   let code = d.countryCode || "";
@@ -106,7 +119,6 @@ export default async function(ctx) {
           Row(riskIc, riskCol, "风险评级", riskTxt, riskCol)
         ]
       }
-      // ✅ 移除底部 spacer，让内容自然撑满
     ]
   };
 }
