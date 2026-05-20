@@ -100,7 +100,7 @@ export default async function(ctx) {
         gap: 10,  // ✅ 增大内容区 gap
         children: [
           Row("globe", C_ICON_IP, ipLabel, ip, C_GREEN),
-          Row("number.square.fill", C_ICON_IP, "归属网络", asn, C_GREEN),
+          Row("number.square", C_ICON_IP, "归属网络", asn, C_GREEN),
           Row("mappin.and.ellipse", C_ICON_LOC, "位置", loc, C_MAIN),
           Row("building.2.fill", C_ICON_LOC, "原生属性", nativeText, C_SUB),
           Row(riskIc, riskCol, "风险评级", riskTxt, riskCol)
