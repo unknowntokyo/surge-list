@@ -29,9 +29,20 @@ for (let y = Y - 1; y <= Y + 1; y++) {
 }
 
 const countdown = list.sort((a, b) => a.diff - b.diff || b.p - a.p).slice(0, 4).map(i => `${i.n} ${i.diff}天`).join("，");
+const titles = [
+  "距离放假，还要摸鱼多少天？", "坚持住，就快放假啦！", "上班好累呀，下顿吃啥？",
+  "努力，我还能加班24小时！", "躺平中，等放假", "施主请回，此饼不吃",
+  "只有摸鱼才是赚老板的钱", "小乌龟慢慢爬", "加油，明天会更好！",
+  "生活本该如此轻松", "好累，但还能坚持一会儿", "快放假啦，期待放松的时光",
+  "今天的目标是先活下去", "给自己加个鸡腿！", "佛系上班，一切随缘",
+  "我的理想是：不上班还有钱", "放弃幻想，认清现状，低调搬砖", "生活碎片，拼凑成诗",
+  "慢慢走，沿途的花都开了", "没什么期待，也就没什么失望", "所谓的成长，就是学会不抱希望",
+  "今天的任务是：不干活！", "用力生活，用力摸鱼"
+];
+
 $done({
-  title: "摸鱼提醒",
-  content: (today.length ? `今日：${today.join("·")}\n` : "") + (countdown ? `倒数：${countdown}` : "近期暂无安排"),
+  title: titles[Math.floor(Math.random() * titles.length)],
+  content: (today.length ? `今日：${today.join("·")}\n` : "") + (countdown ? `${countdown}` : "近期暂无安排"),
   icon: "hourglass.circle.fill",
   "icon-color": today.length ? "#FF453A" : (now.getUTCDay() % 6 === 0 ? "#007AFF" : "#8E8E93")
 });
