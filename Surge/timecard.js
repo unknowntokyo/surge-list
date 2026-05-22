@@ -1,18 +1,7 @@
 /**
- * ==========================================
- * 📌 时光倒数 (Countdown) Surge Panel 模块 (精简版)
- *
- * ✨ 主要功能：
- * • 动态标题：面板主标题每次刷新随机展示内置的摸鱼/生活文案。
- * • 精简内容：完全移除了民俗和国际节日，仅关注法定节假日与个人专属日子。
- * • 纯净排版：无任何颜色方块前缀，采用清爽的纯文本列表。
- * • 节日计算：内置农历算法，支持计算法定节假日、金融交割/行权日的倒计时。
- * • 时区基准：采用 UTC+8 固定时区进行绝对时间计算。
- * • 参数支持：支持在 Surge 配置中通过 argument 传入自定义参数（如专属纪念日等）。
- * • 状态响应：根据工作日、周末、节假日当天状态切换面板图标颜色。
- *
- * ⏱️ 更新时间: 2026.05.22
- * ==========================================
+ * ─────────────────────────────────────────────────────────────────
+ * 以下为面板核心 JavaScript 脚本逻辑（仅保留法定节假日）
+ * ─────────────────────────────────────────────────────────────────
  */
 
 // ── 静态常量（农历基础算法） ─────────────────────────────────────────────
@@ -61,56 +50,21 @@ const getBool = (key, defaultVal = true) => {
 };
 const getStr = (key, defaultVal = "") => String(env[key] ?? defaultVal).trim();
 
-const showSchoolHolidays    = getBool("SHOW_SCHOOL_HOLIDAYS", true);
-const showFinanceDates      = getBool("SHOW_FINANCE_DATES", true);
-const enablePrioritySort    = getBool("ENABLE_PRIORITY_SORT", true);
-const enableExclusiveWeight = getBool("ENABLE_EXCLUSIVE_WEIGHT", true);
-const enableWeekendTheme    = getBool("ENABLE_WEEKEND_THEME", true);
-
-const springDateStr   = getStr("SPRING_BREAK_DATE");
-const autumnDateStr   = getStr("AUTUMN_BREAK_DATE");
-const qingmingDateStr = getStr("QINGMING_DATE", "4/4");
-
-const pinnedHolidays = getStr("PINNED_HOLIDAY").split(",").map(s => s.trim()).filter(Boolean);
-
-const customDays = [1,2,3,4,5,6].map(i => ({
-  name: getStr(`EXCLUSIVE_NAME_${i}`, i === 1 ? getStr("EXCLUSIVE_NAME", "我的生日") : ""),
-  date: getStr(`EXCLUSIVE_DATE_${i}`, i === 1 ? getStr("EXCLUSIVE_DATE", "11/10") : "")
-})).filter(item => item.name && /^\d{1,2}\/\d{1,2}$/.test(item.date));
-
-// 常规兼容性标记
-const isSmall = false;
+const enablePrioritySort = getBool("ENABLE_PRIORITY_SORT", true);
+const enableWeekendTheme = getBool("ENABLE_WEEKEND_THEME", true);
+const qingmingDateStr    = getStr("QINGMING_DATE", "4/4");
+const pinnedHolidays     = getStr("PINNED_HOLIDAY").split(",").map(s => s.trim()).filter(Boolean);
 
 // ── 绝对时区计算 (UTC+8) ─────────────────────────────────────────────────
 const bjDate = new Date(Date.now() + 8 * 3600000);
 const Y = bjDate.getUTCFullYear();
 const M = bjDate.getUTCMonth() + 1;
 const D = bjDate.getUTCDate();
-const currentHour = bjDate.getUTCHours();
 const currentDay  = bjDate.getUTCDay();
 const todayMs = Date.UTC(Y, M - 1, D);
 
 const YMD = (y, m, d) => `${y}/${m < 10 ? "0" + m : m}/${d < 10 ? "0" + d : d}`;
-
 const formatItemStr = (name, diff) => diff <= 0 ? `今日 ${name}` : `${name} ${diff}天`;
-
-// ── 核心日期推演算法 ─────────────────────────────────────────────────────
-const getFinanceDate = (y, monthIndex, nth, targetDow) => {
-  const firstDow = new Date(Date.UTC(y, monthIndex, 1)).getUTCDay();
-  let diff = targetDow - firstDow;
-  if (diff < 0) diff += 7;
-  return Date.UTC(y, monthIndex, 1 + diff + (nth - 1) * 7);
-};
-
-const nextFinanceDate = (nth, dow) => {
-  let d = getFinanceDate(Y, M - 1, nth, dow);
-  if (todayMs > d) {
-    const nextMonthIdx = M === 12 ? 0 : M;
-    const nextYear     = M === 12 ? Y + 1 : Y;
-    d = getFinanceDate(nextYear, nextMonthIdx, nth, dow);
-  }
-  return d;
-};
 
 const getCustomDate = (y, dateStr, fallbackFn) => {
   if (!dateStr || typeof dateStr !== 'string') return fallbackFn ? fallbackFn() : null;
@@ -142,34 +96,12 @@ const getFests = (y) => {
 
   const qmDateStr = getCustomDate(y, qingmingDateStr, () => term(7));
 
-  const legal = [
+  return [
     ["元旦",   YMD(y, 1, 1),  1], ["春节",   l2s(y, 1, 1),  3],
     ["清明节", qmDateStr,     1],
     ["劳动节", YMD(y, 5, 1),  1], ["端午节", l2s(y, 5, 5),  1],
     ["中秋节", l2s(y, 8, 15), 1], ["国庆节", YMD(y, 10, 1), 3]
   ];
-
-  if (showSchoolHolidays) {
-    const springDate = getCustomDate(y, springDateStr, () => {
-      const [qy, qm, qd] = qmDateStr.split("/").map(Number);
-      const s = new Date(Date.UTC(qy, qm - 1, qd - 3));
-      return YMD(s.getUTCFullYear(), s.getUTCMonth() + 1, s.getUTCDate());
-    });
-    if (springDate) legal.push(["春假", springDate, 3]);
-
-    const autumnDate = getCustomDate(y, autumnDateStr, () => {
-      const nov1 = new Date(Date.UTC(y, 10, 1));
-      return YMD(y, 11, 1 + ((3 - nov1.getUTCDay() + 7) % 7) + 7);
-    });
-    if (autumnDate) legal.push(["秋假", autumnDate, 3]);
-  }
-
-  const exclusive = [
-    ...customDays.map(item => [item.name, getCustomDate(y, item.date), 1, "custom"]),
-  ];
-
-  // 移除了 folk (民俗) 和 intl (国际) 分类
-  return { legal, exclusive };
 };
 
 const festCache = new Map();
@@ -179,73 +111,51 @@ const getFestsCached = (y) => {
 };
 
 // ── 优先级运算系统 ───────────────────────────────────────────────────────
-const basePriority    = { legal: 3, exclusive: 2 };
-const specialPriority = { 春节: 10, 国庆节: 9, 交割: 8, 行权: 8, 元旦: 7, 清明节: 7, 端午节: 7, 中秋节: 7, 春假: 6, 秋假: 6 };
-
-const getPriority = (name, cat, sourceKind) => {
+const specialPriority = { 春节: 10, 国庆节: 9, 元旦: 7, 清明节: 7, 端午节: 7, 中秋节: 7 };
+const getPriority = (name) => {
   if (!enablePrioritySort) return 1;
-  if (sourceKind === "custom") return enableExclusiveWeight ? 9 : (basePriority[cat] ?? 1);
-  return specialPriority[name] !== undefined ? specialPriority[name] : (basePriority[cat] ?? 1);
+  return specialPriority[name] !== undefined ? specialPriority[name] : 1;
 };
 
 // ── 核心数据运算 ────────────────────────────────────────────────────────
-const result = { legal: new Map(), exclusive: new Map() };
-const todayFests = new Set(), todayFinance = new Set(), pinnedMap = new Map();
+const legalMap = new Map();
+const todayFests = new Set(), pinnedMap = new Map();
 
 for (const y of [Y, Y + 1]) {
-  const f = getFestsCached(y);
-  for (const cat of Object.keys(result)) {
-    const catMap = result[cat];
-    for (const item of f[cat]) {
-      const [name, dateStr, duration = 1, sourceKind = ""] = item;
-      if (!dateStr) continue;
-      const [yy, mm, dd] = dateStr.split("/").map(Number);
-      const diff = Math.floor((Date.UTC(yy, mm - 1, dd) - todayMs) / 86400000);
+  const legalList = getFestsCached(y);
+  for (const item of legalList) {
+    const [name, dateStr, duration = 1] = item;
+    if (!dateStr) continue;
+    const [yy, mm, dd] = dateStr.split("/").map(Number);
+    const diff = Math.floor((Date.UTC(yy, mm - 1, dd) - todayMs) / 86400000);
 
-      if (diff <= 0) {
-        if (diff > -duration) {
-          todayFests.add(name);
-        }
-        continue;
+    if (diff <= 0) {
+      if (diff > -duration) {
+        todayFests.add(name);
       }
+      continue;
+    }
 
-      if (pinnedHolidays.includes(name) && diff <= 200) {
-        if (!pinnedMap.has(name) || diff < pinnedMap.get(name)) pinnedMap.set(name, diff);
-      }
+    if (pinnedHolidays.includes(name) && diff <= 200) {
+      if (!pinnedMap.has(name) || diff < pinnedMap.get(name)) pinnedMap.set(name, diff);
+    }
 
-      if (!catMap.has(name)) {
-        catMap.set(name, { name, diff, priority: getPriority(name, cat, sourceKind), cat });
-      }
+    if (!legalMap.has(name)) {
+      legalMap.set(name, { name, diff, priority: getPriority(name) });
     }
   }
 }
 
-// ── 金融日期独立处理 ─────────────────────────────────────────────────────
-if (showFinanceDates) {
-  const processFinance = (name, nth, dow) => {
-    const ms   = nextFinanceDate(nth, dow);
-    const d    = new Date(ms);
-    const diff = Math.floor((Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) - todayMs) / 86400000);
-    if (diff <= 0 && diff > -1 && currentHour < 15) {
-      todayFinance.add(name);
-    } else if (diff > 0) {
-      result.exclusive.set(name, { name, diff, priority: getPriority(name, "exclusive"), cat: "exclusive" });
-    }
-  };
-  processFinance("交割", 3, 5);
-  processFinance("行权", 4, 3);
-}
+const sortedList = Array.from(legalMap.values())
+  .filter(i => !pinnedMap.has(i.name))
+  .sort((a, b) => {
+    if (a.diff !== b.diff) return a.diff - b.diff;
+    return enablePrioritySort ? b.priority - a.priority : 0;
+  });
 
-Object.keys(result).forEach(cat => {
-  result[cat] = Array.from(result[cat].values())
-    .filter(i => !pinnedMap.has(i.name))
-    .sort((a, b) => {
-      if (a.diff !== b.diff) return a.diff - b.diff;
-      return enablePrioritySort ? b.priority - a.priority : 0;
-    });
-});
-
-const formatStr = (cat, limit) => result[cat].slice(0, limit).map(i => formatItemStr(i.name, i.diff)).join("，");
+// 节假日单行适配最大展示个数（目前只剩法定节假日，推荐展示前 5-6 个）
+const maxDisplayLimit = 6;
+const rawText = sortedList.slice(0, maxDisplayLimit).map(i => formatItemStr(i.name, i.diff)).join("，");
 
 // ── 随机标题抽取 ────────────────────────────────────────────────────────
 const titles = [
@@ -278,14 +188,13 @@ const randomTitleText = titles[Math.floor(Math.random() * titles.length)].trim()
 
 // ── 实时通知与置顶数据处理 ─────────────────────────────────────────────────
 const todayNoticeParts = [];
-if (todayFests.size > 0)   todayNoticeParts.push(`今日 ${Array.from(todayFests).slice(0, 2).join("·")}${todayFests.size > 2 ? "…" : ""}`);
-if (todayFinance.size > 0) todayNoticeParts.push(`今日 ${Array.from(todayFinance).join("·")}`);
+if (todayFests.size > 0) todayNoticeParts.push(`今日 ${Array.from(todayFests).slice(0, 2).join("·")}${todayFests.size > 2 ? "…" : ""}`);
 const todayNoticeText = todayNoticeParts.join(" ｜ ");
 
 const stickyParts = pinnedHolidays.filter(n => pinnedMap.has(n)).map(n => `${n} ${pinnedMap.get(n)}天`);
 const stickyText  = stickyParts.length > 0 ? `${stickyParts.join("·")}` : "";
 
-const themeKey = (todayFests.size > 0 || todayFinance.size > 0) ? "fest"
+const themeKey = (todayFests.size > 0) ? "fest"
   : (enableWeekendTheme && (currentDay === 0 || currentDay === 6)) ? "weekend" : "workday";
 
 // 状态图标颜色自适应
@@ -294,34 +203,22 @@ if (themeKey === "fest") iconColor = "#FF453A";
 else if (themeKey === "weekend") iconColor = "#007AFF";
 
 // ── Surge Panel 纯文本排版构建 ──────────────────────────────────────────
-const CATEGORY_CONFIG = [
-  { key: "legal",     label: "法定" },
-  { key: "exclusive", label: "专属" }
-];
-
 let panelContentLines = [];
 
-// 将今日特别通知和置顶节日放在正文顶部凸显
+// 将今日提醒和置顶放置在顶部
 let noticeHeaderParts = [];
 if (todayNoticeText) noticeHeaderParts.push(`今日提醒：${todayNoticeText}`);
 if (stickyText) noticeHeaderParts.push(`置顶关注：${stickyText}`);
 
 if (noticeHeaderParts.length > 0) {
   panelContentLines.push(noticeHeaderParts.join(" ｜ "));
-  panelContentLines.push(""); // 换行隔开
+  panelContentLines.push(""); // 换行
 }
 
-let hasRows = false;
-for (const cfg of CATEGORY_CONFIG) {
-  const limit = 2; // 精简后分类变少，单行适配展示增加至 4 个
-  const rawText = formatStr(cfg.key, limit);
-  if (!rawText) continue;
-  panelContentLines.push(`${cfg.label}：${rawText}`);
-  hasRows = true;
-}
-
-if (!hasRows) {
-  panelContentLines.push("近期暂无倒计时");
+if (rawText) {
+  panelContentLines.push(`放假倒计时：${rawText}`);
+} else {
+  panelContentLines.push("近期暂无放假安排");
 }
 
 // ── 结束脚本并将数据传递给 Surge Panel ──────────────────────────────────
