@@ -120,6 +120,6 @@ panelContentLines.push(rawText ? `${rawText}` : "近期暂无倒计时");
 $done({
   title: TITLES[Math.floor(Math.random() * TITLES.length)],
   content: panelContentLines.join(""),
-  icon: "hourglass.circle.fill",
+  icon: "hourglass.circle",
   "icon-color": iconColor
 });
