@@ -1,8 +1,7 @@
 #!name=TimeCard
 #!desc=显示距离法定节假日还有几天，节日当天早上有提醒。
 #!category=工具
-#!arguments=SHOW_SCHOOL_HOLIDAYS:false,SHOW_FINANCE_DATES:false,PINNED_HOLIDAY:春节,EXCLUSIVE_NAME_1:我的生日,EXCLUSIVE_DATE_1:11/10,EXCLUSIVE_NAME_2:,EXCLUSIVE_DATE_2:
 [Panel]
 timecard = script-name=timecard,update-interval=3600
 [Script]
-timecard = type=generic,timeout=10,script-path=https://raw.githubusercontent.com/unknowntokyo/surge-list/master/Surge/timecard.js,argument={argument}
+timecard = type=generic,timeout=10,script-path=https://raw.githubusercontent.com/unknowntokyo/surge-list/master/Surge/timecard.js
