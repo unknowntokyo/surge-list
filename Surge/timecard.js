@@ -3,10 +3,11 @@
  * 📌 时光倒数 (Countdown) Surge Panel 模块
  *
  * ✨ 主要功能：
+ * • 动态标题：面板主标题每次刷新随机展示内置的摸鱼/生活文案。
+ * • 纯净排版：移除了所有颜色方块前缀，展示纯净、优雅的文本列表。
  * • 节日计算：内置农历算法数组，支持计算法定节假日、民俗节日、国际节日、金融交割/行权日的倒计时。
  * • 时区基准：采用 UTC+8 固定时区进行绝对时间计算。
- * • 自定义配置：支持通过 Surge 的 $argument 设置最多 6 个专属纪念日，支持修改清明节及春/秋假的起始日期。
- * • 排序与显示：支持按倒数天数及分类优先级进行排序，支持指定节日跨分类置顶。
+ * • 参数支持：支持在 Surge 配置中通过 argument 传入自定义参数（如专属纪念日、调休时间等）。
  * • 状态响应：根据工作日、周末、节假日当天状态切换面板图标颜色。
  *
  * ⏱️ 更新时间: 2026.05.22
@@ -39,7 +40,7 @@ function ensureLunarCumulative(maxYear) {
   }
 }
 
-// ── Surge 环境变量解析 ───────────────────────────────────────────────────
+// ── Surge 环境变量解析 ($argument) ──────────────────────────────────────
 const env = {};
 if (typeof $argument !== "undefined" && $argument) {
   $argument.split("&").forEach(item => {
@@ -76,7 +77,7 @@ const customDays = [1,2,3,4,5,6].map(i => ({
   date: getStr(`EXCLUSIVE_DATE_${i}`, i === 1 ? getStr("EXCLUSIVE_DATE", "11/10") : "")
 })).filter(item => item.name && /^\d{1,2}\/\d{1,2}$/.test(item.date));
 
-// 常规尺寸模拟标记（面板固定拉取多行列表逻辑）
+// 常规兼容性标记
 const isSmall = false;
 
 // ── 绝对时区计算 (UTC+8) ─────────────────────────────────────────────────
@@ -262,7 +263,36 @@ Object.keys(result).forEach(cat => {
 
 const formatStr = (cat, limit) => result[cat].slice(0, limit).map(i => formatItemStr(i.name, i.diff)).join("，");
 
-// ── 标题栏通告逻辑与摸鱼文案 ───────────────────────────────────────────────
+// ── 随机标题抽取 ────────────────────────────────────────────────────────
+const titles = [
+  "距离放假，还要摸鱼多少天？",
+  "坚持住，就快放假啦！",
+  "上班好累呀，下顿吃啥？",
+  "努力，我还能加班24小时！",
+  "躺平中，等放假",
+  "施主请回，此饼不吃",
+  "只有摸鱼才是赚老板的钱",
+  "小乌龟慢慢爬",
+  "加油，明天会更好！",
+  "生活本该如此轻松",
+  "好累，但还能坚持一会儿",
+  "快放假啦，期待放松的时光",
+  "今天的目标是先活下去",
+  "给自己加个鸡腿！",
+  "佛系上班，一切随缘",
+  "我的理想是：不上班还有钱",
+  "放弃幻想，认清现状，低调搬砖",
+  "生活碎片，拼凑成诗",
+  "慢慢走，沿途的花都开了",
+  "没什么期待，也就没什么失望",
+  "所谓的成长，就是学会不抱希望",
+  "只要努力工作，老板的午餐就是我的",
+  "今天的任务是：不干活！",
+  "用力生活，用力摸鱼"
+];
+const randomTitleText = titles[Math.floor(Math.random() * titles.length)].trim();
+
+// ── 实时通知与置顶数据处理 ─────────────────────────────────────────────────
 const todayNoticeParts = [];
 if (todayFests.size > 0)   todayNoticeParts.push(`今日 ${Array.from(todayFests).slice(0, 2).join("·")}${todayFests.size > 2 ? "…" : ""}`);
 if (todayFinance.size > 0) todayNoticeParts.push(`今日 ${Array.from(todayFinance).join("·")}`);
@@ -271,69 +301,41 @@ const todayNoticeText = todayNoticeParts.join(" ｜ ");
 const stickyParts = pinnedHolidays.filter(n => pinnedMap.has(n)).map(n => `${n} ${pinnedMap.get(n)}天`);
 const stickyText  = stickyParts.length > 0 ? `${stickyParts.join("·")}` : "";
 
-let subTitleText = "";
-if (todayNoticeText) {
-  subTitleText = todayNoticeText;
-} else {
-  const titles = [
-    "距离放假，还要摸鱼多少天？",
-    "坚持住，就快放假啦！",
-    "上班好累呀，下顿吃啥？",
-    "努力，我还能加班24小时！",
-    "躺平中，等放假",
-    "施主请回，此饼不吃",
-    "只有摸鱼才是赚老板的钱",
-    "小乌龟慢慢爬",
-    "加油，明天会更好！",
-    "生活本该如此轻松",
-    "好累，但还能坚持一会儿",
-    "快放假啦，期待放松的时光",
-    "今天的目标是先活下去",
-    "给自己加个鸡腿！",
-    "佛系上班，一切随缘",
-    "我的理想是：不上班还有钱",
-    "放弃幻想，认清现状，低调搬砖",
-    "生活碎片，拼凑成诗",
-    "慢慢走，沿途的花都开了",
-    "没什么期待，也就没什么失望",
-    "所谓的成长，就是学会不抱希望",
-    "只要努力工作，老板的午餐就是我的",
-    "今天的任务是：不干活！",
-    "用力生活，用力摸鱼"
-  ];
-  subTitleText = titles[Math.floor(Math.random() * titles.length)].trim();
-}
-
-if (stickyText) {
-  subTitleText += ` ｜ 📌 ${stickyText}`;
-}
-
 const themeKey = (todayFests.size > 0 || todayFinance.size > 0) ? "fest"
   : (enableWeekendTheme && (currentDay === 0 || currentDay === 6)) ? "weekend" : "workday";
 
-// 映射状态颜色至 Surge Panel
+// 状态图标颜色自适应
 let iconColor = "#8E8E93"; 
-if (themeKey === "fest") iconColor = "#FF453A";      // 节日红
-else if (themeKey === "weekend") iconColor = "#007AFF"; // 周末蓝
+if (themeKey === "fest") iconColor = "#FF453A";
+else if (themeKey === "weekend") iconColor = "#007AFF";
 
-// ── Surge Panel 纯文本组装引擎 ─────────────────────────────────────────────
+// ── Surge Panel 纯文本排版构建 ──────────────────────────────────────────
 const CATEGORY_CONFIG = [
-  { key: "legal",     label: "法定", prefix: "🟥" },
-  { key: "folk",      label: "民俗", prefix: "🟨" },
-  { key: "intl",      label: "国际", prefix: "🟦" },
-  { key: "exclusive", label: "专属", prefix: "🟩" }
+  { key: "legal",     label: "法定" },
+  { key: "folk",      label: "民俗" },
+  { key: "intl",      label: "国际" },
+  { key: "exclusive", label: "专属" }
 ];
 
 let panelContentLines = [];
-panelContentLines.push(subTitleText);
-panelContentLines.push(""); // 空行隔开提示语与列表
+
+// 将今日特殊通知和📌置顶节日放在正文顶部凸显
+let noticeHeaderParts = [];
+if (todayNoticeText) noticeHeaderParts.push(`今日提醒：${todayNoticeText}`);
+if (stickyText) noticeHeaderParts.push(`置顶关注：${stickyText}`);
+
+if (noticeHeaderParts.length > 0) {
+  panelContentLines.push(noticeHeaderParts.join(" ｜ "));
+  panelContentLines.push(""); // 换行隔开
+}
 
 let hasRows = false;
 for (const cfg of CATEGORY_CONFIG) {
-  const limit = 3; 
+  const limit = 3; // 单行适配推荐展示数量
   const rawText = formatStr(cfg.key, limit);
   if (!rawText) continue;
-  panelContentLines.push(`${cfg.prefix} ${cfg.label}：${rawText}`);
+  // 彻底移除方块，保持最纯净的文本样式
+  panelContentLines.push(`${cfg.label}：${rawText}`);
   hasRows = true;
 }
 
@@ -341,9 +343,9 @@ if (!hasRows) {
   panelContentLines.push("近期暂无倒计时");
 }
 
-// ── 结束脚本并传递数据给 Surge ────────────────────────────────────────────
+// ── 结束脚本并将数据传递给 Surge Panel ──────────────────────────────────
 $done({
-  title: "时光倒数",
+  title: randomTitleText,
   content: panelContentLines.join("\n"),
   icon: "hourglass.circle.fill",
   "icon-color": iconColor
