@@ -109,7 +109,7 @@ const todayNoticeText = todayFests.length > 0
   : "";
 
 const isWeekend = (bjDate.getDay() === 0 || bjDate.getDay() === 6);
-const iconColor = todayFests.length > 0 ? "#FF453A" : (isWeekend ? "#007AFF" : "#8E8E93");
+const iconColor = todayFests.length > 0 ? "#FF3B30" : (isWeekend ? "#34C759" : "#8E8E93");
 
 let panelContentLines = [];
 if (todayNoticeText) {
