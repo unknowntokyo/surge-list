@@ -105,7 +105,7 @@ const rawText = sortedList.slice(0, 4)
   .join("，");
 
 const todayNoticeText = todayFests.length > 0 
-  ? `🎉今日:${todayFests.slice(0, 2).join("·")}${todayFests.length > 2 ? "…" : ""}` 
+  ? `🎉${todayFests.slice(0, 2).join("·")}${todayFests.length > 2 ? "…" : ""}` 
   : "";
 
 const isWeekend = (bjDate.getDay() === 0 || bjDate.getDay() === 6);
