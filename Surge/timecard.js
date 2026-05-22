@@ -13,13 +13,13 @@ const l2sMs = (y, m, d) => {
 };
 
 const list = [], today = [];
-const weights = { 春节: 10, 国庆节: 9, 元旦: 7, 清明节: 7, 端午节: 7, 中秋节: 7 };
+const weights = { 春节: 10, 国庆: 9, 元旦: 7, 清明: 7, 端午: 7, 中秋: 7 };
 
 for (let y = Y - 1; y <= Y + 1; y++) {
   const fests = [
-    ["元旦", Date.UTC(y, 0, 1), 1], ["春节", l2sMs(y, 1, 1), 3], ["劳动节", Date.UTC(y, 4, 1), 1],
-    ["老婆", Date.UTC(y, 4, 12), 0], ["端午节", l2sMs(y, 5, 5), 1], ["中秋节", l2sMs(y, 8, 15), 1],
-    ["国庆节", Date.UTC(y, 9, 1), 3], ["Ann", Date.UTC(y, 9, 4), 0], ["D.O.B", l2sMs(y, 12, 3), 0]
+    ["元旦", Date.UTC(y, 0, 1), 1], ["春节", l2sMs(y, 1, 1), 3], ["五一", Date.UTC(y, 4, 1), 1],
+    ["老婆", Date.UTC(y, 4, 12), 0], ["端午", l2sMs(y, 5, 5), 1], ["中秋", l2sMs(y, 8, 15), 1],
+    ["国庆", Date.UTC(y, 9, 1), 3], ["Ann", Date.UTC(y, 9, 4), 0], ["D.O.B", l2sMs(y, 12, 3), 0]
   ];
   for (const [n, ms, dur] of fests) {
     const diff = Math.round((ms - todayMs) / 86400000);
@@ -28,7 +28,7 @@ for (let y = Y - 1; y <= Y + 1; y++) {
   }
 }
 
-const countdown = list.sort((a, b) => a.diff - b.diff || b.p - a.p).slice(0, 4).map(i => `${i.n} ${i.diff}天`).join("，");
+const countdown = list.sort((a, b) => a.diff - b.diff || b.p - a.p).slice(0, 5).map(i => `${i.n} ${i.diff}天`).join("，");
 const titles = [
   "距离放假，还要摸鱼多少天？", "坚持住，就快放假啦！", "上班好累呀，下顿吃啥？",
   "努力，我还能加班24小时！", "躺平中，等放假", "施主请回，此饼不吃",
