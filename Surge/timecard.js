@@ -1,20 +1,21 @@
 /**
  * ==========================================
- * 📌 时光倒数 (Countdown) Surge Panel 模块
+ * 📌 时光倒数 (Countdown) Surge Panel 模块 (精简版)
  *
  * ✨ 主要功能：
  * • 动态标题：面板主标题每次刷新随机展示内置的摸鱼/生活文案。
- * • 纯净排版：移除了所有颜色方块前缀，展示纯净、优雅的文本列表。
- * • 节日计算：内置农历算法数组，支持计算法定节假日、民俗节日、国际节日、金融交割/行权日的倒计时。
+ * • 精简内容：完全移除了民俗和国际节日，仅关注法定节假日与个人专属日子。
+ * • 纯净排版：无任何颜色方块前缀，采用清爽的纯文本列表。
+ * • 节日计算：内置农历算法，支持计算法定节假日、金融交割/行权日的倒计时。
  * • 时区基准：采用 UTC+8 固定时区进行绝对时间计算。
- * • 参数支持：支持在 Surge 配置中通过 argument 传入自定义参数（如专属纪念日、调休时间等）。
+ * • 参数支持：支持在 Surge 配置中通过 argument 传入自定义参数（如专属纪念日等）。
  * • 状态响应：根据工作日、周末、节假日当天状态切换面板图标颜色。
  *
  * ⏱️ 更新时间: 2026.05.22
  * ==========================================
  */
 
-// ── 静态常量（顶级声明，只初始化一次） ─────────────────────────────────
+// ── 静态常量（农历基础算法） ─────────────────────────────────────────────
 const Lunar = {
   info: [0x04bd8,0x04ae0,0x0a570,0x054d5,0x0d260,0x0d950,0x16554,0x056a0,0x09ad0,0x055d2,0x04ae0,0x0a5b6,0x0a4d0,0x0d250,0x1d255,0x0b540,0x0d6a0,0x0ada2,0x095b0,0x14977,0x04970,0x0a4b0,0x0b4b5,0x06a50,0x06d40,0x1ab54,0x02b60,0x09570,0x052f2,0x04970,0x06566,0x0d4a0,0x0ea50,0x06e95,0x05ad0,0x02b60,0x186e3,0x092e0,0x1c8d7,0x0c950,0x0d4a0,0x1d8a6,0x0b550,0x056a0,0x1a5b4,0x025d0,0x092d0,0x0d2b2,0x0a950,0x0b557,0x06ca0,0x0b550,0x15355,0x04da0,0x0a5b0,0x14573,0x052b0,0x0a9a8,0x0e950,0x06aa0,0x0aea6,0x0ab50,0x04b60,0x0aae4,0x0a570,0x05260,0x0f263,0x0d950,0x05b57,0x056a0,0x096d0,0x04dd5,0x04ad0,0x0a4d0,0x0d4d4,0x0d250,0x0d558,0x0b540,0x0b6a0,0x195a6,0x095b0,0x049b0,0x0a974,0x0a4b0,0x0b27a,0x06a50,0x06d40,0x0af46,0x0ab60,0x09570,0x04af5,0x04970,0x064b0,0x074a3,0x0ea50,0x06b58,0x05ac0,0x0ab60,0x096d5,0x092e0,0x0c960,0x0d954,0x0d4a0,0x0da50,0x07552,0x056a0,0x0abb7,0x025d0,0x092d0,0x0cab5,0x0a950,0x0b4a0,0x0baa4,0x0ad50,0x055d9,0x04ba0,0x0a5b0,0x15176,0x052b0,0x0a930,0x07954,0x06aa0,0x0ad50,0x05b52,0x04b60,0x0a6e6,0x0a4e0,0x0d260,0x0ea65,0x0d530,0x05aa0,0x076a3,0x096d0,0x04afb,0x04ad0,0x0a4d0,0x1d0b6,0x0d250,0x0d520,0x0dd45,0x0b5a0,0x056d0,0x055b2,0x049b0,0x0a577,0x0a4b0,0x0aa50,0x1b255,0x06d20,0x0ada0,0x14b63,0x09370,0x049f8,0x04970,0x064b0,0x168a6,0x0ea50,0x06b20,0x1a6c4,0x0aae0,0x092e0,0x0d2e3,0x0c960,0x0d557,0x0d4a0,0x0da50,0x05d55,0x056a0,0x0a6d0,0x055d4,0x052d0,0x0a9b8,0x0a950,0x0b4a0,0x0b6a6,0x0ad50,0x055a0,0x0aba4,0x0a5b0,0x052b0,0x0b273,0x06930,0x07337,0x06aa0,0x0ad50,0x14b55,0x04b60,0x0a570,0x054e4,0x0d160,0x0e968,0x0d520,0x0daa0,0x16aa6,0x056d0,0x04ae0,0x0a9d4,0x0a2d0,0x0d150,0x0f252,0x0d520],
   term(y, n) {
@@ -138,11 +139,6 @@ const getFests = (y) => {
     const bjT = new Date(t.getTime() + 8 * 3600000);
     return YMD(bjT.getUTCFullYear(), bjT.getUTCMonth() + 1, bjT.getUTCDate());
   };
-  const wDay = (m, n, w) => {
-    const f = new Date(Date.UTC(y, m - 1, 1));
-    const x = w - f.getUTCDay();
-    return YMD(y, m, 1 + (x < 0 ? x + 7 : x) + (n - 1) * 7);
-  };
 
   const qmDateStr = getCustomDate(y, qingmingDateStr, () => term(7));
 
@@ -172,20 +168,8 @@ const getFests = (y) => {
     ...customDays.map(item => [item.name, getCustomDate(y, item.date), 1, "custom"]),
   ];
 
-  return {
-    legal,
-    folk: [
-      ["元宵节", l2s(y, 1, 15), 1], ["龙抬头", l2s(y, 2, 2),  1], ["七夕节", l2s(y, 7, 7),  1],
-      ["中元节", l2s(y, 7, 15), 1], ["重阳节", l2s(y, 9, 9),  1], ["寒衣节", l2s(y, 10, 1), 1],
-      ["腊八节", l2s(y, 12, 8), 1], ["小年",   l2s(y, 12, 23), 1], ["除夕",   l2s(y, 12, Lunar.mDays(y, 12)), 1]
-    ],
-    intl: [
-      ["情人节", YMD(y, 2, 14), 1], ["妇女节", YMD(y, 3, 8),  1], ["母亲节", wDay(5, 2, 0), 1],
-      ["儿童节", YMD(y, 6, 1),  1], ["父亲节", wDay(6, 3, 0), 1], ["万圣节", YMD(y, 10, 31),1],
-      ["感恩节", wDay(11, 4, 4),1], ["平安夜", YMD(y, 12, 24),1], ["圣诞节", YMD(y, 12, 25),1]
-    ],
-    exclusive
-  };
+  // 移除了 folk (民俗) 和 intl (国际) 分类
+  return { legal, exclusive };
 };
 
 const festCache = new Map();
@@ -195,8 +179,8 @@ const getFestsCached = (y) => {
 };
 
 // ── 优先级运算系统 ───────────────────────────────────────────────────────
-const basePriority    = { legal: 3, folk: 2, intl: 1, exclusive: 2 };
-const specialPriority = { 春节: 10, 国庆节: 9, 交割: 8, 行权: 8, 元旦: 7, 清明节: 7, 端午节: 7, 中秋节: 7, 春假: 6, 秋假: 6, 除夕: 6 };
+const basePriority    = { legal: 3, exclusive: 2 };
+const specialPriority = { 春节: 10, 国庆节: 9, 交割: 8, 行权: 8, 元旦: 7, 清明节: 7, 端午节: 7, 中秋节: 7, 春假: 6, 秋假: 6 };
 
 const getPriority = (name, cat, sourceKind) => {
   if (!enablePrioritySort) return 1;
@@ -205,7 +189,7 @@ const getPriority = (name, cat, sourceKind) => {
 };
 
 // ── 核心数据运算 ────────────────────────────────────────────────────────
-const result = { legal: new Map(), folk: new Map(), intl: new Map(), exclusive: new Map() };
+const result = { legal: new Map(), exclusive: new Map() };
 const todayFests = new Set(), todayFinance = new Set(), pinnedMap = new Map();
 
 for (const y of [Y, Y + 1]) {
@@ -312,14 +296,12 @@ else if (themeKey === "weekend") iconColor = "#007AFF";
 // ── Surge Panel 纯文本排版构建 ──────────────────────────────────────────
 const CATEGORY_CONFIG = [
   { key: "legal",     label: "法定" },
-  { key: "folk",      label: "民俗" },
-  { key: "intl",      label: "国际" },
   { key: "exclusive", label: "专属" }
 ];
 
 let panelContentLines = [];
 
-// 将今日特殊通知和📌置顶节日放在正文顶部凸显
+// 将今日特别通知和置顶节日放在正文顶部凸显
 let noticeHeaderParts = [];
 if (todayNoticeText) noticeHeaderParts.push(`今日提醒：${todayNoticeText}`);
 if (stickyText) noticeHeaderParts.push(`置顶关注：${stickyText}`);
@@ -331,10 +313,9 @@ if (noticeHeaderParts.length > 0) {
 
 let hasRows = false;
 for (const cfg of CATEGORY_CONFIG) {
-  const limit = 3; // 单行适配推荐展示数量
+  const limit = 2; // 精简后分类变少，单行适配展示增加至 4 个
   const rawText = formatStr(cfg.key, limit);
   if (!rawText) continue;
-  // 彻底移除方块，保持最纯净的文本样式
   panelContentLines.push(`${cfg.label}：${rawText}`);
   hasRows = true;
 }
