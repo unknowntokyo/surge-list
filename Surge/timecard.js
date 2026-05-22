@@ -28,7 +28,7 @@ for (let y = Y - 1; y <= Y + 1; y++) {
   }
 }
 
-const countdown = list.sort((a, b) => a.diff - b.diff || b.p - a.p).slice(0, 5).map(i => `${i.n} ${i.diff}天`).join("，");
+const countdown = list.sort((a, b) => a.diff - b.diff || b.p - a.p).slice(0, 3).map(i => `${i.n} ${i.diff}天`).join("，");
 const titles = [
   "距离放假，还要摸鱼多少天？", "坚持住，就快放假啦！", "上班好累呀，下顿吃啥？",
   "努力，我还能加班24小时！", "躺平中，等放假", "施主请回，此饼不吃",
