@@ -42,7 +42,7 @@ const titles = [
 
 $done({
   title: titles[Math.floor(Math.random() * titles.length)],
-  content: (today.length ? `今日：${today.join("·")}\n` : "") + (countdown ? `${countdown}` : "近期暂无安排"),
+  content: (today.length ? `🎉今日：${today.join("·")}\n` : "") + (countdown ? `${countdown}` : ""),
   icon: "hourglass.circle.fill",
   "icon-color": today.length ? "#FF3B30" : (now.getUTCDay() % 6 === 0 ? "#34C759" : "#8E8E93")
 });

@@ -1,5 +1,5 @@
-#!name=TimeCard
-#!desc=时光倒数
+#!name=时光倒数
+#!desc=显示距离法定节假日、纪念日还有几天，节假日、纪念日当天早上有提醒。
 #!category=工具
 [Panel]
 TimeCard = script-name=TimeCard,update-interval=3600
