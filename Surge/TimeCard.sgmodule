@@ -1,0 +1,7 @@
+#!name=TimeCard
+#!desc=时光倒数
+#!category=工具
+[Panel]
+TimeCard = script-name=TimeCard,update-interval=3600
+[Script]
+TimeCard = type=generic,timeout=10,script-path=https://raw.githubusercontent.com/unknowntokyo/surge-list/master/Surge/TimeCard.js
