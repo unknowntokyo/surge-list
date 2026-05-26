@@ -15,7 +15,6 @@
  * ==========================================
  */
 
-// ── 静态常量（顶级声明，只初始化一次） ─────────────────────────────────
 const Lunar = {
   info: [0x04bd8,0x04ae0,0x0a570,0x054d5,0x0d260,0x0d950,0x16554,0x056a0,0x09ad0,0x055d2,0x04ae0,0x0a5b6,0x0a4d0,0x0d250,0x1d255,0x0b540,0x0d6a0,0x0ada2,0x095b0,0x14977,0x04970,0x0a4b0,0x0b4b5,0x06a50,0x06d40,0x1ab54,0x02b60,0x09570,0x052f2,0x04970,0x06566,0x0d4a0,0x0ea50,0x06e95,0x05ad0,0x02b60,0x186e3,0x092e0,0x1c8d7,0x0c950,0x0d4a0,0x1d8a6,0x0b550,0x056a0,0x1a5b4,0x025d0,0x092d0,0x0d2b2,0x0a950,0x0b557,0x06ca0,0x0b550,0x15355,0x04da0,0x0a5b0,0x14573,0x052b0,0x0a9a8,0x0e950,0x06aa0,0x0aea6,0x0ab50,0x04b60,0x0aae4,0x0a570,0x05260,0x0f263,0x0d950,0x05b57,0x056a0,0x096d0,0x04dd5,0x04ad0,0x0a4d0,0x0d4d4,0x0d250,0x0d558,0x0b540,0x0b6a0,0x195a6,0x095b0,0x049b0,0x0a974,0x0a4b0,0x0b27a,0x06a50,0x06d40,0x0af46,0x0ab60,0x09570,0x04af5,0x04970,0x064b0,0x074a3,0x0ea50,0x06b58,0x05ac0,0x0ab60,0x096d5,0x092e0,0x0c960,0x0d954,0x0d4a0,0x0da50,0x07552,0x056a0,0x0abb7,0x025d0,0x092d0,0x0cab5,0x0a950,0x0b4a0,0x0baa4,0x0ad50,0x055d9,0x04ba0,0x0a5b0,0x15176,0x052b0,0x0a930,0x07954,0x06aa0,0x0ad50,0x05b52,0x04b60,0x0a6e6,0x0a4e0,0x0d260,0x0ea65,0x0d530,0x05aa0,0x076a3,0x096d0,0x04afb,0x04ad0,0x0a4d0,0x1d0b6,0x0d250,0x0d520,0x0dd45,0x0b5a0,0x056d0,0x055b2,0x049b0,0x0a577,0x0a4b0,0x0aa50,0x1b255,0x06d20,0x0ada0,0x14b63,0x09370,0x049f8,0x04970,0x064b0,0x168a6,0x0ea50,0x06b20,0x1a6c4,0x0aae0,0x092e0,0x0d2e3,0x0c960,0x0d557,0x0d4a0,0x0da50,0x05d55,0x056a0,0x0a6d0,0x055d4,0x052d0,0x0a9b8,0x0a950,0x0b4a0,0x0b6a6,0x0ad50,0x055a0,0x0aba4,0x0a5b0,0x052b0,0x0b273,0x06930,0x07337,0x06aa0,0x0ad50,0x14b55,0x04b60,0x0a570,0x054e4,0x0d160,0x0e968,0x0d520,0x0daa0,0x16aa6,0x056d0,0x04ae0,0x0a9d4,0x0a2d0,0x0d150,0x0f252,0x0d520],
   term(y, n) {
@@ -29,7 +28,6 @@ const Lunar = {
   mDays(y, m) { return (this.info[y - 1900] & (0x10000 >> m)) ? 30 : 29; }
 };
 
-// ── 累计天数预计算缓存 ───────────────────────────────────────────────────
 let lunarCumulativeCache = null;
 function ensureLunarCumulative(maxYear) {
   if (lunarCumulativeCache && lunarCumulativeCache.maxYear >= maxYear) return;
@@ -43,8 +41,6 @@ function ensureLunarCumulative(maxYear) {
 
 export default async function (ctx) {
   const env = ctx.env ?? {};
-
-  // ── 环境变量解析 ────────────────────────────────────────────────────────
   const getBool = (key, defaultVal = true) => {
     const v = env[key];
     if (v === undefined || v === null || String(v).trim() === "") return defaultVal;
@@ -68,12 +64,9 @@ export default async function (ctx) {
     name: getStr(`EXCLUSIVE_NAME_${i}`, i === 1 ? getStr("EXCLUSIVE_NAME", "我的生日") : ""),
     date: getStr(`EXCLUSIVE_DATE_${i}`, i === 1 ? getStr("EXCLUSIVE_DATE", "11/10") : "")
   })).filter(item => item.name && /^\d{1,2}\/\d{1,2}$/.test(item.date));
-
-  // ── 尺寸与色彩系统 ───────────────────────────────────────────────────────
   const family  = (ctx.widgetFamily || "systemMedium").toLowerCase();
   const isSmall = family.includes("small");
   const isLarge = family.includes("large");
-
   const C = {
     bgWorkday:   [{ light: '#FFFFFF', dark: '#1C1C1E' }, { light: '#F2F2F7', dark: '#0C0C0E' }],
     bgWeekend:   [{ light: '#F4F8FF', dark: '#111827' }, { light: '#E6F2FF', dark: '#0B0F19' }],
@@ -90,13 +83,11 @@ export default async function (ctx) {
     transparent: '#00000000'
   };
 
-  // ── UI 构建器 ──────────────────────────────────────────────────────────
   const mkText   = (text, size, weight, color, opts = {}) => ({ type: "text", text: String(text ?? ""), font: { size, weight }, textColor: color, ...opts });
   const mkRow    = (children, gap = 4, opts = {}) => ({ type: "stack", direction: "row", alignItems: "center", gap, children, ...opts });
   const mkIcon   = (src, color, size = 13) => ({ type: "image", src: `sf-symbol:${src}`, color, width: size, height: size });
   const mkSpacer = (length) => length != null ? { type: "spacer", length } : { type: "spacer" };
 
-  // ── 绝对时区计算 (UTC+8) ─────────────────────────────────────────────────
   const bjDate = new Date(Date.now() + 8 * 3600000);
   const Y = bjDate.getUTCFullYear();
   const M = bjDate.getUTCMonth() + 1;
@@ -109,7 +100,6 @@ export default async function (ctx) {
 
   const formatItemStr = (name, diff) => diff <= 0 ? `今日 ${name}` : `${name} ${diff}天`;
 
-  // ── 核心日期推演算法 ─────────────────────────────────────────────────────
   const getFinanceDate = (y, monthIndex, nth, targetDow) => {
     const firstDow = new Date(Date.UTC(y, monthIndex, 1)).getUTCDay();
     let diff = targetDow - firstDow;
@@ -210,7 +200,6 @@ export default async function (ctx) {
     return festCache.get(y);
   };
 
-  // ── 优先级运算系统 ───────────────────────────────────────────────────────
   const basePriority    = { legal: 3, folk: 2, intl: 1, exclusive: 2 };
   const specialPriority = { 春节: 10, 国庆节: 9, 交割: 8, 行权: 8, 元旦: 7, 清明节: 7, 端午节: 7, 中秋节: 7, 春假: 6, 秋假: 6, 除夕: 6 };
 
@@ -220,7 +209,6 @@ export default async function (ctx) {
     return specialPriority[name] !== undefined ? specialPriority[name] : (basePriority[cat] ?? 1);
   };
 
-  // ── 核心数据运算 ────────────────────────────────────────────────────────
   const result = { legal: new Map(), folk: new Map(), intl: new Map(), exclusive: new Map() };
   const todayFests = new Set(), todayFinance = new Set(), pinnedMap = new Map();
 
@@ -255,7 +243,6 @@ export default async function (ctx) {
     }
   }
 
-  // ── 金融日期独立处理（严格剔除跨年幽灵数据） ─────────────────────────────
   if (showFinanceDates) {
     const processFinance = (name, nth, dow) => {
       const ms   = nextFinanceDate(nth, dow);
@@ -283,7 +270,6 @@ export default async function (ctx) {
 
   const formatStr = (cat, limit) => result[cat].slice(0, limit).map(i => formatItemStr(i.name, i.diff)).join("，");
 
-  // ── 标题栏通告逻辑（中大号） ───────────────────────────────────────────────
   const todayNoticeParts = [];
   if (todayFests.size > 0)   todayNoticeParts.push(`今日 ${Array.from(todayFests).slice(0, 2).join("·")}${todayFests.size > 2 ? "…" : ""}`);
   if (todayFinance.size > 0) todayNoticeParts.push(`今日 ${Array.from(todayFinance).join("·")}`);
@@ -300,7 +286,6 @@ export default async function (ctx) {
     startPoint: { x: 0, y: 0 }, endPoint: { x: 1, y: 1 }
   };
 
-  // ── UI 渲染引擎 ──────────────────────────────────────────────────────────
   const CATEGORY_CONFIG = [
     { key: "legal",     label: "法定", icon: "building.columns.fill", color: C.red  },
     { key: "folk",      label: "民俗", icon: "moon.stars.fill",       color: C.gold },
@@ -337,7 +322,6 @@ export default async function (ctx) {
     }));
   };
 
-  // ── Small 尺寸渲染 ───────────────────────────────────────────────────────
   if (isSmall) {
     const pinnedNames = pinnedHolidays.filter(n => pinnedMap.has(n));
     const smallRows = CATEGORY_CONFIG.map(cfg => {
@@ -364,7 +348,6 @@ export default async function (ctx) {
     };
   }
 
-  // ── Medium & Large 尺寸渲染 ─────────────────────────────────────────────
   const layoutConfig = {
     fz: isLarge ? 14 : 13.5, icz: isLarge ? 15 : 13.5, lw: isLarge ? 60 : 52, maxW: isLarge ? 36 : 45,
     rowGap: isLarge ? 6 : 4, titleFz: isLarge ? 17 : 15, titleIcz: isLarge ? 18 : 16, topFz: isLarge ? 13 : 12.5
@@ -380,7 +363,6 @@ export default async function (ctx) {
     gridRows.push(...buildRows(cfg.icon, cfg.color, cfg.label, rawText, cfg.key === "exclusive"));
   }
 
-  // ── 构建标题栏右侧元素 (保留 sparkles 图标) ──────────────────────────────
   const rightHeaderElements = [];
   if (todayNoticeText) {
     rightHeaderElements.push(mkIcon("sparkles", C.red, layoutConfig.topFz));

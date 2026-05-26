@@ -97,7 +97,6 @@ export default async function(ctx) {
     gap: 12,      // ✅ 增大整体 gap
     backgroundColor: BG_COLOR,
     children: [
-      // 标题栏
       {
         type: 'stack',
         direction: 'row',
@@ -109,7 +108,6 @@ export default async function(ctx) {
           { type: 'spacer' },
         ]
       },
-      // 内容区域
       {
         type: 'stack',
         direction: 'column',
