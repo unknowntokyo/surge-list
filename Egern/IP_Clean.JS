@@ -3,6 +3,7 @@
  *小组件环境变量：
  *1.名称policy，值为策略组名称，默认DIRECT
  *2.名称markip，值为true或false，默认false
+ * 🔗 作者: https://raw.githubusercontent.com/IBL3ND/module/main/IP_Clean.JS
  */
 function maskIP(ip) {
   if (!ip) return ''
