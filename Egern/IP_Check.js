@@ -3,10 +3,10 @@ try {
     const codeMap = { HK: 'HKG', TW: 'TWN', SG: 'SGP', JP: 'JPN', KR: 'KOR', US: 'USA', NL: 'NED', DE: 'GER' };
     let countryCode = codeMap[obj.country_code] || obj.country_code;
     const myObj = {
-        "IP": obj.ip, 
-        "服务提供商": "AS" + obj.asn + " " + obj.as_desc,
+        "IP": obj.ip,
         "地区": countryCode,
-        "城市": obj.city_name
+        "城市": obj.city_name,
+        "组织": "AS" + obj.asn + " " + obj.as_desc 
     };
 
     if (!obj.city_name || obj.city_name.trim() === "") {
