@@ -1,6 +1,6 @@
 try {
     const obj = JSON.parse($response.body);
-    const codeMap = { HK: 'HKG', TW: ' TWN', SG: 'SGP', JP: 'JPN', KR: 'KOR', US: 'USA', NL: 'NED', DE: 'GER' };
+    const codeMap = { HK: 'HKG', TW: 'TWN', SG: 'SGP', JP: 'JPN', KR: 'KOR', US: 'USA', NL: 'NED', DE: 'GER' };
     let countryCode = codeMap[obj.country_code] || obj.country_code;
     const myObj = {
         "IP地址": obj.ip, 
