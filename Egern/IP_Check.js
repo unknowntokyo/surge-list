@@ -1,20 +1,10 @@
 try {
-    const obj = JSON.parse($response.body);
+    const o = JSON.parse($response.body);
+    const map = { "IP地址": o.ip, "名称": o.as_desc, "ASN": o.asn, "国家代码": o.country_code, "城市": o.city_name, "User-Agent": o.user_agent };
     
-    const myObj = {
-        "IP地址": obj.ip, 
-        "名称": obj.as_desc,
-        "ASN": obj.asn,
-        "国家代码": obj.country_code, 
-        "城市": obj.city_name,
-        "User-Agent": obj.user_agent
-    };
-
-    const keyOrder = ["IP地址", "名称", "ASN", "国家代码", "城市", "User-Agent"];
-
-    $done({
-        body: JSON.stringify(myObj, keyOrder)
-    });
+    // 带换行缩进的物理拼接，同样 100% 锁死顺序
+    const body = "{\n" + Object.entries(map).map(([k, v]) => `  "${k}": "${v}"`).join(",\n") + "\n}";
+    $done({ body });
 } catch (e) {
-    $done({});
+    $done({ body: $response.body });
 }
