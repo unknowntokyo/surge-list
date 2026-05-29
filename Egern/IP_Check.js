@@ -14,7 +14,6 @@ try {
     }
     
     $done({
-
         body: JSON.stringify(myObj) 
     });
 } catch (e) {
