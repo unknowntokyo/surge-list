@@ -4,7 +4,7 @@ author: unknownTokyo
 scriptings:
   - http_response:
       name: IP Check
-      match: ^https?://ipwho\.de
+      match: ^https?://ipwho.de
       script_url: https://raw.githubusercontent.com/unknowntokyo/surge-list/master/Egern/IP_Check.js
       update_interval: 86400
       timeout: 5
