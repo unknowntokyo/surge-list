@@ -9,10 +9,9 @@ try {
         "城市": obj.city_name
     };
 
-    const keyOrder = ["IP地址", "名称", "ASN", "国家代码", "城市"];
-
     $done({
-        body: JSON.stringify(myObj, keyOrder, 2)
+
+        body: JSON.stringify(myObj) 
     });
 } catch (e) {
     $done({ body: $response.body });
