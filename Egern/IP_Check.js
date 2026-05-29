@@ -4,7 +4,7 @@ try {
     let countryCode = codeMap[obj.country_code] || obj.country_code;
     const myObj = {
         "IP地址": obj.ip, 
-        "互联网服务提供商": "AS" + obj.asn + " " + obj.as_desc,
+        "ISP": "AS" + obj.asn + " " + obj.as_desc,
         "地区代码": countryCode,
         "城市": obj.city_name
     };
