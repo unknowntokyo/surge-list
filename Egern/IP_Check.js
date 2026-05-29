@@ -5,10 +5,14 @@ try {
     const myObj = {
         "IP地址": obj.ip, 
         "互联网服务提供商": "AS" + obj.asn + " " + obj.as_desc,
-        "国家代码": countryCode,
+        "地区代码": countryCode,
         "城市": obj.city_name
     };
 
+    if (!obj.city_name || obj.city_name.trim() === "") {
+        delete myObj["城市"];
+    }
+    
     $done({
 
         body: JSON.stringify(myObj) 
