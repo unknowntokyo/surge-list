@@ -7,7 +7,7 @@ author: unknownTokyo
 rules:
 - domain_suffix:
     match: ipwho.de
-    policy: {POLICY}
+    policy: POLICY
 scriptings:
 - http_response:
     name: IP Check
