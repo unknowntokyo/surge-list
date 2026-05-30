@@ -1,0 +1,17 @@
+name: "域名路由策略组配置 (a.com)"
+description: "将 a.com 的网络请求路由到指定的策略组。可通过修改模块参数动态覆盖默认策略组。"
+author: "Egern User"
+
+# 定义模块参数的默认值。Egern 会在解析时将配置中的变量进行文本替换。
+compat_arguments:
+  POLICY: "Select"
+
+# 模块参数说明，会在 Egern 模块设置页面展示给用户
+compat_arguments_desc: "请填写您想让 a.com 走的策略组名称（例如：Proxy、DIRECT、REJECT 或是您自定义的节点选择组名称）"
+
+# 规则配置
+rules:
+  - domain_suffix:
+      match: "baidu.com"
+      # 使用变量替换，Egern 解析时会自动将 {POLICY_GROUP} 替换为上方或用户配置的实际值
+      policy: "{POLICY}"
