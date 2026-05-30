@@ -8,7 +8,7 @@ function fetchFraudScore(ip, policy) {
       policy: policy
     }, (_, __, data) => {
       try {
-        resolve(JSON.parse(data).fraudScore);
+        resolve(JSON.parse(data).fraudScore ?? null);
       } catch {
         resolve(null); 
       }
