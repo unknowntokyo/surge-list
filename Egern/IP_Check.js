@@ -5,10 +5,10 @@ try {
 
     const myObj = {
         "IP": obj.ip,
-        ...(`AS${obj.asn} ${obj.as_desc}` ? { "组织": `AS${obj.asn} ${obj.as_desc}` } : {}), 
         "地区": countryCode,
         ...(obj.city_name ? { "城市": obj.city_name } : {}),
-        ...(obj.user_agent ? { "User-Agent": obj.user_agent } : {}),
+        "组织": `AS${obj.asn} ${obj.as_desc}`,
+        "用户代理": obj.user_agent
     };
 
     $done({
