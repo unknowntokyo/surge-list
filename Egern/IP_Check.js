@@ -10,7 +10,7 @@ try {
         "地区": countryCode,
         ...(cityName ? { "城市": cityName } : {}),
         "组织": `AS${obj.asn} ${obj.as_desc}`,
-        "用户代理": obj.user_agent
+        "User-Agent": obj.user_agent
     };
 
     $done({
