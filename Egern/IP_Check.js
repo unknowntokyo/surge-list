@@ -61,8 +61,8 @@ export default async function(ctx) {
         "IP": obj.ip,
         "地区": countryCode,
         "城市": obj.city_name,
-        "风险评级": riskTxt,
-        "组织": "AS" + obj.asn + " " + (obj.as_desc || "")
+        "组织": "AS" + obj.asn + " " + (obj.as_desc || ""),
+        "风险评级": riskTxt
     };
 
     if (!obj.city_name || obj.city_name.trim() === "") {
