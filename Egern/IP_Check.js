@@ -1,4 +1,4 @@
-    const codeMap = { HK: 'HKG', TW: 'TWN', SG: 'SGP', JP: 'JPN', KR: 'KOR', US: 'USA', NL: 'NED', DE: 'GER', UK: ' GBR', TR: 'TUR', FR: 'FRA' };
+    const codeMap = { HK: '🇭🇰 香港', TW: '🇼🇸 台湾', SG: '🇸🇬 新加坡', JP: '🇯🇵 日本', KR: '🇰🇷 韩国', US: '🇺🇸 美国', NL: '🇳🇱 荷兰', DE: '🇩🇪 德国', UK: '🇬🇧 英国', TR: '🇹🇷 土耳其', FR: '🇫🇷 法国' };
 try {
     const obj = JSON.parse($response.body);
     let countryCode = codeMap[obj.country_code] || obj.country_code;
