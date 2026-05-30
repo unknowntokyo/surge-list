@@ -56,7 +56,7 @@ function withTimeout(promise, ms, fallback) {
 function jp(s) { try { return JSON.parse(s); } catch (e) { return null; } }
 function ti(v) { const n = Number(v); return Number.isFinite(n) ? Math.round(n) : null; }
 
-// === 从 1.js 完美移植的 AI 检测逻辑 ===
+// === AI 检测逻辑 ===
 async function checkChatGPT() {
   try {
     const traceTxt = await get("https://chatgpt.com/cdn-cgi/trace", null, 5000);
@@ -117,7 +117,7 @@ async function checkClaude() {
   } catch (e) { return "Cross"; }
 }
 
-// === 从 1.js 完美移植的流媒体检测逻辑 ===
+// === 流媒体检测逻辑 ===
 async function checkYouTube() {
   try {
     const body = await get('https://www.youtube.com/premium', { "User-Agent": BASE_UA, "Accept-Language": "en" }, 8000);
@@ -171,22 +171,22 @@ async function checkTikTok() {
   } catch (e) { return "Cross"; }
 }
 
-// 统一格式化输出状态
+// 统一格式化状态显示
 function formatStatus(status) {
   if (status === "Cross") return "不可用";
   if (status === "Popcorn") return "仅自制剧";
   if (status === "CN") return "中国大陆";
   if (status === "OK") return "已解锁";
-  return status; // 返回具体的区域代码如：US, HK, SG 或风险状态
+  return status; 
 }
 
-// 主异步函数
+// 主异步入口
 async function main() {
   try {
     const obj = JSON.parse($response.body);
     let countryCode = codeMap[obj.country_code] || obj.country_code;
 
-    // 并发执行所有检测，单项超时保护设为 6000ms
+    // 并发执行检测
     const [gpt, gemini, claude, youtube, netflix, tiktok] = await Promise.all([
       withTimeout(checkChatGPT(), 6000, "Cross"),
       withTimeout(checkGemini(), 6000, "Cross"),
@@ -196,27 +196,34 @@ async function main() {
       withTimeout(checkTikTok(), 6000, "Cross")
     ]);
 
-    // 组合成新的 JSON 对象
+    // === 优化后的分类 JSON 输出结构 ===
     const myObj = {
-      "IP地址": obj.ip,
-      "地区": countryCode,
-      ...(obj.city_name ? { "城市": obj.city_name } : {}),
-      "服务提供商": `AS${obj.asn} ${obj.as_desc}`, 
-      "ChatGPT": formatStatus(gpt),
-      "Claude": formatStatus(claude),
-      "Gemini": formatStatus(gemini),
-      "YouTube": formatStatus(youtube),
-      "Netflix": formatStatus(netflix),
-      "TikTok": formatStatus(tiktok),
-      "用户代理": obj.user_agent
+      "IP信息": {
+        "IP地址": obj.ip,
+        "地区": countryCode,
+        ...(obj.city_name ? { "城市": obj.city_name } : {}),
+        "服务提供商": `AS${obj.asn} ${obj.as_desc}`
+      },
+      "AI工具解锁": {
+        "ChatGPT": formatStatus(gpt),
+        "Claude": formatStatus(claude),
+        "Gemini": formatStatus(gemini)
+      },
+      "流媒体解锁": {
+        "YouTube": formatStatus(youtube),
+        "Netflix": formatStatus(netflix),
+        "TikTok": formatStatus(tiktok)
+      },
+      "元数据": {
+        "用户代理": obj.user_agent
+      }
     };
 
-    $done({ body: JSON.stringify(myObj) });
+    // 使用 null, 2 保留换行和空格缩进美化输出
+    $done({ body: JSON.stringify(myObj, null, 2) });
   } catch (e) {
-    // 即使发生未知错误也保证能返回原有 body 不会卡死网络
     $done({ body: $response.body });
   }
 }
 
-// 启动执行
 main();
