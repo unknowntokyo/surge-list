@@ -10,7 +10,7 @@ compat_arguments_desc: "通过环境变量POLICY⁠定义ipwho.de⁠走的策略
 rules:
   - domain_suffix:
       match: "ipwho.de"
-      policy: "{POLICY}"
+      policy: "POLICY"
 
 scriptings:
   - http_response:
