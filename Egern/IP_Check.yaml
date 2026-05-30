@@ -5,7 +5,7 @@ author: unknownTokyo
 compat_arguments:
   POLICY: "DIRECT"
   
-compat_arguments_desc: "通过环境变量POLICY⁠定义ipwho.de⁠走的策略组。环境变量名称：POLICY，值：代理策略组名称，默认为DIRECT"
+compat_arguments_desc: "通过环境变量POLICY⁠定义ipwho.de⁠走的策略组。环境变量名称：POLICY，值：策略组名称，默认为DIRECT"
 
 rules:
   - domain_suffix:
