@@ -14,8 +14,9 @@ export default async function(ctx) {
 
   const risk = await new Promise((resolve) => {
     $httpClient.get({
-      url: 'https://my.ippure.com/v1/info?_t=${Date.now()}',
-      timeout: 4000,
+      // 【核心修复】单引号改为反引号 `，让时间戳真正生效。同时超时延长至 7000ms 抗抖动
+      url: `https://my.ippure.com/v1/info?_t=${Date.now()}`,
+      timeout: 7000,
       policy: ctx.env.policy || 'DIRECT'
     }, (error, response, data) => {
       resolve(JSON.parse(data || '{}').fraudScore);
