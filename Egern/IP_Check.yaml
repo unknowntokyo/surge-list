@@ -1,5 +1,5 @@
 name: IP Check
-description: 将http://ipwho.de/json返回的IP信息汉化
+description: 将http://ipwho.de/json返回的IP信息汉化，使用前请将IP信息URL设置为：http://ipwho.de/json
 author: unknownTokyo
 
 compat_arguments:
