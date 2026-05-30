@@ -1,3 +1,39 @@
+export default async function(ctx) {
+  const POLICY = ctx.env.policy || 'DIRECT';
+
+  let d = {};
+  try {
+    const res = await ctx.http.get('https://my.ippure.com/v1/info',
+{
+        timeout: 4000,
+        policy: POLICY
+      });      
+    d = JSON.parse(await res.text());
+  } catch (e) {}
+
+  const nativeText = d.isResidential === true ? "🏠 原生住宅" : (d.isResidential === false ? "🏢 商业机房" : "未知");
+
+  const risk = d.fraudScore;
+  let riskTxt = "获取失败", riskIc = "questionmark.shield.fill";
+  if (risk !== undefined) {
+    if (risk >= 80) {
+      riskTxt = `极高风险 (${risk})`;
+      riskIc = "xmark.shield.fill";
+    }
+    else if (risk >= 70) {
+      riskTxt = `高风险 (${risk})`;
+      riskIc = "exclamationmark.shield.fill";
+    }
+    else if (risk >= 40) {
+      riskTxt = `中等风险 (${risk})`;
+      riskIc = "exclamationmark.shield.fill";
+    }
+    else {
+      riskTxt = `纯净低危 (${risk})`;
+      riskIc = "checkmark.shield.fill";
+    }
+  }
+  
 try {
     const obj = JSON.parse($response.body);
     const codeMap = { HK: 'HKG', TW: 'TWN', SG: 'SGP', JP: 'JPN', KR: 'KOR', US: 'USA', NL: 'NED', DE: 'GER' };
@@ -6,8 +42,8 @@ try {
         "IP": obj.ip,
         "地区": countryCode,
         "城市": obj.city_name,
-        "风险评级": obj.city_name,
-        "组织": "AS" + obj.asn + " " + obj.as_desc 
+        "风险评级": riskIc + " " + riskTxt,
+        "组织": "AS" + obj.asn + " " + obj.as_desc
     };
 
     if (!obj.city_name || obj.city_name.trim() === "") {
