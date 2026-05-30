@@ -7,12 +7,25 @@ export default async function(ctx) {
         timeout: 4000,
         policy: POLICY
     });      
-    d = typeof res.body === 'object' ? res.body : JSON.parse(await res.text());
-  } catch (e) {}
+    
+    // Egern 兼容性处理：判断 body 是对象还是字符串
+    if (res.body) {
+      if (typeof res.body === 'object') {
+        d = res.body;
+      } else if (typeof res.body === 'string') {
+        d = JSON.parse(res.body);
+      }
+    }
+  } catch (e) {
+    // 即使出错也会在日志中打印，方便后续维护
+    console.log("IPPure API 请求失败: " + e);
+  }
 
   const risk = d.fraudScore;
   let riskTxt = "获取失败", riskIc = "questionmark.shield.fill";
-  if (risk !== undefined) {
+  
+  // 确保 risk 存在且是数字
+  if (risk !== undefined && risk !== null) {
     if (risk >= 80) {
       riskTxt = `极高风险 (${risk})`;
       riskIc = "xmark.shield.fill";
