@@ -6,7 +6,8 @@ try {
         "IP": obj.ip,
         "地区": countryCode,
         "城市": obj.city_name,
-        "组织": "AS" + obj.asn + " " + obj.as_desc 
+        "用户代理": obj.city_name,
+        "组织": "AS" + obj.asn + " " + obj.as_desc
     };
 
     if (!obj.city_name || obj.city_name.trim() === "") {
