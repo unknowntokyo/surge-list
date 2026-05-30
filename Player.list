@@ -1,3 +1,6 @@
+# > IP Check
+DOMAIN-SUFFIX,ipwho.de
+
 # > YouTube
 PROCESS-NAME,/Applications/MacUpdater.app/Contents/MacOS/MacUpdater
 USER-AGENT,*youtube*
