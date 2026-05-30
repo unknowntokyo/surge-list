@@ -12,7 +12,7 @@ try {
     };
 
     $done({
-        body: JSON.stringify(myObj) 
+        body: JSON.stringify(myObj)
     });
 } catch (e) {
     $done({ body: $response.body });
