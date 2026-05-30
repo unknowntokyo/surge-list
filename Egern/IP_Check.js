@@ -1,30 +1,41 @@
 export default async function(ctx) {
   const POLICY = ctx.env.policy || 'DIRECT';
 
-  let d = {};
-  try {
-    const res = await ctx.http.get('https://my.ippure.com/v1/info', {
+  // 1. 封装一个绝对可控的 Promise，确保拿到数据才往下走
+  const getFraudScore = () => {
+    return new Promise((resolve) => {
+      $httpClient.get({
+        url: 'https://my.ippure.com/v1/info',
         timeout: 4000,
         policy: POLICY
-    });      
-    
-    // Egern 兼容性处理：判断 body 是对象还是字符串
-    if (res.body) {
-      if (typeof res.body === 'object') {
-        d = res.body;
-      } else if (typeof res.body === 'string') {
-        d = JSON.parse(res.body);
-      }
-    }
-  } catch (e) {
-    // 即使出错也会在日志中打印，方便后续维护
-    console.log("IPPure API 请求失败: " + e);
-  }
+      }, (error, response, data) => {
+        if (error) {
+          console.log("IPPure 请求发生网络错误: " + error);
+          resolve(null);
+          return;
+        }
+        
+        try {
+          // 兼容处理：有些环境 data 是字符串，有些是对象
+          const resObj = typeof data === 'object' ? data : JSON.parse(data);
+          if (resObj && resObj.fraudScore !== undefined) {
+            resolve(resObj.fraudScore);
+          } else {
+            console.log("IPPure 返回数据中未找到 fraudScore 字段");
+            resolve(null);
+          }
+        } catch (e) {
+          console.log("解析 IPPure 返回体 JSON 失败: " + e);
+          resolve(null);
+        }
+      });
+    });
+  };
 
-  const risk = d.fraudScore;
-  let riskTxt = "获取失败", riskIc = "questionmark.shield.fill";
+  // 2. 严格等待异步结果
+  const risk = await getFraudScore();
   
-  // 确保 risk 存在且是数字
+  let riskTxt = "获取失败", riskIc = "questionmark.shield.fill";
   if (risk !== undefined && risk !== null) {
     if (risk >= 80) {
       riskTxt = `极高风险 (${risk})`;
@@ -44,6 +55,7 @@ export default async function(ctx) {
     }
   }
   
+  // 3. 处理原本的响应体
   try {
     const obj = JSON.parse($response.body);
     const codeMap = { HK: 'HKG', TW: 'TWN', SG: 'SGP', JP: 'JPN', KR: 'KOR', US: 'USA', NL: 'NED', DE: 'GER' };
@@ -65,6 +77,7 @@ export default async function(ctx) {
         body: JSON.stringify(myObj) 
     });
   } catch (e) {
+    console.log("解析原始响应体失败: " + e);
     $done({ body: $response.body });
   }
 }
