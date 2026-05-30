@@ -4,7 +4,7 @@ function fetchFraudScore(ip, policy) {
   return new Promise((resolve) => {
     $httpClient.get({
       url: `https://my.ippure.com/v1/info?ip=${ip}`, 
-      timeout: 3000, 
+      timeout: 2000, 
       policy: policy
     }, (_, __, data) => {
       try {
