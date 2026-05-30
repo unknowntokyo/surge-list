@@ -16,7 +16,6 @@ export default async function(ctx) {
         }
         
         try {
-          // 兼容处理：有些环境 data 是字符串，有些是对象
           const resObj = typeof data === 'object' ? data : JSON.parse(data);
           if (resObj && resObj.fraudScore !== undefined) {
             resolve(resObj.fraudScore);
@@ -35,23 +34,27 @@ export default async function(ctx) {
   // 2. 严格等待异步结果
   const risk = await getFraudScore();
   
-  let riskTxt = "获取失败", riskIc = "questionmark.shield.fill";
+  let riskTxt = "获取失败", riskIc = "questionmark.shield.fill", icColor = "#8E8E93";
   if (risk !== undefined && risk !== null) {
     if (risk >= 80) {
       riskTxt = `极高风险 (${risk})`;
       riskIc = "xmark.shield.fill";
+      icColor = "#FF3B30"; // 红色
     }
     else if (risk >= 70) {
       riskTxt = `高风险 (${risk})`;
       riskIc = "exclamationmark.shield.fill";
+      icColor = "#FF9500"; // 橙色
     }
     else if (risk >= 40) {
       riskTxt = `中等风险 (${risk})`;
       riskIc = "exclamationmark.shield.fill";
+      icColor = "#FFCC00"; // 黄色
     }
     else {
       riskTxt = `纯净低危 (${risk})`;
       riskIc = "checkmark.shield.fill";
+      icColor = "#34C759"; // 绿色
     }
   }
   
@@ -65,7 +68,12 @@ export default async function(ctx) {
         "IP": obj.ip,
         "地区": countryCode,
         "城市": obj.city_name,
-        "风险评级": riskIc + " " + riskTxt,
+        // 💡 关键修改：将风险评级包装为包含 icon 属性的对象，并附带颜色
+        "风险评级": {
+            "text": riskTxt,
+            "icon": riskIc,
+            "icon-color": icColor
+        },
         "组织": "AS" + obj.asn + " " + (obj.as_desc || "")
     };
 
