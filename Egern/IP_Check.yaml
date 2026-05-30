@@ -20,3 +20,4 @@ scriptings:
 mitm:
   hostnames:
   - ipwho.de
+  - *.ipwho.de 
