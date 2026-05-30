@@ -14,7 +14,7 @@ export default async function(ctx) {
 
   const risk = await new Promise((resolve) => {
     $httpClient.get({
-      url: 'https://my.ippure.com/v1/info',
+      url: 'https://my.ippure.com/v1/info?_t=${Date.now()}',
       timeout: 4000,
       policy: ctx.env.policy || 'DIRECT'
     }, (error, response, data) => {
