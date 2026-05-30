@@ -19,5 +19,6 @@ scriptings:
     binary_body: false
 mitm:
   hostnames:
-  - ipwho.de
-  - '*.ipwho.de'
+    includes:
+    - '*.ipwho.de'
+    - ipwho.de
