@@ -5,13 +5,13 @@ const codeMap = {
 };
 
 export default async function(ctx) {
+  // 依然保留这行：安全气囊，防止无响应体时崩溃
   if (!ctx.response || !ctx.response.body) return;
 
   try {
-    const isString = typeof ctx.response.body === 'string';
-    const obj = isString ? JSON.parse(ctx.response.body) : ctx.response.body;
+    // 既然确定是 String，直接解析
+    const obj = JSON.parse(ctx.response.body);
 
-    // 直接在对象内部提取属性，删除了不必要的中间临时变量，let 改为了 const
     const myObj = {
         "IP地址": obj.ip,
         "地区": codeMap[obj.country_code] || obj.country_code,
@@ -20,6 +20,7 @@ export default async function(ctx) {
         "客户端": obj.user_agent ? obj.user_agent.replace(/^egern/, 'Egern') : 'Egern'
     };
 
-    ctx.response.body = isString ? JSON.stringify(myObj) : myObj;
+    // 直接回写序列化后的字符串
+    ctx.response.body = JSON.stringify(myObj);
   } catch (e) {}
 }
