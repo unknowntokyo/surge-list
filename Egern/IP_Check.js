@@ -7,8 +7,8 @@ try {
         "IP地址": obj.ip,
         "地区": countryCode,
         ...(obj.city_name ? { "城市": obj.city_name } : {}),
-        "数据中心": `AS${obj.asn} ${obj.as_desc}`, 
-        "客户端": obj.user_agent.replace(/^egern/, 'Egern')
+        "服务提供商": `AS${obj.asn} ${obj.as_desc}`, 
+        "用户代理": obj.user_agent.replace(/^egern/, 'Egern')
     };
 
     $done({
