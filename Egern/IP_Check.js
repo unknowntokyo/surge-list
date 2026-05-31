@@ -14,7 +14,8 @@ export default async function(ctx) {
       "IP地址": obj.ip,
       "地区": codeMap[obj.country_code] || obj.country_code,
       ...(obj.city_name ? { "城市": obj.city_name } : {}),
-      "互联网服务提供商": `AS${obj.asn} ${obj.as_desc}`, 
+      "互联网服务提供商": `AS${obj.asn} ${obj.as_desc}`,
+      "UA": obj.user_agent.replace(/^egern/, 'Egern') 
       "客户端": obj.user_agent.replace(/^egern/, 'Egern')
     };
 
