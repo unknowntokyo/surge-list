@@ -19,7 +19,7 @@ export default async function(ctx) {
     await Promise.all(requests);
     speedMbps = `${(40000 / (Date.now() - startTime)).toFixed(1)} Mbps`;
   } catch (e) {
-    speedMbps = "测速失败 ⚠️";
+    speedMbps = "⚠️ 测速超时";
   }
 
   return {
