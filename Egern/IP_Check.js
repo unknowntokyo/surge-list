@@ -16,10 +16,19 @@ export default async function(ctx) {
         timeout: 5000 
       })
     );
-    await Promise.all(requests);
-    speedMbps = `${(48000 / (Date.now() - startTime)).toFixed(1)} Mbps`;
+
+    const outcomes = await Promise.allSettled(requests);
+    const successCount = outcomes.filter(o => o.status === 'fulfilled').length;
+    
+    if (successCount === 0) {
+      throw new Error("⚠️ 测速失败");
+    }
+ 
+    const duration = Date.now() - startTime;
+    speedMbps = `${((successCount * 16000) / duration).toFixed(1)} Mbps`;
+
   } catch (e) {
-    speedMbps = "⚠️ 测速超时";
+    speedMbps = "⚠️ 测速失败";
   }
 
   return {
