@@ -10,14 +10,14 @@ export default async function(ctx) {
  
   try {
     const startTime = Date.now();
-    const requests = Array(5).fill().map(() =>
-      ctx.http.get("https://speed.cloudflare.com/__down?bytes=1048576", {
+    const requests = Array(3).fill().map(() =>
+      ctx.http.get("https://speed.cloudflare.com/__down?bytes=2097152", {
         headers: { 'Cache-Control': 'no-cache' },
         timeout: 5000 
       })
     );
     await Promise.all(requests);
-    speedMbps = `${(40000 / (Date.now() - startTime)).toFixed(1)} Mbps`;
+    speedMbps = `${(48000 / (Date.now() - startTime)).toFixed(1)} Mbps`;
   } catch (e) {
     speedMbps = "⚠️ 测速超时";
   }
