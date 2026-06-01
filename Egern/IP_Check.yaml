@@ -5,9 +5,12 @@ compat_arguments:
 compat_arguments_desc: 通过模版参数POLICY⁠指定ipwho.de⁠走的策略组，默认为DIRECT，长按你指定的策略组下的节点来查看IP信息
 author: unknownTokyo
 rules:
+- domain:
+    match: speed.cloudflare.com
+    policy: "{POLICY}"
 - domain_suffix:
     match: ipwho.de
-    policy: "{POLICY}"
+    policy: "{POLICY}" 
 scriptings:
 - http_response:
     name: IP Check
