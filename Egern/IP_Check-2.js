@@ -6,11 +6,8 @@ export default async function(ctx) {
   let obj = {};
   let speedMbps = "测速失败 ⚠️";
 
-  try {
-    obj = await ctx.response.json() || {};
-  } catch (e) {}
+    obj = await ctx.response.json();
 
-  try {
     const startTime = Date.now();
     await ctx.http.get("https://speed.cloudflare.com/__down?bytes=5242880", {
       headers: { 'Cache-Control': 'no-cache' },
@@ -18,9 +15,6 @@ export default async function(ctx) {
     });
     // 🎯 优化：合并常数简化公式，减少浮点运算
     speedMbps = `${(40000 / (Date.now() - startTime)).toFixed(1)} Mbps`;
-  } catch(e) {
-    // 超时或失败均维持默认值
-  }
 
   return {
     body: {
