@@ -1,0 +1,24 @@
+name: IP Check
+description: IP信息汉化，使用前请将IP信息URL设置为：http://ipwho.de/json或https://4.ipwho.de/json（仅IPV4）
+compat_arguments:
+  POLICY: DIRECT
+compat_arguments_desc: 通过模版参数POLICY⁠指定ipwho.de⁠走的策略组，默认为DIRECT，长按你指定的策略组下的节点来查看IP信息
+author: unknownTokyo
+rules:
+- domain_suffix:
+    match: ipwho.de
+    policy: "{POLICY}"
+scriptings:
+- http_response:
+    name: IP Check
+    match: ^https?://(4\.)?ipwho\.de
+    script_url: https://raw.githubusercontent.com/unknowntokyo/surge-list/master/Egern/IP_Check-2.js
+    update_interval: 86400
+    timeout: 5
+    body_required: true
+    binary_body: false
+mitm:
+  hostnames:
+    includes:
+    - '*.ipwho.de'
+    - ipwho.de
