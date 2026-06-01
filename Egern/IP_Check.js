@@ -2,7 +2,7 @@ const codeMap = { HK: '🇭🇰 香港', TW: '🇼🇸 台湾', SG: '🇸🇬 �
 
 export default async function(ctx) {
   const obj = await ctx.response.json();
-  await ctx.http.get("https://speed.cloudflare.com/__down?bytes=0", { timeout: 800 });
+  await ctx.http.get("https://speed.cloudflare.com/__down?bytes=0", { timeout: 3000 });
  
   const startTime = Date.now();
 
