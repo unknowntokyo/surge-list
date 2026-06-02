@@ -5,37 +5,34 @@ export default async function(ctx) {
   try {
     await ctx.http.get("https://speed.cloudflare.com/__down?bytes=0", { timeout: 800 });
   } catch (e) {}
-  
+
   let speedMbps = "";
- 
+
   try {
-    // 🔥 改动 1：让每个 Promise 内部自己闭环记录成功所需的耗时
     const requests = Array(3).fill().map(async () => {
       const sTime = Date.now();
       await ctx.http.get("https://speed.cloudflare.com/__down?bytes=2097152", {
         headers: { 'Cache-Control': 'no-cache' },
-        timeout: 4000 
+        timeout: 4000
       });
-      return Date.now() - sTime; // 成功则返回单路耗时
+      return Date.now() - sTime;
     });
 
     const outcomes = await Promise.allSettled(requests);
-    
-    // 🔥 改动 2：筛选出所有成功连接的耗时数组
+
     const successfulDurations = outcomes
       .filter(o => o.status === 'fulfilled')
       .map(o => o.value);
 
     const successCount = successfulDurations.length;
-    
+
     if (successCount === 0) {
-      throw new Error("全部请求失败");
+      throw new Error("⚠️ 3路并发测速请求
+均失败");
     }
- 
-    // 🔥 改动 3：真正的多路并发总耗时，取决于【最后完工的那个成功连接】的时间
-    // 这样哪怕第3路超时死掉，分母也只会取前两路中较慢的那一个（比如220ms），网速依然精准！
+
     const effectiveDuration = Math.max(...successfulDurations);
-    
+
     speedMbps = `${((successCount * 16000) / effectiveDuration).toFixed(1)} Mbps`;
 
   } catch (e) {
