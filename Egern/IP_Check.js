@@ -11,7 +11,7 @@ export default async function(ctx) {
     const startTime = Date.now();
     await ctx.http.get(SPEED_TEST_URL, {
       headers: { 'Cache-Control': 'no-cache' },
-      timeout: 5000
+      timeout: 10000
     });
 
     const duration = (Date.now() - startTime) / 1000;
