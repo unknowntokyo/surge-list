@@ -11,7 +11,7 @@ export default async function(ctx) {
   try {
     const testRes = await ctx.http.get("https://speed.cloudflare.com/__down?bytes=0", {
       headers: { 'Cache-Control': 'no-cache' },
-      timeout: 2000
+      timeout: 1500
     });
 
     const statusCode = testRes?.status || testRes?.statusCode;
