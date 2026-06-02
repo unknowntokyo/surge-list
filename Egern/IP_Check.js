@@ -27,8 +27,7 @@ export default async function(ctx) {
     const successCount = successfulDurations.length;
 
     if (successCount === 0) {
-      throw new Error("⚠️ 3路并发测速请求
-均失败");
+      throw new Error("⚠️ 3路并发测速请求均失败");
     }
 
     const effectiveDuration = Math.max(...successfulDurations);
