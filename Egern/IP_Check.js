@@ -19,7 +19,7 @@ export default async function(ctx) {
       throw 1;
     }
  
-      const requests = Array.from({ length: 3 }, async () => {
+    const requests = Array.from({ length: 3 }, async () => {
       const sTime = Date.now();
       await ctx.http.get("https://speed.cloudflare.com/__down?bytes=2097152", {
         headers: { 'Cache-Control': 'no-cache' },
