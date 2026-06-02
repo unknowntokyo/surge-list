@@ -9,16 +9,6 @@ export default async function(ctx) {
   let speedMbps = "⚠️ 测速失败";
 
   try {
-    const testRes = await ctx.http.get("https://speed.cloudflare.com/__down?bytes=0", {
-      headers: { 'Cache-Control': 'no-cache' },
-      timeout: 1500
-    });
-
-    const statusCode = testRes?.status || testRes?.statusCode;
-    if (statusCode !== 200) {
-      throw 1;
-    }
- 
     const requests = Array.from({ length: 3 }, async () => {
       const sTime = Date.now();
       await ctx.http.get("https://speed.cloudflare.com/__down?bytes=2097152", {
