@@ -13,7 +13,7 @@ export default async function(ctx) {
       const sTime = Date.now();
       await ctx.http.get("https://speed.cloudflare.com/__down?bytes=2097152", {
         headers: { 'Cache-Control': 'no-cache' },
-        timeout: 5000
+        timeout: 10000
       });
       return Date.now() - sTime;
     });
