@@ -7,12 +7,8 @@ export default async function(ctx) {
   } catch (e) {
     obj = {};
   }
- 
-  try {
-    await ctx.http.get("https://speed.cloudflare.com/__down?bytes=0", { timeout: 800 });
-  } catch (e) {}
 
-  let speedMbps = "";
+  let speedMbps = "⚠️ 测速失败";
 
   try {
     const requests = Array(3).fill().map(async () => {
@@ -39,10 +35,7 @@ export default async function(ctx) {
     const effectiveDuration = Math.max(...successfulDurations) || 1;
 
     speedMbps = `${((successCount * 16777.2) / effectiveDuration).toFixed(1)} Mbps`;
-
-  } catch (e) {
-    speedMbps = "⚠️ 测速失败";
-  }
+  } catch (e) {}
 
   return {
     body: {
