@@ -6,7 +6,7 @@
 
   export default async function(ctx) {
     const POLICY = ctx.env.policy || 'DIRECT'; 
-    const MB = 5;
+    const MB = 4;
     const BYTES = MB * 1024 * 1024;
     const SPEED_TEST_URL = `https://speed.cloudflare.com/__down?bytes=${BYTES}`;
     const CACHE_KEY = `netspeed_cache_${POLICY}`;
