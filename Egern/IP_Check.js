@@ -19,7 +19,7 @@ export default async function(ctx) {
       throw 1;
     }
  
-    const requests = Array(3).fill().map(async () => {
+      const requests = Array.from({ length: 3 }, async () => {
       const sTime = Date.now();
       await ctx.http.get("https://speed.cloudflare.com/__down?bytes=2097152", {
         headers: { 'Cache-Control': 'no-cache' },
@@ -42,7 +42,7 @@ export default async function(ctx) {
 
     const effectiveDuration = Math.max(...successfulDurations, 1);
 
-    speedMbps = `${((successCount * 16777.2) / effectiveDuration).toFixed(1)} Mbps`;
+    speedMbps = `${((successCount * 16777.216) / effectiveDuration).toFixed(1)} Mbps`;
   } catch (e) {}
 
   return {
