@@ -31,7 +31,7 @@ export default async function(ctx) {
   try {
     const res = await ctx.http.get('https://my.ippure.com/v1/info',
 {
-        timeout: 3000,
+        timeout: 4000,
         policy: POLICY
       });      
     d = JSON.parse(await res.text());
