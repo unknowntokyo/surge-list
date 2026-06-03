@@ -18,7 +18,7 @@ function maskIP(ip) {
 }
 export default async function(ctx) {
   const POLICY = ctx.env.policy || 'DIRECT';
-  const MarkIP = ctx.env.markip || 'false'; 
+  const MarkIP = ctx.env.markip === 'true';
   const BG_COLOR = { light: '#FFFFFF', dark: '#2C2C2E' };
   const C_TITLE = { light: '#1A1A1A', dark: '#FFD700' };
   const C_SUB   = { light: '#666666', dark: '#B0B0B0' };
@@ -31,7 +31,7 @@ export default async function(ctx) {
   try {
     const res = await ctx.http.get('https://my.ippure.com/v1/info',
 {
-        timeout: 4000,
+        timeout: 5000,
         policy: POLICY
       });      
     d = JSON.parse(await res.text());
