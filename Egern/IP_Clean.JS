@@ -42,8 +42,8 @@ export default async function(ctx) {
         timeout: 5000,
         policy: POLICY
       });      
-    if (res && res.body) {
-      d = JSON.parse(res.body);
+    if (res) {
+      d = await res.json();
     }
   } catch (e) {}
 
