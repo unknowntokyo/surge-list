@@ -35,11 +35,16 @@ export default async function(ctx) {
   try {
     const res = await ctx.http.get('https://my.ippure.com/v1/info',
 {
-        headers: { 'Cache-Control': 'no-cache' },
+        headers: { 
+          'Cache-Control': 'no-cache',
+          'Connection': 'close'
+        },
         timeout: 5000,
         policy: POLICY
       });      
-    d = JSON.parse(await res.text());
+    if (res && res.body) {
+      d = JSON.parse(res.body);
+    }
   } catch (e) {}
 
   const ip = d.ip || "获取失败";
@@ -51,7 +56,7 @@ export default async function(ctx) {
   let code = (d.countryCode || "").toUpperCase();
   if (code === 'TW') code = 'WS';
   
-  const flag = code ? String.fromCodePoint(...code.toUpperCase().split('').map(c => 127397 + c.charCodeAt())) : "🌐";
+  const flag = code ? String.fromCodePoint(...code.split('').map(c => 127397 + c.charCodeAt())) : "🌐";
   
   let loc = "获取失败"; 
   if (d.country || d.city) {
@@ -114,7 +119,6 @@ export default async function(ctx) {
         children: [
           { type: 'image', src: 'sf-symbol:shield.lefthalf.filled', color: C_TITLE, width: 18, height: 18 },
           { type: 'text', text: 'IP 纯净度', font: { size: 16, weight: 'heavy' }, textColor: C_TITLE },
-          { type: 'spacer' }, 
         ]
       },
       {
