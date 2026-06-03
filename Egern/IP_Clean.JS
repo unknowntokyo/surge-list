@@ -54,10 +54,8 @@ export default async function(ctx) {
   
   let loc = "获取失败"; 
   if (d.country || d.city) {
-    const countryText = d.country || "";
-    const cityText = d.city || "";
-    loc = countryText === cityText ? `${flag} ${cityText}` : `${flag} ${countryText} ${cityText}`;
-    loc = loc.trim();
+    loc = `${flag} ${d.country || ""} ${d.city || ""}`.replace(/\s+/g, ' ').trim();
+    if (d.country === d.city) loc = `${flag} ${d.city || ""}`.trim();
   }
 
   const nativeText = d.isResidential === true ? "🏠 原生住宅" : (d.isResidential === false ? "🏢 商业机房" : "获取失败");
