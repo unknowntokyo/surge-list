@@ -13,6 +13,12 @@ function maskIP(ip) {
     const p = ip.split('.');
     return `${p[0]}.${p[1]}.*.*`;
   }
+ 
+  // IPv6 脱敏
+  if (ip.includes(':')) {
+    const p6 = ip.split(':');
+    return `${p6[0]}:${p6[1]}:*:*:*:*:*:*`;
+  }
   return ip;
 }
 export default async function(ctx) {
