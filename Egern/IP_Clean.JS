@@ -8,12 +8,12 @@
 function maskIP(ip) {
   if (!ip || ip.includes('失败')) return ip;
   
-  // IPv4
+  // IPv4 脱敏
   if (ip.includes('.')) {
     const p = ip.split('.');
     return `${p[0]}.${p[1]}.*.*`;
   }
-  // IPv6
+  // IPv6 脱敏
   if (ip.includes(':')) {
     const p6 = ip.split(':');
     return `${p6[0]}:${p6[1]}:*:*:*:*:*:*`;
@@ -43,20 +43,18 @@ export default async function(ctx) {
 
   const ip = d.ip || "获取失败";
   const ipLabel = ip.includes(':') ? "IPv6" : "IPv4";
-  const showIP = MarkIP ? maskIP(ip) : ip
-  const asn = d.asn ? `AS${d.asn} ${d.asOrganization || ""}`.trim() : "未知";
+  const showIP = MarkIP ? maskIP(ip) : ip;
+  const asn = d.asn ? `AS${d.asn} ${d.asOrganization || ""}`.trim() : "获取失败";
 
   let code = d.countryCode || "";
-  if (code.toUpperCase() === 'TW') code = 'CN';
+  if (code.toUpperCase() === 'TW') code = 'WS';
   const flag = code ? String.fromCodePoint(...code.toUpperCase().split('').map(c => 127397 + c.charCodeAt())) : "🌐";
   let loc = "";
-  if (d.country !== d.city) {
-    loc = `${flag} ${d.country || ""} ${d.city || ""}`.trim() || "未知位置";
+  if (d && (country || city)) {
+    loc = country === city ? `${flag} ${city}` : `${flag} ${country} ${city}`;
+    loc = loc.trim();
   }
-  else {
-    loc = `${flag} ${d.city || ""}`.trim() || "未知位置";
-  }
-  const nativeText = d.isResidential === true ? "🏠 原生住宅" : (d.isResidential === false ? "🏢 商业机房" : "未知");
+  const nativeText = d.isResidential === true ? "🏠 原生住宅" : (d.isResidential === false ? "🏢 商业机房" : "获取失败");
 
   const risk = d.fraudScore;
   let riskTxt = "获取失败", riskCol = C_SUB, riskIc = "questionmark.shield.fill";
