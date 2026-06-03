@@ -6,15 +6,19 @@
  * 🔗 作者: https://raw.githubusercontent.com/IBL3ND/module/main/IP_Clean.JS
  */
 function maskIP(ip) {
-  if (!ip) return ''
+  if (!ip || ip.includes('失败')) return ip;
+  
   // IPv4
   if (ip.includes('.')) {
-    const p = ip.split('.')
-    return `${p[0]}.${p[1]}.*.*`
+    const p = ip.split('.');
+    return `${p[0]}.${p[1]}.*.*`;
   }
   // IPv6
-  const p6 = ip.split(':')
-  return `${p6[0]}:${p6[1]}:*:*:*:*:*:*`
+  if (ip.includes(':')) {
+    const p6 = ip.split(':');
+    return `${p6[0]}:${p6[1]}:*:*:*:*:*:*`;
+  }
+  return ip;
 }
 export default async function(ctx) {
   const POLICY = ctx.env.policy || 'DIRECT';
