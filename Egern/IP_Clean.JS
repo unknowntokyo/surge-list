@@ -42,9 +42,7 @@ export default async function(ctx) {
         timeout: 5000,
         policy: POLICY
       });      
-    if (res) {
-      d = await res.json();
-    }
+    d = JSON.parse(await res.text());
   } catch (e) {}
 
   const ip = d.ip || "获取失败";
