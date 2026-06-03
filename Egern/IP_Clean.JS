@@ -42,23 +42,30 @@ export default async function(ctx) {
   } catch (e) {}
 
   const ip = d.ip || "获取失败";
-  const ipLabel = ip.includes(':') ? "IPv6" : "IPv4";
+  const ipLabel = ip === "获取失败" ? "IP" : (ip.includes(':') ? "IPv6" : "IPv4");
   const showIP = MarkIP ? maskIP(ip) : ip;
+
   const asn = d.asn ? `AS${d.asn} ${d.asOrganization || ""}`.trim() : "获取失败";
 
-  let code = d.countryCode || "";
-  if (code.toUpperCase() === 'TW') code = 'WS';
+  let code = (d.countryCode || "").toUpperCase();
+  if (code === 'TW') code = 'WS';
+  
   const flag = code ? String.fromCodePoint(...code.toUpperCase().split('').map(c => 127397 + c.charCodeAt())) : "🌐";
-  let loc = "";
-  if (d && (country || city)) {
-    loc = country === city ? `${flag} ${city}` : `${flag} ${country} ${city}`;
+  
+  let loc = "获取失败"; 
+  if (d.country || d.city) {
+    const countryText = d.country || "";
+    const cityText = d.city || "";
+    loc = countryText === cityText ? `${flag} ${cityText}` : `${flag} ${countryText} ${cityText}`;
     loc = loc.trim();
   }
+
   const nativeText = d.isResidential === true ? "🏠 原生住宅" : (d.isResidential === false ? "🏢 商业机房" : "获取失败");
 
   const risk = d.fraudScore;
   let riskTxt = "获取失败", riskCol = C_SUB, riskIc = "questionmark.shield.fill";
-  if (risk !== undefined) {
+  
+  if (risk !== undefined && risk !== null) {
     if (risk >= 80) { 
       riskTxt = `极高风险 (${risk})`; 
       riskCol = { light: '#FF3B30', dark: '#FF3B30' }; 
@@ -108,7 +115,6 @@ export default async function(ctx) {
         children: [
           { type: 'image', src: 'sf-symbol:shield.lefthalf.filled', color: C_TITLE, width: 18, height: 18 },
           { type: 'text', text: 'IP 纯净度', font: { size: 16, weight: 'heavy' }, textColor: C_TITLE },
-          { type: 'spacer' },
         ]
       },
       {
