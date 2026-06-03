@@ -35,6 +35,7 @@ export default async function(ctx) {
   try {
     const res = await ctx.http.get('https://my.ippure.com/v1/info',
 {
+        headers: { 'Cache-Control': 'no-cache' },
         timeout: 5000,
         policy: POLICY
       });      
