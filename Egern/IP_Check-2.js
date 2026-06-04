@@ -9,7 +9,7 @@ export default async function(ctx) {
   const startTime = performance.now();
   const speedPromise = ctx.http.get(SPEED_TEST_URL, {
     headers: { 'Cache-Control': 'no-cache' },
-    timeout: 3000
+    timeout: 5000
   }).then(async (resp) => {
     try {
       await resp.arrayBuffer();
@@ -21,7 +21,7 @@ export default async function(ctx) {
     }
   }).catch(() => {
   });
-  const timeoutUpperLimit = new Promise((resolve) => setTimeout(resolve, 3000));
+  const timeoutUpperLimit = new Promise((resolve) => setTimeout(resolve, 5000));
 
   const obj = await ipwhoPromise;
   await Promise.race([speedPromise, timeoutUpperLimit]);
