@@ -4,7 +4,7 @@ export default async function(ctx) {
   const MB = 4;
   const BYTES = MB * 1024 * 1024;
   const SPEED_TEST_URL = `https://speed.cloudflare.com/__down?bytes=${BYTES}`;
-  const ipwhoPromise = ctx.response.json();
+  const ipwhoPromise = ctx.response.json().catch(() => ({}));
   let speedMbps = "⚠️ 测速失败";
   const startTime = performance.now();
   const speedPromise = ctx.http.get(SPEED_TEST_URL, {
@@ -21,13 +21,12 @@ export default async function(ctx) {
     }
   }).catch(() => {
   });
+  const timeoutUpperLimit = new Promise((resolve) => setTimeout(resolve, 1800));
+
   const obj = await ipwhoPromise;
-  await speedPromise;
+  await Promise.race([speedPromise, timeoutUpperLimit]);
  
   return {
-    headers: {
-      "Content-Type": "application/json"
-    },
     body: {
       "IP地址": obj.ip || "未知",
       "地区": codeMap[obj.country_code] || obj.country_code || "未知",
