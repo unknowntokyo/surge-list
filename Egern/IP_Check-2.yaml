@@ -17,7 +17,7 @@ scriptings:
     match: ^https?://(4\.)?ipwho\.de
     script_url: https://raw.githubusercontent.com/unknowntokyo/surge-list/master/Egern/IP_Check-2.js
     update_interval: 86400
-    timeout: 7
+    timeout: 30
     body_required: true
     binary_body: false
 mitm:
