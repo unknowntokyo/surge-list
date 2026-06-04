@@ -4,36 +4,47 @@ export default async function(ctx) {
   const MB = 4;
   const BYTES = MB * 1024 * 1024;
   const SPEED_TEST_URL = `https://speed.cloudflare.com/__down?bytes=${BYTES}`;
-  const ipwhoPromise = ctx.response.json().catch(() => ({}));
   let speedMbps = "⚠️ 测速失败";
   const startTime = performance.now();
-  const speedPromise = ctx.http.get(SPEED_TEST_URL, {
-    headers: { 'Cache-Control': 'no-cache' },
-    timeout: 4000
-  }).then(async (resp) => {
+
+  const ipwhoPromise = (async () => {
     try {
+      if (!ctx.response || !ctx.response.json) return {};
+      return await ctx.response.json();
+    } catch (e) {
+      console.error("IP信息获取失败:", e);
+      return {};
+    }
+  })();
+
+  const speedPromise = (async () => {
+    try {
+      const resp = await ctx.http.get(SPEED_TEST_URL, {
+        headers: { 'Cache-Control': 'no-cache' },
+        timeout: 4000
+      });
       await resp.arrayBuffer();
       const duration = (performance.now() - startTime) / 1000;
       if (duration > 0.1) {
-        speedMbps = `${((BYTES * 8) / (duration * 1000000)).toFixed(1)} Mbps`;
+        speedMbps = `${((BYTES * 8) / (duration * 1_000_000)).toFixed(1)} Mbps`;
       }
-    } catch {
+    } catch (e) {
+      console.error("测速失败:", e);
     }
-  }).catch(() => {
-  });
-  const timeoutUpperLimit = new Promise((resolve) => setTimeout(resolve, 4500));
+  })();
 
-  const obj = await ipwhoPromise;
-  await Promise.race([speedPromise, timeoutUpperLimit]);
+  const timeoutPromise = new Promise(resolve => setTimeout(resolve, 4500));
+
+  const [ipInfo] = await Promise.all([ipwhoPromise, Promise.race([speedPromise, timeoutPromise])]);
  
   return {
     body: {
-      "IP地址": obj.ip || "未知",
-      "地区": codeMap[obj.country_code] || obj.country_code || "未知",
-      ...(obj.city_name ? { "城市": obj.city_name } : {}),
-      "互联网服务提供商": obj.asn ? `AS${obj.asn} ${obj.as_desc || ''}` : "未知",
+      "IP地址": ipInfo.ip || "未知",
+      "地区": codeMap[ipInfo.country_code] || ipInfo.country_code || "未知",
+      ...(ipInfo.city_name ? { "城市": ipInfo.city_name } : {}),
+      "互联网服务提供商": ipInfo.asn ? `AS${ipInfo.asn} ${ipInfo.as_desc || ''}` : "未知",
       "下载带宽": speedMbps,
-      "客户端": obj.user_agent ? obj.user_agent.replace(/^egern/i, 'Egern') : "Egern"
+      "客户端": ipInfo.user_agent ? ipInfo.user_agent.replace(/^egern/i, 'Egern') : "Egern"
     } 
   };
 }
