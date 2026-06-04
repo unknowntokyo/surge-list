@@ -56,7 +56,7 @@ export default async function (ctx) {
 
   const springDateStr   = getStr("SPRING_BREAK_DATE");
   const autumnDateStr   = getStr("AUTUMN_BREAK_DATE");
-  const qingmingDateStr = getStr("QINGMING_DATE", "4/4");
+  const qingmingDateStr = getStr("QINGMING_DATE", "");
 
   const pinnedHolidays = getStr("PINNED_HOLIDAY").split(",").map(s => s.trim()).filter(Boolean);
 
@@ -109,7 +109,7 @@ export default async function (ctx) {
 
   const nextFinanceDate = (nth, dow) => {
     let d = getFinanceDate(Y, M - 1, nth, dow);
-    if (todayMs > d) {
+    if (todayMs > d || (todayMs === d && currentHour >= 15)) {
       const nextMonthIdx = M === 12 ? 0 : M;
       const nextYear     = M === 12 ? Y + 1 : Y;
       d = getFinanceDate(nextYear, nextMonthIdx, nth, dow);
@@ -317,7 +317,7 @@ export default async function (ctx) {
           mkIcon(idx === 0 ? iconName : "circle.fill", idx === 0 ? color : C.transparent, config.icz),
           mkText(idx === 0 ? label : " ", config.fz, "heavy", idx === 0 ? color : C.transparent)
         ]},
-        mkText(lineStr, config.fz, "medium", isAlert && /(交割|行权) [1-3]天/.test(lineStr) ? C.red : C.sub, { flex: 1, maxLines: 1 })
+        mkText(lineStr, config.fz, "medium", isAlert && (/今日 (交割|行权)/.test(lineStr) || /(交割|行权) [1-3]天/.test(lineStr)) ? C.red : C.sub, { flex: 1, maxLines: 1 })
       ]
     }));
   };
