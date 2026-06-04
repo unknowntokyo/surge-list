@@ -24,14 +24,12 @@ export default async function(ctx) {
   const obj = await ipwhoPromise;
   await speedPromise;
  
-  return {
-    body: {
+  ctx.response.body = {
       "IP地址": obj.ip || "未知",
       "地区": codeMap[obj.country_code] || obj.country_code || "未知",
       ...(obj.city_name ? { "城市": obj.city_name } : {}),
       "互联网服务提供商": obj.asn ? `AS${obj.asn} ${obj.as_desc || ''}` : "未知",
       "下载带宽": speedMbps,
       "客户端": obj.user_agent ? obj.user_agent.replace(/^egern/i, 'Egern') : "Egern"
-    }
   };
 }
