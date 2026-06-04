@@ -398,7 +398,7 @@ export default async function (ctx) {
 
 rightHeaderElements.push(mkIcon("tortoise", C.blue2, layoutConfig.topFz * 1.5));
 
-rightHeaderElements.push(mkText(randomNoticeText, layoutConfig.topFz, "medium", C.green))
+rightHeaderElements.push(mkText(randomNoticeText, layoutConfig.topFz, "medium", C.green));
   }
   if (stickyText) {
     if (todayNoticeText) rightHeaderElements.push(mkText(" ｜ ", layoutConfig.topFz, "bold", C.red));
