@@ -21,7 +21,7 @@ export default async function(ctx) {
     }
   }).catch(() => {
   });
-  const timeoutUpperLimit = new Promise((resolve) => setTimeout(resolve, 1800));
+  const timeoutUpperLimit = new Promise((resolve) => setTimeout(resolve, 3000));
 
   const obj = await ipwhoPromise;
   await Promise.race([speedPromise, timeoutUpperLimit]);
