@@ -9,11 +9,15 @@ export default async function(ctx) {
   const startTime = performance.now();
   const speedPromise = ctx.http.get(SPEED_TEST_URL, {
     headers: { 'Cache-Control': 'no-cache' },
-    timeout: 4000 
-  }).then(() => {
-    const duration = (performance.now() - startTime) / 1000;
-    if (duration > 0.1) {
-      speedMbps = `${((BYTES * 8) / (duration * 1000000)).toFixed(1)} Mbps`;
+    timeout: 4000
+  }).then(async (resp) => {
+    try {
+      await resp.arrayBuffer();
+      const duration = (performance.now() - startTime) / 1000;
+      if (duration > 0.1) {
+        speedMbps = `${((BYTES * 8) / (duration * 1000000)).toFixed(1)} Mbps`;
+      }
+    } catch {
     }
   }).catch(() => {
   });
