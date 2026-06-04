@@ -9,7 +9,7 @@ export default async function(ctx) {
   const startTime = performance.now();
   const speedPromise = ctx.http.get(SPEED_TEST_URL, {
     headers: { 'Cache-Control': 'no-cache' },
-    timeout: 15000
+    timeout: 3000
   }).then(async (resp) => {
     try {
       await resp.arrayBuffer();
