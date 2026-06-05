@@ -58,6 +58,7 @@ const cityMap = {
   'hitachinaka': '常陆那珂',
   'sendai': '仙台',
   'akita': '秋田',
+  'toyosu': '丰洲', 
 
   // 韩国
   'seoul': '首尔',
@@ -70,6 +71,7 @@ const cityMap = {
   'gwangju': '光州',
   'jeju': '济州',
   'seongnam': '城南',
+  'chuncheon': '春川',
 
   // 新加坡 & 马来西亚
   'singapore': '新加坡',
