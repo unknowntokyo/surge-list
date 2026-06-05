@@ -3,6 +3,7 @@ DOMAIN-SUFFIX,ip-api.com
 DOMAIN-SUFFIX,iplocate.io
 DOMAIN-SUFFIX,ippure.com
 DOMAIN-SUFFIX,ipwho.de
+DOMAIN-SUFFIX,ipwho.is
 
 # > YouTube
 PROCESS-NAME,/Applications/MacUpdater.app/Contents/MacOS/MacUpdater
