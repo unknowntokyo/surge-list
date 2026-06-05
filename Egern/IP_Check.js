@@ -4,7 +4,7 @@ export default async function(ctx) {
   const MB = 4;
   const BYTES = MB * 1024 * 1024;
   const SPEED_TEST_URL = `https://speed.cloudflare.com/__down?bytes=${BYTES}`;
-  let speedMbps = '⚠️ 测速失败';
+  let speedMbps = '⚠️ 测速超时';
 
   const ipwhoPromise = (ctx.response?.json) 
     ? ctx.response.json().catch(() => ({})) 
@@ -23,6 +23,7 @@ export default async function(ctx) {
         speedMbps = `${((BYTES * 8) / (duration * 1_000_000)).toFixed(1)} Mbps`;
       }
     } catch (e) {
+      speedMbps = '❌ 测速失败';
     }
   })();
 
