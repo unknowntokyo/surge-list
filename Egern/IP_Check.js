@@ -3,7 +3,7 @@ const codeMap = { HK: '🇭🇰 香港', TW: '🇼🇸 台湾', SG: '🇸🇬 �
 async function translateCity(text, ctx) {
   if (!text) return '';
   try {
-    const url = `https://translate.googleapis.com/translate_a/single?client=tw-ob&sl=en&tl=zh-CN&dt=t&q=${encodeURIComponent(text)}`;
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=zh-CN&dt=t&q=${encodeURIComponent(text)}`;
     const res = await ctx.http.get(url, { timeout: 2000 });
 
     const json = await res.json(); 
