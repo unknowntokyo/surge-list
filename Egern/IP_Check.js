@@ -24,7 +24,7 @@ export default async function(ctx) {
       });
       await resp.arrayBuffer();
       const duration = (performance.now() - startTime) / 1000;
-      if (duration > 0.1) {
+      if (duration > 0.05) {
         speedMbps = `${((BYTES * 8) / (duration * 1_000_000)).toFixed(1)} Mbps`;
       }
     } catch (e) {
