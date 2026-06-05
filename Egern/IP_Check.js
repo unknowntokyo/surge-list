@@ -4,20 +4,15 @@ export default async function(ctx) {
   const MB = 4;
   const BYTES = MB * 1024 * 1024;
   const SPEED_TEST_URL = `https://speed.cloudflare.com/__down?bytes=${BYTES}`;
-  let speedMbps = "⚠️ 测速失败";
-  const startTime = performance.now();
+  let speedMbps = '⚠️ 测速失败';
 
-  const ipwhoPromise = (async () => {
-    try {
-      if (!ctx.response || !ctx.response.json) return {};
-      return await ctx.response.json();
-    } catch (e) {
-      return {};
-    }
-  })();
+  const ipwhoPromise = (ctx.response?.json) 
+    ? ctx.response.json().catch(() => ({})) 
+    : Promise.resolve({});
 
   const speedPromise = (async () => {
     try {
+      const startTime = performance.now();
       const resp = await ctx.http.get(SPEED_TEST_URL, {
         headers: { 'Cache-Control': 'no-cache' },
         timeout: 4000
@@ -31,18 +26,21 @@ export default async function(ctx) {
     }
   })();
 
-  const timeoutPromise = new Promise(resolve => setTimeout(resolve, 4500));
+  //const timeoutPromise = new Promise(resolve => setTimeout(resolve, 4500));
 
-  const [ipInfo] = await Promise.all([ipwhoPromise, Promise.race([speedPromise, timeoutPromise])]);
+  const [ipInfo] = await Promise.all([
+    ipwhoPromise, 
+    Promise.race([speedPromise, timeoutPromise])
+  ]);
  
   return {
     body: {
-      "IP地址": ipInfo.ip || "未知",
-      "地区": codeMap[ipInfo.country_code] || ipInfo.country_code || "未知",
-      ...(ipInfo.city_name ? { "城市": ipInfo.city_name } : {}),
-      "互联网服务提供商": ipInfo.asn ? `AS${ipInfo.asn} ${ipInfo.as_desc || ''}` : "未知",
-      "下载带宽": speedMbps,
-      "客户端": ipInfo.user_agent ? ipInfo.user_agent.replace(/^egern/i, 'Egern') : "Egern"
-    } 
+      'IP地址': ipInfo.ip || '未知',
+      '地区': codeMap[ipInfo.country_code] || ipInfo.country_code || '未知',
+      ...(ipInfo.city_name ? { '城市': ipInfo.city_name } : {}),
+      '互联网服务提供商': ipInfo.asn ? `AS${ipInfo.asn} ${ipInfo.as_desc || ''}` : '未知',
+      '下载带宽': speedMbps,
+      '客户端': ipInfo.user_agent ? ipInfo.user_agent.replace(/^egern/i, 'Egern') : 'Egern'
+    }
   };
 }
