@@ -166,6 +166,7 @@ const cityMap = {
 
   // 欧洲
   'london': '伦敦',
+  'swindon': '斯温顿', 
   'slough': '斯劳',
   'manchester': '曼彻斯特',
   'brussels': '布鲁塞尔',
@@ -208,7 +209,11 @@ const cityMap = {
   'maidenhead': '梅登黑德',
   'woking': '沃金',
   'falkenstein': '法尔肯施泰因',
-  'nuremberg': '纽伦堡', 
+  'nuremberg': '纽伦堡',
+  'chisinau': '基希讷乌',
+  'budapest': '布达佩斯',
+  'frankfurt am main': '法兰克福',
+  'utrecht': '乌德勒支',
 
   // 中东 & 土耳其
   'riyadh': '利雅得',
@@ -223,9 +228,12 @@ const cityMap = {
   'ankara': '安卡拉',
   'izmir': '伊兹密尔',
   'tel aviv': '特拉维夫',
+  'rawalpindi': '拉瓦尔品第',
+  'petah tikva': '佩塔提克瓦', 
 
   // 巴西
   'sao paulo': '圣保罗',
+  'são paulo': '圣保罗', 
 
   // 澳大利亚 & 新西兰
   'sydney': '悉尼',
@@ -249,8 +257,9 @@ const cityMap = {
   'moscow': '莫斯科',
   'saint petersburg': '圣彼得堡',
 
-  // 南非
+  // 非洲
   'johannesburg': '约翰内斯堡',
+  'lagos': '拉各斯',
   'cape town': '开普敦'
 };
 
