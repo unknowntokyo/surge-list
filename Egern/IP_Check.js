@@ -12,8 +12,6 @@ export default async function(ctx) {
       if (!ctx.response || !ctx.response.json) return {};
       return await ctx.response.json();
     } catch (e) {
-      ctx.log(`⚠️ IP信息获取失败: ${e}`);
-      console.log(e);
       return {};
     }
   })();
@@ -30,8 +28,6 @@ export default async function(ctx) {
         speedMbps = `${((BYTES * 8) / (duration * 1_000_000)).toFixed(1)} Mbps`;
       }
     } catch (e) {
-      ctx.log(`⚠️ 测速失败: ${e}`);
-      console.log(e);
     }
   })();
 
