@@ -1,7 +1,7 @@
 if ($response.statusCode !== 200) $done(null);
 let obj = JSON.parse($response.body);
 let ip = obj.ip;
-let city = obj.city_name || 'unknown';
+let city = obj.city_name || '未知';
 let asn = 'AS' + obj.asn;
 let asName = obj.as_desc;
 // 一次正则遍历完成所有字符替换：移除括号内容，并将逗号替换为空格、删除点号
