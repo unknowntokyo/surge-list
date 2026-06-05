@@ -1,5 +1,5 @@
 name: IP Check
-description: IP信息汉化模块，使用前将IP信息URL设置为：http://ipwho.de/json或https://4.ipwho.de/json（仅IPV4），并在模版参数中指定策略组
+description: IP信息汉化模块，使用前：将IP信息URL设置为http://ipwho.de/json或https://4.ipwho.de/json（仅IPV4），并在模版参数中指定策略组，使用时：在指定的策略组中测试
 compat_arguments:
   POLICY: DIRECT
 compat_arguments_desc: 通过模版参数POLICY⁠指定ipwho.de⁠和speed.cloudflare.com测速走的策略组，默认为DIRECT，长按你指定的策略组下的节点来查看IP信息
