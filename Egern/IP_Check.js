@@ -13,6 +13,7 @@ export default async function(ctx) {
       return await ctx.response.json();
     } catch (e) {
       ctx.log(`⚠️ IP信息获取失败: ${e}`);
+      console.log(e);
       return {};
     }
   })();
@@ -30,6 +31,7 @@ export default async function(ctx) {
       }
     } catch (e) {
       ctx.log(`⚠️ 测速失败: ${e}`);
+      console.log(e);
     }
   })();
 
