@@ -26,7 +26,7 @@ export default async function(ctx) {
     }
   })();
 
-  //const timeoutPromise = new Promise(resolve => setTimeout(resolve, 4500));
+  const timeoutPromise = new Promise(resolve => setTimeout(resolve, 4500));
 
   const [ipInfo] = await Promise.all([
     ipwhoPromise, 
