@@ -335,7 +335,6 @@ export default async function(ctx) {
     } catch (e) {}
   })();
 
-
   let timeoutId;
   const timeoutPromise = new Promise(resolve => {
     timeoutId = setTimeout(() => {
