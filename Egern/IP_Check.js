@@ -233,7 +233,6 @@ const cityMap = {
  
   // 巴西
   'sao paulo': '圣保罗',
-  'são paulo': '圣保罗', 
 
   // 澳大利亚 & 新西兰
   'sydney': '悉尼',
