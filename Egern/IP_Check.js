@@ -280,26 +280,22 @@ const cityMap = {
 
 function translateCity(text) {
   if (!text) return '';
-  
-  const key = text
-    .trim()
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, ''); 
-
+  const key = text.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   return cityMap[key] || text;
 }
 
 export default async function(ctx) {
   let speedMbps = '⚠️ 测速失败';
 
-  const ipwhoPromise = (ctx.response?.json) 
-    ? ctx.response.json().then(async (ipInfo) => {
+  const ipwhoPromise = (ctx.response?.json)
+    ? Promise.resolve(
+        typeof ctx.response.json === 'function' ? ctx.response.json() : ctx.response.json
+      ).then(ipInfo => {
         if (ipInfo.city_name) {
           ipInfo.city_name_zh = translateCity(ipInfo.city_name);
         }
         return ipInfo;
-      }).catch(() => ({})) 
+      }).catch(() => ({}))
     : Promise.resolve({});
 
   const speedPromise = (async () => {
@@ -310,10 +306,9 @@ export default async function(ctx) {
         timeout: 4000
       });
 
-      if (resp && (resp.status === 200)) {
+      if (resp && resp.status === 200) {
         let duration = (performance.now() - startTime) / 1000;
-        if (duration <= 0) duration = 0.01; 
-
+        if (duration <= 0) duration = 0.01;
         speedMbps = `${((BYTES * 8) / (duration * 1_000_000)).toFixed(1)} Mbps`;
       }
     } catch (e) {}
@@ -322,7 +317,7 @@ export default async function(ctx) {
   const timeoutPromise = new Promise(resolve => setTimeout(resolve, 4200));
 
   const [ipInfo] = await Promise.all([
-    ipwhoPromise, 
+    ipwhoPromise,
     Promise.race([speedPromise, timeoutPromise])
   ]);
 
