@@ -291,7 +291,7 @@ function translateCity(text) {
 }
 
 export default async function(ctx) {
-  let speedMbps = '⚠️ 测速超时';
+  let speedMbps = '⚠️ 测速失败';
 
   const ipwhoPromise = (ctx.response?.json) 
     ? ctx.response.json().then(async (ipInfo) => {
@@ -307,19 +307,19 @@ export default async function(ctx) {
       const startTime = performance.now();
       const resp = await ctx.http.get(SPEED_TEST_URL, {
         headers: { 'Cache-Control': 'no-cache' },
-        timeout: 4000
+        timeout: 3600
       });
-      await resp.arrayBuffer();
-      const duration = (performance.now() - startTime) / 1000;
-      if (duration > 0.05) {
+
+      if (resp && (resp.status === 200 || resp.body)) {
+        let duration = (performance.now() - startTime) / 1000;
+        if (duration <= 0) duration = 0.01; 
+
         speedMbps = `${((BYTES * 8) / (duration * 1_000_000)).toFixed(1)} Mbps`;
       }
-    } catch (e) {
-      speedMbps = '❌ 测速失败';
-    }
+    } catch (e) {}
   })();
 
-  const timeoutPromise = new Promise(resolve => setTimeout(resolve, 4500));
+  const timeoutPromise = new Promise(resolve => setTimeout(resolve, 4000));
 
   const [ipInfo] = await Promise.all([
     ipwhoPromise, 
