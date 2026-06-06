@@ -307,7 +307,7 @@ export default async function(ctx) {
       const startTime = performance.now();
       const resp = await ctx.http.get(SPEED_TEST_URL, {
         headers: { 'Cache-Control': 'no-cache' },
-        timeout: 3600
+        timeout: 4000
       });
 
       if (resp && (resp.status === 200 || resp.body)) {
@@ -319,7 +319,7 @@ export default async function(ctx) {
     } catch (e) {}
   })();
 
-  const timeoutPromise = new Promise(resolve => setTimeout(resolve, 4000));
+  const timeoutPromise = new Promise(resolve => setTimeout(resolve, 4200));
 
   const [ipInfo] = await Promise.all([
     ipwhoPromise, 
