@@ -72,6 +72,8 @@ const cityMap = {
   'jeju': '济州',
   'seongnam': '城南',
   'chuncheon': '春川',
+  'guro-gu': '九老区',
+  'geumcheon-gugu': '衿川区',
 
   // 新加坡 & 马来西亚
   'singapore': '新加坡',
@@ -190,7 +192,7 @@ const cityMap = {
   'frankfurt am main': '法兰克福',
   'utrecht': '乌德勒支',
 
-  // 中东 & 土耳其
+  // 中东 & 土耳其 & 阿塞拜疆
   'riyadh': '利雅得',
   'jeddah': '吉达',
   'dammam': '达曼',
@@ -203,8 +205,9 @@ const cityMap = {
   'ankara': '安卡拉',
   'izmir': '伊兹密尔',
   'tel aviv': '特拉维夫',
-  'petah tikva': '佩塔提克瓦', 
-
+  'petah tikva': '佩塔提克瓦',
+  'baku': '巴库',
+  
   // 印度 & 巴基斯坦
   'mumbai': '孟买',
   'bengaluru': '班加罗尔',
