@@ -73,12 +73,12 @@ const cityMap = {
   'seongnam': '城南',
   'chuncheon': '春川',
   'guro-gu': '九老区',
-  'yongsan-gugu': '龙山区',
-  'geumcheon-gugu': '衿川区',
+  'yongsan-gu': '龙山区',
+  'geumcheon-gu': '衿川区',
   'gangnam-gu': '江南区',
-  'mapo-gugu': '麻浦区',
-  'seongdong-gugu': '城东区',
-  'yeongdeungpo-gugu': '永登浦区',
+  'mapo-gu': '麻浦区',
+  'seongdong-gu': '城东区',
+  'yeongdeungpo-gu': '永登浦区',
 
   // 新加坡 & 马来西亚
   'singapore': '新加坡',
