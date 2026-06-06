@@ -82,31 +82,6 @@ const cityMap = {
   'penang': '槟城',
   'kota kinabalu': '哥打京那巴鲁',
 
-  // 印度
-  'mumbai': '孟买',
-  'bengaluru': '班加罗尔',
-  'bangalore': '班加罗尔',
-  'chennai': '金奈',
-  'pune': '浦那',
-  'hyderabad': '海德拉巴',
-
-  // 东南亚
-  'jakarta': '雅加达',
-  'surabaya': '泗水',
-  'bangkok': '曼谷',
-  'chiang mai': '清迈',
-  'phuket': '普吉岛',
-  'hanoi': '河内',
-  'ho chi minh city': '胡志明市',
-  'ho chi minh': '胡志明市',
-  'danang': '岘港',
-  'haiphong': '海防',
-  'manila': '马尼拉',
-  'cebu': '宿务',
-  'yangon': '仰光',
-  'phnom penh': '金边',
-  'vientiane': '万象',
-
   // 美国
   'ashburn': '阿什本',
   'reston': '雷斯顿',
@@ -228,9 +203,34 @@ const cityMap = {
   'ankara': '安卡拉',
   'izmir': '伊兹密尔',
   'tel aviv': '特拉维夫',
-  'rawalpindi': '拉瓦尔品第',
   'petah tikva': '佩塔提克瓦', 
 
+  // 印度 & 巴基斯坦
+  'mumbai': '孟买',
+  'bengaluru': '班加罗尔',
+  'bangalore': '班加罗尔',
+  'chennai': '金奈',
+  'pune': '浦那',
+  'hyderabad': '海德拉巴',
+  'rawalpindi': '拉瓦尔品第', 
+
+  // 东南亚
+  'jakarta': '雅加达',
+  'surabaya': '泗水',
+  'bangkok': '曼谷',
+  'chiang mai': '清迈',
+  'phuket': '普吉岛',
+  'hanoi': '河内',
+  'ho chi minh city': '胡志明市',
+  'ho chi minh': '胡志明市',
+  'danang': '岘港',
+  'haiphong': '海防',
+  'manila': '马尼拉',
+  'cebu': '宿务',
+  'yangon': '仰光',
+  'phnom penh': '金边',
+  'vientiane': '万象',
+ 
   // 巴西
   'sao paulo': '圣保罗',
   'são paulo': '圣保罗', 
