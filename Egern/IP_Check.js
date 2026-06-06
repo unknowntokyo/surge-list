@@ -263,25 +263,16 @@ const cityMap = {
   'cape town': '开普敦'
 };
 
-const cityEntries = Object.entries(cityMap)
-  .sort((a, b) => b[0].length - a[0].length);
-
 function translateCity(text) {
   if (!text) return '';
+  
+  const key = text
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, ''); 
 
-  const key = text.trim().toLowerCase();
-
-  if (cityMap[key]) {
-    return cityMap[key];
-  }
-
-  for (const [en, zh] of cityEntries) {
-    if (key.includes(en)) {
-      return zh;
-    }
-  }
-
-  return text;
+  return cityMap[key] || text;
 }
 
 export default async function(ctx) {
