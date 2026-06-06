@@ -310,7 +310,7 @@ export default async function(ctx) {
         timeout: 4000
       });
 
-      if (resp && (resp.status === 200 || resp.body)) {
+      if (resp && (resp.status === 200)) {
         let duration = (performance.now() - startTime) / 1000;
         if (duration <= 0) duration = 0.01; 
 
