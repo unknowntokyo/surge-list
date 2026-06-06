@@ -263,10 +263,25 @@ const cityMap = {
   'cape town': '开普敦'
 };
 
-async function translateCity(text, ctx) {
+const cityEntries = Object.entries(cityMap)
+  .sort((a, b) => b[0].length - a[0].length);
+
+function translateCity(text) {
   if (!text) return '';
+
   const key = text.trim().toLowerCase();
-  return cityMap[key] || text;
+
+  if (cityMap[key]) {
+    return cityMap[key];
+  }
+
+  for (const [en, zh] of cityEntries) {
+    if (key.includes(en)) {
+      return zh;
+    }
+  }
+
+  return text;
 }
 
 export default async function(ctx) {
@@ -278,7 +293,7 @@ export default async function(ctx) {
   const ipwhoPromise = (ctx.response?.json) 
     ? ctx.response.json().then(async (ipInfo) => {
         if (ipInfo.city_name) {
-          ipInfo.city_name_zh = await translateCity(ipInfo.city_name, ctx);
+          ipInfo.city_name_zh = translateCity(ipInfo.city_name);
         }
         return ipInfo;
       }).catch(() => ({})) 
