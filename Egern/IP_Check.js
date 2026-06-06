@@ -333,8 +333,7 @@ export default async function(ctx) {
       if (duration > 0.05 && loadedBytes > 0) {
         speedMbps = `${((loadedBytes * 8) / (duration * 1_000_000)).toFixed(1)} Mbps`;
       }
-    } catch (e) {
-    }
+    } catch (e) {}
   })();
 
   let timeoutId;
@@ -348,8 +347,6 @@ export default async function(ctx) {
       if (loadedBytes > 0 && startTime) {
         const duration = (performance.now() - startTime) / 1000;
         speedMbps = `${((loadedBytes * 8) / (duration * 1_000_000)).toFixed(1)} Mbps`;
-      } else {
-        speedMbps = '⚠️ 测速失败';
       }
       resolve();
     }, 4500);
