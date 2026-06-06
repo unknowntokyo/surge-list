@@ -367,6 +367,7 @@ export default async function(ctx) {
       ...(ipInfo.city_name ? { '城市': ipInfo.city_name_zh || ipInfo.city_name } : {}),
       '互联网服务提供商': ipInfo.asn ? `AS${ipInfo.asn} ${ipInfo.as_desc || ''}` : '未知',
       '下载带宽': speedMbps,
+      '下载字节': loadedBytes,
       '客户端': ipInfo.user_agent ? ipInfo.user_agent.replace(/^egern/i, 'Egern') : 'Egern'
     }
   };
