@@ -292,10 +292,10 @@ function translateCity(text) {
 
 export default async function(ctx) {
   let speedMbps = '⚠️ 测速失败';
-  let activeReader = null;
-  let isTimedOut = false;
   let startTime = null;
   let loadedBytes = 0;
+  let duration = 0;   // 🛠️ 修复：明确声明 duration 变量
+  let success = false; // 🛠️ 修复：明确声明 success 变量
 
   const ipwhoPromise = (async () => {
     try {
@@ -318,46 +318,20 @@ export default async function(ctx) {
         headers: { 'Cache-Control': 'no-cache' },
         timeout: 4000
       });
+ 
+      duration = (performance.now() - startTime) / 1000;
 
-      if (isTimedOut) return; 
-
-      if (!resp?.body?.getReader) return;
-      activeReader = resp.body.getReader();
-
-      while (!isTimedOut) {
-        const chunk = await activeReader.read();
-        if (chunk.done || isTimedOut) break;
-        
-        if (chunk.value) {
-          loadedBytes += chunk.value.byteLength;
-        }
+      if (resp) {
+        success = true;
+        loadedBytes = BYTES; // 🛠️ 修复：成功下载后，让"下载字节"正确显示 4MB 的大小
       }
     } catch (e) {}
   })();
 
-  let timeoutId;
-  const timeoutPromise = new Promise(resolve => {
-    timeoutId = setTimeout(() => {
-      isTimedOut = true;
+  const [ipInfo] = await Promise.all([ipwhoPromise, speedPromise]);
 
-      if (activeReader && typeof activeReader.cancel === 'function') {
-        activeReader.cancel().catch(() => {});
-      }
-      resolve();
-    }, 3600);
-  });
-
-  const [ipInfo] = await Promise.all([
-    ipwhoPromise, 
-    Promise.race([speedPromise, timeoutPromise])
-  ]);
-  clearTimeout(timeoutId);
-
-  if (loadedBytes > 0 && startTime) {
-    const duration = (performance.now() - startTime) / 1000;
-    if (duration > 0.05) {
-      speedMbps = `${((loadedBytes * 8) / (duration * 1_000_000)).toFixed(1)} Mbps`;
-    }
+  if (success && duration > 0) {
+    speedMbps = `${((BYTES * 8) / (duration * 1_000_000)).toFixed(1)} Mbps`;
   }
 
   return {
