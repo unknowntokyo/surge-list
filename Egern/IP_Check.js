@@ -287,9 +287,11 @@ function translateCity(text) {
 }
 
 export default async function(ctx) {
-  let speedMbps = '⚠️ 测速超时';
+  let speedMbps = '⚠️ 测速失败';
   let activeReader = null;
   let isTimedOut = false;
+  let startTime = null;
+  let loadedBytes = 0;
 
   const ipwhoPromise = (async () => {
     try {
@@ -300,20 +302,20 @@ export default async function(ctx) {
         }
         return ipInfo || {};
       }
-    } catch (e) {
-    }
+    } catch (e) {}
     return {};
   })();
 
   const speedPromise = (async () => {
-    let loadedBytes = 0;
     try {
-      const startTime = performance.now();
+      startTime = performance.now();
       const resp = await ctx.http.get(SPEED_TEST_URL, {
         headers: { 'Cache-Control': 'no-cache' },
         timeout: 5000 
       });
- 
+
+      if (isTimedOut) return; 
+
       if (resp.body && typeof resp.body.getReader === 'function') {
         activeReader = resp.body.getReader();
         while (true) {
@@ -323,9 +325,6 @@ export default async function(ctx) {
             loadedBytes += chunk.value.length;
           }
         }
-      } else {
-        //const buf = await resp.arrayBuffer();
-        //loadedBytes = buf.byteLength;
       }
 
       if (isTimedOut) return;
@@ -335,9 +334,6 @@ export default async function(ctx) {
         speedMbps = `${((loadedBytes * 8) / (duration * 1_000_000)).toFixed(1)} Mbps`;
       }
     } catch (e) {
-      if (!isTimedOut) {
-        speedMbps = '❌ 测速失败';
-      }
     }
   })();
 
@@ -346,7 +342,14 @@ export default async function(ctx) {
     timeoutId = setTimeout(() => {
       isTimedOut = true;
       if (activeReader && typeof activeReader.cancel === 'function') {
-        activeReader.cancel().catch(() => {}); 
+        activeReader.cancel().catch(() => {});
+      }
+
+      if (loadedBytes > 0 && startTime) {
+        const duration = (performance.now() - startTime) / 1000;
+        speedMbps = `${((loadedBytes * 8) / (duration * 1_000_000)).toFixed(1)} Mbps`;
+      } else {
+        speedMbps = '⚠️ 测速失败';
       }
       resolve();
     }, 4500);
