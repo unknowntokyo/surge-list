@@ -311,7 +311,7 @@ export default async function(ctx) {
       startTime = performance.now();
       const resp = await ctx.http.get(SPEED_TEST_URL, {
         headers: { 'Cache-Control': 'no-cache' },
-        timeout: 5000 
+        timeout: 4000 
       });
 
       if (isTimedOut) return; 
@@ -349,7 +349,7 @@ export default async function(ctx) {
         speedMbps = `${((loadedBytes * 8) / (duration * 1_000_000)).toFixed(1)} Mbps`;
       }
       resolve();
-    }, 4500);
+    }, 3600);
   });
 
   const [ipInfo] = await Promise.all([
