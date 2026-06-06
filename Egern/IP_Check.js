@@ -291,48 +291,40 @@ function translateCity(text) {
 }
 
 export default async function(ctx) {
-  let speedMbps = '⚠️ 测速失败';
-  let startTime = null;
-  let loadedBytes = 0;
-  let duration = 0;   // 🛠️ 修复：明确声明 duration 变量
-  let success = false; // 🛠️ 修复：明确声明 success 变量
+  let speedMbps = '⚠️ 测速超时';
 
-  const ipwhoPromise = (async () => {
-    try {
-      if (typeof ctx.response?.json === 'function') {
-        const ipInfo = await ctx.response.json();
-        if (ipInfo && ipInfo.city_name) {
+  const ipwhoPromise = (ctx.response?.json) 
+    ? ctx.response.json().then(async (ipInfo) => {
+        if (ipInfo.city_name) {
           ipInfo.city_name_zh = translateCity(ipInfo.city_name);
         }
-        return ipInfo || {};
-      }
-    } catch (e) {}
-    return {};
-  })();
+        return ipInfo;
+      }).catch(() => ({})) 
+    : Promise.resolve({});
 
   const speedPromise = (async () => {
     try {
-      startTime = performance.now();
-
+      const startTime = performance.now();
       const resp = await ctx.http.get(SPEED_TEST_URL, {
         headers: { 'Cache-Control': 'no-cache' },
         timeout: 4000
       });
- 
-      duration = (performance.now() - startTime) / 1000;
-
-      if (resp) {
-        success = true;
-        loadedBytes = BYTES; // 🛠️ 修复：成功下载后，让"下载字节"正确显示 4MB 的大小
+      await resp.arrayBuffer();
+      const duration = (performance.now() - startTime) / 1000;
+      if (duration > 0.05) {
+        speedMbps = `${((BYTES * 8) / (duration * 1_000_000)).toFixed(1)} Mbps`;
       }
-    } catch (e) {}
+    } catch (e) {
+      speedMbps = '❌ 测速失败';
+    }
   })();
 
-  const [ipInfo] = await Promise.all([ipwhoPromise, speedPromise]);
+  const timeoutPromise = new Promise(resolve => setTimeout(resolve, 4500));
 
-  if (success && duration > 0) {
-    speedMbps = `${((BYTES * 8) / (duration * 1_000_000)).toFixed(1)} Mbps`;
-  }
+  const [ipInfo] = await Promise.all([
+    ipwhoPromise, 
+    Promise.race([speedPromise, timeoutPromise])
+  ]);
 
   return {
     body: {
@@ -341,7 +333,6 @@ export default async function(ctx) {
       ...(ipInfo.city_name ? { '城市': ipInfo.city_name_zh || ipInfo.city_name } : {}),
       '互联网服务提供商': ipInfo.asn ? `AS${ipInfo.asn} ${ipInfo.as_desc || ''}` : '未知',
       '下载带宽': speedMbps,
-      '下载字节': loadedBytes,
       '客户端': ipInfo.user_agent ? ipInfo.user_agent.replace(/^egern/i, 'Egern') : 'Egern'
     }
   };
