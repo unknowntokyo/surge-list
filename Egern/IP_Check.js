@@ -40,6 +40,7 @@ const cityMap = {
   'changhua': '彰化',
   'kaohsiung': '高雄',
   'taichung': '台中',
+  'zhubei': '竹北',
 
   // 中国澳门
   'macau': '澳门',
@@ -83,6 +84,8 @@ const cityMap = {
   'mapo-gu': '麻浦区',
   'seongdong-gu': '城东区',
   'yeongdeungpo-gu': '永登浦区',
+  'gangseo-gu': '江西区',
+  'songpa-gu': '松坡区',
 
   // 新加坡 & 马来西亚
   'singapore': '新加坡',
@@ -94,6 +97,7 @@ const cityMap = {
   'kota kinabalu': '哥打京那巴鲁',
 
   // 美国
+  'fremont': '弗里蒙特',
   'ashburn': '阿什本',
   'reston': '雷斯顿',
   'herndon': '赫恩登',
@@ -309,44 +313,36 @@ export default async function(ctx) {
   const speedPromise = (async () => {
     try {
       startTime = performance.now();
+
       const resp = await ctx.http.get(SPEED_TEST_URL, {
         headers: { 'Cache-Control': 'no-cache' },
-        timeout: 4000 
+        timeout: 4000
       });
 
       if (isTimedOut) return; 
 
-      if (resp.body && typeof resp.body.getReader === 'function') {
-        activeReader = resp.body.getReader();
-        while (true) {
-          const chunk = await activeReader.read();
-          if (chunk.done) break;
-          if (chunk.value) {
-            loadedBytes += chunk.value.length;
-          }
+      if (!resp?.body?.getReader) return;
+      activeReader = resp.body.getReader();
+
+      while (!isTimedOut) {
+        const chunk = await activeReader.read();
+        if (chunk.done || isTimedOut) break;
+        
+        if (chunk.value) {
+          loadedBytes += chunk.value.byteLength;
         }
-      }
-
-      if (isTimedOut) return;
-
-      const duration = (performance.now() - startTime) / 1000;
-      if (duration > 0.05 && loadedBytes > 0) {
-        speedMbps = `${((loadedBytes * 8) / (duration * 1_000_000)).toFixed(1)} Mbps`;
       }
     } catch (e) {}
   })();
+
 
   let timeoutId;
   const timeoutPromise = new Promise(resolve => {
     timeoutId = setTimeout(() => {
       isTimedOut = true;
+
       if (activeReader && typeof activeReader.cancel === 'function') {
         activeReader.cancel().catch(() => {});
-      }
-
-      if (loadedBytes > 0 && startTime) {
-        const duration = (performance.now() - startTime) / 1000;
-        speedMbps = `${((loadedBytes * 8) / (duration * 1_000_000)).toFixed(1)} Mbps`;
       }
       resolve();
     }, 3600);
@@ -358,11 +354,18 @@ export default async function(ctx) {
   ]);
   clearTimeout(timeoutId);
 
+  if (loadedBytes > 0 && startTime) {
+    const duration = (performance.now() - startTime) / 1000;
+    if (duration > 0.05) {
+      speedMbps = `${((loadedBytes * 8) / (duration * 1_000_000)).toFixed(1)} Mbps`;
+    }
+  }
+
   return {
     body: {
       'IP地址': ipInfo.ip || '未知',
       '地区': codeMap[ipInfo.country_code] || ipInfo.country_code || '未知',
-      ...(ipInfo.city_name ? { '城市': ipInfo.city_name_zh } : {}),
+      ...(ipInfo.city_name ? { '城市': ipInfo.city_name_zh || ipInfo.city_name } : {}),
       '互联网服务提供商': ipInfo.asn ? `AS${ipInfo.asn} ${ipInfo.as_desc || ''}` : '未知',
       '下载带宽': speedMbps,
       '客户端': ipInfo.user_agent ? ipInfo.user_agent.replace(/^egern/i, 'Egern') : 'Egern'
