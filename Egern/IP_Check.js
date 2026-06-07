@@ -305,6 +305,7 @@ async function getIPInfo(ctx) {
     }
     return data;
   } catch (e) {
+    return null;
     console.log('获取IP信息失败', e);
   }
 }
@@ -333,6 +334,7 @@ async function getSpeedTest(ctx) {
     }
   } catch (e) {console.log('IP信息为空，⚠️ 测速失败');
   }
+  return '⚠️ 测速失败'; 
 }
 
 function modResponseBody(ipInfo, speedMbps) {
