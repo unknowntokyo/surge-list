@@ -305,8 +305,7 @@ async function getIPInfo(ctx) {
     }
     return data;
   } catch (e) {
-    console.log('getIPInfo error', e);
-    return null;
+    console.log('获取IP信息失败', e);
   }
 }
 
@@ -332,8 +331,8 @@ async function getSpeedTest(ctx) {
       const mbps = ((bytes * CONFIG.BITS_PER_BYTE) / (duration * CONFIG.MBPS_DIVISOR)).toFixed(1);
       return `${mbps} Mbps`;
     }
-  } catch (e) {console.log('ipInfo invalid');}
-  return '⚠️ 测速失败';
+  } catch (e) {console.log('IP信息为空，⚠️测速失败');
+  }
 }
 
 function modResponseBody(ipInfo, speedMbps) {
@@ -354,10 +353,6 @@ export default async function(ctx) {
     getIPInfo(ctx),
     getSpeedTest(ctx),
   ]);
-
-  if (!ipInfo || !ipInfo.ip) {
-    return;
-  }
 
   return { body: modResponseBody(ipInfo, speedMbps) };
 }
