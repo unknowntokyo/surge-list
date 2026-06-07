@@ -1,7 +1,6 @@
 /**
  * IP Check模块
- *环境变量：
- *名称测速超时，值为毫秒数，默认6400毫秒
+ *通过环境变量[ST_TIMEOUT]设置测速超时时间，值为毫秒数，默认为6400毫秒
  */
 
 const CONFIG = {
@@ -315,7 +314,7 @@ async function getIPInfo(ctx) {
 }
 
 async function getSpeedTest(ctx) {
-  const SPEED_TEST_TIMEOUT = ctx.env.测速超时 || '6400';
+  const SPEED_TEST_TIMEOUT = ctx.env.ST_TIMEOUT || '6400';
   let timeoutId = null;
   try {
     const downloadStartTime = performance.now();
