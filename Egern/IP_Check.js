@@ -314,11 +314,9 @@ export default async function(ctx) {
     } catch (e) {}
   })();
 
-  const timeoutPromise = new Promise(resolve => setTimeout(resolve, 4200));
-
   const [ipInfo] = await Promise.all([
     ipwhoPromise,
-    Promise.race([speedPromise, timeoutPromise])
+    speedPromise
   ]);
 
   return {
