@@ -1,6 +1,11 @@
+/**
+ * IP Check模块
+ *环境变量：
+ *名称SPEED_TEST_TIMEOUT，值为毫秒数，默认6400毫秒
+ */
+
 const CONFIG = {
   MB: 4,
-  SPEED_TEST_TIMEOUT: 2000,
   MIN_DURATION: 0.2,
   BITS_PER_BYTE: 8,
   MBPS_DIVISOR: 1_000_000,
@@ -310,6 +315,7 @@ async function getIPInfo(ctx) {
 }
 
 async function getSpeedTest(ctx) {
+  const SPEED_TEST_TIMEOUT = ctx.env.测速超时 || '6400';
   let timeoutId = null;
   try {
     const downloadStartTime = performance.now();
