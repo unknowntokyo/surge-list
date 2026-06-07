@@ -2,12 +2,13 @@ name: IP Check
 description: 使用说明：设置IP信息URL为http://ipwho.de/json（IPv4+IPv6）或https://4.ipwho.de/json（仅IPv4），并指定策略组，请在你指定的策略组下进行测试
 compat_arguments:
   指定策略组: DIRECT  
-compat_arguments_desc: 通过模版参数POLICY⁠指定ipwho.de⁠和speed.cloudflare.com走的策略组，默认为DIRECT，请在你指定的策略组下进行测试
+compat_arguments_desc: 通过模版参数POLICY指定ipwho.de和speed.cloudflare.com走的策略组，默认为DIRECT，请在你指定的策略组下进行测试
+
 env_schema:
   SHOW_SPEED_TEST:
     name: 带宽测试功能
     description: 是否开启下载带宽测试，关闭可以节省流量并加快加载
-    default_value: 开启
+    default_value: 关闭
     options:
       - 开启
       - 关闭
@@ -41,5 +42,5 @@ scriptings:
 mitm:
   hostnames:
     includes:
-    - '*.ipwho.de'
+    - 4.ipwho.de
     - ipwho.de
