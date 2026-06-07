@@ -354,6 +354,6 @@ export default async function(ctx) {
   }
 
   return {
-    body: modResponseBody(ipInfo, speedMbps),
+    body: modResponseBody(ctx, ipInfo, speedMbps),
   };
 }
