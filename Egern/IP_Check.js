@@ -321,8 +321,8 @@ async function getSpeedTest(ctx) {
         resp.arrayBuffer(),
         new Promise((_, reject) =>
           setTimeout(() => reject(new Error()), CONFIG.SPEED_TEST_TIMEOUT)
-  )
-]);
+        )
+      ]);
       const downloadEndTime = performance.now();
       const bytes = buffer.byteLength;
       if (bytes === 0) return '⚠️ 测速失败';
