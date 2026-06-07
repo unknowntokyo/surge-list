@@ -1,7 +1,7 @@
 const CONFIG = {
   MB: 4,
   SPEED_TEST_TIMEOUT: 4000,
-  MIN_DURATION: 0.01,
+  MIN_DURATION: 0.2,
   BITS_PER_BYTE: 8,
   MBPS_DIVISOR: 1_000_000,
 };
@@ -302,35 +302,30 @@ async function getIPInfo(ctx) {
     }
     return data;
   } catch (e) {
-    console.error('IP info error:', e);
     return {};
   }
 }
 
 async function getSpeedTest(ctx) {
   try {
+    const downloadStartTime = performance.now();
     const resp = await ctx.http.get(SPEED_TEST_URL, {
       headers: { 'Cache-Control': 'no-cache' },
       timeout: CONFIG.SPEED_TEST_TIMEOUT,
     });
+    const downloadEndTime = performance.now();
 
     if (resp?.status === 200) {
-      const downloadStartTime = performance.now();
-      const buffer = await resp.arrayBuffer();
-      const downloadEndTime = performance.now();
+      const contentLength = parseInt(resp.headers.get('content-length') || '0', 10);
+      if (contentLength === 0) return '⚠ 测速失败';
 
       let duration = (downloadEndTime - downloadStartTime) / 1000;
-      duration = duration <= 0 ? CONFIG.MIN_DURATION : duration;
-
-      const bytes = buffer.byteLength;
-      const mbps = ((bytes * CONFIG.BITS_PER_BYTE) / (duration * CONFIG.MBPS_DIVISOR)).toFixed(1);
-
-      console.log(`Speed test: ${bytes} bytes in ${duration.toFixed(2)}s = ${mbps} Mbps`);
+      duration = Math.max(duration, CONFIG.MIN_DURATION);
+      
+      const mbps = ((contentLength * CONFIG.BITS_PER_BYTE) / (duration * CONFIG.MBPS_DIVISOR)).toFixed(1);
       return `${mbps} Mbps`;
     }
-  } catch (e) {
-    console.error('Speed test error:', e);
-  }
+  } catch (e) {}
   return '⚠ 测速失败';
 }
 
@@ -338,7 +333,7 @@ function modResponseBody(ipInfo, speedMbps) {
   return {
     'IP地址': ipInfo.ip || '未知',
     '地区': codeMap[ipInfo.country_code] || ipInfo.country_code || '未知',
-    ...(ipInfo.city_name ? { '城市': ipInfo.city_name_zh || ipInfo.city_name } : {}),
+    ...(ipInfo.city_name_zh && { '城市': ipInfo.city_name_zh }),
     '互联网服务提供商': ipInfo.asn ? `AS${ipInfo.asn} ${ipInfo.as_desc || ''}` : '未知',
     '下载带宽': speedMbps,
     '客户端': ipInfo.user_agent ? ipInfo.user_agent.replace(/^egern/i, 'Egern') : 'Egern'
@@ -354,9 +349,7 @@ export default async function(ctx) {
       getIPInfo(ctx),
       getSpeedTest(ctx),
     ]);
-  } catch (e) {
-    console.error('Promise.all error:', e);
-  }
+  } catch (e) {}
 
   return {
     body: modResponseBody(ipInfo, speedMbps),
