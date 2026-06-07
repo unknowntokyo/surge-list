@@ -1,7 +1,7 @@
 /**
  * IP Check模块
  *环境变量：
- *名称SPEED_TEST_TIMEOUT，值为毫秒数，默认6400毫秒
+ *名称测速超时，值为毫秒数，默认6400毫秒
  */
 
 const CONFIG = {
