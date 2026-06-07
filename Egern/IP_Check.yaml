@@ -4,8 +4,16 @@ compat_arguments:
   指定策略组: DIRECT  
 compat_arguments_desc: 通过模版参数POLICY⁠指定ipwho.de⁠和speed.cloudflare.com走的策略组，默认为DIRECT，请在你指定的策略组下进行测试
 env_schema:
+  SHOW_SPEED_TEST:
+    name: 带宽测试功能
+    description: 是否开启下载带宽测试，关闭可以节省流量并加快加载
+    default_value: 开启
+    options:
+      - 开启
+      - 关闭
+
   SPEED_TEST_TIMEOUT:
-    name: 测速超时
+    name: 带宽测试超时
     description: 设置带宽测试的超时时间，默认为4秒，网速慢可以适当调高该参数
     default_value: 4秒
     options:
