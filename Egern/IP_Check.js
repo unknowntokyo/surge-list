@@ -332,7 +332,7 @@ async function getSpeedTest(ctx) {
       const mbps = ((bytes * CONFIG.BITS_PER_BYTE) / (duration * CONFIG.MBPS_DIVISOR)).toFixed(1);
       return `${mbps} Mbps`;
     }
-  } catch (e) {console.log('IP信息为空，⚠️ 测速失败');
+  } catch (e) {console.log('IP信息错误，⚠️ 测速失败');
   }
   return '⚠️ 测速失败'; 
 }
