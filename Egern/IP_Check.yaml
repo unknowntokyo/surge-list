@@ -1,4 +1,4 @@
-ame: IP Check
+name: IP Check
 description: 使用说明：设置IP信息URL为http://ipwho.de/json（IPv4+IPv6）或https://4.ipwho.de/json（仅IPv4），并指定策略组，请在你指定的策略组下进行测试
 env_schema:
   POLICY:
