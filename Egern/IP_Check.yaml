@@ -7,7 +7,7 @@ env_schema:
     default_value: DIRECT
  
   SPEED_TEST_TIMEOUT:
-    name: 测速超时时间
+    name: 测速超时
     description: 设置带宽测试的超时时间，单位为秒，默认4秒，网速慢适当调高该参数
     default_value: 4秒
     options:
