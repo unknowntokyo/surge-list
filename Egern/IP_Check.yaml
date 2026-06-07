@@ -5,7 +5,7 @@ compat_arguments:
   脚本超时: "8"
 compat_arguments_desc: 通过模版参数[策略组]指定ipwho.de⁠和speed.cloudflare.com走的策略组，默认为DIRECT，模版参数[脚本超时]设置脚本超时时间，默认为8秒，请在你指定的策略组下进行测试
 env_schema:
-  ST_TIMEOUT:
+  TITLE:
     name: 测速超时
     description: 设置测速超时时间，值为毫秒数，默认为6400毫秒
     default_value: "6400"
