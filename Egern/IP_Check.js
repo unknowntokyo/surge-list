@@ -292,17 +292,14 @@ function translateCity(text) {
 }
 
 async function getIPInfo(ctx) {
-  if (!ctx.response?.json) return {};
   try {
-    const data = typeof ctx.response.json === 'function'
-      ? await ctx.response.json()
-      : ctx.response.json;
+    const data = typeof ctx.response.json === 'function' ? await ctx.response.json() : ctx.response.json;
     if (data?.city_name) {
       data.city_name_zh = translateCity(data.city_name);
     }
     return data;
   } catch (e) {
-    return {};
+    return null;
   }
 }
 
@@ -320,7 +317,6 @@ async function getSpeedTest(ctx) {
       if (bytes === 0) return '⚠️ 测速失败';
       let duration = (downloadEndTime - downloadStartTime) / 1000;
       duration = Math.max(duration, CONFIG.MIN_DURATION);
-      const bytes = buffer.byteLength;
       const mbps = ((bytes * CONFIG.BITS_PER_BYTE) / (duration * CONFIG.MBPS_DIVISOR)).toFixed(1);
       return `${mbps} Mbps`;
     }
@@ -330,7 +326,7 @@ async function getSpeedTest(ctx) {
 
 function modResponseBody(ipInfo, speedMbps) {
   return {
-    'IP地址': ipInfo.ip || '未知',
+    'IP地址': ipInfo.ip,
     '地区': codeMap[ipInfo.country_code] || ipInfo.country_code || '未知',
     ...(ipInfo.city_name_zh && { '城市': ipInfo.city_name_zh }),
     '互联网服务提供商': ipInfo.asn ? `AS${ipInfo.asn} ${ipInfo.as_desc || ''}` : '未知',
@@ -340,15 +336,18 @@ function modResponseBody(ipInfo, speedMbps) {
 }
 
 export default async function(ctx) {
-  let ipInfo = {};
-  let speedMbps = '⚠️ 测速失败';
+  if (!ctx.response) return {};
 
-  try {
-    [ipInfo, speedMbps] = await Promise.all([
-      getIPInfo(ctx),
-      getSpeedTest(ctx),
-    ]);
-  } catch (e) {}
+  const [ipInfo, speedMbps] = await Promise.all([
+    getIPInfo(ctx),
+    getSpeedTest(ctx),
+  ]);
+
+  if (!ipInfo || !ipInfo.ip) {
+    return {
+      body: ctx.response.body || {}
+    };
+  }
 
   return {
     body: modResponseBody(ipInfo, speedMbps),
