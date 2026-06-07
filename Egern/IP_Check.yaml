@@ -1,9 +1,9 @@
 name: IP Check
-description: 使用说明：设置IP信息URL为http://ipwho.de/json（IPv4+IPv6）或https://4.ipwho.de/json（仅IPv4），在模板参数中指定策略组，并在该策略组下进行测试
+description: '使用说明：设置IP信息URL为http://ipwho.de/json（IPv4+IPv6）或https://4.ipwho.de/json（仅IPv4），在模板参数中指定策略组，并在该策略组下进行测试'
 compat_arguments:
   POLICY: DIRECT
   JS_TIMEOUT: 8
-compat_arguments_desc: 通过模版参数POLICY指定ipwho.de和speed.cloudflare.com走的策略组，默认为DIRECT，模版参数JS_TIMEOUT设置脚本超时时间，默认为8秒，请在你指定的策略组下进行测试
+compat_arguments_desc: '通过模版参数POLICY指定ipwho.de和speed.cloudflare.com走的策略组，默认为DIRECT，模版参数JS_TIMEOUT设置脚本超时时间，默认为8秒，请在你指定的策略组下进行测试'
 author: unknownTokyo
 rules:
 - domain:
