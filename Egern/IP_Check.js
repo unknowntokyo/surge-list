@@ -325,7 +325,7 @@ async function getSpeedTest(ctx) {
     })();
 
     const timeoutPromise = new Promise((_, reject) => {
-      timeoutId = setTimeout(() => reject(new Error('Timeout')), `${SPEED_TEST_TIMEOUT}`);
+      timeoutId = setTimeout(() => reject(new Error('Timeout')), SPEED_TEST_TIMEOUT);
     });
  
     const buffer = await Promise.race([downloadPromise, timeoutPromise]);
