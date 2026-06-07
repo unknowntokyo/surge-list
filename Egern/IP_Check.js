@@ -293,7 +293,13 @@ function translateCity(text) {
 
 async function getIPInfo(ctx) {
   try {
-    const data = typeof ctx.response.json === 'function' ? await ctx.response.json() : ctx.response.json;
+ 
+    let data = typeof ctx.response.json === 'function' ? await ctx.response.json() : ctx.response.json;
+
+    if (!data && ctx.response.body) {
+      data = typeof ctx.response.body === 'string' ? JSON.parse(ctx.response.body) : ctx.response.body;
+    }
+
     if (data?.city_name) {
       data.city_name_zh = translateCity(data.city_name);
     }
@@ -344,7 +350,9 @@ export default async function(ctx) {
   ]);
 
   if (!ipInfo || !ipInfo.ip) {
-    return {};
+    return {
+      body: ctx.response.body || {}
+    };
   }
 
   return {
