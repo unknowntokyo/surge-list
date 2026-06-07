@@ -309,7 +309,7 @@ async function getIPInfo(ctx) {
 }
 
 async function getSpeedTest(ctx) {
-  const SPEED_TEST_TIMEOUT = ctx.env.SPEED_TEST_TIMEOUT || '6400';
+  const SPEED_TEST_TIMEOUT = parseInt(ctx.env.SPEED_TEST_TIMEOUT) * 1000 || '4000';
   let timeoutId = null;
   try {
     const downloadStartTime = performance.now();
