@@ -316,6 +316,8 @@ async function getSpeedTest(ctx) {
     if (resp?.status === 200) {
       const buffer = await resp.arrayBuffer();
       const downloadEndTime = performance.now();
+      const bytes = buffer.byteLength;
+      if (bytes === 0) return '⚠️ 测速失败';
       let duration = (downloadEndTime - downloadStartTime) / 1000;
       duration = Math.max(duration, CONFIG.MIN_DURATION);
       const bytes = buffer.byteLength;
@@ -323,7 +325,7 @@ async function getSpeedTest(ctx) {
       return `${mbps} Mbps`;
     }
   } catch (e) {}
-  return '⚠ 测速失败';
+  return '⚠️ 测速失败';
 }
 
 function modResponseBody(ipInfo, speedMbps) {
@@ -339,7 +341,7 @@ function modResponseBody(ipInfo, speedMbps) {
 
 export default async function(ctx) {
   let ipInfo = {};
-  let speedMbps = '⚠ 测速失败';
+  let speedMbps = '⚠️ 测速失败';
 
   try {
     [ipInfo, speedMbps] = await Promise.all([
