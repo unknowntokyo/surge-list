@@ -6,8 +6,8 @@ compat_arguments_desc: 通过模版参数POLICY指定ipwho.de和speed.cloudflare
 
 env_schema:
   SHOW_SPEED_TEST:
-    name: 带宽测试功能
-    description: 是否开启下载带宽测试，关闭可以节省流量并加快加载
+    name: 带宽速度测试
+    description: 带宽速度测试的功能开关，关闭可以节省流量并加快加载
     default_value: 关闭
     options:
       - 开启
