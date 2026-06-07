@@ -5,14 +5,27 @@ env_schema:
     name: 指定策略组
     description: 指定ipwho.de⁠和speed.cloudflare.com走的策略组，默认为DIRECT，请在你指定的策略组下进行测试
     default_value: DIRECT
+ 
+  SPEED_TEST_TIMEOUT:
+    name: 测速超时时间
+    description: 设置带宽测试的超时时间，单位为毫秒，默认6400毫秒，测速超时<脚本超时
+    default_value: 6400
+    options:
+      - 3000
+      - 3600 
+      - 4000
+      - 4500 
+      - 5000
+      - 6400
+ 
 author: unknownTokyo
 rules:
 - domain:
     match: speed.cloudflare.com
-    policy: ${POLICY}
+    policy: "{POLICY}"
 - domain_suffix:
     match: ipwho.de
-    policy: ${POLICY}
+    policy: "{POLICY}"
 scriptings:
 - http_response:
     name: IP Check

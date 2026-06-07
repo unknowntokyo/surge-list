@@ -1,8 +1,3 @@
-/**
- * IP Check模块脚本
- *通过环境变量[测速超时]设置测速超时时间，值为毫秒数，默认为6400毫秒
- */
-
 const CONFIG = {
   MB: 4,
   MIN_DURATION: 0.2,
@@ -314,7 +309,7 @@ async function getIPInfo(ctx) {
 }
 
 async function getSpeedTest(ctx) {
-  const SPEED_TEST_TIMEOUT = ctx.env.测速超时 || '6400';
+  const SPEED_TEST_TIMEOUT = ctx.env.SPEED_TEST_TIMEOUT || '6400';
   let timeoutId = null;
   try {
     const downloadStartTime = performance.now();
