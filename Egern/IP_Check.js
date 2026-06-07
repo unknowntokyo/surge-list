@@ -344,12 +344,10 @@ export default async function(ctx) {
   ]);
 
   if (!ipInfo || !ipInfo.ip) {
-    return {
-      body: ctx.response.body || {}
-    };
+    return {};
   }
 
   return {
-    body: modResponseBody(ipInfo, speedMbps),
+    body: modResponseBody(ctx, ipInfo, speedMbps),
   };
 }
