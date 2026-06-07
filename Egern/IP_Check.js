@@ -305,6 +305,7 @@ async function getIPInfo(ctx) {
     }
     return data;
   } catch (e) {
+    console.log('getIPInfo error', e);
     return null;
   }
 }
@@ -331,7 +332,7 @@ async function getSpeedTest(ctx) {
       const mbps = ((bytes * CONFIG.BITS_PER_BYTE) / (duration * CONFIG.MBPS_DIVISOR)).toFixed(1);
       return `${mbps} Mbps`;
     }
-  } catch (e) {}
+  } catch (e) {console.log('ipInfo invalid');}
   return '⚠️ 测速失败';
 }
 
