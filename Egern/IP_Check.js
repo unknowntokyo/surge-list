@@ -313,16 +313,13 @@ async function getSpeedTest(ctx) {
       headers: { 'Cache-Control': 'no-cache' },
       timeout: CONFIG.SPEED_TEST_TIMEOUT,
     });
-    const downloadEndTime = performance.now();
-
     if (resp?.status === 200) {
-      const contentLength = parseInt(resp.headers.get('content-length') || '0', 10);
-      if (contentLength === 0) return '⚠ 测速失败';
-
+      const buffer = await resp.arrayBuffer();
+      const downloadEndTime = performance.now();
       let duration = (downloadEndTime - downloadStartTime) / 1000;
       duration = Math.max(duration, CONFIG.MIN_DURATION);
-      
-      const mbps = ((contentLength * CONFIG.BITS_PER_BYTE) / (duration * CONFIG.MBPS_DIVISOR)).toFixed(1);
+      const bytes = buffer.byteLength;
+      const mbps = ((bytes * CONFIG.BITS_PER_BYTE) / (duration * CONFIG.MBPS_DIVISOR)).toFixed(1);
       return `${mbps} Mbps`;
     }
   } catch (e) {}
