@@ -342,7 +342,7 @@ function modResponseBody(ipInfo, speedMbps) {
 }
 
 export default async function(ctx) {
-  if (!ctx.response) return {};
+  if (!ctx.response) return;
 
   const [ipInfo, speedMbps] = await Promise.all([
     getIPInfo(ctx),
@@ -350,7 +350,7 @@ export default async function(ctx) {
   ]);
 
   if (!ipInfo || !ipInfo.ip) {
-    return {};
+    return;
   }
 
   ctx.response.body = modResponseBody(ipInfo, speedMbps);
