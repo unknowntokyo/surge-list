@@ -6,7 +6,7 @@ compat_arguments_desc: 通过模版参数POLICY⁠指定ipwho.de⁠和speed.clou
 env_schema:
   SPEED_TEST_TIMEOUT:
     name: 测速超时
-    description: 设置带宽测试的超时时间，单位为秒，默认为4秒，网速慢可以适当调高该参数
+    description: 设置带宽测试的超时时间，默认为4秒，网速慢可以适当调高该参数
     default_value: 4秒
     options:
       - 3秒
