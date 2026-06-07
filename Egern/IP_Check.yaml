@@ -11,7 +11,7 @@ rules:
     policy: "{策略组}"
 - domain_suffix:
     match: ipwho.de
-    policy: "{策略组}" 
+    policy: "{策略组}"
 scriptings:
 - http_response:
     name: IP Check
