@@ -291,39 +291,56 @@ function translateCity(text) {
   return cityMap[key] || text;
 }
 
-async function getIPInfo(ctx) {
-  if (!ctx.response?.json) return {};
-  try {
-    const data = typeof ctx.response.json === 'function'
-      ? await ctx.response.json()
-      : ctx.response.json;
-    if (data?.city_name) {
-      data.city_name_zh = translateCity(data.city_name);
-    }
-    return data;
-  } catch {
-    return {};
-  }
+async function getIPInfo(ctx) { 
+ if (!ctx.response?.json) return {}; 
+ try { 
+ const data = typeof ctx.response.json === 'function'
+ ? await ctx.response.json() 
+ : ctx.response.json; 
+ if (data?.city_name) { 
+ data.city_name_zh = translateCity(data.city_name); 
+ } 
+ return data; 
+ } catch (e) {
+ console.error('IP info error:', e);
+ return {}; 
+ } 
 }
 
-async function getSpeedTest(ctx) {
-  try {
-    const startTime = performance.now();
-    const resp = await ctx.http.get(SPEED_TEST_URL, {
-      headers: { 'Cache-Control': 'no-cache' },
-      timeout: CONFIG.SPEED_TEST_TIMEOUT,
-    });
-    
-    if (resp?.status === 200) {
-      let duration = (performance.now() - startTime) / 1000;
-      duration = duration <= 0 ? CONFIG.MIN_DURATION : duration;
-      const mbps = ((BYTES * CONFIG.BITS_PER_BYTE) / (duration * CONFIG.MBPS_DIVISOR)).toFixed(1);
-      return `${mbps} Mbps`;
-    }
-  } catch (e) {
-    console.error('Speed test error:', e);
-  }
-  return '⚠ 测速失败';
+async function getSpeedTest(ctx) { 
+ try { 
+ const resp = await ctx.http.get(SPEED_TEST_URL, { 
+ headers: { 'Cache-Control': 'no-cache' }, 
+ timeout: CONFIG.SPEED_TEST_TIMEOUT, 
+ }); 
+ 
+ if (resp?.status === 200) { 
+ // 只测量 body 下载的时间
+ const downloadStartTime = performance.now();
+ 
+ // 下载 body 为二进制数据
+ const buffer = await resp.arrayBuffer();
+ 
+ const downloadEndTime = performance.now();
+ 
+ // 计算下载耗时（毫秒转秒）
+ let duration = (downloadEndTime - downloadStartTime) / 1000;
+ duration = duration <= 0 ? CONFIG.MIN_DURATION : duration;
+ 
+ // 获取实际下载的字节数
+ const bytes = buffer.byteLength;
+ 
+ // 计算速度：(字节数 × 8 位/字节) / (秒 × 1,000,000)
+ const mbps = ((bytes * CONFIG.BITS_PER_BYTE) / (duration * CONFIG.MBPS_DIVISOR)).toFixed(1);
+ 
+ console.log(`Speed test: ${bytes} bytes in ${duration.toFixed(2)}s = ${mbps} Mbps`);
+ 
+ return `${mbps} Mbps`;
+ } 
+ } catch (e) { 
+ console.error('Speed test error:', e); 
+ } 
+ return '⚠ 测速失败'; 
 }
 
 function modResponseBody(ipInfo, speedMbps) {
@@ -337,13 +354,21 @@ function modResponseBody(ipInfo, speedMbps) {
   };
 }
 
-export default async function(ctx) {
-  const [ipInfo, speedMbps] = await Promise.all([
-    getIPInfo(ctx),
-    getSpeedTest(ctx),
-  ]);
+export default async function(ctx) { 
+ let ipInfo = {};
+ let speedMbps = '⚠ 测速失败';
 
-  return {
-    body: modResponseBody(ipInfo, speedMbps),
-  };
+ try {
+ [ipInfo, speedMbps] = await Promise.all([ 
+ getIPInfo(ctx), 
+ getSpeedTest(ctx), 
+ ]);
+ } catch (e) {
+ console.error('Promise.all error:', e);
+ // 继续执行，使用默认值
+ }
+
+ return { 
+ body: modResponseBody(ipInfo, speedMbps), 
+ }; 
 }
