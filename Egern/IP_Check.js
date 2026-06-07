@@ -305,8 +305,8 @@ async function getIPInfo(ctx) {
     }
     return data;
   } catch (e) {
-    return null;
     console.log('获取IP信息失败', e);
+    return null;
   }
 }
 
