@@ -313,33 +313,36 @@ async function getSpeedTest(ctx) {
   let timeoutId = null;
   try {
     const downloadStartTime = performance.now();
-    const resp = await ctx.http.get(SPEED_TEST_URL, {
-      headers: { 'Cache-Control': 'no-cache' },
-      timeout: CONFIG.SPEED_TEST_TIMEOUT,
+
+    const downloadPromise = (async () => {
+      const resp = await ctx.http.get(SPEED_TEST_URL, {
+        headers: { 'Cache-Control': 'no-cache' }
+      });
+      if (resp?.status === 200) {
+        return await resp.arrayBuffer();
+      }
+      throw new Error('Fetch failed');
+    })();
+
+    const timeoutPromise = new Promise((_, reject) => {
+      timeoutId = setTimeout(() => reject(new Error('Timeout')), CONFIG.SPEED_TEST_TIMEOUT);
     });
+
+    const buffer = await Promise.race([downloadPromise, timeoutPromise]);
+
+    if (timeoutId) clearTimeout(timeoutId);
     
-    if (resp?.status === 200) {
-      const buffer = await Promise.race([
-        resp.arrayBuffer(),
-        new Promise((_, reject) => {
-          timeoutId = setTimeout(() => reject(new Error('Timeout')), CONFIG.SPEED_TEST_TIMEOUT);
-        })
-      ]);
-      
-      if (timeoutId) clearTimeout(timeoutId);
-      
-      const downloadEndTime = performance.now();
-      const bytes = buffer.byteLength;
-      if (bytes === 0) return '⚠️ 测速失败';
-      let duration = (downloadEndTime - downloadStartTime) / 1000;
-      duration = Math.max(duration, CONFIG.MIN_DURATION);
-      const mbps = ((bytes * CONFIG.BITS_PER_BYTE) / (duration * CONFIG.MBPS_DIVISOR)).toFixed(1);
-      return `${mbps} Mbps`;
-    }
+    const downloadEndTime = performance.now();
+    const bytes = buffer.byteLength;
+    if (bytes === 0) return '⚠️ 测速失败';
+    let duration = (downloadEndTime - downloadStartTime) / 1000;
+    duration = Math.max(duration, CONFIG.MIN_DURATION);
+    const mbps = ((bytes * CONFIG.BITS_PER_BYTE) / (duration * CONFIG.MBPS_DIVISOR)).toFixed(1);
+    return `${mbps} Mbps`;
   } catch (e) {
     if (timeoutId) clearTimeout(timeoutId);
   }
-  return '⚠️ 测速失败'; 
+  return '⚠️ 测速失败';
 }
 
 function modResponseBody(ipInfo, speedMbps) {
