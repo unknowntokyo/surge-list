@@ -8,8 +8,8 @@ env_schema:
  
   SPEED_TEST_TIMEOUT:
     name: 测速超时时间
-    description: 设置带宽测试的超时时间，单位为毫秒，默认6400毫秒，测速超时<脚本超时
-    default_value: 6400
+    description: 设置带宽测试的超时时间，单位为毫秒，默认4500毫秒，测速超时<脚本超时
+    default_value: 4500
     options:
       - 3000
       - 3600 
