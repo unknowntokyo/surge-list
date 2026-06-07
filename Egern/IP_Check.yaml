@@ -9,6 +9,7 @@ env_schema:
     description: 设置带宽测试的超时时间，单位为秒，默认为4秒，网速慢可以适当调高该参数
     default_value: 4秒
     options:
+      - 1秒 
       - 3秒
       - 4秒
       - 5秒
