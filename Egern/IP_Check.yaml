@@ -20,10 +20,10 @@ author: unknownTokyo
 rules:
 - domain:
     match: speed.cloudflare.com
-    policy: "{POLICY}"
+    policy: POLICY
 - domain_suffix:
     match: ipwho.de
-    policy: "{POLICY}"
+    policy: POLICY
 scriptings:
 - http_response:
     name: IP Check
