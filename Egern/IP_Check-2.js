@@ -344,7 +344,7 @@ async function getSpeedTest(ctx) {
       timeoutId = setTimeout(() => reject(new Error('⚠️ 测速超时')), SPEED_TEST_TIMEOUT);
     });
  
-    const buffer = await Promise.race([downloadPromise, timeoutPromise]);
+    const data = await Promise.race([downloadPromise, timeoutPromise]);
 
     if (timeoutId) clearTimeout(timeoutId);
     
