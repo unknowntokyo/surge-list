@@ -334,11 +334,11 @@ async function getSpeedTest(ctx) {
       if (resp?.status === 200) {
         return await resp.arrayBuffer();
       }
-      throw new Error('Fetch failed');
+      throw new Error('⚠️ 网络请求失败');
     })();
 
     const timeoutPromise = new Promise((_, reject) => {
-      timeoutId = setTimeout(() => reject(new Error('Timeout')), SPEED_TEST_TIMEOUT);
+      timeoutId = setTimeout(() => reject(new Error('⚠️ 测速超时')), SPEED_TEST_TIMEOUT);
     });
  
     const buffer = await Promise.race([downloadPromise, timeoutPromise]);
