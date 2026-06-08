@@ -351,7 +351,7 @@ function modResponseBody(ipInfo, speedMbps) {
     '地区': codeMap[ipInfo.country_code] || ipInfo.country_code || '未知',
     ...(ipInfo.city_name_zh && { '城市': ipInfo.city_name_zh }),
     '互联网服务提供商': ipInfo.asn ? `AS${ipInfo.asn} ${ipInfo.as_desc || ''}` : '未知',
-    ...(speedMbps && { '下载带宽': speedMbps }),
+    ...(speedMbps && { '下行带宽': speedMbps }),
     '客户端': ipInfo.user_agent ? ipInfo.user_agent.replace(/^egern/i, 'Egern') : 'Egern'
   };
 }
