@@ -79,15 +79,15 @@ const cityMap = {
   'jeju': '济州',
   'seongnam': '城南',
   'chuncheon': '春川',
-  'guro-gu': '九老区',
-  'yongsan-gu': '龙山区',
-  'geumcheon-gu': '衿川区',
-  'gangnam-gu': '江南区',
-  'mapo-gu': '麻浦区',
-  'seongdong-gu': '城东区',
-  'yeongdeungpo-gu': '永登浦区',
-  'gangseo-gu': '江西区',
-  'songpa-gu': '松坡区',
+  'guro gu': '九老区',
+  'yongsan gu': '龙山区',
+  'geumcheon gu': '衿川区',
+  'gangnam gu': '江南区',
+  'mapo gu': '麻浦区',
+  'seongdong gu': '城东区',
+  'yeongdeungpo gu': '永登浦区',
+  'gangseo gu': '江西区',
+  'songpa gu': '松坡区',
 
   // 新加坡 & 马来西亚
   'singapore': '新加坡',
@@ -283,19 +283,22 @@ const SORTED_CITY_KEYS = Object.keys(cityMap)
   .filter(k => k.length > 2)
   .sort((a, b) => b.length - a.length);
 
-const CITY_REGEX = new RegExp(
-  SORTED_CITY_KEYS.map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
-);
+const CITY_REGEX = new RegExp('\\b(' + SORTED_CITY_KEYS.join('|') + ')\\b');
 
 function translateCity(text) {
-  if (!text) return '';
-  const key = text.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+  if (typeof text !== 'string') return '';
+
+  const key = text.trim().toLowerCase().normalize('NFD')
+    .replace(/[\u0300-\u036f.,]/g, '')
+    .replace(/-+/g, ' ')
+    .replace(/\s+/g, ' ');
 
   const exactMatch = cityMap[key];
   if (exactMatch) return exactMatch;
 
-  const match = key.match(CITY_REGEX);
-  if (match) return cityMap[match[0]];
+  const match = CITY_REGEX.exec(key);
+  if (match) return cityMap[match[1]];
   
   return text;
 }
