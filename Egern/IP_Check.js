@@ -1,5 +1,6 @@
 const CONFIG = {
-  MB: 4,
+  MB: parseFloat(ctx.env.SPEED_TEST_PACKET) || 3,
+  SPEED_TEST_TIMEOUT:(parseFloat(ctx.env.SPEED_TEST_TIMEOUT) || 4) * 1000,
   MIN_DURATION: 0.2,
   BITS_PER_BYTE: 8,
   MBPS_DIVISOR: 1_000_000,
@@ -309,7 +310,6 @@ async function getIPInfo(ctx) {
 }
 
 async function getSpeedTest(ctx) {
-  const SPEED_TEST_TIMEOUT = (parseInt(ctx.env.SPEED_TEST_TIMEOUT) || 4) * 1000;
   let timeoutId = null;
   try {
     const downloadStartTime = performance.now();
@@ -325,7 +325,7 @@ async function getSpeedTest(ctx) {
     })();
 
     const timeoutPromise = new Promise((_, reject) => {
-      timeoutId = setTimeout(() => reject(new Error('Timeout')), SPEED_TEST_TIMEOUT);
+      timeoutId = setTimeout(() => reject(new Error('Timeout')), CONFIG.SPEED_TEST_TIMEOUT);
     });
  
     const buffer = await Promise.race([downloadPromise, timeoutPromise]);
