@@ -305,19 +305,25 @@ function translateCity(text) {
 
 async function getIPInfo(ctx) {
   try {
- 
-    let data = typeof ctx.response.json === 'function' ? await ctx.response.json() : ctx.response.json;
 
-    if (!data && ctx.response.body) {
-      data = typeof ctx.response.body === 'string' ? JSON.parse(ctx.response.body) : ctx.response.body;
+    const resp = ctx.response;
+    let data = typeof resp.json === 'function' ? await resp.json() : resp.body;
+
+    if (typeof data === 'string') data = JSON.parse(data);
+
+    if (!data) {
+      console.log("IP信息为空，脚本终止");
+      return ctx.abort();
     }
 
     if (data?.city_name) {
       data.city_name_zh = translateCity(data.city_name);
     }
+    
     return data;
   } catch (e) {
-    return null;
+    console.log("IP信息错误，脚本终止"); 
+    return ctx.abort();
   }
 }
 
