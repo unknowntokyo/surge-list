@@ -13,7 +13,7 @@ env_schema:
       - 开启
       - 关闭
   SPEED_TEST_PACKET:
-    name: 带宽测速数据包
+    name: 测速数据包大小
     description: 设置带宽测速的数据包大小，默认为3MB，网速慢的/等待久的可以适当调低该参数
     default_value: 3MB
     options:
@@ -25,7 +25,7 @@ env_schema:
       - 3.5MB
       - 4MB
   SPEED_TEST_TIMEOUT:
-    name: 带宽测速超时
+    name: 测速超时
     description: 设置带宽测速的超时时间，默认为4秒，网速慢的可以适当调高该参数
     default_value: 4秒
     options:
