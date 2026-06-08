@@ -334,8 +334,8 @@ async function getSpeedTest(ctx) {
       const resp = await ctx.http.get(SPEED_TEST_URL, {
         headers: { 'Cache-Control': 'no-cache' }
       });
-      if (resp?.status === 200) {
-        return await resp.arrayBuffer();
+      if (resp?.status === 200 && resp.body) {
+        return resp.body; 
       }
       throw new Error('⚠️ 网络请求失败');
     })();
@@ -349,7 +349,7 @@ async function getSpeedTest(ctx) {
     if (timeoutId) clearTimeout(timeoutId);
     
     const downloadEndTime = performance.now();
-    const bytes = buffer.byteLength;
+    const bytes = data instanceof ArrayBuffer ? data.byteLength : (data?.byteLength || data?.length || 0);
     if (bytes === 0) return '⚠️ 测速失败';
     let duration = (downloadEndTime - downloadStartTime) / 1000;
     duration = Math.max(duration, CONFIG.MIN_DURATION);
