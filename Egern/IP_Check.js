@@ -91,6 +91,7 @@ const cityMap = {
 
   // 新加坡 & 马来西亚
   'singapore': '新加坡',
+  'Loyang': '洛阳', 
   'johor': '柔佛',
   'johor bahru': '柔佛新山',
   'cyberjaya': '赛城',
