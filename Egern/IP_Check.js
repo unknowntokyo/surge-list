@@ -79,15 +79,15 @@ const cityMap = {
   'jeju': '济州',
   'seongnam': '城南',
   'chuncheon': '春川',
-  'guro-gu': '九老区',
-  'yongsan-gu': '龙山区',
-  'geumcheon-gu': '衿川区',
-  'gangnam-gu': '江南区',
-  'mapo-gu': '麻浦区',
-  'seongdong-gu': '城东区',
-  'yeongdeungpo-gu': '永登浦区',
-  'gangseo-gu': '江西区',
-  'songpa-gu': '松坡区',
+  'guro gu': '九老区',
+  'yongsan gu': '龙山区',
+  'geumcheon gu': '衿川区',
+  'gangnam gu': '江南区',
+  'mapo gu': '麻浦区',
+  'seongdong gu': '城东区',
+  'yeongdeungpo gu': '永登浦区',
+  'gangseo gu': '江西区',
+  'songpa gu': '松坡区',
 
   // 新加坡 & 马来西亚
   'singapore': '新加坡',
@@ -205,7 +205,6 @@ const cityMap = {
   'nuremberg': '纽伦堡',
   'chisinau': '基希讷乌',
   'budapest': '布达佩斯',
-  'frankfurt am main': '法兰克福',
   'utrecht': '乌德勒支',
 
   // 中东 & 土耳其 & 阿塞拜疆
@@ -240,7 +239,6 @@ const cityMap = {
   'chiang mai': '清迈',
   'phuket': '普吉岛',
   'hanoi': '河内',
-  'ho chi minh city': '胡志明市',
   'ho chi minh': '胡志明市',
   'danang': '岘港',
   'haiphong': '海防',
@@ -281,10 +279,28 @@ const cityMap = {
   'cape town': '开普敦'
 };
 
+const SORTED_CITY_KEYS = Object.keys(cityMap)
+  .filter(k => k.length > 2)
+  .sort((a, b) => b.length - a.length);
+
+const CITY_REGEX = new RegExp('\\b(' + SORTED_CITY_KEYS.join('|') + ')\\b');
+
 function translateCity(text) {
-  if (!text) return '';
-  const key = text.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  return cityMap[key] || text;
+
+  if (typeof text !== 'string') return '';
+
+  const key = text.trim().toLowerCase().normalize('NFD')
+    .replace(/[\u0300-\u036f.,]/g, '')
+    .replace(/-+/g, ' ')
+    .replace(/\s+/g, ' ');
+
+  const exactMatch = cityMap[key];
+  if (exactMatch) return exactMatch;
+
+  const match = CITY_REGEX.exec(key);
+  if (match) return cityMap[match[1]];
+  
+  return text;
 }
 
 async function getIPInfo(ctx) {
@@ -321,11 +337,11 @@ async function getSpeedTest(ctx) {
       if (resp?.status === 200) {
         return await resp.arrayBuffer();
       }
-      throw new Error('Fetch failed');
+      throw new Error('⚠️ 网络请求失败');
     })();
 
     const timeoutPromise = new Promise((_, reject) => {
-      timeoutId = setTimeout(() => reject(new Error('Timeout')), SPEED_TEST_TIMEOUT);
+      timeoutId = setTimeout(() => reject(new Error('⚠️ 测速超时')), SPEED_TEST_TIMEOUT);
     });
  
     const buffer = await Promise.race([downloadPromise, timeoutPromise]);
