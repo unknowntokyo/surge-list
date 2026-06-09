@@ -313,7 +313,7 @@ async function getIPInfo(ctx) {
 
     if (!data) {
       console.log("IP信息为空，脚本终止");
-      return ctx.abort();
+      return null;
     }
 
     if (data?.city_name) {
@@ -323,7 +323,7 @@ async function getIPInfo(ctx) {
     return data;
   } catch (e) {
     console.log("IP信息错误，脚本终止"); 
-    return ctx.abort();
+    return null;
   }
 }
 
@@ -355,7 +355,7 @@ async function getSpeedTest(ctx) {
     if (timeoutId) clearTimeout(timeoutId);
     
     const downloadEndTime = performance.now();
-    const bytes = buffer.byteLength;
+    const bytes = buffer?.byteLength || 0;
     if (bytes === 0) return '⚠️ 测速失败';
     let duration = (downloadEndTime - downloadStartTime) / 1000;
     duration = Math.max(duration, CONFIG.MIN_DURATION);
@@ -384,8 +384,12 @@ export default async function(ctx) {
   const showSpeedtest = ctx.env.SHOW_SPEED_TEST === '开启';
   const [ipInfo, speedMbps] = await Promise.all([
     getIPInfo(ctx),
-    showSpeedtest ? getSpeedTest(ctx) : undefined,
+    showSpeedtest ? getSpeedTest(ctx) : Promise.resolve(null),
   ]);
 
+  if (!ipInfo) {
+    return {};
+  }
+ 
   return { body: modResponseBody(ipInfo, speedMbps) };
 }
