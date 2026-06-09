@@ -330,57 +330,34 @@ async function getIPInfo(ctx) {
 async function getSpeedTest(ctx) {
   const SPEED_TEST_TIMEOUT = (parseFloat(ctx.env.SPEED_TEST_TIMEOUT) || 4) * 1000;
   const MB = parseFloat(ctx.env.SPEED_TEST_PACKET) || 3;
-  const BYTES_EXPECTED = MB * 1024 * 1024;
-  const SPEED_TEST_URL = `https://speed.cloudflare.com/__down?bytes=${BYTES_EXPECTED}`;
+  const BYTES = MB * 1024 * 1024;
+  const SPEED_TEST_URL = `https://speed.cloudflare.com/__down?bytes=${BYTES}`; 
   
-  let timeoutId = null;
   try {
     const downloadStartTime = performance.now();
 
-    const fetchPromise = (async () => {
-      const resp = await ctx.http.get(SPEED_TEST_URL, {
-        headers: { 'Cache-Control': 'no-cache' }
-      });
-      
-      if (resp?.status !== 200 || !resp.body) {
-        throw new Error('⚠️ 网络请求失败');
-      }
-
-      // 获取流读取器
-      const reader = resp.body.getReader();
-      let totalBytesReceived = 0;
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        totalBytesReceived += value.length;
-      }
-      
-      return totalBytesReceived;
-    })();
-
-    const timeoutPromise = new Promise((_, reject) => {
-      timeoutId = setTimeout(() => reject(new Error('⚠️ 测速超时')), SPEED_TEST_TIMEOUT);
+    const resp = await ctx.http.get(SPEED_TEST_URL, {
+      headers: { 'Cache-Control': 'no-cache' },
+      timeout: SPEED_TEST_TIMEOUT
     });
 
-    const totalBytes = await Promise.race([fetchPromise, timeoutPromise]);
-    if (timeoutId) clearTimeout(timeoutId);
+    if (resp?.status !== 200) {
+      throw new Error('⚠️ 网络请求失败');
+    }
 
+    const buffer = await resp.arrayBuffer();
     const downloadEndTime = performance.now();
+    
+    const bytes = buffer?.byteLength || 0;
+    if (bytes === 0) return '⚠️ 测速失败';
+    
     let duration = (downloadEndTime - downloadStartTime) / 1000;
-    
-    // 计算速度
     duration = Math.max(duration, CONFIG.MIN_DURATION);
-    const mbps = ((totalBytes * CONFIG.BITS_PER_BYTE) / (duration * CONFIG.MBPS_DIVISOR)).toFixed(1);
-    
+    const mbps = ((bytes * CONFIG.BITS_PER_BYTE) / (duration * CONFIG.MBPS_DIVISOR)).toFixed(1);
     return `${mbps} Mbps`;
-  } catch (e) {
-    if (timeoutId) clearTimeout(timeoutId);
-    console.log(e.message);
-    return '⚠️ 测速失败';
-  }
+  } catch (e) {}
+  return '⚠️ 测速失败';
 }
-
 
 function modResponseBody(ipInfo, speedMbps) {
   return {
