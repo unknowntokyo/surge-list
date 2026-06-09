@@ -328,101 +328,61 @@ async function getIPInfo(ctx) {
 }
 
 async function getSpeedTest(ctx) {
-  const SPEED_TEST_TIMEOUT = 
-    (parseFloat(ctx.env.SPEED_TEST_TIMEOUT) || 4) * 1000;
-  const SPEED_TEST_PACKET = 
-    parseFloat(ctx.env.SPEED_TEST_PACKET) || 3;
-  const MIN_SAMPLE_BYTES = 
-    (parseFloat(ctx.env.MIN_SAMPLE_BYTES) || 200) * 1024;
-  const MIN_TEST_BYTES = 
-    (parseFloat(ctx.env.MIN_TEST_BYTES) || 500) * 1024;
-  const SAMPLE_DURATION_MS = 
-    parseFloat(ctx.env.SAMPLE_DURATION_MS) || 200;
-  const TARGET_DURATION_MS = 
-    parseFloat(ctx.env.TARGET_DURATION_MS) || 2000;
-  const TIME_CHECK_INTERVAL = 
-    parseFloat(ctx.env.TIME_CHECK_INTERVAL) || 20;
+  const TIMEOUT = (parseFloat(ctx.env.SPEED_TEST_TIMEOUT) || 4) * 1000;
+  const MAX_BYTES = (parseFloat(ctx.env.SPEED_TEST_PACKET) || 3) * 1024 * 1024;
   
-  const SPEED_TEST_URL = `https://speed.cloudflare.com/__down`;
-  
-  const BITS_PER_BYTE = 8;
-  const MBPS_DIVISOR = 1000000;
-  const MAX_TEST_BYTES = SPEED_TEST_PACKET * 1024 * 1024;
-  const BITS_TO_MBPS = BITS_PER_BYTE / MBPS_DIVISOR;
-  const MIN_DURATION = CONFIG.MIN_DURATION;
-
   const startTime = performance.now();
-
   try {
     const resp = await ctx.http.get(
-      `${SPEED_TEST_URL}?bytes=${MAX_TEST_BYTES}`,
+      `https://speed.cloudflare.com/__down?bytes=${MAX_BYTES}`,
       { headers: { 'Cache-Control': 'no-cache' } }
     );
-
-    if (resp?.status !== 200 || !resp.body) {
-      return '⚠ 测速失败';
-    }
-
-    const reader = resp.body.getReader();
-    let totalBytes = 0;
-    let targetBytes = 0;
-    let samplingDone = false;
-    let timedOut = false;
-    let timeoutId;
-    let chunkCount = 0;
+    if (resp?.status !== 200 || !resp.body) return '⚠ 测速失败';
     
-    const sampleStart = performance.now();
-
-    // 超时标记
-    timeoutId = setTimeout(() => {
-      timedOut = true;
-    }, SPEED_TEST_TIMEOUT);
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      if (value) {
-        totalBytes += value.length;
-        chunkCount++;
-
-        if (chunkCount % TIME_CHECK_INTERVAL === 0) {
-          const now = performance.now();
+    const reader = resp.body.getReader();
+    let totalBytes = 0, targetBytes = 0, chunkCount = 0, timedOut = false;
+    
+    const timeoutId = setTimeout(() => { timedOut = true; }, TIMEOUT);
+    
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done || timedOut) break;
+        
+        if (value) {
+          totalBytes += value.length;
           
-          if (!samplingDone && (now - sampleStart > SAMPLE_DURATION_MS || totalBytes >= MIN_SAMPLE_BYTES)) {
-            const sampleMbps = (totalBytes * BITS_TO_MBPS) / 
-              Math.max((now - sampleStart) / 1000, MIN_DURATION);
+          if (++chunkCount % 20 === 0) {
+            const now = performance.now();
+            const elapsed = now - startTime;
             
-            targetBytes = Math.max(MIN_TEST_BYTES, 
-              Math.min(MAX_TEST_BYTES, 
-                Math.ceil((sampleMbps * TARGET_DURATION_MS / 1000 * MBPS_DIVISOR) / BITS_PER_BYTE)
-              )
-            );
+            // 采样完成
+            if (targetBytes === 0 && (elapsed >= 200 || totalBytes >= 204800)) {
+              targetBytes = Math.max(512000, Math.min(MAX_BYTES, 
+                Math.ceil(totalBytes * 2000 / elapsed)
+              ));
+            }
             
-            samplingDone = true;
-          }
-
-          if (timedOut || (samplingDone && totalBytes >= targetBytes)) {
-            break;
+            // 达到目标字节数
+            if (targetBytes > 0 && totalBytes >= targetBytes) break;
           }
         }
       }
+    } finally {
+      reader.cancel();
+      clearTimeout(timeoutId);
     }
-
-    clearTimeout(timeoutId);
-
-    if (totalBytes < MIN_TEST_BYTES) {
-      return '⚠ 测速失败';
-    }
-
-    const duration = Math.max((performance.now() - startTime) / 1000, MIN_DURATION);
-    const mbps = ((totalBytes * BITS_TO_MBPS) / duration).toFixed(1);
-
+    
+    if (totalBytes < 512000) return '⚠ 测速失败';
+    
+    const duration = Math.max((performance.now() - startTime) / 1000, 0.2);
+    const mbps = ((totalBytes * 8) / 1_000_000 / duration).toFixed(1);
     return `${mbps} Mbps`;
   } catch (e) {
     return '⚠ 测速失败';
   }
 }
+
 
 
 
