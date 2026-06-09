@@ -328,36 +328,103 @@ async function getIPInfo(ctx) {
 }
 
 async function getSpeedTest(ctx) {
-  const SPEED_TEST_TIMEOUT = (parseFloat(ctx.env.SPEED_TEST_TIMEOUT) || 4) * 1000;
-  const MB = parseFloat(ctx.env.SPEED_TEST_PACKET) || 3;
-  const BYTES = MB * 1024 * 1024;
-  const SPEED_TEST_URL = `https://speed.cloudflare.com/__down?bytes=${BYTES}`; 
+  const SPEED_TEST_TIMEOUT = 
+    (parseFloat(ctx.env.SPEED_TEST_TIMEOUT) || 4) * 1000;
+  const SPEED_TEST_PACKET = 
+    parseFloat(ctx.env.SPEED_TEST_PACKET) || 3;
+  const MIN_SAMPLE_BYTES = 
+    (parseFloat(ctx.env.MIN_SAMPLE_BYTES) || 200) * 1024;
+  const MIN_TEST_BYTES = 
+    (parseFloat(ctx.env.MIN_TEST_BYTES) || 500) * 1024;
+  const SAMPLE_DURATION_MS = 
+    parseFloat(ctx.env.SAMPLE_DURATION_MS) || 200;
+  const TARGET_DURATION_MS = 
+    parseFloat(ctx.env.TARGET_DURATION_MS) || 2000;
+  const TIME_CHECK_INTERVAL = 
+    parseFloat(ctx.env.TIME_CHECK_INTERVAL) || 20;
   
+  const SPEED_TEST_URL = `https://speed.cloudflare.com/__down`;
+  
+  const BITS_PER_BYTE = 8;
+  const MBPS_DIVISOR = 1000000;
+  const MAX_TEST_BYTES = SPEED_TEST_PACKET * 1024 * 1024;
+  const BITS_TO_MBPS = BITS_PER_BYTE / MBPS_DIVISOR;
+  const MIN_DURATION = CONFIG.MIN_DURATION;
+
+  const startTime = performance.now();
+
   try {
-    const downloadStartTime = performance.now();
+    const resp = await ctx.http.get(
+      `${SPEED_TEST_URL}?bytes=${MAX_TEST_BYTES}`,
+      { headers: { 'Cache-Control': 'no-cache' } }
+    );
 
-    const resp = await ctx.http.get(SPEED_TEST_URL, {
-      headers: { 'Cache-Control': 'no-cache' },
-      timeout: SPEED_TEST_TIMEOUT
-    });
-
-    if (resp?.status !== 200) {
-      throw new Error('⚠️ 网络请求失败');
+    if (resp?.status !== 200 || !resp.body) {
+      return '⚠ 测速失败';
     }
 
-    const buffer = await resp.arrayBuffer();
-    const downloadEndTime = performance.now();
+    const reader = resp.body.getReader();
+    let totalBytes = 0;
+    let targetBytes = 0;
+    let samplingDone = false;
+    let timedOut = false;
+    let timeoutId;
+    let chunkCount = 0;
     
-    const bytes = buffer?.byteLength || 0;
-    if (bytes === 0) return '⚠️ 测速失败';
-    
-    let duration = (downloadEndTime - downloadStartTime) / 1000;
-    duration = Math.max(duration, CONFIG.MIN_DURATION);
-    const mbps = ((bytes * CONFIG.BITS_PER_BYTE) / (duration * CONFIG.MBPS_DIVISOR)).toFixed(1);
+    const sampleStart = performance.now();
+
+    // 超时标记
+    timeoutId = setTimeout(() => {
+      timedOut = true;
+    }, SPEED_TEST_TIMEOUT);
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      if (value) {
+        totalBytes += value.length;
+        chunkCount++;
+
+        if (chunkCount % TIME_CHECK_INTERVAL === 0) {
+          const now = performance.now();
+          
+          if (!samplingDone && (now - sampleStart > SAMPLE_DURATION_MS || totalBytes >= MIN_SAMPLE_BYTES)) {
+            const sampleMbps = (totalBytes * BITS_TO_MBPS) / 
+              Math.max((now - sampleStart) / 1000, MIN_DURATION);
+            
+            targetBytes = Math.max(MIN_TEST_BYTES, 
+              Math.min(MAX_TEST_BYTES, 
+                Math.ceil((sampleMbps * TARGET_DURATION_MS / 1000 * MBPS_DIVISOR) / BITS_PER_BYTE)
+              )
+            );
+            
+            samplingDone = true;
+          }
+
+          if (timedOut || (samplingDone && totalBytes >= targetBytes)) {
+            break;
+          }
+        }
+      }
+    }
+
+    clearTimeout(timeoutId);
+
+    if (totalBytes < MIN_TEST_BYTES) {
+      return '⚠ 测速失败';
+    }
+
+    const duration = Math.max((performance.now() - startTime) / 1000, MIN_DURATION);
+    const mbps = ((totalBytes * BITS_TO_MBPS) / duration).toFixed(1);
+
     return `${mbps} Mbps`;
-  } catch (e) {}
-  return '⚠️ 测速失败';
+  } catch (e) {
+    return '⚠ 测速失败';
+  }
 }
+
+
 
 function modResponseBody(ipInfo, speedMbps) {
   return {
