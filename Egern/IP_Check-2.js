@@ -328,28 +328,37 @@ async function getIPInfo(ctx) {
 }
 
 async function getSpeedTest(ctx) {
-  // 从环境变量获取超时时间，默认 4 秒
   const TIMEOUT = (parseFloat(ctx.env.SPEED_TEST_TIMEOUT) || 4) * 1000;
-  const TARGET_BYTES = 2 * 1024 * 1024;  // 目标下载 2MB 即可
-  // 修正：补全了 https:// 协议头
+  const TARGET_BYTES = 2 * 1024 * 1024;  // 2MB 目标流量
   const TEST_URL = 'https://speed.cloudflare.com/__down?bytes=10485760';  
   
-  // 设置超时控制器
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), TIMEOUT);
+  const hasAbort = typeof AbortController !== 'undefined';
+  const controller = hasAbort ? new AbortController() : null;
+  
+  let timeoutId = null;
+  if (hasAbort) {
+    timeoutId = setTimeout(() => controller.abort(), TIMEOUT);
+  }
 
   try {
-    // 改用标准 fetch API，确保 ReadableStream 正常工作
-    const response = await fetch(TEST_URL, {
+    const fetchOptions = {
       method: 'GET',
-      headers: { 'Cache-Control': 'no-cache' },
-      signal: controller.signal
-    });
-    
-    clearTimeout(timeoutId); // 成功建立连接后清除超时
+      headers: { 
+        'Cache-Control': 'no-cache'
+        // 已移除自定义 User-Agent，将使用系统默认 UA
+      }
+    };
+    if (hasAbort) fetchOptions.signal = controller.signal;
+
+    const response = await fetch(TEST_URL, fetchOptions);
+    if (timeoutId) clearTimeout(timeoutId);
     
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
+    }
+
+    if (!response.body || typeof response.body.getReader !== 'function') {
+      throw new Error('当前环境的 fetch 无法提供 ReadableStream 流式读取');
     }
     
     const reader = response.body.getReader();
@@ -360,9 +369,9 @@ async function getSpeedTest(ctx) {
       while (bytesRead < TARGET_BYTES) {
         const { done, value } = await reader.read();
         
-        // 首次收到数据块时开始计时（排除 DNS + TCP 握手耗时）
         if (!downloadStartTime) {
-          downloadStartTime = performance.now();
+          // 修正：使用标准的 Date.now() 计时
+          downloadStartTime = Date.now(); 
         }
         
         if (done) {
@@ -371,39 +380,33 @@ async function getSpeedTest(ctx) {
         }
         
         bytesRead += value.byteLength;
-        // console.log(`下载进度: ${(bytesRead / 1024 / 1024).toFixed(2)}MB`);
       }
-      
-      // 达到目标后，主动取消读取，断开连接省流量
       await reader.cancel('已获得足够数据');
-      
     } catch (err) {
       try { await reader.cancel(); } catch (e) {}
       throw err;
     }
     
-    // 计算耗时
-    const duration = Math.max(
-      (performance.now() - downloadStartTime) / 1000,
-      0.1
-    );
-    
-    // 计算 Mbps (比特率)
+    // 修正：基于 Date.now() 计算耗时
+    const duration = Math.max((Date.now() - downloadStartTime) / 1000, 0.1);
     const mbps = ((bytesRead * 8) / (duration * 1_000_000)).toFixed(1);
-    console.log(`测速成功: ${mbps} Mbps (${(bytesRead / 1024 / 1024).toFixed(2)} MB 耗时 ${duration.toFixed(2)}s)`);
     
+    console.log(`测速成功: ${mbps} Mbps (${(bytesRead / 1024 / 1024).toFixed(2)} MB 耗时 ${duration.toFixed(2)}s)`);
     return `${mbps} Mbps`;
     
   } catch (error) {
-    clearTimeout(timeoutId);
+    if (timeoutId) clearTimeout(timeoutId);
+    
+    // 详细捕获具体的报错原因
+    console.warn('【Egern测速具体报错原因】:', error.message || error);
+    
     if (error.name === 'AbortError') {
-      console.warn('Speed test timeout');
       return '⚠ 测速超时';
     }
-    console.warn('Speed test error:', error.message);
     return '⚠ 测速失败';
   }
 }
+
 
 
 
@@ -433,3 +436,4 @@ export default async function(ctx) {
  
   return { body: modResponseBody(ipInfo, speedMbps) };
 }
+
