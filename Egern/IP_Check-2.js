@@ -374,15 +374,10 @@ function modResponseBody(ipInfo, speedMbps) {
 export default async function(ctx) {
   if (!ctx.response) return;
 
-  const showSpeedtest = ctx.env.SHOW_SPEED_TEST === '开启';
   const [ipInfo, speedMbps] = await Promise.all([
     getIPInfo(ctx),
-    showSpeedtest ? getSpeedTest(ctx) : Promise.resolve(null),
+    ctx.env.SHOW_SPEED_TEST === '开启' ? getSpeedTest(ctx) : null
   ]);
 
-  if (!ipInfo) {
-    return {};
-  }
- 
-  return { body: modResponseBody(ipInfo, speedMbps) };
+  return ipInfo ? { body: modResponseBody(ipInfo, speedMbps) } : { body: ctx.response.body };
 }
