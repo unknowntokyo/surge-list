@@ -329,8 +329,8 @@ async function getIPInfo(ctx) {
 
 async function getSpeedTest(ctx) {
   const TIMEOUT = (parseFloat(ctx.env.SPEED_TEST_TIMEOUT) || 4) * 1000;
-  const TARGET_BYTES = 2 * 1024 * 1024;  // 目标 2MB
-  const TEST_URL = 'https://speed.cloudflare.com/__down?bytes=10485760';  // 请 10MB
+  const TARGET_BYTES = 10 * 1024 * 1024;  // ✅ 改为 10MB
+  const TEST_URL = 'https://speed.cloudflare.com/__down?bytes=104857600';  // 请 100MB
   
   try {
     const response = await ctx.http.get(TEST_URL, {
@@ -342,7 +342,6 @@ async function getSpeedTest(ctx) {
       throw new Error(`HTTP ${response.status}`);
     }
     
-    // ⭐ Egern 完全支持 ReadableStream
     const reader = response.body.getReader();
     let bytesRead = 0;
     let downloadStartTime = null;
@@ -351,39 +350,35 @@ async function getSpeedTest(ctx) {
       while (bytesRead < TARGET_BYTES) {
         const { done, value } = await reader.read();
         
-        // 首次收到数据块时开始计时（排除 DNS+TCP 握手）
         if (!downloadStartTime) {
           downloadStartTime = performance.now();
         }
         
-        if (done) {
-          console.log('流提前结束');
-          break;
-        }
+        if (done) break;
         
         bytesRead += value.byteLength;
         console.log(`下载: ${(bytesRead / 1024 / 1024).toFixed(2)}MB`);
       }
       
-      // ⭐ 关键：立即停止流，断开连接
       await reader.cancel('已获得足够数据');
       
     } catch (err) {
-      // 发生错误也要关闭 reader
       try {
         await reader.cancel('发生错误');
       } catch (e) {}
       throw err;
     }
     
-    // 计算速度
-    const duration = Math.max(
-      (performance.now() - downloadStartTime) / 1000,
-      0.1
-    );
+    // ✅ 移除 Math.max()，直接使用真实时间
+    const duration = (performance.now() - downloadStartTime) / 1000;
+    
+    // ✅ 添加最小时间检查，防止异常值
+    if (duration < 0.1) {
+      console.warn('测试时间过短，结果可能不准确');
+    }
     
     const mbps = ((bytesRead * 8) / (duration * 1_000_000)).toFixed(1);
-    console.log(`速度: ${mbps} Mbps (${bytesRead} 字节 in ${duration.toFixed(2)}s)`);
+    console.log(`速度: ${mbps} Mbps (${bytesRead} 字节 in ${duration.toFixed(3)}s)`);
     
     return `${mbps} Mbps`;
     
@@ -392,6 +387,7 @@ async function getSpeedTest(ctx) {
     return '⚠ 测速失败';
   }
 }
+
 
 function modResponseBody(ipInfo, speedMbps) {
   return {
