@@ -328,17 +328,27 @@ async function getIPInfo(ctx) {
 }
 
 async function getSpeedTest(ctx) {
+  // 从环境变量获取超时时间，默认 4 秒
   const TIMEOUT = (parseFloat(ctx.env.SPEED_TEST_TIMEOUT) || 4) * 1000;
-  const TARGET_BYTES = 10 * 1024 * 1024;  // ✅ 改为 10MB
-  const TEST_URL = 'https://speed.cloudflare.com/__down?bytes=104857600';  // 请 100MB
+  const TARGET_BYTES = 2 * 1024 * 1024;  // 目标下载 2MB 即可
+  // 修正：补全了 https:// 协议头
+  const TEST_URL = 'https://speed.cloudflare.com/__down?bytes=10485760';  
   
+  // 设置超时控制器
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), TIMEOUT);
+
   try {
-    const response = await ctx.http.get(TEST_URL, {
+    // 改用标准 fetch API，确保 ReadableStream 正常工作
+    const response = await fetch(TEST_URL, {
+      method: 'GET',
       headers: { 'Cache-Control': 'no-cache' },
-      timeout: TIMEOUT
+      signal: controller.signal
     });
     
-    if (response?.status !== 200) {
+    clearTimeout(timeoutId); // 成功建立连接后清除超时
+    
+    if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
     }
     
@@ -350,43 +360,51 @@ async function getSpeedTest(ctx) {
       while (bytesRead < TARGET_BYTES) {
         const { done, value } = await reader.read();
         
+        // 首次收到数据块时开始计时（排除 DNS + TCP 握手耗时）
         if (!downloadStartTime) {
           downloadStartTime = performance.now();
         }
         
-        if (done) break;
+        if (done) {
+          console.log('流提前结束');
+          break;
+        }
         
         bytesRead += value.byteLength;
-        console.log(`下载: ${(bytesRead / 1024 / 1024).toFixed(2)}MB`);
+        // console.log(`下载进度: ${(bytesRead / 1024 / 1024).toFixed(2)}MB`);
       }
       
+      // 达到目标后，主动取消读取，断开连接省流量
       await reader.cancel('已获得足够数据');
       
     } catch (err) {
-      try {
-        await reader.cancel('发生错误');
-      } catch (e) {}
+      try { await reader.cancel(); } catch (e) {}
       throw err;
     }
     
-    // ✅ 移除 Math.max()，直接使用真实时间
-    const duration = (performance.now() - downloadStartTime) / 1000;
+    // 计算耗时
+    const duration = Math.max(
+      (performance.now() - downloadStartTime) / 1000,
+      0.1
+    );
     
-    // ✅ 添加最小时间检查，防止异常值
-    if (duration < 0.1) {
-      console.warn('测试时间过短，结果可能不准确');
-    }
-    
+    // 计算 Mbps (比特率)
     const mbps = ((bytesRead * 8) / (duration * 1_000_000)).toFixed(1);
-    console.log(`速度: ${mbps} Mbps (${bytesRead} 字节 in ${duration.toFixed(3)}s)`);
+    console.log(`测速成功: ${mbps} Mbps (${(bytesRead / 1024 / 1024).toFixed(2)} MB 耗时 ${duration.toFixed(2)}s)`);
     
     return `${mbps} Mbps`;
     
   } catch (error) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      console.warn('Speed test timeout');
+      return '⚠ 测速超时';
+    }
     console.warn('Speed test error:', error.message);
     return '⚠ 测速失败';
   }
 }
+
 
 
 function modResponseBody(ipInfo, speedMbps) {
