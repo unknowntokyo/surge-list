@@ -328,82 +328,34 @@ async function getIPInfo(ctx) {
 }
 
 async function getSpeedTest(ctx) {
-  const TIMEOUT = (parseFloat(ctx.env.SPEED_TEST_TIMEOUT) || 4) * 1000;
-  const TARGET_BYTES = 2 * 1024 * 1024;  // 2MB 目标流量
+  // 增加时间到 8 秒，降低目标数据量到 1MB，确保成功率
+  const TIMEOUT = 8000; 
+  const TARGET_BYTES = 1 * 1024 * 1024; 
   const TEST_URL = 'https://speed.cloudflare.com/__down?bytes=10485760';  
   
-  const hasAbort = typeof AbortController !== 'undefined';
-  const controller = hasAbort ? new AbortController() : null;
-  
-  let timeoutId = null;
-  if (hasAbort) {
-    timeoutId = setTimeout(() => controller.abort(), TIMEOUT);
-  }
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), TIMEOUT);
 
   try {
-    const fetchOptions = {
-      method: 'GET',
-      headers: { 
-        'Cache-Control': 'no-cache'
-        // 已移除自定义 User-Agent，将使用系统默认 UA
-      }
-    };
-    if (hasAbort) fetchOptions.signal = controller.signal;
-
-    const response = await fetch(TEST_URL, fetchOptions);
-    if (timeoutId) clearTimeout(timeoutId);
-    
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-
-    if (!response.body || typeof response.body.getReader !== 'function') {
-      throw new Error('当前环境的 fetch 无法提供 ReadableStream 流式读取');
-    }
-    
+    const response = await fetch(TEST_URL, { signal: controller.signal });
     const reader = response.body.getReader();
     let bytesRead = 0;
-    let downloadStartTime = null;
+    const startTime = performance.now(); // 使用你坚持的 performance.now
     
-    try {
-      while (bytesRead < TARGET_BYTES) {
-        const { done, value } = await reader.read();
-        
-        if (!downloadStartTime) {
-          // 修正：使用标准的 Date.now() 计时
-          downloadStartTime = Date.now(); 
-        }
-        
-        if (done) {
-          console.log('流提前结束');
-          break;
-        }
-        
-        bytesRead += value.byteLength;
-      }
-      await reader.cancel('已获得足够数据');
-    } catch (err) {
-      try { await reader.cancel(); } catch (e) {}
-      throw err;
+    while (bytesRead < TARGET_BYTES) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      bytesRead += value.byteLength;
     }
     
-    // 修正：基于 Date.now() 计算耗时
-    const duration = Math.max((Date.now() - downloadStartTime) / 1000, 0.1);
-    const mbps = ((bytesRead * 8) / (duration * 1_000_000)).toFixed(1);
+    const duration = (performance.now() - startTime) / 1000;
+    clearTimeout(timeoutId);
     
-    console.log(`测速成功: ${mbps} Mbps (${(bytesRead / 1024 / 1024).toFixed(2)} MB 耗时 ${duration.toFixed(2)}s)`);
-    return `${mbps} Mbps`;
-    
+    return `${((bytesRead * 8) / (duration * 1_000_000)).toFixed(1)} Mbps`;
   } catch (error) {
-    if (timeoutId) clearTimeout(timeoutId);
-    
-    // 详细捕获具体的报错原因
-    console.warn('【Egern测速具体报错原因】:', error.message || error);
-    
-    if (error.name === 'AbortError') {
-      return '⚠ 测速超时';
-    }
-    return '⚠ 测速失败';
+    clearTimeout(timeoutId);
+    console.warn('测速具体原因:', error.message);
+    return error.name === 'AbortError' ? '⚠ 测速超时' : '⚠ 测速失败';
   }
 }
 
