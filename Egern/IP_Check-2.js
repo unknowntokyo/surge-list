@@ -330,21 +330,25 @@ async function getSpeedTest(ctx) {
   let downloadedBytes = 0;
   let reader;
 
-  const timeoutTimer = setTimeout(() => reader?.cancel(), SPEED_TEST_TIMEOUT);
+  const runTestTask = async () => {
+    try {
+      const response = await ctx.http.get('https://speed.cloudflare.com/__down?bytes=4194304');
+      if (!(reader = response?.body?.getReader())) throw new Error();
 
-  try {
-    const response = await ctx.http.get('https://speed.cloudflare.com/__down?bytes=4194304');
-    if (!(reader = response?.body?.getReader())) throw new Error('Failed to get reader');
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done || (downloadedBytes += value?.length || 0) >= SPEED_TEST_PACKET) break;
+      }
+    } catch (e) {}
+  };
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done || (downloadedBytes += value?.length || 0) >= SPEED_TEST_PACKET) break;
-    }
-  } catch (e) {
-    return '⚠️ 测速失败';
-  } finally {
-    clearTimeout(timeoutTimer);
-  }
+  await Promise.race([
+    runTestTask(),
+    new Promise(resolve => setTimeout(() => {
+      if (reader) try { reader.cancel(); } catch {}
+      resolve();
+    }, SPEED_TEST_TIMEOUT))
+  ]);
 
   const durationSeconds = Math.max((performance.now() - startTime) / 1000, 0.5);
   
