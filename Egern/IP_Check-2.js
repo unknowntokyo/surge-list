@@ -328,63 +328,37 @@ async function getIPInfo(ctx) {
 }
 
 async function getSpeedTest(ctx) {
-  const TIMEOUT = (parseFloat(ctx.env.SPEED_TEST_TIMEOUT) || 4) * 1000;
-  const MAX_BYTES = (parseFloat(ctx.env.SPEED_TEST_PACKET) || 3) * 1024 * 1024;
-  
+  const SPEED_TEST_TIMEOUT = (parseFloat(ctx.env.SPEED_TEST_TIMEOUT) || 4) * 1000;
+  const SPEED_TEST_PACKET = (parseFloat(ctx.env.SPEED_TEST_PACKET) || 3) * 1048576; // 默认3MB
+  const MIN_DL_BYTES = 512000; // 至少下载512KB
+
   const startTime = performance.now();
+  let downloadedBytes = 0;
+  let reader;
+
+  const timeoutTimer = setTimeout(() => reader?.cancel(), SPEED_TEST_TIMEOUT);
+
   try {
-    const resp = await ctx.http.get(
-      `https://speed.cloudflare.com/__down?bytes=${MAX_BYTES}`,
-      { headers: { 'Cache-Control': 'no-cache' } }
-    );
-    if (resp?.status !== 200 || !resp.body) return '⚠ 测速失败';
-    
-    const reader = resp.body.getReader();
-    let totalBytes = 0, targetBytes = 0, chunkCount = 0, timedOut = false;
-    
-    const timeoutId = setTimeout(() => { timedOut = true; }, TIMEOUT);
-    
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done || timedOut) break;
-        
-        if (value) {
-          totalBytes += value.length;
-          
-          if (++chunkCount % 20 === 0) {
-            const now = performance.now();
-            const elapsed = now - startTime;
-            
-            // 采样完成
-            if (targetBytes === 0 && (elapsed >= 200 || totalBytes >= 204800)) {
-              targetBytes = Math.max(512000, Math.min(MAX_BYTES, 
-                Math.ceil(totalBytes * 2000 / elapsed)
-              ));
-            }
-            
-            // 达到目标字节数
-            if (targetBytes > 0 && totalBytes >= targetBytes) break;
-          }
-        }
-      }
-    } finally {
-      reader.cancel();
-      clearTimeout(timeoutId);
+    const response = await ctx.http.get('https://speed.cloudflare.com/__down?bytes=5242880');
+    if (!(reader = response?.body?.getReader())) throw new Error('Failed to get reader');
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done || (downloadedBytes += value?.length || 0) >= SPEED_TEST_PACKET) break;
     }
-    
-    if (totalBytes < 512000) return '⚠ 测速失败';
-    
-    const duration = Math.max((performance.now() - startTime) / 1000, 0.2);
-    const mbps = ((totalBytes * 8) / 1_000_000 / duration).toFixed(1);
-    return `${mbps} Mbps`;
   } catch (e) {
     return '⚠ 测速失败';
+  } finally {
+    clearTimeout(timeoutTimer);
   }
+
+  const durationSeconds = Math.max((performance.now() - startTime) / 1000, 0.5);
+  
+  if (downloadedBytes < MIN_DL_BYTES) return '⚠ 测速失败';
+  
+  const mbps = (downloadedBytes * 8) / 1000000 / durationSeconds;
+  return `${mbps.toFixed(1)} Mbps`;
 }
-
-
-
 
 function modResponseBody(ipInfo, speedMbps) {
   return {
