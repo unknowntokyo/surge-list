@@ -350,7 +350,7 @@ async function getSpeedTest(ctx) {
     }, SPEED_TEST_TIMEOUT))
   ]);
 
-  const durationSeconds = Math.max((performance.now() - startTime) / 1000, 0.15);
+  const durationSeconds = Math.max((performance.now() - startTime) / 1000, 0.05);
   
   if (downloadedBytes < MIN_DL_BYTES) return '⚠️ 测速失败';
   
