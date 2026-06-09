@@ -305,18 +305,24 @@ function translateCity(text) {
 
 async function getIPInfo(ctx) {
   try {
- 
-    let data = typeof ctx.response.json === 'function' ? await ctx.response.json() : ctx.response.json;
 
-    if (!data && ctx.response.body) {
-      data = typeof ctx.response.body === 'string' ? JSON.parse(ctx.response.body) : ctx.response.body;
+    const resp = ctx.response;
+    let data = typeof resp.json === 'function' ? await resp.json() : resp.body;
+
+    if (typeof data === 'string') data = JSON.parse(data);
+
+    if (!data) {
+      console.log("IP信息为空，脚本终止");
+      return null;
     }
 
     if (data?.city_name) {
       data.city_name_zh = translateCity(data.city_name);
     }
+    
     return data;
   } catch (e) {
+    console.log("IP信息错误，脚本终止"); 
     return null;
   }
 }
@@ -326,38 +332,30 @@ async function getSpeedTest(ctx) {
   const MB = parseFloat(ctx.env.SPEED_TEST_PACKET) || 3;
   const BYTES = MB * 1024 * 1024;
   const SPEED_TEST_URL = `https://speed.cloudflare.com/__down?bytes=${BYTES}`; 
-  let timeoutId = null;
+  
   try {
     const downloadStartTime = performance.now();
 
-    const downloadPromise = (async () => {
-      const resp = await ctx.http.get(SPEED_TEST_URL, {
-        headers: { 'Cache-Control': 'no-cache' }
-      });
-      if (resp?.status === 200) {
-        return await resp.arrayBuffer();
-      }
-      throw new Error('⚠️ 网络请求失败');
-    })();
-
-    const timeoutPromise = new Promise((_, reject) => {
-      timeoutId = setTimeout(() => reject(new Error('⚠️ 测速超时')), SPEED_TEST_TIMEOUT);
+    const resp = await ctx.http.get(SPEED_TEST_URL, {
+      headers: { 'Cache-Control': 'no-cache' },
+      timeout: SPEED_TEST_TIMEOUT
     });
- 
-    const buffer = await Promise.race([downloadPromise, timeoutPromise]);
 
-    if (timeoutId) clearTimeout(timeoutId);
-    
+    if (resp?.status !== 200) {
+      throw new Error('⚠️ 网络请求失败');
+    }
+
+    const buffer = await resp.arrayBuffer();
     const downloadEndTime = performance.now();
-    const bytes = buffer.byteLength;
+    
+    const bytes = buffer?.byteLength || 0;
     if (bytes === 0) return '⚠️ 测速失败';
+    
     let duration = (downloadEndTime - downloadStartTime) / 1000;
     duration = Math.max(duration, CONFIG.MIN_DURATION);
     const mbps = ((bytes * CONFIG.BITS_PER_BYTE) / (duration * CONFIG.MBPS_DIVISOR)).toFixed(1);
     return `${mbps} Mbps`;
-  } catch (e) {
-    if (timeoutId) clearTimeout(timeoutId);
-  }
+  } catch (e) {}
   return '⚠️ 测速失败';
 }
 
@@ -378,8 +376,12 @@ export default async function(ctx) {
   const showSpeedtest = ctx.env.SHOW_SPEED_TEST === '开启';
   const [ipInfo, speedMbps] = await Promise.all([
     getIPInfo(ctx),
-    showSpeedtest ? getSpeedTest(ctx) : undefined,
+    showSpeedtest ? getSpeedTest(ctx) : Promise.resolve(null),
   ]);
 
+  if (!ipInfo) {
+    return {};
+  }
+ 
   return { body: modResponseBody(ipInfo, speedMbps) };
 }
