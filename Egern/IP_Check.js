@@ -343,7 +343,7 @@ async function getSpeedTest(ctx) {
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        downloadedBytes += value?.length || 0;
+        downloadedBytes += value?.byteLength || value?.length || 0;
       }
     })();
 
