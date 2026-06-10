@@ -323,38 +323,56 @@ async function getIPInfo(ctx) {
 
 async function getSpeedTest(ctx) {
   const SPEED_TEST_TIMEOUT = (parseFloat(ctx.env.SPEED_TEST_TIMEOUT) || 4) * 1000;
-  const SPEED_TEST_PACKET = (parseFloat(ctx.env.SPEED_TEST_PACKET) || 3) * 1048576; // 默认3MB
-  const MIN_DL_BYTES = 512000; // 至少下载512KB
+  const SPEED_TEST_PACKET = Math.floor((parseFloat(ctx.env.SPEED_TEST_PACKET) || 3) * 1048576); 
+  const MIN_DL_BYTES = Math.min(512000, SPEED_TEST_PACKET * 0.5); 
 
-  const startTime = performance.now();
   let downloadedBytes = 0;
   let reader;
+  let timer;
+  let dlStartTime;
+  let isCancelled = false;
 
   const runTestTask = async () => {
     try {
-      const response = await ctx.http.get('https://speed.cloudflare.com/__down?bytes=4194304');
-      if (!(reader = response?.body?.getReader())) throw new Error();
+      const response = await ctx.http.get(`https://speed.cloudflare.com/__down?bytes=${SPEED_TEST_PACKET}`);
+      
+      if (isCancelled) {
+        if (response?.body?.cancel) try { response.body.cancel(); } catch {}
+        return; 
+      }
+      
+      reader = response?.body?.getReader();
+      if (!reader) throw new Error();
+
+      dlStartTime = performance.now();
 
       while (true) {
         const { done, value } = await reader.read();
         if (done || (downloadedBytes += value?.length || 0) >= SPEED_TEST_PACKET) break;
       }
-    } catch (e) {}
+    } catch (e) {
+
+    } finally {
+
+      if (reader) try { await reader.cancel(); } catch {}
+    }
   };
 
-  await Promise.race([
-    runTestTask(),
-    new Promise(resolve => setTimeout(() => {
-      if (reader) try { reader.cancel(); } catch {}
+  const timeoutTask = new Promise(resolve => {
+    timer = setTimeout(() => {
+      isCancelled = true;
       resolve();
-    }, SPEED_TEST_TIMEOUT))
-  ]);
+    }, SPEED_TEST_TIMEOUT);
+  });
 
-  const durationSeconds = Math.max((performance.now() - startTime) / 1000, 0.05);
-  
-  if (downloadedBytes < MIN_DL_BYTES) return '⚠️ 测速失败';
-  
+  await Promise.race([runTestTask(), timeoutTask]);
+  clearTimeout(timer);
+
+  if (!dlStartTime || downloadedBytes < MIN_DL_BYTES) return '⚠️ 测速失败';
+
+  const durationSeconds = Math.max((performance.now() - dlStartTime) / 1000, 0.02);
   const mbps = (downloadedBytes * 8) / 1000000 / durationSeconds;
+  
   return `${mbps.toFixed(1)} Mbps`;
 }
 
