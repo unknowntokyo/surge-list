@@ -323,37 +323,39 @@ async function getIPInfo(ctx) {
 
 async function getSpeedTest(ctx) {
   const SPEED_TEST_TIMEOUT = (parseFloat(ctx.env.SPEED_TEST_TIMEOUT) || 4) * 1000;
-  const SPEED_TEST_PACKET = Math.floor((parseFloat(ctx.env.SPEED_TEST_PACKET) || 3) * 1048576); 
-  const MIN_DL_BYTES = Math.min(512000, SPEED_TEST_PACKET * 0.5); 
-
+  const SPEED_TEST_PACKET = (parseFloat(ctx.env.SPEED_TEST_PACKET) || 3) * 1024 * 1024;
+  const MIN_DL_BYTES = 102400; // 保持你的最小流量基准
+  
   let downloadedBytes = 0;
+  let dlStartTime = 0;
   let reader;
   let timer;
-  let dlStartTime;
   let isCancelled = false;
 
   const runTestTask = async () => {
     try {
-      const response = await ctx.http.get(`https://speed.cloudflare.com/__down?bytes=${SPEED_TEST_PACKET}`);
-      
-      if (isCancelled) {
-        if (response?.body?.cancel) try { response.body.cancel(); } catch {}
-        return; 
-      }
+      const response = await ctx.http.get(`https://speed.cloudflare.com/__down?bytes=${SPEED_TEST_PACKET}`, { 
+        headers: { 'Cache-Control': 'no-cache' } 
+      });
       
       reader = response?.body?.getReader();
-      if (!reader) throw new Error();
-
-      dlStartTime = performance.now();
+      if (!reader) return;
 
       while (true) {
         const { done, value } = await reader.read();
-        if (done || (downloadedBytes += value?.length || 0) >= SPEED_TEST_PACKET) break;
+        if (done || isCancelled) break;
+        
+        if (value) {
+          // 在收到第一个数据块时才开始计时，避免包含握手延迟
+          if (!dlStartTime) dlStartTime = performance.now();
+          downloadedBytes += value.length;
+          // 完全下载完再去算网速
+          if (downloadedBytes >= SPEED_TEST_PACKET) break;
+        }
       }
     } catch (e) {
-
+      // 保持原有异常处理习惯
     } finally {
-
       if (reader) try { await reader.cancel(); } catch {}
     }
   };
@@ -361,6 +363,7 @@ async function getSpeedTest(ctx) {
   const timeoutTask = new Promise(resolve => {
     timer = setTimeout(() => {
       isCancelled = true;
+      if (reader) try { reader.cancel(); } catch {} 
       resolve();
     }, SPEED_TEST_TIMEOUT);
   });
@@ -370,9 +373,9 @@ async function getSpeedTest(ctx) {
 
   if (!dlStartTime || downloadedBytes < MIN_DL_BYTES) return '⚠️ 测速失败';
 
-  const durationSeconds = (performance.now() - dlStartTime) / 1000;
-if (durationSeconds < 0.2) return '⚠️ 测速失败';
-  const mbps = (downloadedBytes * 8) / 1000000 / durationSeconds;
+  // 纯真实耗时结算
+  const actualDuration = (performance.now() - dlStartTime) / 1000;
+  const mbps = (downloadedBytes * 8) / 1000000 / actualDuration;
   
   return `${mbps.toFixed(1)} Mbps`;
 }
