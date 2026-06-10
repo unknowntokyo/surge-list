@@ -327,23 +327,38 @@ async function getSpeedTest(ctx) {
   
   let downloadedBytes = 0;
   let reader;
+  let timeoutId = null;
   const dlStartTime = performance.now();
   
   try {
-    const response = await ctx.http.get(`https://speed.cloudflare.com/__down?bytes=${SPEED_TEST_PACKET}`, {
-      timeout: SPEED_TEST_TIMEOUT
+    // 将整个下载与流式读取封装为一个完整的异步流程
+    const downloadPromise = (async () => {
+      const response = await ctx.http.get(`https://speed.cloudflare.com/__down?bytes=${SPEED_TEST_PACKET}`, {
+        timeout: SPEED_TEST_TIMEOUT
+      });
+
+      reader = response?.body?.getReader();
+      if (!reader) throw new Error('⚠️ 测速失败');
+      
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        downloadedBytes += value?.length || 0;
+      }
+    })();
+
+    // 独立超时控制，防范 while 循环发生流死锁卡住脚本
+    const timeoutPromise = new Promise((_, reject) => {
+      timeoutId = setTimeout(() => reject(new Error('⚠️ 测速超时')), SPEED_TEST_TIMEOUT);
     });
 
-    reader = response?.body?.getReader();
-    if (!reader) return '⚠️ 测速失败';
+    // 竞速执行，强行确保耗时不可能突破 SPEED_TEST_TIMEOUT
+    await Promise.race([downloadPromise, timeoutPromise]);
     
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      downloadedBytes += value?.length || 0;
-    }
   } catch (e) {
+    // 触发超时跑到这里，不用退出，后续逻辑会根据已下发的数据量计算网速并正常重写Body
   } finally {
+    if (timeoutId) clearTimeout(timeoutId);
     if (reader) try { await reader.cancel(); } catch {}
   }
   
