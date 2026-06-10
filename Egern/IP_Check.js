@@ -322,8 +322,8 @@ async function getIPInfo(ctx) {
 }
 
 async function getSpeedTest(ctx) {
-  const SPEED_TEST_TIMEOUT = (parseFloat(ctx.env.SPEED_TEST_TIMEOUT) || 4) * 1000;
-  const SPEED_TEST_PACKET = (parseFloat(ctx.env.SPEED_TEST_PACKET) || 3) * 1048576;
+  const SPEED_TEST_TIMEOUT = (parseFloat(ctx.env?.SPEED_TEST_TIMEOUT) || 4) * 1000;
+  const SPEED_TEST_PACKET = (parseFloat(ctx.env?.SPEED_TEST_PACKET) || 3) * 1048576;
 
   let downloadedBytes = 0;
   let reader;
@@ -382,9 +382,11 @@ function modResponseBody(ipInfo, speedMbps) {
 export default async function(ctx) {
   if (!ctx.response) return;
 
+  const showSpeedTest = ctx.env?.SHOW_SPEED_TEST === '开启';
+
   const [ipInfo, speedMbps] = await Promise.all([
     getIPInfo(ctx),
-    ctx.env.SHOW_SPEED_TEST === '开启' ? getSpeedTest(ctx) : null
+    showSpeedTest ? getSpeedTest(ctx) : null
   ]);
 
   return ipInfo ? { body: modResponseBody(ipInfo, speedMbps) } : { body: ctx.response.body };
