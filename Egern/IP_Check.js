@@ -386,7 +386,7 @@ export default async function(ctx) {
 
   const [ipInfo, speedMbps] = await Promise.all([
     getIPInfo(ctx),
-    showSpeedTest ? getSpeedTest(ctx) : null
+    showSpeedTest ? getSpeedTest(ctx) : Promise.resolve(null)
   ]);
 
   return ipInfo ? { body: modResponseBody(ipInfo, speedMbps) } : { body: ctx.response.body };
