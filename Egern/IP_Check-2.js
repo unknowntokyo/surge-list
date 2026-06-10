@@ -370,7 +370,8 @@ async function getSpeedTest(ctx) {
 
   if (!dlStartTime || downloadedBytes < MIN_DL_BYTES) return '⚠️ 测速失败';
 
-  const durationSeconds = Math.max((performance.now() - dlStartTime) / 1000, 0.1);
+  const durationSeconds = (performance.now() - dlStartTime) / 1000;
+if (durationSeconds < 0.2) return '⚠️ 测速失败';
   const mbps = (downloadedBytes * 8) / 1000000 / durationSeconds;
   
   return `${mbps.toFixed(1)} Mbps`;
