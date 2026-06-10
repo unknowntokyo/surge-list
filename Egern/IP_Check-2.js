@@ -323,61 +323,34 @@ async function getIPInfo(ctx) {
 
 async function getSpeedTest(ctx) {
   const SPEED_TEST_TIMEOUT = (parseFloat(ctx.env.SPEED_TEST_TIMEOUT) || 4) * 1000;
-  const SPEED_TEST_PACKET = (parseFloat(ctx.env.SPEED_TEST_PACKET) || 3) * 1024 * 1024;
-  const MIN_DL_BYTES = 102400; // 保持你的最小流量基准
+  const MB = parseFloat(ctx.env.SPEED_TEST_PACKET) || 3;
+  const BYTES = MB * 1024 * 1024;
+  const SPEED_TEST_URL = `https://speed.cloudflare.com/__down?bytes=${BYTES}`; 
   
-  let downloadedBytes = 0;
-  let dlStartTime = 0;
-  let reader;
-  let timer;
-  let isCancelled = false;
+  try {
+    const downloadStartTime = performance.now();
 
-  const runTestTask = async () => {
-    try {
-      const response = await ctx.http.get(`https://speed.cloudflare.com/__down?bytes=${SPEED_TEST_PACKET}`, { 
-        headers: { 'Cache-Control': 'no-cache' } 
-      });
-      
-      reader = response?.body?.getReader();
-      if (!reader) return;
+    const resp = await ctx.http.get(SPEED_TEST_URL, {
+      headers: { 'Cache-Control': 'no-cache' },
+      timeout: SPEED_TEST_TIMEOUT
+    });
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done || isCancelled) break;
-        
-        if (value) {
-          // 在收到第一个数据块时才开始计时，避免包含握手延迟
-          if (!dlStartTime) dlStartTime = performance.now();
-          downloadedBytes += value.length;
-          // 完全下载完再去算网速
-          if (downloadedBytes >= SPEED_TEST_PACKET) break;
-        }
-      }
-    } catch (e) {
-      // 保持原有异常处理习惯
-    } finally {
-      if (reader) try { await reader.cancel(); } catch {}
+    if (resp?.status !== 200) {
+      throw new Error('⚠️ 网络请求失败');
     }
-  };
 
-  const timeoutTask = new Promise(resolve => {
-    timer = setTimeout(() => {
-      isCancelled = true;
-      if (reader) try { reader.cancel(); } catch {} 
-      resolve();
-    }, SPEED_TEST_TIMEOUT);
-  });
-
-  await Promise.race([runTestTask(), timeoutTask]);
-  clearTimeout(timer);
-
-  if (!dlStartTime || downloadedBytes < MIN_DL_BYTES) return '⚠️ 测速失败';
-
-  // 纯真实耗时结算
-  const actualDuration = (performance.now() - dlStartTime) / 1000;
-  const mbps = (downloadedBytes * 8) / 1000000 / actualDuration;
-  
-  return `${mbps.toFixed(1)} Mbps`;
+    const buffer = await resp.arrayBuffer();
+    const downloadEndTime = performance.now();
+    
+    const bytes = buffer?.byteLength || 0;
+    if (bytes === 0) return '⚠️ 测速失败';
+    
+    let duration = (downloadEndTime - downloadStartTime) / 1000;
+    duration = Math.max(duration, CONFIG.MIN_DURATION);
+    const mbps = ((bytes * CONFIG.BITS_PER_BYTE) / (duration * CONFIG.MBPS_DIVISOR)).toFixed(1);
+    return `${mbps} Mbps`;
+  } catch (e) {}
+  return '⚠️ 测速失败';
 }
 
 function modResponseBody(ipInfo, speedMbps) {
