@@ -50,16 +50,17 @@ export default async function(ctx) {
     ]);
 
     const duration = (performance.now() - dlStartTime) / 1000;
-    const speedMBs = (downloadedBytes / 1048576) / duration;
-    
-    speedData = {
-      mbps: parseFloat((speedMBs * 8).toFixed(1)),
-      mBs: parseFloat(speedMBs.toFixed(2)),
-      duration: duration.toFixed(2),
-      timestamp: Date.now()
-    };
-    ctx.storage.setJSON(CACHE_KEY, speedData);
-
+    if (downloadedBytes > 0 && duration >= 0.2) {
+      const speedMBs = (downloadedBytes / 1048576) / duration;
+      
+      speedData = {
+        mbps: parseFloat((speedMBs * 8).toFixed(1)),
+        mBs: parseFloat(speedMBs.toFixed(2)),
+        duration: duration.toFixed(2),
+        timestamp: Date.now()
+      };
+      ctx.storage.setJSON(CACHE_KEY, speedData);
+    }
   } catch(e) {
   } finally {
     if (timeoutId) clearTimeout(timeoutId);
