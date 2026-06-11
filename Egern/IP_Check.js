@@ -285,8 +285,7 @@ function translateCity(text) {
 
   const key = text.trim().toLowerCase().normalize('NFD')
     .replace(/[\u0300-\u036f.,]/g, '')
-    .replace(/-+/g, ' ')
-    .replace(/\s+/g, ' ');
+    .replace(/[-\s]+/g, ' ');
 
   const exactMatch = cityMap[key];
   if (exactMatch) return exactMatch;
