@@ -1,13 +1,14 @@
 /**
  * 📌 桌面小组件: NetSpeed 小组件
  * 小组件环境变量：
- * 名称policy，值为策略组名称，默认DIRECT
+ * 1、名称policy，值为策略组名称，默认DIRECT；
+ * 2、下行测速数据量SPEED_TEST_PACKET，值为数字，默认3MB
  */
 
 export default async function(ctx) {
   const POLICY = ctx.env.policy || 'DIRECT';
-  const BYTES = 4194304; // 4MB * 1024 * 1024
-  const SPEED_TEST_URL = `https://speed.cloudflare.com/__down?bytes=${BYTES}`;
+  const SPEED_TEST_PACKET = Math.floor((parseFloat(ctx.env?.SPEED_TEST_PACKET) || 3) * 1048576);
+  const SPEED_TEST_URL = `https://speed.cloudflare.com/__down?bytes=${SPEED_TEST_PACKET}`;
   const CACHE_KEY = `netspeed_cache_${POLICY}`;
   const TIMEOUT = 10000;
   
