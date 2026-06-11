@@ -13,10 +13,10 @@ let persisVal = read("UnblockURLinWeChat");
 let useCache = persisVal.useCache === "true"; //是否在微信中用快照显示被封禁的链接
 let forceRedirect = persisVal.forceRedirect === "true"; //是否在微信中进行强制重定向，允许的情况下可能出现循环重定向
 let wechatExportKey = persisVal.wechatExportKey || ""; //微信的一个 key，暂未研究如何生成，测试中仅 macOS 微信打开链接跳转浏览器时会缺失，导致无法解析原始链接
-if (typeof $argument != "undefined") {
+if (typeof $argument !== "undefined" && $argument) {
     let arg = Object.fromEntries($argument.split("&").map((item) => item.split("=")));
     useCache = arg.useCache === "true";
-    forceRedirect = arg.forceRedirect === "ture";
+    forceRedirect = arg.forceRedirect === "true";
 }
 const respBody = $response.body;
 //const cacheURL = "https://webcache.googleusercontent.com/search?q=cache:";
@@ -25,9 +25,8 @@ const alipayScheme = "alipays://platformapi/startapp?appId=20000067&url=";
 
 "undefined";
 const isEgerniOS =
-    "undefined" !== typeof $environment &&
-    $environment["egern-version"] &&
-    $environment.system == "iOS";
+    typeof $environment !== "undefined" &&
+    !!$environment["egern-version"];
 const isQuanX = typeof $notify != "undefined";
 const isSurgeiOS =
     "undefined" !== typeof $environment &&
@@ -248,23 +247,31 @@ function notify(title = "", subtitle = "", content = "", open_url) {
 }
 
 function get(options) {
-    if (isQuanX) {
-        if (typeof options == "string") options = { url: options, method: "GET" };
+    if (isQuanX || isEgerniOS) {
+        if (typeof options === "string") {
+            options = { url: options, method: "GET" };
+        }
         return $task.fetch(options);
-    } else {
-        return new Promise((resolve, reject) => {
-            $httpClient.get(options, (err, response, body) => {
-                if (err) reject(err);
-                else resolve({ statusCode: response.status, headers: response.headers, body });
-            });
-        });
     }
+
+    return new Promise((resolve, reject) => {
+        $httpClient.get(options, (err, response, body) => {
+            if (err) reject(err);
+            else {
+                resolve({
+                    statusCode: response.status,
+                    headers: response.headers,
+                    body,
+                });
+            }
+        });
+    });
 }
 
 function read(key) {
-    if (typeof $notify != "undefined") {
+    if (typeof $prefs !== "undefined") {
         return JSON.parse($prefs.valueForKey(key) || "{}");
-    } else {
-        return JSON.parse($persistentStore.read(key) || "{}");
     }
+
+    return JSON.parse($persistentStore.read(key) || "{}");
 }
