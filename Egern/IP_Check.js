@@ -323,7 +323,7 @@ async function getIPInfo(ctx) {
 
 async function getSpeedTest(ctx) {
   const SPEED_TEST_TIMEOUT = (parseFloat(ctx.env?.SPEED_TEST_TIMEOUT) || 4) * 1000;
-  const SPEED_TEST_PACKET = (parseFloat(ctx.env?.SPEED_TEST_PACKET) || 3) * 1048576;
+  const SPEED_TEST_PACKET = Math.floor((parseFloat(ctx.env?.SPEED_TEST_PACKET) || 3) * 1048576);
 
   let downloadedBytes = 0;
   let reader;
