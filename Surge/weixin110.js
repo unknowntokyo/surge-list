@@ -23,7 +23,6 @@ const respBody = $response.body;
 const cacheURL = "https://web.archive.org/web/20991231999999/";
 const alipayScheme = "alipays://platformapi/startapp?appId=20000067&url=";
 
-"undefined";
 const isEgerniOS =
     typeof $environment !== "undefined" &&
     !!$environment["egern-version"];
@@ -250,7 +249,6 @@ function notify(title = "", subtitle = "", content = "", open_url) {
 }
 
 function get(options) {
-    // 修复：Egern 不支持 $task.fetch，应当归类到下方的 $httpClient
     if (isQuanX) {
         if (typeof options === "string") {
             options = { url: options, method: "GET" };
@@ -273,7 +271,6 @@ function get(options) {
 }
 
 function read(key) {
-    // 修复：增加 try-catch，防止本地缓存的旧数据不是规范 JSON 从而导致脚本完全崩溃
     try {
         if (typeof $prefs !== "undefined") {
             let val = $prefs.valueForKey(key);
