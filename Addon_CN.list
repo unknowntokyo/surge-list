@@ -8,8 +8,6 @@ DEST-PORT,22
 
 # > FlowerCloud
 DOMAIN-SUFFIX,xmancdn.com
-DOMAIN-KEYWORD,flowercloud
-DOMAIN-KEYWORD,huacloud
 
 # > CTC-02
 IP-CIDR,47.115.49.0/24,no-resolve
