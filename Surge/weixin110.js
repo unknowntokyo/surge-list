@@ -216,11 +216,7 @@ if (cgiData.type === "gray" || cgiData.type === "newgray" || cgiData.type === "e
 }
 
 function notify(title = "", subtitle = "", content = "", open_url) {
-  if (
-      isQuanX &&
-      typeof $environment !== "undefined" &&
-      /iOS/.test($environment.version || "")
-)
+    if (isQuanX) {
         let opts = {};
         if (open_url) opts["open-url"] = open_url;
         if (JSON.stringify(opts) == "{}") {
@@ -254,7 +250,8 @@ function notify(title = "", subtitle = "", content = "", open_url) {
 }
 
 function get(options) {
-    if (isQuanX || isEgerniOS) {
+    // 修复：Egern 不支持 $task.fetch，应当归类到下方的 $httpClient
+    if (isQuanX) {
         if (typeof options === "string") {
             options = { url: options, method: "GET" };
         }
@@ -276,9 +273,16 @@ function get(options) {
 }
 
 function read(key) {
-    if (typeof $prefs !== "undefined") {
-        return JSON.parse($prefs.valueForKey(key) || "{}");
+    // 修复：增加 try-catch，防止本地缓存的旧数据不是规范 JSON 从而导致脚本完全崩溃
+    try {
+        if (typeof $prefs !== "undefined") {
+            let val = $prefs.valueForKey(key);
+            return val ? JSON.parse(val) : {};
+        }
+        let val = $persistentStore.read(key);
+        return val ? JSON.parse(val) : {};
+    } catch (e) {
+        console.log("Read data parse error: " + e);
+        return {};
     }
-
-    return JSON.parse($persistentStore.read(key) || "{}");
 }
