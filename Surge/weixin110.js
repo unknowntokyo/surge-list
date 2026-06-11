@@ -27,7 +27,10 @@ const alipayScheme = "alipays://platformapi/startapp?appId=20000067&url=";
 const isEgerniOS =
     typeof $environment !== "undefined" &&
     !!$environment["egern-version"];
-const isQuanX = typeof $notify != "undefined";
+const isQuanX =
+    typeof $task !== "undefined" &&
+    typeof $notify !== "undefined" &&
+    !isEgerniOS;
 const isSurgeiOS =
     "undefined" !== typeof $environment &&
     $environment["surge-version"] &&
@@ -213,7 +216,11 @@ if (cgiData.type === "gray" || cgiData.type === "newgray" || cgiData.type === "e
 }
 
 function notify(title = "", subtitle = "", content = "", open_url) {
-    if (isQuanX && /iOS/.test($environment.version)) {
+  if (
+      isQuanX &&
+      typeof $environment !== "undefined" &&
+      /iOS/.test($environment.version || "")
+)
         let opts = {};
         if (open_url) opts["open-url"] = open_url;
         if (JSON.stringify(opts) == "{}") {
