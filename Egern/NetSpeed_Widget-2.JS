@@ -6,7 +6,7 @@
 
 export default async function(ctx) {
   const POLICY = ctx.env.policy || 'DIRECT';
-  const BYTES = 4194304; // 4 * 1024 * 1024
+  const BYTES = 4194304; // 4MB * 1024 * 1024
   const SPEED_TEST_URL = `https://speed.cloudflare.com/__down?bytes=${BYTES}`;
   const CACHE_KEY = `netspeed_cache_${POLICY}`;
   const TIMEOUT = 10000;
@@ -64,8 +64,6 @@ export default async function(ctx) {
     if (timeoutId) clearTimeout(timeoutId);
     if (reader) try { await reader.cancel(); } catch {}
   }
-
-  // ---------------- UI 代码完全保留原样 ----------------
 
   let icon = 'tortoise';
   let color = '#FF9500';
