@@ -1,106 +1,133 @@
 /**
  * 📌 桌面小组件: NetSpeed 小组件
- *小组件环境变量：
- *名称policy，值为策略组名称，默认DIRECT
+ * 小组件环境变量：
+ * 名称policy，值为策略组名称，默认DIRECT
  */
 
-  export default async function(ctx) {
-    const POLICY = ctx.env.policy || 'DIRECT';
-    const MB = 4;
-    const BYTES = MB * 1024 * 1024;
-    const SPEED_TEST_URL = `https://speed.cloudflare.com/__down?bytes=${BYTES}`;
-    const CACHE_KEY = `netspeed_cache_${POLICY}`;
-    
-    let speedData = { mbps: 0, mBs: 0, duration: 0, timestamp: 0 };
-    try {
-      const cached = ctx.storage.getJSON(CACHE_KEY);
-      if (cached) speedData = cached;
-    } catch(e) {}
-    
-    try {
-      const startTime = Date.now();
-      await ctx.http.get(SPEED_TEST_URL, {
+export default async function(ctx) {
+  const POLICY = ctx.env.policy || 'DIRECT';
+  const BYTES = 4194304; // 4 * 1024 * 1024
+  const SPEED_TEST_URL = `https://speed.cloudflare.com/__down?bytes=${BYTES}`;
+  const CACHE_KEY = `netspeed_cache_${POLICY}`;
+  const TIMEOUT = 10000;
+  
+  let speedData = { mbps: 0, mBs: 0, duration: 0, timestamp: 0 };
+  
+  try {
+    const cached = ctx.storage.getJSON(CACHE_KEY);
+    if (cached) speedData = cached;
+  } catch(e) {}
+  
+  let downloadedBytes = 0;
+  let reader;
+  let timeoutId = null;
+
+  try {
+    const dlStartTime = performance.now();
+    const downloadPromise = (async () => {
+      const response = await ctx.http.get(SPEED_TEST_URL, {
         headers: { 'Cache-Control': 'no-cache' },
-        timeout: 10000,
+        timeout: TIMEOUT,
         policy: POLICY 
       });
-      const duration = (Date.now() - startTime) / 1000;
-      const speedMBs = MB / duration;
-      const speedMbps = speedMBs * 8;
 
-      speedData = {
-        mbps: parseFloat(speedMbps.toFixed(1)),
-        mBs: parseFloat(speedMBs.toFixed(2)),
-        duration: duration.toFixed(2),
-        timestamp: Date.now()
-      };
+      reader = response?.body?.getReader();
+      if (!reader) throw new Error();
 
-      ctx.storage.setJSON(CACHE_KEY, speedData);
-    } catch(e) {}
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        downloadedBytes += value?.byteLength || value?.length || 0;
+      }
+    })();
 
-    let icon = 'tortoise';
-    let color = '#FF9500';
+    await Promise.race([
+      downloadPromise,
+      new Promise((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error()), TIMEOUT);
+      })
+    ]);
 
-    if (speedData.mbps >= 50) {
-      icon = 'bolt.fill';
-      color = '#34C759';
-    } else if (speedData.mbps >= 10) {
-      icon = 'hare.fill';
-      color = '#007AFF';
-    }
-
-      const minWidth = 30;
-      const maxWidth = 140;
-      const maxSpeed = 120;
-
-      let barWidth = minWidth + (speedData.mbps / maxSpeed) * (maxWidth - minWidth);
-      barWidth = Math.min(Math.max(barWidth, minWidth), maxWidth);
-
-    const now = new Date();
-    const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+    const duration = (performance.now() - dlStartTime) / 1000;
+    const speedMBs = (downloadedBytes / 1048576) / duration;
     
-    const isSmall = ctx.widgetFamily === 'systemSmall';
+    speedData = {
+      mbps: parseFloat((speedMBs * 8).toFixed(1)),
+      mBs: parseFloat(speedMBs.toFixed(2)),
+      duration: duration.toFixed(2),
+      timestamp: Date.now()
+    };
+    ctx.storage.setJSON(CACHE_KEY, speedData);
 
-    return {
-      type: 'widget',
-      padding: isSmall ? 12 : 16,
-      gap: isSmall ? 8 : 12,
+  } catch(e) {
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+    if (reader) try { await reader.cancel(); } catch {}
+  }
 
-      backgroundColor: { 
-        light: '#FFFFFF', 
-        dark: '#2C2C2E' 
+  // ---------------- UI 代码完全保留原样 ----------------
+
+  let icon = 'tortoise';
+  let color = '#FF9500';
+
+  if (speedData.mbps >= 50) {
+    icon = 'bolt.fill';
+    color = '#34C759';
+  } else if (speedData.mbps >= 10) {
+    icon = 'hare.fill';
+    color = '#007AFF';
+  }
+
+  const minWidth = 30;
+  const maxWidth = 140;
+  const maxSpeed = 120;
+
+  let barWidth = minWidth + (speedData.mbps / maxSpeed) * (maxWidth - minWidth);
+  barWidth = Math.min(Math.max(barWidth, minWidth), maxWidth);
+
+  const now = new Date();
+  const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  
+  const isSmall = ctx.widgetFamily === 'systemSmall';
+
+  return {
+    type: 'widget',
+    padding: isSmall ? 12 : 16,
+    gap: isSmall ? 8 : 12,
+
+    backgroundColor: { 
+      light: '#FFFFFF', 
+      dark: '#2C2C2E' 
+    },
+
+    children: [
+      {
+        type: 'stack',
+        direction: 'row',
+        alignItems: 'center',
+        children: [
+          {
+            type: 'image',
+            src: `sf-symbol:${icon}`,
+            width: isSmall ? 14 : 16,
+            height: isSmall ? 14 : 16,
+            color: color
+          },
+          {
+            type: 'text',
+            text: ' NetSpeed',
+            font: { size: isSmall ? 'caption2' : 'caption1', weight: 'semibold' },
+            textColor: color
+          },
+          { type: 'spacer' },
+          {
+            type: 'text',
+            text: `↻ ${timeStr}`,
+            font: { size: 'caption2' },
+            textColor: { light: '#8E8E93', dark: '#8E8E93' }
+          }
+        ]
       },
-
-      children: [
-
-        {
-          type: 'stack',
-          direction: 'row',
-          alignItems: 'center',
-          children: [
-            {
-              type: 'image',
-              src: `sf-symbol:${icon}`,
-              width: isSmall ? 14 : 16,
-              height: isSmall ? 14 : 16,
-              color: color
-            },
-            {
-              type: 'text',
-              text: ' NetSpeed',
-              font: { size: isSmall ? 'caption2' : 'caption1', weight: 'semibold' },
-              textColor: color
-            },
-            { type: 'spacer' },
-            {
-              type: 'text',
-              text: `↻ ${timeStr}`,
-              font: { size: 'caption2' },
-              textColor: { light: '#8E8E93', dark: '#8E8E93' }
-            }
-          ]
-        },
-
       {
         type: 'stack',
         direction: 'row',
@@ -117,42 +144,40 @@
           { type: 'spacer' }
         ]
       },
-        
-        {
-          type: 'stack',
-          direction: 'row',
-          children: [
-            { type: 'spacer' },
-            {
-              type: 'stack',
-              width: barWidth,
-              height: 4,
-              backgroundColor: color,
-              cornerRadius: 2
-            },
-            { type: 'spacer' }
-          ]
-        },
-
-        {
-          type: 'stack',
-          direction: 'row',
-          children: [
-            {
-              type: 'text',
-              text: `${speedData.mBs} MB/s`,
-              font: { size: isSmall ? 'caption2' : 'caption1' },
-              textColor: { light: '#6B6B6B', dark: '#A1A1A6' }
-            },
-            { type: 'spacer' },
-            {
-              type: 'text',
-              text: `${speedData.duration}s`,
-              font: { size: isSmall ? 'caption2' : 'caption1' },
-              textColor: { light: '#6B6B6B', dark: '#A1A1A6' }
-            }
-          ]
-        }
-      ]
-    };
-  }
+      {
+        type: 'stack',
+        direction: 'row',
+        children: [
+          { type: 'spacer' },
+          {
+            type: 'stack',
+            width: barWidth,
+            height: 4,
+            backgroundColor: color,
+            cornerRadius: 2
+          },
+          { type: 'spacer' }
+        ]
+      },
+      {
+        type: 'stack',
+        direction: 'row',
+        children: [
+          {
+            type: 'text',
+            text: `${speedData.mBs} MB/s`,
+            font: { size: isSmall ? 'caption2' : 'caption1' },
+            textColor: { light: '#6B6B6B', dark: '#A1A1A6' }
+          },
+          { type: 'spacer' },
+          {
+            type: 'text',
+            text: `${speedData.duration}s`,
+            font: { size: isSmall ? 'caption2' : 'caption1' },
+            textColor: { light: '#6B6B6B', dark: '#A1A1A6' }
+          }
+        ]
+      }
+    ]
+  };
+}
