@@ -103,6 +103,13 @@ export default async function(ctx) {
           alignItems: 'center',
           children: [
             {
+              type: 'image',
+              src: 'sf-symbol:flame',
+              color: '#FF3B30',
+              width: 16,
+              height: 16
+            },
+            {
               type: 'text',
               text: '抖音热搜',
               font: {
