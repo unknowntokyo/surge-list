@@ -2,7 +2,7 @@ export default async function(ctx) {
   try {
     const resp = await ctx.http.get(
       'https://api.zxki.cn/api/jhrs?type=douyin',
-      { timeout: 5000 }
+      { timeout: 15000 }
     );
 
     if (resp.status !== 200) {
@@ -22,11 +22,25 @@ export default async function(ctx) {
             : [];
 
     const currentTime = new Date().toTimeString().slice(0, 5);
-
     const items = [];
 
     for (let i = 0; i < Math.min(5, hotList.length); i++) {
       const item = hotList[i];
+      const rank = i + 1;
+
+      const text = String(
+        item?.title ||
+        item?.name ||
+        item?.keyword ||
+        `热搜 ${rank}`
+      );
+
+      const hot = String(
+        item?.hot ||
+        item?.hot_num ||
+        item?.desc ||
+        ''
+      );
 
       items.push({
         type: 'stack',
@@ -36,7 +50,7 @@ export default async function(ctx) {
         children: [
           {
             type: 'text',
-            text: `#${i + 1}`,
+            text: `#${rank}`,
             font: {
               size: 'subheadline',
               weight: 'bold'
@@ -47,12 +61,7 @@ export default async function(ctx) {
           },
           {
             type: 'text',
-            text: String(
-              item?.title ||
-              item?.name ||
-              item?.keyword ||
-              ''
-            ),
+            text,
             font: {
               size: 'subheadline'
             },
@@ -62,6 +71,17 @@ export default async function(ctx) {
             },
             flex: 1,
             maxLines: 1
+          },
+          {
+            type: 'text',
+            text: hot,
+            font: {
+              size: 'caption1'
+            },
+            textColor: {
+              light: '#8E8E93',
+              dark: '#636366'
+            }
           }
         ]
       });
