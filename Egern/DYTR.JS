@@ -11,15 +11,7 @@ export default async function(ctx) {
 
     const data = await resp.json();
 
-    const hotList = Array.isArray(data)
-      ? data
-      : Array.isArray(data?.data)
-        ? data.data
-        : Array.isArray(data?.list)
-          ? data.list
-          : Array.isArray(data?.result)
-            ? data.result
-            : [];
+    const hotList = [data, data?.data, data?.list, data?.result].find(Array.isArray) || [];
 
     const currentTime = new Date().toTimeString().slice(0, 5);
     const items = [];
@@ -111,7 +103,7 @@ export default async function(ctx) {
             },
             {
               type: 'text',
-              text: '抖音热搜',
+              text: ' 抖音热搜',
               font: {
                 size: 'subheadline',
                 weight: 'bold'
