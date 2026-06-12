@@ -80,7 +80,7 @@ export default async function(ctx) {
             },
             textColor: {
               light: '#8E8E93',
-              dark: '#636366'
+              dark: '#C7C7CC'
             }
           }
         ]
@@ -123,7 +123,7 @@ export default async function(ctx) {
               },
               textColor: {
                 light: '#8E8E93',
-                dark: '#636366'
+                dark: '#C7C7CC'
               }
             }
           ]
