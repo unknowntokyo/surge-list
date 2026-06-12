@@ -107,7 +107,7 @@ export default async function (ctx) {
   const todayMs = Date.UTC(Y, M - 1, D);
 
   const envFingerprint = Object.keys(env).sort().map(k => `${k}:${env[k]}`).join('|');
-  const CACHE_KEY = `countdown_daily_cache_v3`;
+  const CACHE_KEY = `countdown_daily_cache`;
   const timePhase = currentHour >= 15 ? 'after3pm' : 'before3pm';
   const todayStr = `${Y}_${M}_${D}_${timePhase}`; 
   
