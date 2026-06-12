@@ -1,0 +1,137 @@
+export default async function(ctx) {
+  try {
+    const resp = await ctx.http.get(
+      'https://api.zxki.cn/api/jhrs?type=douyin',
+      { timeout: 5000 }
+    );
+
+    if (resp.status !== 200) {
+      throw new Error(`HTTP ${resp.status}`);
+    }
+
+    const data = await resp.json();
+
+    const hotList = Array.isArray(data)
+      ? data
+      : Array.isArray(data?.data)
+        ? data.data
+        : Array.isArray(data?.list)
+          ? data.list
+          : Array.isArray(data?.result)
+            ? data.result
+            : [];
+
+    const currentTime = new Date().toTimeString().slice(0, 5);
+
+    const items = [];
+
+    for (let i = 0; i < Math.min(5, hotList.length); i++) {
+      const item = hotList[i];
+
+      items.push({
+        type: 'stack',
+        direction: 'row',
+        alignItems: 'center',
+        gap: 6,
+        children: [
+          {
+            type: 'text',
+            text: `#${i + 1}`,
+            font: {
+              size: 'subheadline',
+              weight: 'bold'
+            },
+            textColor:
+              ['#FF3B30', '#FF9500', '#FFCC00'][i] || '#8E8E93',
+            width: 30
+          },
+          {
+            type: 'text',
+            text: String(
+              item?.title ||
+              item?.name ||
+              item?.keyword ||
+              ''
+            ),
+            font: {
+              size: 'subheadline'
+            },
+            textColor: {
+              light: '#1C1C1E',
+              dark: '#FFFFFF'
+            },
+            flex: 1,
+            maxLines: 1
+          }
+        ]
+      });
+    }
+
+    return {
+      type: 'widget',
+      refreshAfter: new Date(Date.now() + 900000).toISOString(),
+      padding: 8,
+      gap: 4,
+      backgroundColor: {
+        light: '#FFFFFF',
+        dark: '#2C2C2E'
+      },
+      children: [
+        {
+          type: 'stack',
+          direction: 'row',
+          alignItems: 'center',
+          children: [
+            {
+              type: 'text',
+              text: '抖音热搜',
+              font: {
+                size: 'subheadline',
+                weight: 'bold'
+              },
+              textColor: {
+                light: '#1C1C1E',
+                dark: '#FFFFFF'
+              },
+              flex: 1
+            },
+            {
+              type: 'text',
+              text: `↻ ${currentTime}`,
+              font: {
+                size: 'caption1'
+              },
+              textColor: {
+                light: '#8E8E93',
+                dark: '#636366'
+              }
+            }
+          ]
+        },
+        ...items
+      ]
+    };
+  } catch {
+    return {
+      type: 'widget',
+      padding: 16,
+      backgroundColor: {
+        light: '#F2F2F7',
+        dark: '#1C1C1E'
+      },
+      children: [
+        {
+          type: 'text',
+          text: '⚠️ 加载失败',
+          font: {
+            size: 'body'
+          },
+          textColor: {
+            light: '#1C1C1E',
+            dark: '#FFFFFF'
+          }
+        }
+      ]
+    };
+  }
+}
