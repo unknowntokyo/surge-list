@@ -77,9 +77,9 @@ export default async function (ctx) {
     gold:        { light: '#B58A28', dark: '#D6A53A'  },
     red:         { light: '#CA3B32', dark: '#FF453A'  },
     blue:        { light: '#3A5F85', dark: '#5E8EB8'  },
-    blue2:        { light: '#007AFF', dark: '#0A84FF'  }, 
+    blue2:       { light: '#007AFF', dark: '#0A84FF'  }, 
     teal:        { light: '#628C7B', dark: '#73A491'  },
-    green:        { light: '#34C759', dark: '#30D158'  },
+    green:       { light: '#34C759', dark: '#30D158'  },
     transparent: '#00000000'
   };
 
@@ -211,20 +211,25 @@ export default async function (ctx) {
 
   const result = { legal: new Map(), folk: new Map(), intl: new Map(), exclusive: new Map() };
   const todayFests = new Set(), todayFinance = new Set(), pinnedMap = new Map();
+  const processedFests = new Set();
 
-  for (const y of [Y, Y + 1]) {
+  for (const y of [Y - 1, Y, Y + 1]) {
     const f = getFestsCached(y);
     for (const cat of Object.keys(result)) {
       const catMap = result[cat];
       for (const item of f[cat]) {
         const [name, dateStr, duration = 1, sourceKind = ""] = item;
         if (!dateStr) continue;
+
+        if (processedFests.has(name)) continue;
+
         const [yy, mm, dd] = dateStr.split("/").map(Number);
         const diff = Math.floor((Date.UTC(yy, mm - 1, dd) - todayMs) / 86400000);
 
         if (diff <= 0) {
           if (diff > -duration) {
             todayFests.add(name);
+            processedFests.add(name);
             if (isSmall && !catMap.has(name)) {
               catMap.set(name, { name, diff, priority: getPriority(name, cat, sourceKind) + 100, cat });
             }
@@ -232,7 +237,9 @@ export default async function (ctx) {
           continue;
         }
 
-        if (pinnedHolidays.includes(name) && diff <= 200) {
+        processedFests.add(name);
+
+        if (pinnedHolidays.includes(name) && diff <= 200 && diff > 0) {
           if (!pinnedMap.has(name) || diff < pinnedMap.get(name)) pinnedMap.set(name, diff);
         }
 
@@ -396,12 +403,11 @@ export default async function (ctx) {
     ];
     const randomNoticeText = titles[Math.floor(Math.random() * titles.length)];
 
-rightHeaderElements.push(mkIcon("tortoise", C.blue2, layoutConfig.topFz * 1.5));
-
-rightHeaderElements.push(mkText(randomNoticeText, layoutConfig.topFz, "medium", C.green));
+    rightHeaderElements.push(mkIcon("tortoise", C.blue2, layoutConfig.topFz * 1.5));
+    rightHeaderElements.push(mkText(randomNoticeText, layoutConfig.topFz, "medium", C.green));
   }
   if (stickyText) {
-    if (todayNoticeText) rightHeaderElements.push(mkText(" ｜ ", layoutConfig.topFz, "bold", C.red));
+    if (rightHeaderElements.length > 0) rightHeaderElements.push(mkText(" ｜ ", layoutConfig.topFz, "bold", C.red));
     rightHeaderElements.push(mkText(stickyText, layoutConfig.topFz, "bold", C.red));
   }
 
