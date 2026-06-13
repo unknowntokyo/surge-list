@@ -284,19 +284,38 @@ function buildCard(result, ctx) {
           { type: "stack", flex: Math.max(100 - progressPercent, 0.1), height: 5, backgroundColor: { light: "#E8E8EA", dark: "#48484A" }, borderRadius: 3 },
         ],
       },
+      // 👇 核心修复区：采用对称 Flex 绝对居中布局
       {
         type: "stack",
         direction: "row",
         alignItems: "center",
-        gap: 5,
         children: [
-          { type: "text", text: `${usedStr}/${totalStr}`, font: { size: "caption2", weight: "medium" }, textColor: COLORS.textSecondary },
-          { type: "spacer" },
+          // 左侧盒子：赋予 flex: 1，内部文字靠左，将其挤向左端
+          {
+            type: "stack",
+            direction: "row",
+            flex: 1, 
+            children: [
+              { type: "text", text: `${usedStr}/${totalStr}`, font: { size: "caption2", weight: "medium" }, textColor: COLORS.textSecondary },
+              { type: "spacer" }, 
+            ],
+          },
+          
+          // 中间文字：取消原先动态数组里的 spacer，靠左右两个 flex:1 的盒子强行将其夹在绝对正中心
           ...(ctx.widgetFamily === "systemSmall" ? [] : [
             { type: "text", text: expireText, font: { size: "caption2", weight: "medium" }, textColor: COLORS.textTertiary },
-            { type: "spacer" },
           ]),
-          { type: "text", text: `剩${remainStr}`, font: { size: "caption2", weight: "semibold" }, textColor: COLORS.accentGreen },
+
+          // 右侧盒子：赋予 flex: 1，内部文字靠右，将其挤向右端
+          {
+            type: "stack",
+            direction: "row",
+            flex: 1,
+            children: [
+              { type: "spacer" }, 
+              { type: "text", text: `剩${remainStr}`, font: { size: "caption2", weight: "semibold" }, textColor: COLORS.accentGreen },
+            ],
+          },
         ],
       },
     ],
