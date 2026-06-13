@@ -152,7 +152,7 @@ async function fetchInfo(ctx, slot, now) {
     let retryCount = 0;
     while (retryCount < 2) {
       try {
-        const resp = await ctx.http.get(buildUrl(slot.url, strategy.flag), { headers: strategy.ua, timeout: 3000 });
+        const resp = await ctx.http.get(buildUrl(slot.url, strategy.flag), { headers: strategy.ua, timeout: 2000 });
         if (resp.status && (resp.status < 200 || resp.status >= 300)) {
           lastErrorMsg = `HTTP ${resp.status}`;
           break;
