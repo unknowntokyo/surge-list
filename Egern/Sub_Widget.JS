@@ -10,10 +10,6 @@
  *    URL1 = https://xxx.com/sub...   # 订阅地址（必填）
  *    RESET1 = 1                      # 重置日（可选，每月1日重置）
  * 
- *    NAME2 = 机场B
- *    URL2 = https://yyy.com/sub...
- *    RESET2 = 15                     # 每月15日重置
- * 
  * 2️⃣ 参数说明：
  *    - NAME1-5：机场名称，显示在卡片上（必填，否则显示"机场订阅"）
  *    - URL1-5：订阅地址，从机场后台复制（必填）
@@ -23,9 +19,7 @@
  *    NAME1 = 机场订阅
  *    URL1 = https://example.com/sub?token=abc123
  *    RESET1 = 1
- * 
- *    NAME2 = 备用机场
- *    URL2 = https://example2.com/sub?token=def456
+ *
  * 
  * 4️⃣ 注意事项：
  *    - 环境变量名称必须大写（NAME1、URL1 等）
@@ -39,7 +33,8 @@
  * - 中尺寸 (systemMedium)：自动显示 2 条
  * - 大尺寸 (systemLarge)：自动显示 5 条
  * - 最多支持 5 个机场 中小尺寸只显示两个 大尺寸显示五个 需要显示多条 可以在组件页面右上角 重新添加组件就可以了 祝您使用愉快！
- * - 加了缓存机制 如果数据存在且距离上次请求未超过 1 小时，则直接返回缓存结果，不再发起网络请求，避免风控 导致机场主拉黑
+ * - 加了缓存机制 如果数据存在且距离上次请求未超过 1 小时，则直接返回缓存结果，不再发起网络请求，避免风控 导致机场主拉黑，流量信息的缓存时间超过10天，强制显示失败
+* - 加了订阅链接存活检测机制，订阅链接连接失败，名称前显示红点，非实时，必须要超过上面设置的1小时缓存时间才能切换状态
  */
 
 const COLORS = {
@@ -57,7 +52,7 @@ const COLORS = {
 };
 const WIDGET_BG_COLOR = { light: "#FFFFFF", dark: "#2C2C2E" };
 const REFRESH_INTERVAL_MS = 3600000;
-const MAX_STALE_MS = 7 * 24 * 60 * 60 * 1000;
+const MAX_STALE_MS = 10 * 24 * 60 * 60 * 1000;  //流量信息的缓存时间超过10天，强制显示失败
 const UNITS = ["B", "KB", "MB", "GB", "TB"];
 
 const REGEX_USERINFO = /([-\w]+)\s*=\s*([\d.eE+-]+)/g;
