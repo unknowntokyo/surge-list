@@ -20,7 +20,7 @@ const COLORS = {
   divider: { light: "#E5E5EA", dark: "#48484A" },
 };
 const WIDGET_BG_COLOR = { light: "#FFFFFF", dark: "#2C2C2E" };
-const CACHE_TIME = 3600000;
+const REFRESH_INTERVAL_MS = 3600000; // 语义修正：系统级刷新间隔 (1小时)
 const UNITS = ["B", "KB", "MB", "GB", "TB"];
 
 const REGEX_USERINFO = /([-\w]+)=([\d.eE+-]+)/g;
@@ -70,14 +70,8 @@ export default async function (ctx) {
   const activeSlots = slots.slice(0, isLarge ? 5 : 2);
   const now = new Date();
 
-  const cardChildren = await concurrentMap(activeSlots, 2, async (s) => {
-    try {
-      const info = await fetchInfo(ctx, s, now);
-      return buildCard(info, ctx);
-    } catch (e) {
-      return buildCard({ name: s.name, error: true }, ctx);
-    }
-  });
+  // 剔除无效捕获：fetchInfo 已经保证 100% 安全返回
+  const cardChildren = await concurrentMap(activeSlots, 2, async (s) => buildCard(await fetchInfo(ctx, s, now), ctx));
   
   const timeStr = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
   const isCompact = activeSlots.length >= 2;
@@ -87,7 +81,7 @@ export default async function (ctx) {
     backgroundColor: WIDGET_BG_COLOR,
     padding: isCompact ? 8 : 12,
     gap: isCompact ? 5 : 8,
-    refreshAfter: new Date(now.getTime() + CACHE_TIME).toISOString(),
+    refreshAfter: new Date(now.getTime() + REFRESH_INTERVAL_MS).toISOString(),
     children: [
       {
         type: "stack",
@@ -115,12 +109,12 @@ export default async function (ctx) {
 async function fetchInfo(ctx, slot, now) {
   const cacheKey = `sub_cache_${slot.url}`;
   let cacheData = null;
-  const nowTime = now.getTime(); 
 
+  // 极致化 I/O：直接读出 result 对象，无封装损耗
   try {
     const parsed = ctx.storage.getJSON(cacheKey);
-    if (parsed?.data) {
-      cacheData = parsed.data; 
+    if (parsed && typeof parsed === "object") {
+      cacheData = parsed; 
     }
   } catch (e) {}
 
@@ -141,7 +135,8 @@ async function fetchInfo(ctx, slot, now) {
           expire: info.expire || null, 
         };
 
-        try { ctx.storage.setJSON(cacheKey, { time: nowTime, data: result }); } catch (e) {}
+        // 极致化 I/O：丢弃冗余时间戳，直接存结果
+        try { ctx.storage.setJSON(cacheKey, result); } catch (e) {}
         return { ...result, name: slot.name, remainDays: slot.resetDay ? getRemainingDays(slot.resetDay, now) : null };
       }
     } catch (_) {}
