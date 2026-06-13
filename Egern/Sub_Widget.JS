@@ -149,36 +149,40 @@ async function fetchInfo(ctx, slot, now) {
   } catch (e) {}
 
   for (const strategy of STRATEGIES) {
-    try {
-      const resp = await ctx.http.get(buildUrl(slot.url, strategy.flag), { headers: strategy.ua, timeout: 1500 });
-
-      if (resp.status && (resp.status < 200 || resp.status >= 300)) {
-        lastErrorMsg = `HTTP ${resp.status}`;
-        continue;
-      }
-
-      const info = parseUserInfo(resp.headers.get("subscription-userinfo") || "");
-
-      if (info) {
-        const used = (info.upload || 0) + (info.download || 0);
-        const totalBytes = info.total || 0;
-        const result = {
-          used,
-          totalBytes,
-          percent: totalBytes > 0 ? (used / totalBytes) * 100 : 0,
-          expire: info.expire || null, 
-        };
-
-        try { ctx.storage.setJSON(cacheKey, { time: now.getTime(), data: result }); } catch (e) {}
-        return { ...result, name: slot.name, remainDays: slot.resetDay ? getRemainingDays(slot.resetDay, now) : null };
-      } else {
+    let retryCount = 0;
+    while (retryCount < 2) {
+      try {
+        const resp = await ctx.http.get(buildUrl(slot.url, strategy.flag), { headers: strategy.ua, timeout: 3000 });
+        if (resp.status && (resp.status < 200 || resp.status >= 300)) {
+          lastErrorMsg = `HTTP ${resp.status}`;
+          break;
+        }
+        const info = parseUserInfo(resp.headers.get("subscription-userinfo") || "");
+        if (info) {
+          const used = (info.upload || 0) + (info.download || 0);
+          const totalBytes = info.total || 0;
+          const result = {
+            used,
+            totalBytes,
+            percent: totalBytes > 0 ? (used / totalBytes) * 100 : 0,
+            expire: info.expire || null, 
+          };
+          try { ctx.storage.setJSON(cacheKey, { time: now.getTime(), data: result }); } catch (e) {}
+          return { ...result, name: slot.name, remainDays: slot.resetDay ? getRemainingDays(slot.resetDay, now) : null };
+        }
         lastErrorMsg = "No Data";
+        break;
+      } catch (err) {
+        retryCount++;
+        const msg = String(err?.message ?? err ?? "").toLowerCase();
+        if (msg.includes("timeout") || msg.includes("timed out")) {
+          lastErrorMsg = "Timeout";
+          if (retryCount < 2) continue;
+        } else {
+          lastErrorMsg = msg.includes("dns") ? "DNS Error" : "Network";
+          break;
+        }
       }
-    } catch (err) {
-      const msg = String(err?.message ?? err ?? "").toLowerCase();
-      if (msg.includes("timeout") || msg.includes("timed out")) lastErrorMsg = "Timeout";
-      else if (msg.includes("dns") || msg.includes("host")) lastErrorMsg = "DNS Error";
-      else lastErrorMsg = "Network";
     }
   }
 
@@ -359,3 +363,164 @@ async function concurrentMap(items, maxConcurrent, fn) {
   await Promise.all(Array.from({ length: Math.min(maxConcurrent, items.length) }, worker));
   return results;
 }
+
+
+
+
+
+/**
+ * 机场订阅流量监控小组件 (终极防抖抗抖版)
+ * 核心升级：
+ * 1. 延长超时至 3000ms：绕过系统唤醒基带的硬约束
+ * 2. 自动单次静默重试：彻底解决瞬时网络抖动引起的红点误报
+ */
+
+const COLORS = {
+  textPrimary: { light: "#000000", dark: "#FFFFFF" },
+  textSecondary: { light: "#555555", dark: "#EBEBF5" },
+  textTertiary: { light: "#888888", dark: "#8E8E93" },
+  accentGreen: { light: "#34C759", dark: "#30D158" },
+  accentOrange: { light: "#FF9500", dark: "#FF9F0A" },
+  accentRed: { light: "#FF3B30", dark: "#FF453A" },
+  accentPurple: { light: "#D14FE2", dark: "#CA31E1" },
+  divider: { light: "#E5E5EA", dark: "#48484A" },
+  errorBg: { light: "#FFF5F5", dark: "#3B1F1F" },
+  progressBg: { light: "#E8E8EA", dark: "#48484A" },
+};
+const WIDGET_BG_COLOR = { light: "#FFFFFF", dark: "#2C2C2E" };
+const REFRESH_INTERVAL_MS = 3600000;
+const MAX_STALE_MS = 7 * 24 * 60 * 60 * 1000;
+const UNITS = ["B", "KB", "MB", "GB", "TB"];
+const REGEX_USERINFO = /([-\w]+)\s*=\s*([\d.eE+-]+)/g;
+
+const STRATEGIES = [
+  { flag: null, ua: { "User-Agent": "clash-verge-rev/2.3.1", Accept: "application/x-yaml,text/plain,*/*" } },
+  { flag: "clash", ua: { "User-Agent": "mihomo/1.19.3", Accept: "application/x-yaml,text/plain,*/*" } },
+  { flag: "meta", ua: { "User-Agent": "clash-verge-rev/2.3.1", Accept: "application/x-yaml,text/plain,*/*" } }
+];
+
+export default async function (ctx) {
+  const slots = [];
+  for (let i = 1; i <= 5; i++) {
+    const url = (ctx.env[`URL${i}`] || "").trim();
+    if (!url) continue;
+    const resetStr = ctx.env[`RESET${i}`];
+    const resetDayNum = resetStr ? Number(resetStr) : null;
+    slots.push({
+      name: (ctx.env[`NAME${i}`] || "").trim() || "机场订阅",
+      url,
+      resetDay: (resetDayNum >= 1 && resetDayNum <= 31) ? resetDayNum : null,
+    });
+  }
+
+  if (!slots.length) {
+    return {
+      type: "widget",
+      backgroundColor: WIDGET_BG_COLOR,
+      padding: 16,
+      children: [{
+        type: "stack",
+        direction: "column",
+        gap: 10,
+        alignItems: "center",
+        children: [
+          { type: "image", src: "sf-symbol:wifi.slash", width: 32, height: 32, color: COLORS.accentRed },
+          { type: "text", text: "未配置订阅", font: { size: "headline", weight: "semibold" }, textColor: COLORS.textPrimary },
+        ],
+      }],
+    };
+  }
+
+  const activeSlots = slots.slice(0, ctx.widgetFamily.includes("Large") ? 5 : 2);
+  const now = new Date();
+  const cardChildren = await concurrentMap(activeSlots, 2, async (s) => buildCard(await fetchInfo(ctx, s, now), ctx));
+  const timeStr = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+  const isCompact = activeSlots.length >= 2;
+
+  return {
+    type: "widget",
+    backgroundColor: WIDGET_BG_COLOR,
+    padding: isCompact ? 8 : 12,
+    gap: isCompact ? 5 : 8,
+    refreshAfter: new Date(now.getTime() + REFRESH_INTERVAL_MS).toISOString(),
+    children: [
+      {
+        type: "stack",
+        direction: "row",
+        alignItems: "center",
+        gap: 6,
+        children: [
+          { type: "image", src: "sf-symbol:gauge.with.dots.needle.67percent", width: 16, height: 16, color: COLORS.accentGreen },
+          { type: "text", text: "SubInfo", font: { size: "subheadline", weight: "bold" }, textColor: COLORS.textPrimary },
+          { type: "spacer" },
+          { type: "image", src: "sf-symbol:arrow.clockwise", width: 12, height: 12, color: COLORS.textTertiary },
+          { type: "text", text: timeStr, font: { size: "caption2", weight: "medium" }, textColor: COLORS.textTertiary },
+        ],
+      },
+      { type: "stack", direction: "column", gap: 6, children: cardChildren },
+    ],
+  };
+}
+
+async function fetchInfo(ctx, slot, now) {
+  const cacheKey = `sub_cache_${slot.url}`;
+  let cacheData = null;
+  let lastErrorMsg = "Unknown";
+
+  try {
+    const parsed = ctx.storage.getJSON(cacheKey);
+    if (parsed?.data) {
+      if (now.getTime() - parsed.time < MAX_STALE_MS) {
+        cacheData = parsed.data; 
+      } else {
+        try { ctx.storage.remove(cacheKey); } catch (e) {}
+      }
+    }
+  } catch (e) {}
+
+  for (const strategy of STRATEGIES) {
+    // 💡 优化：引入自动重试逻辑 (Retry logic)
+    let retryCount = 0;
+    while (retryCount < 2) {
+      try {
+        // 💡 优化：超时提升至 3000ms，避开休眠唤醒时的基带延迟
+        const resp = await ctx.http.get(buildUrl(slot.url, strategy.flag), { headers: strategy.ua, timeout: 3000 });
+        if (resp.status && (resp.status < 200 || resp.status >= 300)) {
+          lastErrorMsg = `HTTP ${resp.status}`;
+          break; // 非网络抖动，直接跳过此策略
+        }
+        const info = parseUserInfo(resp.headers.get("subscription-userinfo") || "");
+        if (info) {
+          const used = (info.upload || 0) + (info.download || 0);
+          const totalBytes = info.total || 0;
+          const result = {
+            used,
+            totalBytes,
+            percent: totalBytes > 0 ? (used / totalBytes) * 100 : 0,
+            expire: info.expire || null, 
+          };
+          try { ctx.storage.setJSON(cacheKey, { time: now.getTime(), data: result }); } catch (e) {}
+          return { ...result, name: slot.name, remainDays: slot.resetDay ? getRemainingDays(slot.resetDay, now) : null };
+        }
+        lastErrorMsg = "No Data";
+        break;
+      } catch (err) {
+        retryCount++;
+        const msg = String(err?.message ?? err ?? "").toLowerCase();
+        if (msg.includes("timeout") || msg.includes("timed out")) {
+          lastErrorMsg = "Timeout";
+          if (retryCount < 2) continue; // 仅对 Timeout 进行重试
+        } else {
+          lastErrorMsg = msg.includes("dns") ? "DNS Error" : "Network";
+          break; // DNS或其它硬性故障不重试
+        }
+      }
+    }
+  }
+
+  if (cacheData) return { ...cacheData, name: slot.name, remainDays: slot.resetDay ? getRemainingDays(slot.resetDay, now) : null, isFallback: true };
+  return { name: slot.name, error: true, errorMsg: lastErrorMsg };
+}
+
+// ...buildCard、buildUrl、parseUserInfo、formatBytes、getRemainingDays、concurrentMap 函数保持不变 (已包含在之前版本中)
+// 为节省篇幅，此处省略，直接使用你手头最新版的剩余函数代码即可。
