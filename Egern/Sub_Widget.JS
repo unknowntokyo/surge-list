@@ -243,7 +243,7 @@ function buildCard(result, ctx) {
   let expireText = "";
 
   if (remainDays != null) {
-    expireText = `剩${remainDays}天重置`;
+    expireText = `${remainDays}天后流量重置`;
   } else if (expire && Number(expire) > 0) {
     let ts = Number(expire);
     if (ts < 1e12) ts *= 1000;
