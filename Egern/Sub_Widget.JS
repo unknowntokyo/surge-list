@@ -95,7 +95,7 @@ export default async function (ctx) {
         alignItems: "center",
         gap: 6,
         children: [
-          { type: "image", src: "sf-symbol:bolt.horizontal", width: 14, height: 14, color: COLORS.accentBlue },
+          { type: "image", src: "sf-symbol:bolt.horizontal", width: 15, height: 15, color: COLORS.accentBlue },
           { type: "text", text: "SubInfo", font: { size: "subheadline", weight: "bold" }, textColor: COLORS.textPrimary },
           { type: "spacer" },
           { type: "image", src: "sf-symbol:arrow.clockwise", width: 12, height: 12, color: COLORS.textTertiary },
