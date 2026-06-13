@@ -33,7 +33,7 @@
  * - 中尺寸 (systemMedium)：自动显示 2 条
  * - 大尺寸 (systemLarge)：自动显示 5 条
  * - 最多支持 5 个机场 中小尺寸只显示两个 大尺寸显示五个 需要显示多条 可以在组件页面右上角 重新添加组件就可以了 祝您使用愉快！
- * - 加了缓存机制 如果数据存在且距离上次请求未超过 1 小时，则直接返回缓存结果，不再发起网络请求，避免风控 导致机场主拉黑，流量信息的缓存时间超过10天，强制显示失败
+ * - 加了缓存机制 如果数据存在且距离上次请求未超过 1 小时，则直接返回缓存结果，不再发起网络请求，避免风控，导致机场主拉黑，若流量信息的缓存时间超过10天，则强制显示失败
 * - 加了订阅链接存活检测机制，订阅链接连接失败，名称前显示红点，非实时，必须要超过上面设置的1小时缓存时间才能切换状态
  */
 
@@ -52,7 +52,7 @@ const COLORS = {
 const WIDGET_BG_COLOR = { light: "#FFFFFF", dark: "#2C2C2E" };
 const REFRESH_INTERVAL_MS = 3600000;
 const CACHE_LOCK_MS = 3600000;
-const MAX_STALE_MS = 10 * 24 * 60 * 60 * 1000; 
+const MAX_STALE_MS = 10 * 24 * 60 * 60 * 1000;
 const UNITS = ["B", "KB", "MB", "GB", "TB"];
 
 const REGEX_USERINFO = /([-\w]+)\s*=\s*([\d.eE+-]+)/g;
@@ -65,11 +65,9 @@ const STRATEGIES = [
 
 export default async function (ctx) {
   const slots = [];
-
   for (let i = 1; i <= 5; i++) {
     const url = (ctx.env[`URL${i}`] || "").trim();
     if (!url) continue;
-
     const resetStr = ctx.env[`RESET${i}`];
     const resetDayNum = resetStr ? Number(resetStr) : null;
     slots.push({
@@ -84,26 +82,22 @@ export default async function (ctx) {
       type: "widget",
       backgroundColor: WIDGET_BG_COLOR,
       padding: 16,
-      children: [
-        {
-          type: "stack",
-          direction: "column",
-          gap: 10,
-          alignItems: "center",
-          children: [
-            { type: "image", src: "sf-symbol:wifi.slash", width: 32, height: 32, color: COLORS.accentRed },
-            { type: "text", text: "未配置订阅", font: { size: "headline", weight: "semibold" }, textColor: COLORS.textPrimary },
-          ],
-        },
-      ],
+      children: [{
+        type: "stack",
+        direction: "column",
+        gap: 10,
+        alignItems: "center",
+        children: [
+          { type: "image", src: "sf-symbol:wifi.slash", width: 32, height: 32, color: COLORS.accentRed },
+          { type: "text", text: "未配置订阅", font: { size: "headline", weight: "semibold" }, textColor: COLORS.textPrimary },
+        ],
+      }],
     };
   }
 
   const activeSlots = slots.slice(0, ctx.widgetFamily.includes("Large") ? 5 : 2);
   const now = new Date();
-
   const cardChildren = await concurrentMap(activeSlots, 2, async (s) => buildCard(await fetchInfo(ctx, s, now), ctx));
-  
   const timeStr = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
   const isCompact = activeSlots.length >= 2;
 
@@ -142,13 +136,11 @@ async function fetchInfo(ctx, slot, now) {
     const parsed = ctx.storage.getJSON(cacheKey);
     if (parsed?.data) {
       const timeDiff = nowTime - parsed.time;
-
       if (timeDiff < CACHE_LOCK_MS) {
         return { ...parsed.data, name: slot.name, remainDays: slot.resetDay ? getRemainingDays(slot.resetDay, now) : null };
       }
-
       if (timeDiff < MAX_STALE_MS) {
-        cacheData = parsed.data; 
+        cacheData = parsed.data;
       } else {
         try { ctx.storage.remove(cacheKey); } catch (e) {}
       }
@@ -164,7 +156,6 @@ async function fetchInfo(ctx, slot, now) {
           lastErrorMsg = `HTTP ${resp.status}`;
           break;
         }
-
         const info = parseUserInfo(resp.headers.get("subscription-userinfo"));
         if (info) {
           const used = (info.upload || 0) + (info.download || 0);
@@ -173,7 +164,7 @@ async function fetchInfo(ctx, slot, now) {
             used,
             totalBytes,
             percent: totalBytes > 0 ? (used / totalBytes) * 100 : 0,
-            expire: info.expire || null, 
+            expire: info.expire || null,
           };
           try { ctx.storage.setJSON(cacheKey, { time: nowTime, data: result }); } catch (e) {}
           return { ...result, name: slot.name, remainDays: slot.resetDay ? getRemainingDays(slot.resetDay, now) : null };
