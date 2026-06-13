@@ -218,6 +218,7 @@ function buildCard(result, ctx) {
   else if (percent >= 80) statusColor = COLORS.accentOrange;
   else if (percent >= 50) statusColor = COLORS.accentPurple;
 
+  // 错误状态卡片
   if (error) {
     return {
       type: "stack",
@@ -236,33 +237,19 @@ function buildCard(result, ctx) {
   }
 
   const progressPercent = Math.min(Math.max(percent, 0), 100);
-  const usedStr = formatBytes(used);
-  const totalStr = formatBytes(totalBytes);
-  const remainStr = formatBytes(totalBytes - used);
-
-  let expireText = "";
-
-  if (remainDays != null) {
-    expireText = `${remainDays}天后流量重置`;
-  } else if (expire && Number(expire) > 0) {
-    let ts = Number(expire);
-    if (ts < 1e12) ts *= 1000;
-    const d = new Date(ts);
-    expireText = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
-  } else {
-    expireText = "永久有效";
-  }
+  const expireText = remainDays != null ? `${remainDays}天后重置` : "永久有效";
 
   return {
     type: "stack",
     direction: "column",
-    gap: 5,
+    gap: 5, // 统一间距
     padding: [8, 10],
     backgroundColor: { light: "#FFFFFF", dark: "#2B2B2D" },
     borderRadius: 8,
     borderWidth: 1,
     borderColor: COLORS.divider,
     children: [
+      // 第一行：标题与百分比
       {
         type: "stack",
         direction: "row",
@@ -274,29 +261,29 @@ function buildCard(result, ctx) {
           { type: "text", text: `${Math.round(progressPercent)}%`, font: { size: "caption2", weight: "bold" }, textColor: statusColor },
         ],
       },
+      // 第二行：进度条
       {
         type: "stack",
         direction: "row",
-        height: 5,
+        height: 5, // 稍微调小一点，腾出垂直空间
         borderRadius: 3,
         children: [
-          { type: "stack", flex: Math.max(progressPercent, 0.1), height: 5, backgroundColor: statusColor, borderRadius: 3 },
-          { type: "stack", flex: Math.max(100 - progressPercent, 0.1), height: 5, backgroundColor: { light: "#E8E8EA", dark: "#48484A" }, borderRadius: 3 },
+          { type: "stack", flex: Math.max(progressPercent, 0.1), backgroundColor: statusColor },
+          { type: "stack", flex: Math.max(100 - progressPercent, 0.1), backgroundColor: { light: "#E8E8EA", dark: "#48484A" } },
         ],
       },
+      // 第三行：数据信息（关键对齐层）
       {
         type: "stack",
         direction: "row",
         alignItems: "center",
-        gap: 5,
         children: [
-          { type: "text", text: `${usedStr}/${totalStr}`, font: { size: "caption2", weight: "medium" }, textColor: COLORS.textSecondary },
+          { type: "text", text: `${formatBytes(result.used)}/${formatBytes(result.totalBytes)}`, font: { size: "caption2", weight: "medium" }, textColor: COLORS.textSecondary },
           { type: "spacer" },
-          ...(ctx.widgetFamily === "systemSmall" ? [] : [
-            { type: "text", text: expireText, font: { size: "caption2", weight: "medium" }, textColor: COLORS.textTertiary },
-            { type: "spacer" },
-          ]),
-          { type: "text", text: `剩${remainStr}`, font: { size: "caption2", weight: "semibold" }, textColor: COLORS.accentGreen },
+          // 强制将日期显示在中间，使用固定字体大小防止抖动
+          { type: "text", text: expireText, font: { size: "caption2", weight: "medium" }, textColor: COLORS.textTertiary },
+          { type: "spacer" },
+          { type: "text", text: `剩${formatBytes(result.totalBytes - result.used)}`, font: { size: "caption2", weight: "semibold" }, textColor: COLORS.accentGreen },
         ],
       },
     ],
