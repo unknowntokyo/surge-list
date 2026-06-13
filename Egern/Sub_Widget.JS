@@ -51,7 +51,6 @@ const COLORS = {
 };
 const WIDGET_BG_COLOR = { light: "#FFFFFF", dark: "#2C2C2E" };
 const REFRESH_INTERVAL_MS = 3600000;
-const CACHE_LOCK_MS = 3600000;
 const MAX_STALE_MS = 10 * 24 * 60 * 60 * 1000;
 const UNITS = ["B", "KB", "MB", "GB", "TB"];
 
@@ -65,9 +64,11 @@ const STRATEGIES = [
 
 export default async function (ctx) {
   const slots = [];
+
   for (let i = 1; i <= 5; i++) {
     const url = (ctx.env[`URL${i}`] || "").trim();
     if (!url) continue;
+
     const resetStr = ctx.env[`RESET${i}`];
     const resetDayNum = resetStr ? Number(resetStr) : null;
     slots.push({
@@ -82,22 +83,26 @@ export default async function (ctx) {
       type: "widget",
       backgroundColor: WIDGET_BG_COLOR,
       padding: 16,
-      children: [{
-        type: "stack",
-        direction: "column",
-        gap: 10,
-        alignItems: "center",
-        children: [
-          { type: "image", src: "sf-symbol:wifi.slash", width: 32, height: 32, color: COLORS.accentRed },
-          { type: "text", text: "未配置订阅", font: { size: "headline", weight: "semibold" }, textColor: COLORS.textPrimary },
-        ],
-      }],
+      children: [
+        {
+          type: "stack",
+          direction: "column",
+          gap: 10,
+          alignItems: "center",
+          children: [
+            { type: "image", src: "sf-symbol:wifi.slash", width: 32, height: 32, color: COLORS.accentRed },
+            { type: "text", text: "未配置订阅", font: { size: "headline", weight: "semibold" }, textColor: COLORS.textPrimary },
+          ],
+        },
+      ],
     };
   }
 
   const activeSlots = slots.slice(0, ctx.widgetFamily.includes("Large") ? 5 : 2);
   const now = new Date();
+
   const cardChildren = await concurrentMap(activeSlots, 2, async (s) => buildCard(await fetchInfo(ctx, s, now), ctx));
+  
   const timeStr = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
   const isCompact = activeSlots.length >= 2;
 
@@ -130,33 +135,31 @@ async function fetchInfo(ctx, slot, now) {
   const cacheKey = `sub_cache_${slot.url}`;
   let cacheData = null;
   let lastErrorMsg = "Unknown";
-  const nowTime = now.getTime();
 
   try {
     const parsed = ctx.storage.getJSON(cacheKey);
     if (parsed?.data) {
-      const timeDiff = nowTime - parsed.time;
-      if (timeDiff < CACHE_LOCK_MS) {
-        return { ...parsed.data, name: slot.name, remainDays: slot.resetDay ? getRemainingDays(slot.resetDay, now) : null };
-      }
-      if (timeDiff < MAX_STALE_MS) {
-        cacheData = parsed.data;
+      if (now.getTime() - parsed.time < MAX_STALE_MS) {
+        cacheData = parsed.data; 
       } else {
         try { ctx.storage.remove(cacheKey); } catch (e) {}
       }
     }
   } catch (e) {}
 
-  strategyLoop: for (const strategy of STRATEGIES) {
+  for (const strategy of STRATEGIES) {
     let retryCount = 0;
     while (retryCount < 2) {
       try {
         const resp = await ctx.http.get(buildUrl(slot.url, strategy.flag), { headers: strategy.ua, timeout: 2000 });
+
         if (resp.status && (resp.status < 200 || resp.status >= 300)) {
           lastErrorMsg = `HTTP ${resp.status}`;
-          break;
+          break; 
         }
-        const info = parseUserInfo(resp.headers.get("subscription-userinfo"));
+
+        const info = parseUserInfo(resp.headers.get("subscription-userinfo") || "");
+
         if (info) {
           const used = (info.upload || 0) + (info.download || 0);
           const totalBytes = info.total || 0;
@@ -164,24 +167,25 @@ async function fetchInfo(ctx, slot, now) {
             used,
             totalBytes,
             percent: totalBytes > 0 ? (used / totalBytes) * 100 : 0,
-            expire: info.expire || null,
+            expire: info.expire || null, 
           };
-          try { ctx.storage.setJSON(cacheKey, { time: nowTime, data: result }); } catch (e) {}
+
+          try { ctx.storage.setJSON(cacheKey, { time: now.getTime(), data: result }); } catch (e) {}
           return { ...result, name: slot.name, remainDays: slot.resetDay ? getRemainingDays(slot.resetDay, now) : null };
+        } else {
+          lastErrorMsg = "No Data";
+          break; 
         }
-        lastErrorMsg = "No Data";
-        break;
       } catch (err) {
         retryCount++;
         const msg = String(err?.message ?? err ?? "").toLowerCase();
         if (msg.includes("timeout") || msg.includes("timed out")) {
           lastErrorMsg = "Timeout";
-          if (retryCount < 2) continue;
-          break strategyLoop;
+          if (retryCount < 2) continue; 
         } else {
           lastErrorMsg = msg.includes("dns") ? "DNS Error" : "Network";
-          break strategyLoop;
         }
+        break; 
       }
     }
   }
@@ -210,7 +214,7 @@ function buildCard(result, ctx) {
       alignItems: "center",
       gap: 6,
       padding: [8, 10],
-      backgroundColor: COLORS.errorBg,
+      backgroundColor: COLORS.errorBg, 
       borderRadius: 8,
       children: [
         { type: "image", src: "sf-symbol:exclamationmark.circle.fill", width: 12, height: 12, color: COLORS.accentRed },
@@ -258,7 +262,7 @@ function buildCard(result, ctx) {
         borderRadius: 3,
         children: [
           { type: "stack", flex: Math.max(p, 0.01), height: 5, backgroundColor: statusColor, borderRadius: 3 },
-          { type: "stack", flex: Math.max(100 - p, 0.01), height: 5, backgroundColor: COLORS.progressBg, borderRadius: 3 },
+          { type: "stack", flex: Math.max(100 - p, 0.01), height: 5, backgroundColor: COLORS.progressBg, borderRadius: 3 }, 
         ],
       },
       {
