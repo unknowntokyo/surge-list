@@ -293,7 +293,7 @@ function buildCard(result, ctx) {
           { type: "text", text: `${usedStr}/${totalStr}`, font: { size: "caption2", weight: "medium" }, textColor: COLORS.textSecondary },
           { type: "spacer" },
           ...(ctx.widgetFamily === "systemSmall" ? [] : [
-            { type: "text", text: expireText, font: { size: "caption2", weight: "medium" }, textColor: COLORS.textTertiary, lineLimit: 1 },
+            { type: "text", text: expireText, font: { size: "caption2", weight: "medium" }, textColor: COLORS.textTertiary },
             { type: "spacer" },
           ]),
           { type: "text", text: `剩${remainStr}`, font: { size: "caption2", weight: "semibold" }, textColor: COLORS.accentGreen },
