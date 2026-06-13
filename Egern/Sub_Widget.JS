@@ -161,15 +161,11 @@ function buildCard(result, ctx) {
   const { name, error, used, totalBytes, percent, expire, remainDays, isFallback } = result;
 
   let statusColor = COLORS.accentGreen;
-  if (error || isFallback) {
-    statusColor = COLORS.accentRed;
-  } else if (percent >= 95) {
-    statusColor = COLORS.accentRed;
-  } else if (percent >= 80) {
-    statusColor = COLORS.accentOrange;
-  } else if (percent >= 50) {
-    statusColor = COLORS.accentPurple;
-  }
+  if (percent >= 95) statusColor = COLORS.accentRed;
+  else if (percent >= 80) statusColor = COLORS.accentOrange;
+  else if (percent >= 50) statusColor = COLORS.accentPurple;
+
+  let dotColor = (error || isFallback) ? COLORS.accentRed : statusColor; 
 
   if (error) {
     return {
@@ -214,7 +210,7 @@ function buildCard(result, ctx) {
         alignItems: "center",
         gap: 5,
         children: [
-          { type: "image", src: "sf-symbol:circle.fill", width: 6, height: 6, color: statusColor },
+          { type: "image", src: "sf-symbol:circle.fill", width: 6, height: 6, color: dotColor }, 
           { type: "text", text: name, font: { size: "caption2", weight: "semibold" }, textColor: isFallback ? COLORS.accentRed : COLORS.textPrimary, flex: 1 },
           { type: "text", text: `${Math.round(p)}%`, font: { size: "caption2", weight: "bold" }, textColor: statusColor },
         ],
