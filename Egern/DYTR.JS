@@ -98,8 +98,8 @@ export default async function(ctx) {
               type: 'image',
               src: 'sf-symbol:flame',
               color: '#FF3B30',
-              width: 15,
-              height: 15
+              width: 16,
+              height: 16
             },
             {
               type: 'text',
