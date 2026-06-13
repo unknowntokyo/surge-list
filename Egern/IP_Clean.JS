@@ -93,7 +93,7 @@ export default async function(ctx) {
     alignItems: 'center',
     gap: 8,  // ✅ 增大行内 gap
     children: [
-      { type: 'image', src: `sf-symbol:${iconName}`, color: iconColor, width: 16, height: 16 },
+      { type: 'image', src: `sf-symbol:${iconName}`, color: iconColor, width: 15, height: 15 },
       { type: 'text', text: label, font: { size: 13 }, textColor: C_SUB },
       { type: 'spacer' },
       { type: 'text', text: value, font: { size: 13, weight: 'bold', family: 'Menlo' }, textColor: valueColor, maxLines: 1, minScale: 0.6 }
@@ -112,7 +112,7 @@ export default async function(ctx) {
         alignItems: 'center',
         gap: 8,  // ✅ 增大标题 gap
         children: [
-          { type: 'image', src: 'sf-symbol:shield.lefthalf.filled', color: C_TITLE, width: 17, height: 17 },
+          { type: 'image', src: 'sf-symbol:shield.lefthalf.filled', color: C_TITLE, width: 16, height: 16 },
           { type: 'text', text: 'IP 纯净度', font: { size: 15, weight: 'heavy' }, textColor: C_TITLE },
         ]
       },
