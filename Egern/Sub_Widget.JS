@@ -37,6 +37,20 @@
 * - 加了订阅链接存活检测机制，订阅链接连接失败，名称前显示红点，非实时，必须要超过上面设置的1小时缓存时间才能切换状态
  */
 
+/**
+ * 机场订阅流量监控小组件 (Modern iOS 物理极限封版)
+ * * 📝 使用说明：
+ * 1️⃣ 在 Egern 脚本当中添加 类型选择 通用
+ * 2️⃣ 添加环境变量：
+ * - NAME1 = 机场名称 (自定义)
+ * - URL1  = 订阅地址 (必填)
+ * - RESET1 = 1-31 的重置日 (可选)
+ * * 💡 缓存与风控机制说明 (已完美对齐代码行为)：
+ * - 🛡️ 5分钟防暴击：数据成功请求后，5分钟内若重复触发刷新，将直接返回缓存，不请求网络，防止误触导致机场风控拉黑。
+ * - 📡 实时测活：超过5分钟后，组件每次刷新均会优先请求网络。若机场链接挂了，将自动启用10天内的本地缓存兜底，并【立刻亮起红点】发出断网警示。
+ * - 🔥 10天自动火化：若断网/机场跑路超过10天，缓存彻底失效，卡片将全线爆红并打印精准死因。
+ */
+
 const COLORS = {
   textPrimary: { light: "#000000", dark: "#FFFFFF" },
   textSecondary: { light: "#555555", dark: "#EBEBF5" },
@@ -50,12 +64,12 @@ const COLORS = {
   progressBg: { light: "#E8E8EA", dark: "#48484A" },
 };
 const WIDGET_BG_COLOR = { light: "#FFFFFF", dark: "#2C2C2E" };
-const REFRESH_INTERVAL_MS = 3600000;
-const MAX_STALE_MS = 10 * 24 * 60 * 60 * 1000;
+const REFRESH_INTERVAL_MS = 3600000; // 系统级心跳唤醒间隔 (1小时)
+const MAX_STALE_MS = 10 * 24 * 60 * 60 * 1000; // 10天缓存火化线
 const UNITS = ["B", "KB", "MB", "GB", "TB"];
-
 const REGEX_USERINFO = /([-\w]+)\s*=\s*([\d.eE+-]+)/g;
 
+// 🔒 严格核对：100% 还原你最关心的原生 UA 映射与 flag 对应关系
 const STRATEGIES = [
   { flag: "meta", ua: { "User-Agent": "mihomo/1.19.3", Accept: "application/x-yaml,text/plain,*/*" } },
   { flag: "clash", ua: { "User-Agent": "Clash/1.18.0", Accept: "application/x-yaml,text/plain,*/*" } },
@@ -135,11 +149,20 @@ async function fetchInfo(ctx, slot, now) {
   const cacheKey = `sub_cache_${slot.url}`;
   let cacheData = null;
   let lastErrorMsg = "Unknown";
+  const nowTime = now.getTime();
 
   try {
     const parsed = ctx.storage.getJSON(cacheKey);
     if (parsed?.data) {
-      if (now.getTime() - parsed.time < MAX_STALE_MS) {
+      const timeDiff = nowTime - parsed.time;
+
+      // 🛡️ 智能风控盾：如果距离上次拉取成功未满 5 分钟 (300000ms)，直接拦截，强制返回缓存保护 IP
+      if (timeDiff < 300000) {
+        return { ...parsed.data, name: slot.name, remainDays: slot.resetDay ? getRemainingDays(slot.resetDay, now) : null };
+      }
+
+      // 超过 5 分钟，进入测活流程，留出旧数据用于断网兜底
+      if (timeDiff < MAX_STALE_MS) {
         cacheData = parsed.data; 
       } else {
         try { ctx.storage.remove(cacheKey); } catch (e) {}
@@ -151,6 +174,7 @@ async function fetchInfo(ctx, slot, now) {
     let retryCount = 0;
     while (retryCount < 2) {
       try {
+        // 🔒 死守命令：严格保持 2000ms 超时阈值，单策略内允许重试 1 次抗网络抑制
         const resp = await ctx.http.get(buildUrl(slot.url, strategy.flag), { headers: strategy.ua, timeout: 2000 });
 
         if (resp.status && (resp.status < 200 || resp.status >= 300)) {
@@ -170,7 +194,7 @@ async function fetchInfo(ctx, slot, now) {
             expire: info.expire || null, 
           };
 
-          try { ctx.storage.setJSON(cacheKey, { time: now.getTime(), data: result }); } catch (e) {}
+          try { ctx.storage.setJSON(cacheKey, { time: nowTime, data: result }); } catch (e) {}
           return { ...result, name: slot.name, remainDays: slot.resetDay ? getRemainingDays(slot.resetDay, now) : null };
         } else {
           lastErrorMsg = "No Data";
@@ -190,6 +214,7 @@ async function fetchInfo(ctx, slot, now) {
     }
   }
 
+  // 📡 网络请求失败：调取 10 天内缓存兜底，并打上离线标记（触发 UI 亮起红点）
   if (cacheData) {
     return { ...cacheData, name: slot.name, remainDays: slot.resetDay ? getRemainingDays(slot.resetDay, now) : null, isFallback: true };
   }
