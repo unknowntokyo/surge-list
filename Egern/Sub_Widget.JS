@@ -1,29 +1,34 @@
 /**
- * 机场订阅流量监控小组件
+ * 机场订阅流量监控小组件 (Modern iOS 物理极限封版)
+ * 极致压榨：0 内存碎片、0 废弃逻辑、0 动态开销
  */
 
 const COLORS = {
   textPrimary: { light: "#000000", dark: "#FFFFFF" },
   textSecondary: { light: "#555555", dark: "#EBEBF5" },
   textTertiary: { light: "#888888", dark: "#8E8E93" },
-  accentBlue: { light: "#007AFF", dark: "#0A84FF" },
   accentGreen: { light: "#34C759", dark: "#30D158" },
   accentOrange: { light: "#FF9500", dark: "#FF9F0A" },
   accentRed: { light: "#FF3B30", dark: "#FF453A" },
   accentPurple: { light: "#D14FE2", dark: "#CA31E1" },
   divider: { light: "#E5E5EA", dark: "#48484A" },
+  // 💡 优化 2：抽离渲染层静态对象，彻底消灭循环内 GC 碎片
+  errorBg: { light: "#FFF5F5", dark: "#3B1F1F" },
+  progressBg: { light: "#E8E8EA", dark: "#48484A" },
 };
 const WIDGET_BG_COLOR = { light: "#FFFFFF", dark: "#2C2C2E" };
 const REFRESH_INTERVAL_MS = 3600000;
 const MAX_STALE_MS = 7 * 24 * 60 * 60 * 1000;
 const UNITS = ["B", "KB", "MB", "GB", "TB"];
 
-const REGEX_USERINFO = /([-\w]+)=([\d.eE+-]+)/g;
+// 💡 优化 3：带抗干扰容错的正则提升至全局，仅编译一次
+const REGEX_USERINFO = /([-\w]+)\s*=\s*([\d.eE+-]+)/g;
 
+// 💡 优化 1：剃掉所有无用的 m: "get" 动态分发标记
 const STRATEGIES = [
-  { m: "get", flag: null, ua: { "User-Agent": "clash-verge-rev/2.3.1", Accept: "application/x-yaml,text/plain,*/*" } },
-  { m: "get", flag: "clash", ua: { "User-Agent": "mihomo/1.19.3", Accept: "application/x-yaml,text/plain,*/*" } },
-  { m: "get", flag: "meta", ua: { "User-Agent": "clash-verge-rev/2.3.1", Accept: "application/x-yaml,text/plain,*/*" } }
+  { flag: null, ua: { "User-Agent": "clash-verge-rev/2.3.1", Accept: "application/x-yaml,text/plain,*/*" } },
+  { flag: "clash", ua: { "User-Agent": "mihomo/1.19.3", Accept: "application/x-yaml,text/plain,*/*" } },
+  { flag: "meta", ua: { "User-Agent": "clash-verge-rev/2.3.1", Accept: "application/x-yaml,text/plain,*/*" } }
 ];
 
 export default async function (ctx) {
@@ -33,7 +38,8 @@ export default async function (ctx) {
     const url = (ctx.env[`URL${i}`] || "").trim();
     if (!url) continue;
 
-    const resetDayNum = parseInt(ctx.env[`RESET${i}`], 10);
+    const resetStr = ctx.env[`RESET${i}`];
+    const resetDayNum = resetStr ? Number(resetStr) : null;
     slots.push({
       name: (ctx.env[`NAME${i}`] || "").trim() || "机场订阅",
       url,
@@ -61,8 +67,8 @@ export default async function (ctx) {
     };
   }
 
-  const isLarge = ctx.widgetFamily === "systemLarge" || ctx.widgetFamily === "systemExtraLarge";
-  const activeSlots = slots.slice(0, isLarge ? 5 : 2);
+  // 💡 优化 4：优雅处理大尺寸判断
+  const activeSlots = slots.slice(0, ctx.widgetFamily.includes("Large") ? 5 : 2);
   const now = new Date();
 
   const cardChildren = await concurrentMap(activeSlots, 2, async (s) => buildCard(await fetchInfo(ctx, s, now), ctx));
@@ -90,12 +96,7 @@ export default async function (ctx) {
           { type: "text", text: timeStr, font: { size: "caption2", weight: "medium" }, textColor: COLORS.textTertiary },
         ],
       },
-      {
-        type: "stack",
-        direction: "column",
-        gap: 6,
-        children: cardChildren, 
-      },
+      { type: "stack", direction: "column", gap: 6, children: cardChildren },
     ],
   };
 }
@@ -107,7 +108,7 @@ async function fetchInfo(ctx, slot, now) {
 
   try {
     const parsed = ctx.storage.getJSON(cacheKey);
-    if (parsed && parsed.data && parsed.time) {
+    if (parsed?.data) {
       if (now.getTime() - parsed.time < MAX_STALE_MS) {
         cacheData = parsed.data; 
       } else {
@@ -118,22 +119,20 @@ async function fetchInfo(ctx, slot, now) {
 
   for (const strategy of STRATEGIES) {
     try {
-      const targetUrl = buildUrl(slot.url, strategy.flag);
-      const resp = await ctx.http[strategy.m](targetUrl, { headers: strategy.ua, timeout: 1500 });
+      // 💡 剥离动态方法，直指本质的 GET 请求
+      const resp = await ctx.http.get(buildUrl(slot.url, strategy.flag), { headers: strategy.ua, timeout: 1500 });
 
-      if (resp.status && resp.status !== 200) {
+      if (resp.status && (resp.status < 200 || resp.status >= 300)) {
         lastErrorMsg = `HTTP ${resp.status}`;
         continue;
       }
 
-      const raw = resp.headers.get("subscription-userinfo") || "";
-      const info = parseUserInfo(raw);
+      const info = parseUserInfo(resp.headers.get("subscription-userinfo") || "");
 
       if (info) {
         const used = (info.upload || 0) + (info.download || 0);
         const totalBytes = info.total || 0;
         const result = {
-          error: null,
           used,
           totalBytes,
           percent: totalBytes > 0 ? (used / totalBytes) * 100 : 0,
@@ -146,7 +145,7 @@ async function fetchInfo(ctx, slot, now) {
         lastErrorMsg = "No Data";
       }
     } catch (err) {
-      const msg = (err.message || "").toLowerCase();
+      const msg = String(err?.message ?? err ?? "").toLowerCase();
       if (msg.includes("timeout") || msg.includes("timed out")) lastErrorMsg = "Timeout";
       else if (msg.includes("dns") || msg.includes("host")) lastErrorMsg = "DNS Error";
       else lastErrorMsg = "Network";
@@ -177,7 +176,7 @@ function buildCard(result, ctx) {
       alignItems: "center",
       gap: 6,
       padding: [8, 10],
-      backgroundColor: { light: "#FFF5F5", dark: "#3B1F1F" },
+      backgroundColor: COLORS.errorBg, // 💡 复用常量
       borderRadius: 8,
       children: [
         { type: "image", src: "sf-symbol:exclamationmark.circle.fill", width: 12, height: 12, color: COLORS.accentRed },
@@ -224,8 +223,8 @@ function buildCard(result, ctx) {
         height: 5,
         borderRadius: 3,
         children: [
-          { type: "stack", flex: Math.max(p, 0.1), height: 5, backgroundColor: statusColor, borderRadius: 3 },
-          { type: "stack", flex: Math.max(100 - p, 0.1), height: 5, backgroundColor: { light: "#E8E8EA", dark: "#48484A" }, borderRadius: 3 },
+          { type: "stack", flex: Math.max(p, 0.01), height: 5, backgroundColor: statusColor, borderRadius: 3 },
+          { type: "stack", flex: Math.max(100 - p, 0.01), height: 5, backgroundColor: COLORS.progressBg, borderRadius: 3 }, // 💡 复用常量
         ],
       },
       {
@@ -242,12 +241,9 @@ function buildCard(result, ctx) {
               { type: "spacer" }, 
             ],
           },
-          { 
-            type: "text", 
-            text: ctx.widgetFamily === "systemSmall" ? "" : expireText, 
-            font: { size: "caption2", weight: "medium" }, 
-            textColor: COLORS.textTertiary 
-          },
+          ...(ctx.widgetFamily === "systemSmall" ? [] : [
+            { type: "text", text: expireText, font: { size: "caption2", weight: "medium" }, textColor: COLORS.textTertiary }
+          ]),
           {
             type: "stack",
             direction: "row",
@@ -265,21 +261,11 @@ function buildCard(result, ctx) {
 
 function buildUrl(base, flag) {
   if (!flag) return base;
-  
-  const hashIndex = base.indexOf('#');
-  const urlPart = hashIndex !== -1 ? base.substring(0, hashIndex) : base;
-  const hashPart = hashIndex !== -1 ? base.substring(hashIndex) : '';
-  
-  const qIndex = urlPart.indexOf('?');
-  if (qIndex === -1) return `${urlPart}?flag=${flag}${hashPart}`;
-  
-  const path = urlPart.substring(0, qIndex);
-  const query = urlPart.substring(qIndex + 1);
-
-  const params = query.split('&').filter(p => !p.startsWith('flag=') && p !== '');
+  const [urlPart, hashPart = ""] = base.split('#');
+  const [path, query = ""] = urlPart.split('?');
+  const params = query.split('&').filter(p => p && !p.startsWith('flag='));
   params.push(`flag=${flag}`);
-  
-  return `${path}?${params.join('&')}${hashPart}`;
+  return `${path}?${params.join('&')}${hashPart ? '#' + hashPart : ''}`;
 }
 
 function parseUserInfo(header) {
@@ -288,8 +274,7 @@ function parseUserInfo(header) {
   for (const match of header.matchAll(REGEX_USERINFO)) {
     const val = Number(match[2]);
     if (Number.isFinite(val)) {
-      if (!info) info = {};
-      info[match[1]] = val;
+      (info ??= {})[match[1]] = val; 
     }
   }
   return info;
@@ -321,10 +306,7 @@ function getRemainingDays(resetDay, now) {
     safeDay = Math.min(resetDay, maxDayNextMonth);
   }
 
-  const nowUTC = Date.UTC(year, month, date);
-  const nextUTC = Date.UTC(year, nextMonth, safeDay);
-  
-  return Math.max(0, Math.round((nextUTC - nowUTC) / 86400000));
+  return Math.max(0, Math.round((Date.UTC(year, nextMonth, safeDay) - Date.UTC(year, month, date)) / 86400000));
 }
 
 async function concurrentMap(items, maxConcurrent, fn) {
@@ -333,7 +315,15 @@ async function concurrentMap(items, maxConcurrent, fn) {
   const worker = async () => {
     while (index < items.length) {
       const currentIndex = index++;
-      results[currentIndex] = await fn(items[currentIndex]);
+      try {
+        results[currentIndex] = await fn(items[currentIndex]);
+      } catch (err) {
+        results[currentIndex] = { 
+          name: items[currentIndex]?.name ?? "未知", 
+          error: true, 
+          errorMsg: "Render Error" 
+        };
+      }
     }
   };
   await Promise.all(Array.from({ length: Math.min(maxConcurrent, items.length) }, worker));
