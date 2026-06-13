@@ -95,8 +95,8 @@ export default async function (ctx) {
         alignItems: "center",
         gap: 6,
         children: [
-          { type: "image", src: "sf-symbol:network", width: 12, height: 12, color: COLORS.accentBlue },
-          { type: "text", text: "机场订阅", font: { size: "subheadline", weight: "bold" }, textColor: COLORS.textPrimary },
+          { type: "image", src: "sf-symbol:bolt.horizontal", width: 14, height: 14, color: COLORS.accentBlue },
+          { type: "text", text: "SubInfo", font: { size: "subheadline", weight: "bold" }, textColor: COLORS.textPrimary },
           { type: "spacer" },
           { type: "image", src: "sf-symbol:arrow.clockwise", width: 12, height: 12, color: COLORS.textTertiary },
           { type: "text", text: timeStr, font: { size: "caption2", weight: "medium" }, textColor: COLORS.textTertiary },

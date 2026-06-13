@@ -112,7 +112,7 @@ export default async function(ctx) {
         alignItems: 'center',
         gap: 8,  // ✅ 增大标题 gap
         children: [
-          { type: 'image', src: 'sf-symbol:shield.lefthalf.filled', color: C_TITLE, width: 18, height: 18 },
+          { type: 'image', src: 'sf-symbol:shield.lefthalf.filled', color: C_TITLE, width: 16, height: 16 },
           { type: 'text', text: 'IP 纯净度', font: { size: 16, weight: 'heavy' }, textColor: C_TITLE },
         ]
       },
