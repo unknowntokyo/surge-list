@@ -1,11 +1,5 @@
 /**
- * 机场订阅流量监控小组件 (工业级最终封版)
- * 📝 使用说明：
- * 1️⃣ 在Egern脚本当中添加 类型选择 通用
- * 2️⃣ 添加环境变量：
- * - NAME1 = 机场名称
- * - URL1 = https://xxx...
- * - RESET1 = 1-31 的重置日
+ * 机场订阅流量监控小组件
  */
 
 const COLORS = {
@@ -20,7 +14,8 @@ const COLORS = {
   divider: { light: "#E5E5EA", dark: "#48484A" },
 };
 const WIDGET_BG_COLOR = { light: "#FFFFFF", dark: "#2C2C2E" };
-const REFRESH_INTERVAL_MS = 3600000; // 语义修正：系统级刷新间隔 (1小时)
+const REFRESH_INTERVAL_MS = 3600000;
+const MAX_STALE_MS = 7 * 24 * 60 * 60 * 1000;
 const UNITS = ["B", "KB", "MB", "GB", "TB"];
 
 const REGEX_USERINFO = /([-\w]+)=([\d.eE+-]+)/g;
@@ -70,7 +65,6 @@ export default async function (ctx) {
   const activeSlots = slots.slice(0, isLarge ? 5 : 2);
   const now = new Date();
 
-  // 剔除无效捕获：fetchInfo 已经保证 100% 安全返回
   const cardChildren = await concurrentMap(activeSlots, 2, async (s) => buildCard(await fetchInfo(ctx, s, now), ctx));
   
   const timeStr = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
@@ -109,12 +103,16 @@ export default async function (ctx) {
 async function fetchInfo(ctx, slot, now) {
   const cacheKey = `sub_cache_${slot.url}`;
   let cacheData = null;
+  let lastErrorMsg = "Unknown";
 
-  // 极致化 I/O：直接读出 result 对象，无封装损耗
   try {
     const parsed = ctx.storage.getJSON(cacheKey);
-    if (parsed && typeof parsed === "object") {
-      cacheData = parsed; 
+    if (parsed && parsed.data && parsed.time) {
+      if (now.getTime() - parsed.time < MAX_STALE_MS) {
+        cacheData = parsed.data; 
+      } else {
+        try { ctx.storage.remove(cacheKey); } catch (e) {}
+      }
     }
   } catch (e) {}
 
@@ -122,7 +120,14 @@ async function fetchInfo(ctx, slot, now) {
     try {
       const targetUrl = buildUrl(slot.url, strategy.flag);
       const resp = await ctx.http[strategy.m](targetUrl, { headers: strategy.ua, timeout: 1500 });
-      const info = parseUserInfo(resp.headers.get("subscription-userinfo") || "");
+
+      if (resp.status && resp.status !== 200) {
+        lastErrorMsg = `HTTP ${resp.status}`;
+        continue;
+      }
+
+      const raw = resp.headers.get("subscription-userinfo") || "";
+      const info = parseUserInfo(raw);
 
       if (info) {
         const used = (info.upload || 0) + (info.download || 0);
@@ -135,21 +140,28 @@ async function fetchInfo(ctx, slot, now) {
           expire: info.expire || null, 
         };
 
-        // 极致化 I/O：丢弃冗余时间戳，直接存结果
-        try { ctx.storage.setJSON(cacheKey, result); } catch (e) {}
+        try { ctx.storage.setJSON(cacheKey, { time: now.getTime(), data: result }); } catch (e) {}
         return { ...result, name: slot.name, remainDays: slot.resetDay ? getRemainingDays(slot.resetDay, now) : null };
+      } else {
+        lastErrorMsg = "No Data";
       }
-    } catch (_) {}
+    } catch (err) {
+      const msg = (err.message || "").toLowerCase();
+      if (msg.includes("timeout") || msg.includes("timed out")) lastErrorMsg = "Timeout";
+      else if (msg.includes("dns") || msg.includes("host")) lastErrorMsg = "DNS Error";
+      else lastErrorMsg = "Network";
+    }
   }
 
   if (cacheData) {
     return { ...cacheData, name: slot.name, remainDays: slot.resetDay ? getRemainingDays(slot.resetDay, now) : null, isFallback: true };
   }
-  return { name: slot.name, error: true };
+
+  return { name: slot.name, error: true, errorMsg: lastErrorMsg };
 }
 
 function buildCard(result, ctx) {
-  const { name, error, used, totalBytes, percent, expire, remainDays, isFallback } = result;
+  const { name, error, errorMsg, used, totalBytes, percent, expire, remainDays, isFallback } = result;
 
   let statusColor = COLORS.accentGreen;
   if (percent >= 95) statusColor = COLORS.accentRed;
@@ -170,7 +182,7 @@ function buildCard(result, ctx) {
       children: [
         { type: "image", src: "sf-symbol:exclamationmark.circle.fill", width: 12, height: 12, color: COLORS.accentRed },
         { type: "text", text: name, font: { size: "caption2", weight: "semibold" }, textColor: COLORS.accentRed, flex: 1 },
-        { type: "text", text: "获取失败", font: { size: "caption2", weight: "semibold" }, textColor: COLORS.accentRed },
+        { type: "text", text: `失败 | ${errorMsg || '异常'}`, font: { size: "caption2", weight: "bold" }, textColor: COLORS.accentRed },
       ],
     };
   }
