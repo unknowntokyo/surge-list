@@ -287,13 +287,13 @@ function buildCard(result, ctx) {
       {
         type: "stack",
         direction: "row",
-        alignItems: "baseline",
+        alignItems: "center",
         gap: 5,
         children: [
           { type: "text", text: `${usedStr}/${totalStr}`, font: { size: "caption2", weight: "medium" }, textColor: COLORS.textSecondary },
           { type: "spacer" },
           ...(ctx.widgetFamily === "systemSmall" ? [] : [
-            { type: "text", text: expireText, font: { size: "caption2", weight: "medium" }, textColor: COLORS.textTertiary },
+            { type: "text", text: expireText, font: { size: "caption2", weight: "medium" }, textColor: COLORS.textTertiary, lineLimit: 1 },
             { type: "spacer" },
           ]),
           { type: "text", text: `剩${remainStr}`, font: { size: "caption2", weight: "semibold" }, textColor: COLORS.accentGreen },
