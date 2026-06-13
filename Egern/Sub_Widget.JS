@@ -287,7 +287,7 @@ function buildCard(result, ctx) {
       {
         type: "stack",
         direction: "row",
-        alignItems: "center",
+        alignItems: "baseline",
         gap: 5,
         children: [
           { type: "text", text: `${usedStr}/${totalStr}`, font: { size: "caption2", weight: "medium" }, textColor: COLORS.textSecondary },
