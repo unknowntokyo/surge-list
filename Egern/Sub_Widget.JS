@@ -46,13 +46,13 @@ const COLORS = {
   accentRed: { light: "#FF3B30", dark: "#FF453A" },
   accentPurple: { light: "#D14FE2", dark: "#CA31E1" },
   divider: { light: "#E5E5EA", dark: "#48484A" },
-
   errorBg: { light: "#FFF5F5", dark: "#3B1F1F" },
   progressBg: { light: "#E8E8EA", dark: "#48484A" },
 };
 const WIDGET_BG_COLOR = { light: "#FFFFFF", dark: "#2C2C2E" };
 const REFRESH_INTERVAL_MS = 3600000;
-const MAX_STALE_MS = 10 * 24 * 60 * 60 * 1000;  //流量信息的缓存时间超过10天，强制显示失败
+const CACHE_LOCK_MS = 3600000;
+const MAX_STALE_MS = 10 * 24 * 60 * 60 * 1000; 
 const UNITS = ["B", "KB", "MB", "GB", "TB"];
 
 const REGEX_USERINFO = /([-\w]+)\s*=\s*([\d.eE+-]+)/g;
@@ -136,11 +136,18 @@ async function fetchInfo(ctx, slot, now) {
   const cacheKey = `sub_cache_${slot.url}`;
   let cacheData = null;
   let lastErrorMsg = "Unknown";
+  const nowTime = now.getTime();
 
   try {
     const parsed = ctx.storage.getJSON(cacheKey);
     if (parsed?.data) {
-      if (now.getTime() - parsed.time < MAX_STALE_MS) {
+      const timeDiff = nowTime - parsed.time;
+
+      if (timeDiff < CACHE_LOCK_MS) {
+        return { ...parsed.data, name: slot.name, remainDays: slot.resetDay ? getRemainingDays(slot.resetDay, now) : null };
+      }
+
+      if (timeDiff < MAX_STALE_MS) {
         cacheData = parsed.data; 
       } else {
         try { ctx.storage.remove(cacheKey); } catch (e) {}
@@ -148,7 +155,7 @@ async function fetchInfo(ctx, slot, now) {
     }
   } catch (e) {}
 
-  for (const strategy of STRATEGIES) {
+  strategyLoop: for (const strategy of STRATEGIES) {
     let retryCount = 0;
     while (retryCount < 2) {
       try {
@@ -157,7 +164,8 @@ async function fetchInfo(ctx, slot, now) {
           lastErrorMsg = `HTTP ${resp.status}`;
           break;
         }
-        const info = parseUserInfo(resp.headers.get("subscription-userinfo") || "");
+
+        const info = parseUserInfo(resp.headers.get("subscription-userinfo"));
         if (info) {
           const used = (info.upload || 0) + (info.download || 0);
           const totalBytes = info.total || 0;
@@ -167,7 +175,7 @@ async function fetchInfo(ctx, slot, now) {
             percent: totalBytes > 0 ? (used / totalBytes) * 100 : 0,
             expire: info.expire || null, 
           };
-          try { ctx.storage.setJSON(cacheKey, { time: now.getTime(), data: result }); } catch (e) {}
+          try { ctx.storage.setJSON(cacheKey, { time: nowTime, data: result }); } catch (e) {}
           return { ...result, name: slot.name, remainDays: slot.resetDay ? getRemainingDays(slot.resetDay, now) : null };
         }
         lastErrorMsg = "No Data";
@@ -178,9 +186,10 @@ async function fetchInfo(ctx, slot, now) {
         if (msg.includes("timeout") || msg.includes("timed out")) {
           lastErrorMsg = "Timeout";
           if (retryCount < 2) continue;
+          break strategyLoop;
         } else {
           lastErrorMsg = msg.includes("dns") ? "DNS Error" : "Network";
-          break;
+          break strategyLoop;
         }
       }
     }
@@ -210,7 +219,7 @@ function buildCard(result, ctx) {
       alignItems: "center",
       gap: 6,
       padding: [8, 10],
-      backgroundColor: COLORS.errorBg, // 💡 复用常量
+      backgroundColor: COLORS.errorBg,
       borderRadius: 8,
       children: [
         { type: "image", src: "sf-symbol:exclamationmark.circle.fill", width: 12, height: 12, color: COLORS.accentRed },
