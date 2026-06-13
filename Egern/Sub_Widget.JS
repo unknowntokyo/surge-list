@@ -120,11 +120,7 @@ async function fetchInfo(ctx, slot, now) {
   try {
     const parsed = ctx.storage.getJSON(cacheKey);
     if (parsed?.data) {
-
       cacheData = parsed.data; 
-      if (nowTime - parsed.time < CACHE_TIME) {
-        return { ...cacheData, name: slot.name, remainDays: slot.resetDay ? getRemainingDays(slot.resetDay, now) : null };
-      }
     }
   } catch (e) {}
 
@@ -210,8 +206,8 @@ function buildCard(result, ctx) {
         alignItems: "center",
         gap: 5,
         children: [
-          { type: "image", src: "sf-symbol:circle.fill", width: 6, height: 6, color: dotColor }, 
-          { type: "text", text: name, font: { size: "caption2", weight: "semibold" }, textColor: isFallback ? COLORS.accentRed : COLORS.textPrimary, flex: 1 },
+          { type: "image", src: "sf-symbol:circle.fill", width: 6, height: 6, color: dotColor },
+          { type: "text", text: name, font: { size: "caption2", weight: "semibold" }, textColor: COLORS.textPrimary, flex: 1 },
           { type: "text", text: `${Math.round(p)}%`, font: { size: "caption2", weight: "bold" }, textColor: statusColor },
         ],
       },
@@ -239,7 +235,6 @@ function buildCard(result, ctx) {
               { type: "spacer" }, 
             ],
           },
-
           { 
             type: "text", 
             text: ctx.widgetFamily === "systemSmall" ? "" : expireText, 
