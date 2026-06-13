@@ -16,7 +16,7 @@ const COLORS = {
   accentGreen: { light: "#34C759", dark: "#30D158" },
   accentOrange: { light: "#FF9500", dark: "#FF9F0A" },
   accentRed: { light: "#FF3B30", dark: "#FF453A" },
-  accentPurple: { light: "#5856D6", dark: "#5856D6" },
+  accentPurple: { light: "#D14FE2", dark: "#CA31E1" },
   divider: { light: "#E5E5EA", dark: "#48484A" },
 };
 const WIDGET_BG_COLOR = { light: "#FFFFFF", dark: "#2C2C2E" };
@@ -161,9 +161,15 @@ function buildCard(result, ctx) {
   const { name, error, used, totalBytes, percent, expire, remainDays, isFallback } = result;
 
   let statusColor = COLORS.accentGreen;
-  if (error || percent >= 95) statusColor = COLORS.accentRed;
-  else if (percent >= 80) statusColor = COLORS.accentOrange;
-  else if (percent >= 50) statusColor = COLORS.accentPurple;
+  if (error || isFallback) {
+    statusColor = COLORS.accentRed;
+  } else if (percent >= 95) {
+    statusColor = COLORS.accentRed;
+  } else if (percent >= 80) {
+    statusColor = COLORS.accentOrange;
+  } else if (percent >= 50) {
+    statusColor = COLORS.accentPurple;
+  }
 
   if (error) {
     return {
