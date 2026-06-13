@@ -1,6 +1,45 @@
 /**
- * 机场订阅流量监控小组件 (Modern iOS 物理极限封版)
- * 极致压榨：0 内存碎片、0 废弃逻辑、0 动态开销
+ * 机场订阅流量监控小组件
+ * 
+ * 📝 使用说明
+ * 1️⃣ 添加环境变量（在 Egern 中进入小组件"编辑环境变量"）：
+ * 
+ *    格式：名称里填 NAME1  值里填 你的机场名称
+ * 
+ *    NAME1 = 翻墙                     # 机场名称（自定义）
+ *    URL1 = https://xxx.com/sub...   # 订阅地址（必填）
+ *    RESET1 = 1                      # 重置日（可选，每月1日重置）
+ * 
+ *    NAME2 = 机场B
+ *    URL2 = https://yyy.com/sub...
+ *    RESET2 = 15                     # 每月15日重置
+ * 
+ * 2️⃣ 参数说明：
+ *    - NAME1-5：机场名称，显示在卡片上（必填，否则显示"机场订阅"）
+ *    - URL1-5：订阅地址，从机场后台复制（必填）
+ *    - RESET1-5：流量重置日，1-31 的数字（可选）
+ * 
+ * 3️⃣ 示例：
+ *    NAME1 = 机场订阅
+ *    URL1 = https://example.com/sub?token=abc123
+ *    RESET1 = 1
+ * 
+ *    NAME2 = 备用机场
+ *    URL2 = https://example2.com/sub?token=def456
+ * 
+ * 4️⃣ 注意事项：
+ *    - 环境变量名称必须大写（NAME1、URL1 等）
+ *    - 至少需要配置 URL1 才能显示
+ *    - 订阅地址需要包含完整的 token
+ *    - 小组件每1小时自动刷新一次
+ *    - 自动适配系统深色/浅色模式（无需配置）
+ *
+ * 5️⃣ 显示数量说明：
+ * - 小尺寸 (systemSmall)：自动显示 2 条
+ * - 中尺寸 (systemMedium)：自动显示 2 条
+ * - 大尺寸 (systemLarge)：自动显示 5 条
+ * - 最多支持 5 个机场 中小尺寸只显示两个 大尺寸显示五个 需要显示多条 可以在组件页面右上角 重新添加组件就可以了 祝您使用愉快！
+ * - 加了缓存机制 如果数据存在且距离上次请求未超过 1 小时，则直接返回缓存结果，不再发起网络请求，避免风控 导致机场主拉黑
  */
 
 const COLORS = {
@@ -12,7 +51,7 @@ const COLORS = {
   accentRed: { light: "#FF3B30", dark: "#FF453A" },
   accentPurple: { light: "#D14FE2", dark: "#CA31E1" },
   divider: { light: "#E5E5EA", dark: "#48484A" },
-  // 💡 优化 2：抽离渲染层静态对象，彻底消灭循环内 GC 碎片
+
   errorBg: { light: "#FFF5F5", dark: "#3B1F1F" },
   progressBg: { light: "#E8E8EA", dark: "#48484A" },
 };
@@ -21,10 +60,8 @@ const REFRESH_INTERVAL_MS = 3600000;
 const MAX_STALE_MS = 7 * 24 * 60 * 60 * 1000;
 const UNITS = ["B", "KB", "MB", "GB", "TB"];
 
-// 💡 优化 3：带抗干扰容错的正则提升至全局，仅编译一次
 const REGEX_USERINFO = /([-\w]+)\s*=\s*([\d.eE+-]+)/g;
 
-// 💡 优化 1：剃掉所有无用的 m: "get" 动态分发标记
 const STRATEGIES = [
   { flag: null, ua: { "User-Agent": "clash-verge-rev/2.3.1", Accept: "application/x-yaml,text/plain,*/*" } },
   { flag: "clash", ua: { "User-Agent": "mihomo/1.19.3", Accept: "application/x-yaml,text/plain,*/*" } },
@@ -67,7 +104,6 @@ export default async function (ctx) {
     };
   }
 
-  // 💡 优化 4：优雅处理大尺寸判断
   const activeSlots = slots.slice(0, ctx.widgetFamily.includes("Large") ? 5 : 2);
   const now = new Date();
 
@@ -119,7 +155,6 @@ async function fetchInfo(ctx, slot, now) {
 
   for (const strategy of STRATEGIES) {
     try {
-      // 💡 剥离动态方法，直指本质的 GET 请求
       const resp = await ctx.http.get(buildUrl(slot.url, strategy.flag), { headers: strategy.ua, timeout: 1500 });
 
       if (resp.status && (resp.status < 200 || resp.status >= 300)) {
@@ -224,7 +259,7 @@ function buildCard(result, ctx) {
         borderRadius: 3,
         children: [
           { type: "stack", flex: Math.max(p, 0.01), height: 5, backgroundColor: statusColor, borderRadius: 3 },
-          { type: "stack", flex: Math.max(100 - p, 0.01), height: 5, backgroundColor: COLORS.progressBg, borderRadius: 3 }, // 💡 复用常量
+          { type: "stack", flex: Math.max(100 - p, 0.01), height: 5, backgroundColor: COLORS.progressBg, borderRadius: 3 },
         ],
       },
       {
