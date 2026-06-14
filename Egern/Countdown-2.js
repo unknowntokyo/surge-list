@@ -48,7 +48,7 @@ const basePriority = { legal: 3, folk: 2, intl: 1, exclusive: 2 };
 const specialPriority = { 春节: 10, 国庆节: 9, 交割: 8, 行权: 8, 元旦: 7, 清明节: 7, 端午节: 7, 中秋节: 7, 春假: 6, 秋假: 6, 除夕: 6 };
 
 const mkText   = (text, size, weight, color, opts = {}) => ({ type: "text", text: String(text ?? ""), font: { size, weight }, textColor: color, ...opts });
-const mkRow    = (children, gap = 4, opts = {}) => ({ type: "stack", direction: "row", alignItems: "center", gap, children, ...opts });
+const mkRow = (children, gap = 4, opts = {}) => ({ type: "stack", direction: "row", alignItems: "center", gap, children, ...opts });
 const mkIcon   = (src, color, size = 13) => ({ type: "image", src: `sf-symbol:${src}`, color, width: size, height: size });
 const mkSpacer = (length) => length != null ? { type: "spacer", length } : { type: "spacer" };
 
@@ -294,15 +294,14 @@ export default async function (ctx) {
   
   const gridRows = CATEGORY_CONFIG.flatMap(cfg => {
     const rawText = formatStr(cfg.key, isLarge ? 7 : (cfg.key === "exclusive" ? 6 : 3));
-    return rawText ? splitTextToLines(rawText, layoutConfig.maxW).map((lineStr, idx) => ({ 
- type: "stack", direction: "row", alignItems: "start", 
- gap: layoutConfig.rowGap, 
- children: [ 
- idx === 0 
-   ? mkRow([ mkIcon(cfg.icon, cfg.color, layoutConfig.icz), 
-             mkText(cfg.label, layoutConfig.fz, "heavy", cfg.color) ], 
-            2, { width: layoutConfig.lw })
-   : mkSpacer(layoutConfig.lw),
+    return rawText ? splitTextToLines(rawText, layoutConfig.maxW).map((lineStr, idx) => ({
+      type: "stack", direction: "row", alignItems: "start", gap: layoutConfig.rowGap,
+      children: [ 
+  idx === 0 
+    ? { type: "stack", direction: "row", alignItems: "center", gap: 2, width: layoutConfig.lw,
+        children: [mkIcon(cfg.icon, cfg.color, layoutConfig.icz), 
+                   mkText(cfg.label, layoutConfig.fz, "heavy", cfg.color)] }
+    : { type: "spacer", length: layoutConfig.lw },
         mkText(lineStr, layoutConfig.fz, "medium", cfg.key === "exclusive" && /(交割|行权)/.test(lineStr) ? C.red : C.sub, { flex: 1, maxLines: 1 })
       ]
     })) : [];
