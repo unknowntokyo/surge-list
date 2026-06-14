@@ -316,14 +316,18 @@ export default function (ctx) {
   }
   
   if (stickyText) {
-    if (rightHeaderElements.length > 0) rightHeaderElements.push(mkText(" ｜ ", layoutConfig.topFz, "bold", C.red));
+    rightHeaderElements.push(mkText(" ｜ ", layoutConfig.topFz, "bold", C.red));
     rightHeaderElements.push(mkText(stickyText, layoutConfig.topFz, "bold", C.red));
   }
 
   return {
     type: "widget", padding: isLarge ? 16 : 12, backgroundGradient,
     children: [
-      mkRow([ mkIcon("hourglass.circle.fill", C.main, layoutConfig.titleIcz), mkText("时光倒数", layoutConfig.titleFz, "heavy", C.main), mkSpacer(), ...(rightHeaderElements.length > 0 ? [mkRow(rightHeaderElements, 4)] : []) ], 6),
+      mkRow([ 
+  mkIcon("hourglass.circle.fill", C.main, layoutConfig.titleIcz), 
+  mkText("时光倒数", layoutConfig.titleFz, "heavy", C.main), 
+  mkSpacer(), 
+  mkRow(rightHeaderElements, 4) ], 6),
       mkSpacer(gridRows.length <= 4 ? 12 : 10),
       ...(gridRows.length > 0 ? [{ type: "stack", direction: "column", alignItems: "start", gap: gridRows.length <= 4 ? (isLarge ? 14 : 11) : (isLarge ? 10 : 8), children: gridRows }] : [mkText("近期暂无倒计时", layoutConfig.fz, "medium", C.muted)]),
       mkSpacer()
