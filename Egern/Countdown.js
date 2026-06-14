@@ -15,9 +15,6 @@
  * =========================================
  */
 
-/**
- *
-
 const RANDOM_NOTICES = [
   " 距离放假，还要摸鱼多少天？", " 坚持住，就快放假啦！", " 上班好累呀，下顿吃啥？",
   " 努力，我还能加班24小时！", " 躺平中，等放假", " 施主请回，此饼不吃",
@@ -155,11 +152,13 @@ export default async function (ctx) {
     };
 
     const getCustomDate = (y, dateStr, fallbackFn) => {
-      if (!dateStr || typeof dateStr !== 'string') return fallbackFn ? fallbackFn() : null;
-      const parts = dateStr.split("/").map(Number);
-      if (parts.length !== 2 || !parts[0] || !parts[1] || parts[0] > 12 || parts[1] > 31) return fallbackFn ? fallbackFn() : null;
-      return YMD(y, parts[0], parts[1]);
-    };
+  if (!dateStr || typeof dateStr !== 'string') return fallbackFn ? fallbackFn() : null;
+  const parts = dateStr.split("/").map(Number);
+  if (parts.length !== 2 || !Number.isInteger(parts[0]) || !Number.isInteger(parts[1]) || parts[0] > 12 || parts[1] > 31) {
+    return fallbackFn ? fallbackFn() : null;
+  }
+  return YMD(y, parts[0], parts[1]);
+};
 
     const l2s = (y, m, d) => {
       ensureLunarCumulative(y + 1);
