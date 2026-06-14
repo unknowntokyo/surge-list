@@ -290,22 +290,22 @@ export default async function (ctx) {
     };
   }
 
-  const layoutConfig = { fz: isLarge ? 14 : 13.5, icz: isLarge ? 15 : 13.5, lw: isLarge ? 60 : 52, maxW: isLarge ? 36 : 45, rowGap: isLarge ? 6 : 4, titleFz: isLarge ? 17 : 15, titleIcz: isLarge ? 18 : 16, topFz: isLarge ? 13 : 12.5 };
-
-  const iconOffset = (layoutConfig.titleIcz - layoutConfig.icz) / 2;
-  const textGap = 6 + iconOffset;
-
+  const layoutConfig = { fz: isLarge ? 14 : 13.5, icz: isLarge ? 15 : 13.5, lw: isLarge ? 67 : 59, maxW: isLarge ? 36 : 45, rowGap: isLarge ? 6 : 4, titleFz: isLarge ? 17 : 15, titleIcz: isLarge ? 18 : 16, topFz: isLarge ? 13 : 12.5 };
+  
   const gridRows = CATEGORY_CONFIG.flatMap(cfg => {
     const rawText = formatStr(cfg.key, isLarge ? 7 : (cfg.key === "exclusive" ? 6 : 3));
     return rawText ? splitTextToLines(rawText, layoutConfig.maxW).map((lineStr, idx) => ({
       type: "stack", direction: "row", alignItems: "start", gap: layoutConfig.rowGap,
       children: [
         mkRow([
-          { type: "image", src: "sf-symbol:circle.fill", color: C.transparent, width: iconOffset, height: layoutConfig.icz },
-          mkIcon(idx === 0 ? cfg.icon : "circle.fill", idx === 0 ? cfg.color : C.transparent, layoutConfig.icz), 
-          { type: "image", src: "sf-symbol:circle.fill", color: C.transparent, width: textGap, height: layoutConfig.icz },
+          {
+            type: "stack", direction: "column",
+            width: layoutConfig.titleIcz, height: layoutConfig.titleIcz,
+            alignItems: "center", justifyContent: "center",
+            children: [ mkIcon(idx === 0 ? cfg.icon : "circle.fill", idx === 0 ? cfg.color : C.transparent, layoutConfig.icz) ]
+          },
           mkText(idx === 0 ? cfg.label : " ", layoutConfig.fz, "heavy", idx === 0 ? cfg.color : C.transparent) 
-        ], 0, { width: layoutConfig.lw }), // gap 设为 0
+        ], 6, { width: layoutConfig.lw }),
         mkText(lineStr, layoutConfig.fz, "medium", cfg.key === "exclusive" && /(交割|行权)/.test(lineStr) ? C.red : C.sub, { flex: 1, maxLines: 1 })
       ]
     })) : [];
