@@ -106,7 +106,7 @@ export default async function (ctx) {
   return {
     type: "widget",
     backgroundColor: WIDGET_BG_COLOR,
-    padding: isCompact ? 8 : 12,
+    padding: [isCompact ? 8 : 12, 16],
     gap: isCompact ? 5 : 8,
     refreshAfter: new Date(now.getTime() + REFRESH_INTERVAL_MS).toISOString(),
     children: [
