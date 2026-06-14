@@ -282,7 +282,7 @@ export default async function (ctx) {
       type: "widget", padding: 14, backgroundGradient,
       children: [
         mkRow([
-          mkIcon("hourglass.circle.fill", C.main, 16), mkText("时光\n倒数", 14, "heavy", C.main, { maxLines: 2 }), mkSpacer(),
+          mkIcon("hourglass", C.main, 16), mkText("时光\n倒数", 14, "heavy", C.main, { maxLines: 2 }), mkSpacer(),
           ...(stickyParts.length > 0 ? [mkText(stickyParts[0], 11, "bold", C.red, { maxLines: 1 })] : [])
         ], 6),
         mkSpacer(10), { type: "stack", direction: "column", gap: 8, flex: 1, children: smallRows }
@@ -318,7 +318,7 @@ export default async function (ctx) {
   return {
     type: "widget", padding: isLarge ? 16 : 12, backgroundGradient,
     children: [
-      mkRow([ mkIcon("hourglass.circle.fill", C.main, layoutConfig.titleIcz), mkText("时光倒数", layoutConfig.titleFz, "heavy", C.main), mkSpacer(), ...(rightHeaderElements.length > 0 ? [mkRow(rightHeaderElements, 4)] : []) ], 6),
+      mkRow([ mkIcon("hourglass", C.main, layoutConfig.titleIcz), mkText("时光倒数", layoutConfig.titleFz, "heavy", C.main), mkSpacer(), ...(rightHeaderElements.length > 0 ? [mkRow(rightHeaderElements, 4)] : []) ], 6),
       mkSpacer(gridRows.length <= 4 ? 12 : 10),
       ...(gridRows.length > 0 ? [{ type: "stack", direction: "column", alignItems: "start", gap: gridRows.length <= 4 ? (isLarge ? 14 : 11) : (isLarge ? 10 : 8), children: gridRows }] : [mkText("近期暂无倒计时", layoutConfig.fz, "medium", C.muted)]),
       mkSpacer()
