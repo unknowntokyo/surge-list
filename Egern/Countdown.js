@@ -87,7 +87,7 @@ function ensureLunarCumulative(maxYear) {
   }
 }
 
-export default async function (ctx) {
+export default function (ctx) {
   const env = ctx.env ?? {};
 
   const getBool = (key, defaultVal = true) => {
@@ -152,13 +152,13 @@ export default async function (ctx) {
     };
 
     const getCustomDate = (y, dateStr, fallbackFn) => {
-  if (!dateStr || typeof dateStr !== 'string') return fallbackFn ? fallbackFn() : null;
-  const parts = dateStr.split("/").map(Number);
-  if (parts.length !== 2 || !Number.isInteger(parts[0]) || !Number.isInteger(parts[1]) || parts[0] > 12 || parts[1] > 31) {
-    return fallbackFn ? fallbackFn() : null;
-  }
-  return YMD(y, parts[0], parts[1]);
-};
+      if (!dateStr || typeof dateStr !== 'string') return fallbackFn ? fallbackFn() : null;
+      const parts = dateStr.split("/").map(Number);
+      if (parts.length !== 2 || !Number.isInteger(parts[0]) || !Number.isInteger(parts[1]) || parts[0] > 12 || parts[1] > 31) {
+        return fallbackFn ? fallbackFn() : null;
+      }
+      return YMD(y, parts[0], parts[1]);
+    };
 
     const l2s = (y, m, d) => {
       ensureLunarCumulative(y + 1);
@@ -262,7 +262,6 @@ export default async function (ctx) {
 
   const stickyParts = (pinnedData || []).map(p => `${p.name} ${p.diff}天`);
   const stickyText  = stickyParts.join("·");
-  const pinnedNames = (pinnedData || []).map(p => p.name); 
 
   const formatStr = (cat, limit) => (result[cat] || []).slice(0, limit).map(i => formatItemStr(i.name, i.diff)).join("，");
 
@@ -272,10 +271,10 @@ export default async function (ctx) {
   if (isSmall) {
     const smallRows = CATEGORY_CONFIG.map(cfg => {
       const catTodayItems = (todayItems || []).filter(i => i.cat === cfg.key);
-      const fests = [...catTodayItems, ...(result[cfg.key] || [])].filter(i => !pinnedNames.includes(i.name)).slice(0, 2);
+      const fests = [...catTodayItems, ...(result[cfg.key] || [])].slice(0, 2);
       if (fests.length === 0) return null;
       return mkRow([
-        mkIcon(cfg.icon, cfg.color, 13),
+        mkRow([mkSpacer(), mkIcon(cfg.icon, cfg.color, 13), mkSpacer()], 0, { width: 16 }),
         mkText(fests.map(i => formatItemStr(i.name, i.diff)).join("，"), 12, "medium", cfg.color, { flex: 1, maxLines: 1 })
       ], 6);
     }).filter(Boolean);
@@ -294,12 +293,16 @@ export default async function (ctx) {
 
   const layoutConfig = { fz: isLarge ? 14 : 13.5, icz: isLarge ? 15 : 13.5, lw: isLarge ? 60 : 52, maxW: isLarge ? 36 : 45, rowGap: isLarge ? 6 : 4, titleFz: isLarge ? 17 : 15, titleIcz: isLarge ? 18 : 16, topFz: isLarge ? 13 : 12.5 };
   
-    const gridRows = CATEGORY_CONFIG.flatMap(cfg => {
+  const gridRows = CATEGORY_CONFIG.flatMap(cfg => {
     const rawText = formatStr(cfg.key, isLarge ? 7 : (cfg.key === "exclusive" ? 6 : 3));
     return rawText ? splitTextToLines(rawText, layoutConfig.maxW).map((lineStr, idx) => ({
       type: "stack", direction: "row", alignItems: "start", gap: layoutConfig.rowGap,
       children: [
-        mkRow([ mkIcon(idx === 0 ? cfg.icon : "circle.fill", idx === 0 ? cfg.color : C.transparent, layoutConfig.icz), mkText(idx === 0 ? cfg.label : " ", layoutConfig.fz, "heavy", idx === 0 ? cfg.color : C.transparent), mkSpacer() ], 2, { width: layoutConfig.lw }),
+        mkRow([ 
+          mkRow([mkSpacer(), mkIcon(idx === 0 ? cfg.icon : "circle.fill", idx === 0 ? cfg.color : C.transparent, layoutConfig.icz), mkSpacer()], 0, { width: layoutConfig.titleIcz }), 
+          mkText(idx === 0 ? cfg.label : " ", layoutConfig.fz, "heavy", idx === 0 ? cfg.color : C.transparent), 
+          mkSpacer() 
+        ], 2, { width: layoutConfig.lw }),
         mkText(lineStr, layoutConfig.fz, "medium", cfg.key === "exclusive" && /(交割|行权)/.test(lineStr) ? C.red : C.sub, { flex: 1, maxLines: 1 })
       ]
     })) : [];
