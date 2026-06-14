@@ -243,7 +243,7 @@ function buildCard(result, ctx) {
     type: "stack",
     direction: "column",
     gap: 5,
-    padding: [12, 10],//卡片大小
+    padding: [20, 10],//卡片大小
     backgroundColor: { light: "#FFFFFF", dark: "#2B2B2D" },
     borderRadius: 8,
     borderWidth: 1,
