@@ -290,14 +290,22 @@ export default async function (ctx) {
     };
   }
 
-  const layoutConfig = { fz: isLarge ? 14 : 13.5, icz: isLarge ? 15 : 13.5, lw: isLarge ? 60 : 52, maxW: isLarge ? 36 : 45, rowGap: isLarge ? 6 : 4, titleFz: isLarge ? 17 : 15, titleIcz: isLarge ? 18 : 16, topFz: isLarge ? 13 : 12.5 };
-  
+  const layoutConfig = { fz: isLarge ? 14 : 13.5, icz: isLarge ? 15 : 13.5, lw: isLarge ? 66 : 58, maxW: isLarge ? 36 : 45, rowGap: isLarge ? 6 : 4, titleFz: isLarge ? 17 : 15, titleIcz: isLarge ? 18 : 16, topFz: isLarge ? 13 : 12.5 };
+
+  const iconOffset = (layoutConfig.titleIcz - layoutConfig.icz) / 2;
+  const textGap = 6 + iconOffset;
+
   const gridRows = CATEGORY_CONFIG.flatMap(cfg => {
     const rawText = formatStr(cfg.key, isLarge ? 7 : (cfg.key === "exclusive" ? 6 : 3));
     return rawText ? splitTextToLines(rawText, layoutConfig.maxW).map((lineStr, idx) => ({
       type: "stack", direction: "row", alignItems: "start", gap: layoutConfig.rowGap,
       children: [
-        mkRow([ mkIcon(idx === 0 ? cfg.icon : "circle.fill", idx === 0 ? cfg.color : C.transparent, layoutConfig.icz), mkText(idx === 0 ? cfg.label : " ", layoutConfig.fz, "heavy", idx === 0 ? cfg.color : C.transparent) ], 2, { width: layoutConfig.lw }),
+        mkRow([ 
+          mkSpacer(iconOffset), 
+          mkIcon(idx === 0 ? cfg.icon : "circle.fill", idx === 0 ? cfg.color : C.transparent, layoutConfig.icz), 
+          mkSpacer(textGap), 
+          mkText(idx === 0 ? cfg.label : " ", layoutConfig.fz, "heavy", idx === 0 ? cfg.color : C.transparent) 
+        ], 0, { width: layoutConfig.lw }),
         mkText(lineStr, layoutConfig.fz, "medium", cfg.key === "exclusive" && /(交割|行权)/.test(lineStr) ? C.red : C.sub, { flex: 1, maxLines: 1 })
       ]
     })) : [];
