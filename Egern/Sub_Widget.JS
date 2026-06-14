@@ -106,7 +106,7 @@ export default async function (ctx) {
     type: "widget",
     backgroundColor: WIDGET_BG_COLOR,
     padding: [10, 10],//Widget整体的上下、左右边距
-    gap: 6,//Widget标题与卡片的距离
+    gap: 6,//Widget标题与卡片之间的间距
     refreshAfter: new Date(now.getTime() + REFRESH_INTERVAL_MS).toISOString(),
     children: [
       {
@@ -122,7 +122,7 @@ export default async function (ctx) {
           { type: "text", text: timeStr, font: { size: "caption2", weight: "medium" }, textColor: COLORS.textTertiary },
         ],
       },
-      { type: "stack", direction: "column", gap: 10, children: cardChildren },
+      { type: "stack", direction: "column", gap: 10, children: cardChildren },//这里的gap是两个卡片之间的间距
     ],
   };
 }
@@ -243,7 +243,7 @@ function buildCard(result, ctx) {
     type: "stack",
     direction: "column",
     gap: 5,
-    padding: [8, 10],//卡片大小
+    padding: [8, 10],//卡片大小微调，改动太大显示会有问题
     backgroundColor: { light: "#FFFFFF", dark: "#2B2B2D" },
     borderRadius: 8,
     borderWidth: 1,
