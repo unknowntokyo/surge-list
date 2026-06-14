@@ -15,6 +15,9 @@
  * =========================================
  */
 
+/**
+ *
+
 const RANDOM_NOTICES = [
   " 距离放假，还要摸鱼多少天？", " 坚持住，就快放假啦！", " 上班好累呀，下顿吃啥？",
   " 努力，我还能加班24小时！", " 躺平中，等放假", " 施主请回，此饼不吃",
@@ -190,7 +193,7 @@ export default async function (ctx) {
     const getPriority = (name, cat, sourceKind) => !enablePrioritySort ? 1 : (sourceKind === "custom" ? (enableExclusiveWeight ? 9 : (basePriority[cat] ?? 1)) : (specialPriority[name] ?? basePriority[cat] ?? 1));
 
     const rawResult = { legal: new Map(), folk: new Map(), intl: new Map(), exclusive: new Map() };
-    const todayFests = new Set(), todayFinance = new Set(), pinnedMap = new Map(), processedFests = new Set();
+    const todayFests = [], todayFinance = [], pinnedMap = new Map(), processedFests = new Set();
     todayItems = []; 
 
     for (const y of [Y - 1, Y, Y + 1]) {
@@ -205,7 +208,7 @@ export default async function (ctx) {
 
           if (diff <= 0) {
             if (diff > -duration) {
-              todayFests.add(name);
+              todayFests.push(name);
               processedFests.add(name);
               todayItems.push({ name, diff, priority: getPriority(name, cat, sourceKind) + 100, cat });
             }
@@ -225,7 +228,7 @@ export default async function (ctx) {
       const processFinance = (name, nth, dow) => {
         const diff = (nextFinanceDate(nth, dow) - todayMs) / 86400000;
         if (diff === 0 && currentHour < 15) {
-          todayFinance.add(name);
+          todayFinance.push(name);
           todayItems.push({ name, diff, priority: getPriority(name, "exclusive") + 100, cat: "exclusive" });
         } else if (diff > 0) rawResult.exclusive.set(name, { name, diff, priority: getPriority(name, "exclusive"), cat: "exclusive" });
       };
@@ -241,8 +244,8 @@ export default async function (ctx) {
     });
 
     const todayNoticeParts = [];
-    if (todayFests.size > 0) todayNoticeParts.push(`今日 ${Array.from(todayFests).slice(0, 2).join("·")}${todayFests.size > 2 ? "…" : ""}`);
-    if (todayFinance.size > 0) todayNoticeParts.push(`今日 ${Array.from(todayFinance).join("·")}`);
+    if (todayFests.length > 0) todayNoticeParts.push(`今日 ${todayFests.slice(0, 2).join("·")}${todayFests.length > 2 ? "…" : ""}`);
+    if (todayFinance.length > 0) todayNoticeParts.push(`今日 ${todayFinance.join("·")}`);
     todayNoticeText = todayNoticeParts.join(" ｜ ");
 
     pinnedData = pinnedHolidays.filter(n => pinnedMap.has(n)).map(n => ({ name: n, diff: pinnedMap.get(n) }));
@@ -307,7 +310,7 @@ export default async function (ctx) {
   if (todayNoticeText) {
     rightHeaderElements.push(mkIcon("sparkles", C.red, layoutConfig.topFz), mkText(todayNoticeText, layoutConfig.topFz, "bold", C.red));
   } else {
-    rightHeaderElements.push(mkIcon("tortoise", C.blue2, layoutConfig.topFz * 1.5), mkText(RANDOM_NOTICES[Math.floor(Math.random() * RANDOM_NOTICES.length)], layoutConfig.topFz, "medium", C.green));
+    rightHeaderElements.push(mkIcon("tortoise", C.blue2, Math.round(layoutConfig.topFz * 1.5)), mkText(RANDOM_NOTICES[Math.floor(Math.random() * RANDOM_NOTICES.length)], layoutConfig.topFz, "medium", C.green));
   }
   
   if (stickyText) {
