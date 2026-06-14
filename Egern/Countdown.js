@@ -290,19 +290,17 @@ export default async function (ctx) {
     };
   }
 
-  // 🌟 核心 1：强行把 titleIcz (沙漏尺寸) 和 icz (列表图标尺寸) 设为完全相等的值
-  // 大号统一为 16，中号统一为 14。
   const layoutConfig = { 
     fz: isLarge ? 14 : 13.5, 
     icz: isLarge ? 16 : 14, 
-    lw: isLarge ? 64 : 56, // 由于对齐后文字右移，稍微加宽了这个容器防止文字被挤下去
+    lw: isLarge ? 64 : 56,
     maxW: isLarge ? 36 : 45, 
     rowGap: isLarge ? 6 : 4, 
     titleFz: isLarge ? 17 : 15, 
     titleIcz: isLarge ? 16 : 14, 
     topFz: isLarge ? 13 : 12.5 
   };
-  
+
   const gridRows = CATEGORY_CONFIG.flatMap(cfg => {
     const rawText = formatStr(cfg.key, isLarge ? 7 : (cfg.key === "exclusive" ? 6 : 3));
     return rawText ? splitTextToLines(rawText, layoutConfig.maxW).map((lineStr, idx) => ({
@@ -311,7 +309,7 @@ export default async function (ctx) {
         mkRow([ 
           mkIcon(idx === 0 ? cfg.icon : "circle.fill", idx === 0 ? cfg.color : C.transparent, layoutConfig.icz), 
           mkText(idx === 0 ? cfg.label : " ", layoutConfig.fz, "heavy", idx === 0 ? cfg.color : C.transparent) 
-        ], 6, { width: layoutConfig.lw }), // 🌟 核心 2：把这个 Gap 从 2 强行改为 6，和顶部标题栏的 Gap 6 保持绝对一致！
+        ], 6, { width: layoutConfig.lw }),
         mkText(lineStr, layoutConfig.fz, "medium", cfg.key === "exclusive" && /(交割|行权)/.test(lineStr) ? C.red : C.sub, { flex: 1, maxLines: 1 })
       ]
     })) : [];
