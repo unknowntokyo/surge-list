@@ -290,23 +290,20 @@ export default async function (ctx) {
     };
   }
 
-  const layoutConfig = { fz: isLarge ? 14 : 13.5, icz: isLarge ? 15 : 13.5, lw: isLarge ? 64 : 56, maxW: isLarge ? 36 : 45, rowGap: isLarge ? 6 : 4, titleFz: isLarge ? 17 : 15, titleIcz: isLarge ? 18 : 16, topFz: isLarge ? 13 : 12.5 };
-
-  const leftPad = (layoutConfig.titleIcz - layoutConfig.icz) / 2;
-  const textGap = (layoutConfig.titleIcz + 6) - (leftPad + layoutConfig.icz);
-  const rigidSpace = (w) => ({ type: "stack", width: w, height: 1 });
+  const layoutConfig = { fz: isLarge ? 14 : 13.5, icz: isLarge ? 15 : 13.5, lw: isLarge ? 67 : 59, maxW: isLarge ? 36 : 45, rowGap: isLarge ? 6 : 4, titleFz: isLarge ? 17 : 15, titleIcz: isLarge ? 18 : 16, topFz: isLarge ? 13 : 12.5 };
 
   const gridRows = CATEGORY_CONFIG.flatMap(cfg => {
     const rawText = formatStr(cfg.key, isLarge ? 7 : (cfg.key === "exclusive" ? 6 : 3));
     return rawText ? splitTextToLines(rawText, layoutConfig.maxW).map((lineStr, idx) => ({
       type: "stack", direction: "row", alignItems: "start", gap: layoutConfig.rowGap,
       children: [
-        mkRow([ 
-          rigidSpace(leftPad),
-          mkIcon(idx === 0 ? cfg.icon : "circle.fill", idx === 0 ? cfg.color : C.transparent, layoutConfig.icz), 
-          rigidSpace(textGap),
+        mkRow([
+          {
+            type: "stack", direction: "row", width: layoutConfig.titleIcz, alignItems: "center",
+            children: [ { type: "spacer" }, mkIcon(idx === 0 ? cfg.icon : "circle.fill", idx === 0 ? cfg.color : C.transparent, layoutConfig.icz), { type: "spacer" } ]
+          },
           mkText(idx === 0 ? cfg.label : " ", layoutConfig.fz, "heavy", idx === 0 ? cfg.color : C.transparent) 
-        ], 0, { width: layoutConfig.lw }),
+        ], 6, { width: layoutConfig.lw }),
         mkText(lineStr, layoutConfig.fz, "medium", cfg.key === "exclusive" && /(交割|行权)/.test(lineStr) ? C.red : C.sub, { flex: 1, maxLines: 1 })
       ]
     })) : [];
