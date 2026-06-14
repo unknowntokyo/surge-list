@@ -105,7 +105,7 @@ export default async function (ctx) {
   return {
     type: "widget",
     backgroundColor: WIDGET_BG_COLOR,
-    padding: [10, 14],//Widget整体的上下、左右边距
+    padding: [10, 10],//Widget整体的上下、左右边距
     gap: 6,//Widget标题与卡片的距离
     refreshAfter: new Date(now.getTime() + REFRESH_INTERVAL_MS).toISOString(),
     children: [
