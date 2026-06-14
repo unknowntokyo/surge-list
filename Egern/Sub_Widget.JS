@@ -101,13 +101,12 @@ export default async function (ctx) {
   const cardChildren = await concurrentMap(activeSlots, 2, async (s) => buildCard(await fetchInfo(ctx, s, now), ctx));
   
   const timeStr = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
-  const isCompact = activeSlots.length >= 2;
 
   return {
     type: "widget",
     backgroundColor: WIDGET_BG_COLOR,
-    padding: [isCompact ? 8 : 12, 14],
-    gap: isCompact ? 5 : 8,
+    padding: [12, 14],
+    gap: 10,
     refreshAfter: new Date(now.getTime() + REFRESH_INTERVAL_MS).toISOString(),
     children: [
       {
