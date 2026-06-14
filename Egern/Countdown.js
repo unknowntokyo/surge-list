@@ -290,7 +290,7 @@ export default async function (ctx) {
     };
   }
 
-  const layoutConfig = { fz: isLarge ? 14 : 13.5, icz: isLarge ? 15 : 13.5, lw: isLarge ? 60 : 52, maxW: isLarge ? 36 : 45, rowGap: isLarge ? 6 : 4, titleFz: isLarge ? 17 : 15, titleIcz: isLarge ? 15 : 13.5, topFz: isLarge ? 13 : 12.5 };
+  const layoutConfig = { fz: isLarge ? 14 : 13.5, icz: isLarge ? 15 : 13.5, lw: isLarge ? 60 : 52, maxW: isLarge ? 36 : 45, rowGap: isLarge ? 6 : 4, titleFz: isLarge ? 17 : 15, titleIcz: isLarge ? 18 : 16, topFz: isLarge ? 13 : 12.5 };
   
   const gridRows = CATEGORY_CONFIG.flatMap(cfg => {
     const rawText = formatStr(cfg.key, isLarge ? 7 : (cfg.key === "exclusive" ? 6 : 3));
