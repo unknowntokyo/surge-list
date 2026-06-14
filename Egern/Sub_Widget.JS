@@ -123,7 +123,7 @@ export default async function (ctx) {
           { type: "text", text: timeStr, font: { size: "caption2", weight: "medium" }, textColor: COLORS.textTertiary },
         ],
       },
-      { type: "stack", direction: "column", gap: 6, children: cardChildren },
+      { type: "stack", direction: "column", gap: 10, children: cardChildren },
     ],
   };
 }
