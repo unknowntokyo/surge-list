@@ -294,10 +294,15 @@ export default async function (ctx) {
   
   const gridRows = CATEGORY_CONFIG.flatMap(cfg => {
     const rawText = formatStr(cfg.key, isLarge ? 7 : (cfg.key === "exclusive" ? 6 : 3));
-    return rawText ? splitTextToLines(rawText, layoutConfig.maxW).map((lineStr, idx) => ({
-      type: "stack", direction: "row", alignItems: "start", gap: layoutConfig.rowGap,
-      children: [
-        mkRow([ mkIcon(idx === 0 ? cfg.icon : "circle.fill", idx === 0 ? cfg.color : C.transparent, layoutConfig.icz), mkText(idx === 0 ? cfg.label : " ", layoutConfig.fz, "heavy", idx === 0 ? cfg.color : C.transparent) ], 2, { width: layoutConfig.lw }),
+    return rawText ? splitTextToLines(rawText, layoutConfig.maxW).map((lineStr, idx) => ({ 
+ type: "stack", direction: "row", alignItems: "start", 
+ gap: layoutConfig.rowGap, 
+ children: [ 
+ idx === 0 
+   ? mkRow([ mkIcon(cfg.icon, cfg.color, layoutConfig.icz), 
+             mkText(cfg.label, layoutConfig.fz, "heavy", cfg.color) ], 
+            2, { width: layoutConfig.lw })
+   : mkSpacer(layoutConfig.lw),
         mkText(lineStr, layoutConfig.fz, "medium", cfg.key === "exclusive" && /(交割|行权)/.test(lineStr) ? C.red : C.sub, { flex: 1, maxLines: 1 })
       ]
     })) : [];
