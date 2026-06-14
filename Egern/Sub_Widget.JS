@@ -118,7 +118,7 @@ export default async function (ctx) {
           { type: "image", src: "sf-symbol:gauge.with.dots.needle.67percent", width: 16, height: 16, color: COLORS.accentGreen },
           { type: "text", text: "SubInfo", font: { size: "subheadline", weight: "bold" }, textColor: COLORS.textPrimary },
           { type: "spacer" },
-          { type: "image", src: "sf-symbol:arrow.clockwise", width: caption1, height: caption1, color: COLORS.textTertiary },
+          { type: "image", src: "sf-symbol:arrow.clockwise", width: 10, height: 10, color: COLORS.textTertiary },
           { type: "text", text: timeStr, font: { size: "caption2", weight: "medium" }, textColor: COLORS.textTertiary },
         ],
       },
