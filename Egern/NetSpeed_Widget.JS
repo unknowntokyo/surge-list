@@ -154,7 +154,7 @@ export default async function(ctx) {
             width: barWidth,
             height: 4,
             backgroundColor: color,
-            cornerRadius: 2
+            borderRadius: 2
           },
           { type: 'spacer' }
         ]
