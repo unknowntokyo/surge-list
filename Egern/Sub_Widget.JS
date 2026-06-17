@@ -47,8 +47,10 @@ const COLORS = {
   errorBg: { light: "#FFF5F5", dark: "#3B1F1F" },
   progressBg: { light: "#E8E8EA", dark: "#48484A" },
 };
+
 const WIDGET_BG_COLOR = { light: "#FFFFFF", dark: "#2C2C2E" };
 const REFRESH_INTERVAL_MS = 3600000;
+const CACHE_TTL_MS = REFRESH_INTERVAL_MS + 5 * 60 * 1000;
 const MAX_STALE_MS = 10 * 24 * 60 * 60 * 1000;
 const UNITS = ["B", "KB", "MB", "GB", "TB"];
 const REGEX_USERINFO = /([-\w]+)\s*=\s*([\d.eE+-]+)/g;
@@ -69,6 +71,7 @@ export default async function (ctx) {
     const resetStr = ctx.env[`RESET${i}`];
     const resetDayNum = resetStr ? Number(resetStr) : null;
     slots.push({
+      id: i,
       name: (ctx.env[`NAME${i}`] || "").trim() || "机场订阅",
       url,
       resetDay: (resetDayNum >= 1 && resetDayNum <= 31) ? resetDayNum : null,
@@ -95,10 +98,15 @@ export default async function (ctx) {
     };
   }
 
-  const activeSlots = slots.slice(0, ctx.widgetFamily.includes("Large") ? 5 : 2);
+  const widgetFamily = String(ctx.widgetFamily || "systemMedium");
+  const activeSlots = slots.slice(0, widgetFamily.includes("Large") ? 5 : 2);
   const now = new Date();
 
-  const cardChildren = await concurrentMap(activeSlots, 2, async (s) => buildCard(await fetchInfo(ctx, s, now), ctx));
+  const results = await concurrentMap(activeSlots, 2, async (s) => {
+    return await fetchInfo(ctx, s, now);
+  });
+
+  const cardChildren = results.map((r) => safeBuildCard(r, ctx));
   
   const timeStr = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
 
@@ -128,7 +136,7 @@ export default async function (ctx) {
 }
 
 async function fetchInfo(ctx, slot, now) {
-  const cacheKey = `sub_cache_${slot.url}`;
+  const cacheKey = `sub_cache_${slot.id}_${hashString(slot.url)}`;
   let cacheData = null;
   let lastErrorMsg = "Unknown";
   const nowTime = now.getTime();
@@ -139,15 +147,15 @@ async function fetchInfo(ctx, slot, now) {
     const parsed = ctx.storage.getJSON(cacheKey);
     if (parsed?.data) {
       const timeDiff = nowTime - parsed.time;
-      //判断缓存数据是否超过30分钟
-      if (timeDiff < 1800000) {
+      // 判断缓存数据是否仍在约1小时缓存窗口内
+      if (timeDiff < CACHE_TTL_MS) {
         return { ...parsed.data, name: slot.name, remainDays };
       }
 
       if (timeDiff < MAX_STALE_MS) {
         cacheData = parsed.data; 
       } else {
-        try { ctx.storage.remove(cacheKey); } catch (e) {}
+        try { ctx.storage.delete(cacheKey); } catch (e) {}
       }
     }
   } catch (e) {}
@@ -293,7 +301,7 @@ function buildCard(result, ctx) {
             flex: 1,
             children: [
               { type: "spacer" }, 
-              { type: "text", text: `剩${formatBytes(totalBytes - used)}`, font: { size: "caption2", weight: "semibold" }, textColor: COLORS.accentGreen },
+              { type: "text", text: `剩${formatBytes(Math.max(0, totalBytes - used))}`, font: { size: "caption2", weight: "semibold" }, textColor: COLORS.accentGreen },
             ],
           },
         ],
@@ -302,13 +310,39 @@ function buildCard(result, ctx) {
   };
 }
 
+function safeBuildCard(result, ctx) {
+  try {
+    return buildCard(result, ctx);
+  } catch (err) {
+    return buildCard({
+      name: result?.name || "未知",
+      error: true,
+      errorMsg: "Render Error",
+    }, ctx);
+  }
+}
+
 function buildUrl(base, flag) {
   if (!flag) return base;
-  const [urlPart, hashPart = ""] = base.split('#');
-  const [path, query = ""] = urlPart.split('?');
-  const params = query.split('&').filter(p => p && !p.startsWith('flag='));
-  params.push(`flag=${flag}`);
-  return `${path}?${params.join('&')}${hashPart ? '#' + hashPart : ''}`;
+
+  try {
+    const u = new URL(base);
+    u.searchParams.set("flag", flag);
+    return u.toString();
+  } catch (e) {
+    const hashIndex = base.indexOf("#");
+    const urlPart = hashIndex >= 0 ? base.slice(0, hashIndex) : base;
+    const hashPart = hashIndex >= 0 ? base.slice(hashIndex) : "";
+
+    const queryIndex = urlPart.indexOf("?");
+    const path = queryIndex >= 0 ? urlPart.slice(0, queryIndex) : urlPart;
+    const query = queryIndex >= 0 ? urlPart.slice(queryIndex + 1) : "";
+
+    const params = query.split("&").filter(p => p && !p.startsWith("flag="));
+    params.push(`flag=${encodeURIComponent(flag)}`);
+
+    return `${path}?${params.join("&")}${hashPart}`;
+  }
 }
 
 function parseUserInfo(header) {
@@ -364,11 +398,20 @@ async function concurrentMap(items, maxConcurrent, fn) {
         results[currentIndex] = { 
           name: items[currentIndex]?.name ?? "未知", 
           error: true, 
-          errorMsg: "Render Error" 
+          errorMsg: "Fetch Error" 
         };
       }
     }
   };
   await Promise.all(Array.from({ length: Math.min(maxConcurrent, items.length) }, worker));
   return results;
+}
+
+function hashString(str) {
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0).toString(36);
 }
