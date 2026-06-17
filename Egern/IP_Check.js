@@ -273,11 +273,15 @@ const cityMap = {
   'cape town': '开普敦'
 };
 
+function escapeRegExp(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 const SORTED_CITY_KEYS = Object.keys(cityMap)
   .filter(k => k.length > 2)
   .sort((a, b) => b.length - a.length);
 
-const CITY_REGEX = new RegExp('\\b(' + SORTED_CITY_KEYS.join('|') + ')\\b');
+const CITY_REGEX = new RegExp('\\b(' + SORTED_CITY_KEYS.map(escapeRegExp).join('|') + ')\\b');
 
 function translateCity(text) {
 
@@ -333,7 +337,8 @@ async function getSpeedTest(ctx) {
   try {
     const downloadPromise = (async () => {
       const response = await ctx.http.get(`https://speed.cloudflare.com/__down?bytes=${SPEED_TEST_PACKET}`, {
-        timeout: SPEED_TEST_TIMEOUT
+        timeout: SPEED_TEST_TIMEOUT,
+        credentials: 'omit'
       });
 
       reader = response?.body?.getReader();
