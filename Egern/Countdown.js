@@ -27,14 +27,19 @@ const RANDOM_NOTICES = [
 ];
 
 const C = {
-  bgWorkday:   [{ light: '#FFFFFF', dark: '#1C1C1E' }, { light: '#F2F2F7', dark: '#0C0C0E' }],
-  bgWeekend:   [{ light: '#F4F8FF', dark: '#111827' }, { light: '#E6F2FF', dark: '#0B0F19' }],
-  bgFest:      [{ light: '#FFFFFF', dark: '#1C1C1E' }, { light: '#F2F2F7', dark: '#0C0C0E' }],
-  main:        { light: '#1C1C1E', dark: '#FFFFFF'  }, sub:   { light: '#48484A', dark: '#D1D1D6'  },
-  muted:       { light: '#8E8E93', dark: '#8E8E93'  }, gold:  { light: '#B58A28', dark: '#D6A53A'  },
-  red:         { light: '#CA3B32', dark: '#FF453A'  }, blue:  { light: '#3A5F85', dark: '#5E8EB8'  },
-  blue2:       { light: '#007AFF', dark: '#0A84FF'  }, teal:  { light: '#628C7B', dark: '#73A491'  },
-  green:       { light: '#34C759', dark: '#30D158'  }, transparent: '#00000000'
+  bgWorkday: [{ light: "#FFFFFF", dark: "#1C1C1E" }, { light: "#F2F2F7", dark: "#0C0C0E" }],
+  bgWeekend: [{ light: "#F4F8FF", dark: "#111827" }, { light: "#E6F2FF", dark: "#0B0F19" }],
+  bgFest: [{ light: "#FFFFFF", dark: "#1C1C1E" }, { light: "#F2F2F7", dark: "#0C0C0E" }],
+  main: { light: "#1C1C1E", dark: "#FFFFFF" },
+  sub: { light: "#48484A", dark: "#D1D1D6" },
+  muted: { light: "#8E8E93", dark: "#8E8E93" },
+  gold: { light: "#B58A28", dark: "#D6A53A" },
+  red: { light: "#CA3B32", dark: "#FF453A" },
+  blue: { light: "#3A5F85", dark: "#5E8EB8" },
+  blue2: { light: "#007AFF", dark: "#0A84FF" },
+  teal: { light: "#628C7B", dark: "#73A491" },
+  green: { light: "#34C759", dark: "#30D158" },
+  transparent: "#00000000"
 };
 
 const CATEGORY_CONFIG = [
@@ -44,181 +49,602 @@ const CATEGORY_CONFIG = [
   { key: "exclusive", label: "专属", icon: "gift.fill", color: C.teal }
 ];
 
-const basePriority = { legal: 3, folk: 2, intl: 1, exclusive: 2 };
-const specialPriority = { 春节: 10, 国庆节: 9, 交割: 8, 行权: 8, 元旦: 7, 清明节: 7, 端午节: 7, 中秋节: 7, 春假: 6, 秋假: 6, 除夕: 6 };
+const basePriority = {
+  legal: 3,
+  folk: 2,
+  intl: 1,
+  exclusive: 2
+};
 
-const mkText = (text, size, weight, color, opts = {}) => ({ type: "text", text: String(text ?? ""), font: { size, weight }, textColor: color, ...opts });
-const mkRow = (children, gap = 4, opts = {}) => ({ type: "stack", direction: "row", alignItems: "center", gap, children, ...opts });
-const mkIcon   = (src, color, size = 13) => ({ type: "image", src: `sf-symbol:${src}`, color, width: size, height: size });
-const mkSpacer = (length) => length != null ? { type: "spacer", length } : { type: "spacer" };
+const specialPriority = {
+  春节: 10,
+  国庆节: 9,
+  交割: 8,
+  行权: 8,
+  元旦: 7,
+  清明节: 7,
+  端午节: 7,
+  中秋节: 7,
+  春假: 6,
+  秋假: 6,
+  除夕: 6
+};
 
-const YMD = (y, m, d) => `${y}/${m < 10 ? "0" + m : m}/${d < 10 ? "0" + d : d}`;
-const formatItemStr = (name, diff) => diff <= 0 ? `今日 ${name}` : `${name} ${diff}天`;
+const mkText = (text, size, weight, color, opts = {}) => ({
+  type: "text",
+  text: String(text ?? ""),
+  font: { size, weight },
+  textColor: color,
+  ...opts
+});
+
+const mkRow = (children, gap = 4, opts = {}) => ({
+  type: "stack",
+  direction: "row",
+  alignItems: "center",
+  gap,
+  children,
+  ...opts
+});
+
+const mkIcon = (src, color, size = 13) => ({
+  type: "image",
+  src: `sf-symbol:${src}`,
+  color,
+  width: size,
+  height: size
+});
+
+const mkSpacer = length =>
+  length != null ? { type: "spacer", length } : { type: "spacer" };
+
+const YMD = (y, m, d) =>
+  `${y}/${m < 10 ? "0" + m : m}/${d < 10 ? "0" + d : d}`;
+
+const formatItemStr = (name, diff) =>
+  diff <= 0 ? `今日 ${name}` : `${name} ${diff}天`;
 
 const splitTextToLines = (str, maxW) => {
-  let lines = [], line = "", w = 0;
-  for (const token of (str?.match(/[\d\/a-zA-Z.\-]+|./gu) || [])) {
-    const tw = token.length > 1 ? token.length * 1.1 : (token.charCodeAt(0) > 255 ? 2 : 1.1);
-    if (w + tw > maxW) { lines.push(line.replace(/^[，\s]+|[，\s]+$/g, "")); line = token; w = tw; } else { line += token; w += tw; }
+  const lines = [];
+  let line = "";
+  let w = 0;
+  const tokens = str?.match(/[\d\/a-zA-Z.\-]+|./gu) || [];
+
+  for (const token of tokens) {
+    const tw = token.length > 1
+      ? token.length * 1.1
+      : token.charCodeAt(0) > 255
+        ? 2
+        : 1.1;
+
+    if (w + tw > maxW && line) {
+      const cleaned = line.replace(/^[，\s]+|[，\s]+$/g, "");
+      if (cleaned) lines.push(cleaned);
+      line = token;
+      w = tw;
+    } else {
+      line += token;
+      w += tw;
+    }
   }
-  if (line) lines.push(line.replace(/^[，\s]+|[，\s]+$/g, ""));
+
+  if (line) {
+    const cleaned = line.replace(/^[，\s]+|[，\s]+$/g, "");
+    if (cleaned) lines.push(cleaned);
+  }
+
   return lines;
 };
 
 const Lunar = {
-  info: [0x04bd8,0x04ae0,0x0a570,0x054d5,0x0d260,0x0d950,0x16554,0x056a0,0x09ad0,0x055d2,0x04ae0,0x0a5b6,0x0a4d0,0x0d250,0x1d255,0x0b540,0x0d6a0,0x0ada2,0x095b0,0x14977,0x04970,0x0a4b0,0x0b4b5,0x06a50,0x06d40,0x1ab54,0x02b60,0x09570,0x052f2,0x04970,0x06566,0x0d4a0,0x0ea50,0x06e95,0x05ad0,0x02b60,0x186e3,0x092e0,0x1c8d7,0x0c950,0x0d4a0,0x1d8a6,0x0b550,0x056a0,0x1a5b4,0x025d0,0x092d0,0x0d2b2,0x0a950,0x0b557,0x06ca0,0x0b550,0x15355,0x04da0,0x0a5b0,0x14573,0x052b0,0x0a9a8,0x0e950,0x06aa0,0x0aea6,0x0ab50,0x04b60,0x0aae4,0x0a570,0x05260,0x0f263,0x0d950,0x05b57,0x056a0,0x096d0,0x04dd5,0x04ad0,0x0a4d0,0x0d4d4,0x0d250,0x0d558,0x0b540,0x0b6a0,0x195a6,0x095b0,0x049b0,0x0a974,0x0a4b0,0x0b27a,0x06a50,0x06d40,0x0af46,0x0ab60,0x09570,0x04af5,0x04970,0x064b0,0x074a3,0x0ea50,0x06b58,0x05ac0,0x0ab60,0x096d5,0x092e0,0x0c960,0x0d954,0x0d4a0,0x0da50,0x07552,0x056a0,0x0abb7,0x025d0,0x092d0,0x0cab5,0x0a950,0x0b4a0,0x0baa4,0x0ad50,0x055d9,0x04ba0,0x0a5b0,0x15176,0x052b0,0x0a930,0x07954,0x06aa0,0x0ad50,0x05b52,0x04b60,0x0a6e6,0x0a4e0,0x0d260,0x0ea65,0x0d530,0x05aa0,0x076a3,0x096d0,0x04afb,0x04ad0,0x0a4d0,0x1d0b6,0x0d250,0x0d520,0x0dd45,0x0b5a0,0x056d0,0x055b2,0x049b0,0x0a577,0x0a4b0,0x0aa50,0x1b255,0x06d20,0x0ada0,0x14b63,0x09370,0x049f8,0x04970,0x064b0,0x168a6,0x0ea50,0x06b20,0x1a6c4,0x0aae0,0x092e0,0x0d2e3,0x0c960,0x0d557,0x0d4a0,0x0da50,0x05d55,0x056a0,0x0a6d0,0x055d4,0x052d0,0x0a9b8,0x0a950,0x0b4a0,0x0b6a6,0x0ad50,0x055a0,0x0aba4,0x0a5b0,0x052b0,0x0b273,0x06930,0x07337,0x06aa0,0x0ad50,0x14b55,0x04b60,0x0a570,0x054e4,0x0d160,0x0e968,0x0d520,0x0daa0,0x16aa6,0x056d0,0x04ae0,0x0a9d4,0x0a2d0,0x0d150,0x0f252,0x0d520],
-  term(y, n) { return new Date((31556925974.7 * (y - 1900)) + [0,21208,42467,63836,85337,107014,128867,150921,173149,195551,218072,240693,263343,285989,308563,331033,353350,375494,397447,419210,440795,462224,483532,504758][n-1] * 60000 + Date.UTC(1900,0,6,2,5)); },
-  lDays(y) {
-    let s = 348;
-    for (let i = 0x8000; i > 0x8; i >>= 1) s += (this.info[y - 1900] & i) ? 1 : 0;
-    return s + ((this.info[y - 1900] & 0xf) ? ((this.info[y - 1900] & 0x10000) ? 30 : 29) : 0);
+  info: [
+    0x04bd8,0x04ae0,0x0a570,0x054d5,0x0d260,0x0d950,0x16554,0x056a0,0x09ad0,0x055d2,
+    0x04ae0,0x0a5b6,0x0a4d0,0x0d250,0x1d255,0x0b540,0x0d6a0,0x0ada2,0x095b0,0x14977,
+    0x04970,0x0a4b0,0x0b4b5,0x06a50,0x06d40,0x1ab54,0x02b60,0x09570,0x052f2,0x04970,
+    0x06566,0x0d4a0,0x0ea50,0x06e95,0x05ad0,0x02b60,0x186e3,0x092e0,0x1c8d7,0x0c950,
+    0x0d4a0,0x1d8a6,0x0b550,0x056a0,0x1a5b4,0x025d0,0x092d0,0x0d2b2,0x0a950,0x0b557,
+    0x06ca0,0x0b550,0x15355,0x04da0,0x0a5b0,0x14573,0x052b0,0x0a9a8,0x0e950,0x06aa0,
+    0x0aea6,0x0ab50,0x04b60,0x0aae4,0x0a570,0x05260,0x0f263,0x0d950,0x05b57,0x056a0,
+    0x096d0,0x04dd5,0x04ad0,0x0a4d0,0x0d4d4,0x0d250,0x0d558,0x0b540,0x0b6a0,0x195a6,
+    0x095b0,0x049b0,0x0a974,0x0a4b0,0x0b27a,0x06a50,0x06d40,0x0af46,0x0ab60,0x09570,
+    0x04af5,0x04970,0x064b0,0x074a3,0x0ea50,0x06b58,0x05ac0,0x0ab60,0x096d5,0x092e0,
+    0x0c960,0x0d954,0x0d4a0,0x0da50,0x07552,0x056a0,0x0abb7,0x025d0,0x092d0,0x0cab5,
+    0x0a950,0x0b4a0,0x0baa4,0x0ad50,0x055d9,0x04ba0,0x0a5b0,0x15176,0x052b0,0x0a930,
+    0x07954,0x06aa0,0x0ad50,0x05b52,0x04b60,0x0a6e6,0x0a4e0,0x0d260,0x0ea65,0x0d530,
+    0x05aa0,0x076a3,0x096d0,0x04afb,0x04ad0,0x0a4d0,0x1d0b6,0x0d250,0x0d520,0x0dd45,
+    0x0b5a0,0x056d0,0x055b2,0x049b0,0x0a577,0x0a4b0,0x0aa50,0x1b255,0x06d20,0x0ada0,
+    0x14b63,0x09370,0x049f8,0x04970,0x064b0,0x168a6,0x0ea50,0x06b20,0x1a6c4,0x0aae0,
+    0x092e0,0x0d2e3,0x0c960,0x0d557,0x0d4a0,0x0da50,0x05d55,0x056a0,0x0a6d0,0x055d4,
+    0x052d0,0x0a9b8,0x0a950,0x0b4a0,0x0b6a6,0x0ad50,0x055a0,0x0aba4,0x0a5b0,0x052b0,
+    0x0b273,0x06930,0x07337,0x06aa0,0x0ad50,0x14b55,0x04b60,0x0a570,0x054e4,0x0d160,
+    0x0e968,0x0d520,0x0daa0,0x16aa6,0x056d0,0x04ae0,0x0a9d4,0x0a2d0,0x0d150,0x0f252,
+    0x0d520
+  ],
+
+  term(y, n) {
+    return new Date(
+      31556925974.7 * (y - 1900) +
+      [
+        0,21208,42467,63836,85337,107014,128867,150921,
+        173149,195551,218072,240693,263343,285989,308563,
+        331033,353350,375494,397447,419210,440795,462224,
+        483532,504758
+      ][n - 1] * 60000 +
+      Date.UTC(1900, 0, 6, 2, 5)
+    );
   },
-  mDays(y, m) { return (this.info[y - 1900] & (0x10000 >> m)) ? 30 : 29; }
+
+  lDays(y) {
+    if (!isValidLunarYear(y)) return 0;
+
+    let s = 348;
+    const info = this.info[y - 1900];
+
+    for (let i = 0x8000; i > 0x8; i >>= 1) {
+      s += info & i ? 1 : 0;
+    }
+
+    return s + ((info & 0xf) ? ((info & 0x10000) ? 30 : 29) : 0);
+  },
+
+  mDays(y, m) {
+    if (!isValidLunarYear(y) || m < 1 || m > 12) return 0;
+    return this.info[y - 1900] & (0x10000 >> m) ? 30 : 29;
+  }
 };
 
+const MIN_LUNAR_YEAR = 1900;
+const MAX_LUNAR_YEAR = 1900 + Lunar.info.length - 1;
+
+function isValidLunarYear(y) {
+  return Number.isInteger(y) && y >= MIN_LUNAR_YEAR && y <= MAX_LUNAR_YEAR;
+}
+
 let lunarCumulativeCache = null;
+
 function ensureLunarCumulative(maxYear) {
-  if (lunarCumulativeCache && lunarCumulativeCache.maxYear >= maxYear) return;
-  lunarCumulativeCache = { maxYear, off: new Map() };
+  const safeMaxYear = Math.min(maxYear, MAX_LUNAR_YEAR);
+
+  if (lunarCumulativeCache && lunarCumulativeCache.maxYear >= safeMaxYear) {
+    return;
+  }
+
+  lunarCumulativeCache = {
+    maxYear: safeMaxYear,
+    off: new Map()
+  };
+
   let off = 0;
-  for (let i = 1900; i <= maxYear; i++) {
+
+  for (let i = MIN_LUNAR_YEAR; i <= safeMaxYear; i++) {
     lunarCumulativeCache.off.set(i, off);
     off += Lunar.lDays(i);
   }
 }
 
-export default function (ctx) {
+function stableStringify(value) {
+  const seen = new WeakSet();
+
+  const normalize = v => {
+    if (v instanceof Date) return v.toISOString();
+
+    if (v && typeof v === "object") {
+      if (seen.has(v)) return "[Circular]";
+      seen.add(v);
+
+      if (Array.isArray(v)) {
+        return v.map(normalize);
+      }
+
+      return Object.keys(v)
+        .sort()
+        .reduce((acc, key) => {
+          acc[key] = normalize(v[key]);
+          return acc;
+        }, {});
+    }
+
+    return v;
+  };
+
+  try {
+    const json = JSON.stringify(normalize(value));
+    return json === undefined ? String(value) : json;
+  } catch (e) {
+    return String(value);
+  }
+}
+
+function isValidCachedPayload(payload) {
+  if (!payload || typeof payload !== "object") return false;
+  if (!payload.result || typeof payload.result !== "object") return false;
+  if (!Array.isArray(payload.todayItems)) return false;
+  if (!Array.isArray(payload.pinnedData)) return false;
+
+  return CATEGORY_CONFIG.every(cfg => Array.isArray(payload.result[cfg.key]));
+}
+
+export default function (ctx = {}) {
   const env = ctx.env ?? {};
 
   const getBool = (key, defaultVal = true) => {
     const v = env[key];
-    if (v === undefined || v === null || String(v).trim() === "") return defaultVal;
-    return String(v).trim().toLowerCase() !== "false";
+
+    if (v === undefined || v === null || String(v).trim() === "") {
+      return defaultVal;
+    }
+
+    const s = String(v).trim().toLowerCase();
+
+    if (["false", "0", "no", "off", "disabled"].includes(s)) return false;
+    if (["true", "1", "yes", "on", "enabled"].includes(s)) return true;
+
+    return defaultVal;
   };
-  
+
   const enableWeekendTheme = getBool("ENABLE_WEEKEND_THEME", true);
-  const family  = (ctx.widgetFamily || "systemMedium").toLowerCase();
+
+  const family = (ctx.widgetFamily || "systemMedium").toLowerCase();
   const isSmall = family.includes("small");
   const isLarge = family.includes("large");
 
   const bjDate = new Date(Date.now() + 8 * 3600000);
-  const Y = bjDate.getUTCFullYear(), M = bjDate.getUTCMonth() + 1, D = bjDate.getUTCDate();
-  const currentHour = bjDate.getUTCHours(), currentDay = bjDate.getUTCDay();
+  const Y = bjDate.getUTCFullYear();
+  const M = bjDate.getUTCMonth() + 1;
+  const D = bjDate.getUTCDate();
+  const currentHour = bjDate.getUTCHours();
+  const currentDay = bjDate.getUTCDay();
   const todayMs = Date.UTC(Y, M - 1, D);
 
-  const envFingerprint = Object.keys(env).sort().map(k => `${k}:${env[k]}`).join('|');
-  const CACHE_KEY = `countdown_daily_cache`;
-  const timePhase = currentHour >= 15 ? 'after3pm' : 'before3pm';
-  const todayStr = `${Y}_${M}_${D}_${timePhase}`; 
-  
+  const envFingerprint = Object.keys(env)
+    .sort()
+    .map(k => `${k}:${stableStringify(env[k])}`)
+    .join("|");
+
+  const CACHE_KEY = "countdown_daily_cache";
+  const timePhase = currentHour >= 15 ? "after3pm" : "before3pm";
+  const todayStr = `${Y}_${M}_${D}_${timePhase}`;
+
   let cachedData = null;
+
   if (ctx.storage) {
     try {
       const stored = ctx.storage.getJSON(CACHE_KEY);
-      if (stored && stored.date === todayStr && stored.envFingerprint === envFingerprint) {
+
+      if (
+        stored &&
+        stored.date === todayStr &&
+        stored.envFingerprint === envFingerprint &&
+        isValidCachedPayload(stored.payload)
+      ) {
         cachedData = stored.payload;
       }
     } catch (e) {}
   }
 
-  let result, todayNoticeText, pinnedData, todayItems;
+  let result;
+  let todayNoticeText;
+  let pinnedData;
+  let todayItems;
 
   if (cachedData) {
     ({ result, todayNoticeText, pinnedData, todayItems } = cachedData);
   } else {
-    const getStr = (key, defaultVal = "") => String(env[key] ?? defaultVal).trim();
-    const showSchoolHolidays    = getBool("SHOW_SCHOOL_HOLIDAYS", true);
-    const showFinanceDates      = getBool("SHOW_FINANCE_DATES", true);
-    const enablePrioritySort    = getBool("ENABLE_PRIORITY_SORT", true);
+    const getStr = (key, defaultVal = "") =>
+      String(env[key] ?? defaultVal).trim();
+
+    const showSchoolHolidays = getBool("SHOW_SCHOOL_HOLIDAYS", true);
+    const showFinanceDates = getBool("SHOW_FINANCE_DATES", true);
+    const enablePrioritySort = getBool("ENABLE_PRIORITY_SORT", true);
     const enableExclusiveWeight = getBool("ENABLE_EXCLUSIVE_WEIGHT", true);
-    const springDateStr   = getStr("SPRING_BREAK_DATE");
-    const autumnDateStr   = getStr("AUTUMN_BREAK_DATE");
+
+    const springDateStr = getStr("SPRING_BREAK_DATE");
+    const autumnDateStr = getStr("AUTUMN_BREAK_DATE");
     const qingmingDateStr = getStr("QINGMING_DATE", "");
-    const pinnedHolidays = getStr("PINNED_HOLIDAY").split(",").map(s => s.trim()).filter(Boolean);
-    const customDays = [1,2,3,4,5,6].map(i => ({
-      name: getStr(`EXCLUSIVE_NAME_${i}`, i === 1 ? getStr("EXCLUSIVE_NAME", "我的生日") : ""),
-      date: getStr(`EXCLUSIVE_DATE_${i}`, i === 1 ? getStr("EXCLUSIVE_DATE", "11/10") : "")
-    })).filter(item => item.name && /^\d{1,2}\/\d{1,2}$/.test(item.date));
+
+    const pinnedHolidays = getStr("PINNED_HOLIDAY")
+      .split(",")
+      .map(s => s.trim())
+      .filter(Boolean);
+
+    const isValidMonthDay = (y, m, d) => {
+      if (!Number.isInteger(m) || !Number.isInteger(d)) return false;
+      if (m < 1 || m > 12) return false;
+
+      const maxDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
+      return d >= 1 && d <= maxDay;
+    };
+
+    const getCustomDate = (y, dateStr, fallbackFn) => {
+      if (!dateStr || typeof dateStr !== "string") {
+        return fallbackFn ? fallbackFn() : null;
+      }
+
+      const parts = dateStr.split("/").map(Number);
+
+      if (parts.length !== 2) {
+        return fallbackFn ? fallbackFn() : null;
+      }
+
+      const [m, d] = parts;
+
+      if (!isValidMonthDay(y, m, d)) {
+        return fallbackFn ? fallbackFn() : null;
+      }
+
+      return YMD(y, m, d);
+    };
+
+    const customDays = [1, 2, 3, 4, 5, 6]
+      .map(i => ({
+        name: getStr(
+          `EXCLUSIVE_NAME_${i}`,
+          i === 1 ? getStr("EXCLUSIVE_NAME", "我的生日") : ""
+        ),
+        date: getStr(
+          `EXCLUSIVE_DATE_${i}`,
+          i === 1 ? getStr("EXCLUSIVE_DATE", "11/10") : ""
+        )
+      }))
+      .filter(item => item.name && /^\d{1,2}\/\d{1,2}$/.test(item.date));
 
     const getFinanceDate = (y, monthIndex, nth, targetDow) => {
       const firstDow = new Date(Date.UTC(y, monthIndex, 1)).getUTCDay();
-      return Date.UTC(y, monthIndex, 1 + ((targetDow - firstDow + 7) % 7) + (nth - 1) * 7);
+
+      return Date.UTC(
+        y,
+        monthIndex,
+        1 + ((targetDow - firstDow + 7) % 7) + (nth - 1) * 7
+      );
     };
 
     const nextFinanceDate = (nth, dow) => {
       let d = getFinanceDate(Y, M - 1, nth, dow);
-      if (todayMs > d || (todayMs === d && currentHour >= 15)) d = getFinanceDate(M === 12 ? Y + 1 : Y, M === 12 ? 0 : M, nth, dow);
+
+      if (todayMs > d || (todayMs === d && currentHour >= 15)) {
+        d = getFinanceDate(
+          M === 12 ? Y + 1 : Y,
+          M === 12 ? 0 : M,
+          nth,
+          dow
+        );
+      }
+
       return d;
     };
 
-    const getCustomDate = (y, dateStr, fallbackFn) => {
-      if (!dateStr || typeof dateStr !== 'string') return fallbackFn ? fallbackFn() : null;
-      const parts = dateStr.split("/").map(Number);
-      if (parts.length !== 2 || !Number.isInteger(parts[0]) || !Number.isInteger(parts[1]) || parts[0] > 12 || parts[1] > 31) {
-        return fallbackFn ? fallbackFn() : null;
-      }
-      return YMD(y, parts[0], parts[1]);
-    };
-
     const l2s = (y, m, d) => {
-      ensureLunarCumulative(y + 1);
-      let off = (lunarCumulativeCache.off.get(y) ?? 0), lp = Lunar.info[y - 1900] & 0xf;
-      for (let i = 1; i < m; i++) off += Lunar.mDays(y, i) + (lp > 0 && i === lp ? (Lunar.info[y - 1900] & 0x10000 ? 30 : 29) : 0);
-      const date = new Date(Date.UTC(1900, 0, 31) + (off + d - 1) * 86400000);
-      return YMD(date.getUTCFullYear(), date.getUTCMonth() + 1, date.getUTCDate());
+      if (!isValidLunarYear(y)) return null;
+      if (!Number.isInteger(m) || m < 1 || m > 12) return null;
+
+      const monthDays = Lunar.mDays(y, m);
+
+      if (!Number.isInteger(d) || d < 1 || d > monthDays) return null;
+
+      ensureLunarCumulative(y);
+
+      let off = lunarCumulativeCache.off.get(y) ?? 0;
+      const info = Lunar.info[y - 1900];
+      const leapMonth = info & 0xf;
+
+      for (let i = 1; i < m; i++) {
+        off += Lunar.mDays(y, i);
+
+        if (leapMonth > 0 && i === leapMonth) {
+          off += info & 0x10000 ? 30 : 29;
+        }
+      }
+
+      const date = new Date(
+        Date.UTC(1900, 0, 31) + (off + d - 1) * 86400000
+      );
+
+      return YMD(
+        date.getUTCFullYear(),
+        date.getUTCMonth() + 1,
+        date.getUTCDate()
+      );
     };
 
-    const getFests = (y) => {
-      const term = n => { const bjT = new Date(Lunar.term(y, n).getTime() + 8 * 3600000); return YMD(bjT.getUTCFullYear(), bjT.getUTCMonth() + 1, bjT.getUTCDate()); };
-      const wDay = (m, n, w) => { const x = w - new Date(Date.UTC(y, m - 1, 1)).getUTCDay(); return YMD(y, m, 1 + (x < 0 ? x + 7 : x) + (n - 1) * 7); };
+    const getFests = y => {
+      const term = n => {
+        if (!isValidLunarYear(y)) return null;
+
+        const bjT = new Date(Lunar.term(y, n).getTime() + 8 * 3600000);
+
+        return YMD(
+          bjT.getUTCFullYear(),
+          bjT.getUTCMonth() + 1,
+          bjT.getUTCDate()
+        );
+      };
+
+      const wDay = (m, n, w) => {
+        const x = w - new Date(Date.UTC(y, m - 1, 1)).getUTCDay();
+
+        return YMD(
+          y,
+          m,
+          1 + (x < 0 ? x + 7 : x) + (n - 1) * 7
+        );
+      };
+
       const qmDateStr = getCustomDate(y, qingmingDateStr, () => term(7));
+
       const legal = [
-        ["元旦", YMD(y, 1, 1), 1], ["春节", l2s(y, 1, 1), 3], ["清明节", qmDateStr, 1], ["劳动节", YMD(y, 5, 1), 1], 
-        ["端午节", l2s(y, 5, 5), 1], ["中秋节", l2s(y, 8, 15), 1], ["国庆节", YMD(y, 10, 1), 3]
+        ["元旦", YMD(y, 1, 1), 1],
+        ["春节", l2s(y, 1, 1), 3],
+        ["清明节", qmDateStr, 1],
+        ["劳动节", YMD(y, 5, 1), 1],
+        ["端午节", l2s(y, 5, 5), 1],
+        ["中秋节", l2s(y, 8, 15), 1],
+        ["国庆节", YMD(y, 10, 1), 3]
       ];
+
       if (showSchoolHolidays) {
-        const springDate = getCustomDate(y, springDateStr, () => { const [qy, qm, qd] = qmDateStr.split("/").map(Number); const s = new Date(Date.UTC(qy, qm - 1, qd - 3)); return YMD(s.getUTCFullYear(), s.getUTCMonth() + 1, s.getUTCDate()); });
-        if (springDate) legal.push(["春假", springDate, 3]);
-        const autumnDate = getCustomDate(y, autumnDateStr, () => { const nov1 = new Date(Date.UTC(y, 10, 1)); return YMD(y, 11, 1 + ((3 - nov1.getUTCDay() + 7) % 7) + 7); });
-        if (autumnDate) legal.push(["秋假", autumnDate, 3]);
+        const springDate = getCustomDate(y, springDateStr, () => {
+          if (!qmDateStr) return null;
+
+          const [qy, qm, qd] = qmDateStr.split("/").map(Number);
+          const s = new Date(Date.UTC(qy, qm - 1, qd - 3));
+
+          return YMD(
+            s.getUTCFullYear(),
+            s.getUTCMonth() + 1,
+            s.getUTCDate()
+          );
+        });
+
+        if (springDate) {
+          legal.push(["春假", springDate, 3]);
+        }
+
+        const autumnDate = getCustomDate(y, autumnDateStr, () => {
+          const nov1 = new Date(Date.UTC(y, 10, 1));
+
+          return YMD(
+            y,
+            11,
+            1 + ((3 - nov1.getUTCDay() + 7) % 7) + 7
+          );
+        });
+
+        if (autumnDate) {
+          legal.push(["秋假", autumnDate, 3]);
+        }
       }
+
       return {
-        legal, exclusive: customDays.map(item => [item.name, getCustomDate(y, item.date), 1, "custom"]),
-        folk: [ ["元宵节", l2s(y, 1, 15), 1], ["龙抬头", l2s(y, 2, 2), 1], ["七夕节", l2s(y, 7, 7), 1], ["中元节", l2s(y, 7, 15), 1], ["重阳节", l2s(y, 9, 9), 1], ["寒衣节", l2s(y, 10, 1), 1], ["腊八节", l2s(y, 12, 8), 1], ["小年", l2s(y, 12, 23), 1], ["除夕", l2s(y, 12, Lunar.mDays(y, 12)), 1] ],
-        intl: [ ["情人节", YMD(y, 2, 14), 1], ["妇女节", YMD(y, 3, 8), 1], ["母亲节", wDay(5, 2, 0), 1], ["儿童节", YMD(y, 6, 1), 1], ["父亲节", wDay(6, 3, 0), 1], ["万圣节", YMD(y, 10, 31),1], ["感恩节", wDay(11, 4, 4),1], ["平安夜", YMD(y, 12, 24),1], ["圣诞节", YMD(y, 12, 25),1] ]
+        legal,
+
+        exclusive: customDays.map(item => [
+          item.name,
+          getCustomDate(y, item.date),
+          1,
+          "custom"
+        ]),
+
+        folk: [
+          ["元宵节", l2s(y, 1, 15), 1],
+          ["龙抬头", l2s(y, 2, 2), 1],
+          ["七夕节", l2s(y, 7, 7), 1],
+          ["中元节", l2s(y, 7, 15), 1],
+          ["重阳节", l2s(y, 9, 9), 1],
+          ["寒衣节", l2s(y, 10, 1), 1],
+          ["腊八节", l2s(y, 12, 8), 1],
+          ["小年", l2s(y, 12, 23), 1],
+          ["除夕", l2s(y, 12, Lunar.mDays(y, 12)), 1]
+        ],
+
+        intl: [
+          ["情人节", YMD(y, 2, 14), 1],
+          ["妇女节", YMD(y, 3, 8), 1],
+          ["母亲节", wDay(5, 2, 0), 1],
+          ["儿童节", YMD(y, 6, 1), 1],
+          ["父亲节", wDay(6, 3, 0), 1],
+          ["万圣节", YMD(y, 10, 31), 1],
+          ["感恩节", wDay(11, 4, 4), 1],
+          ["平安夜", YMD(y, 12, 24), 1],
+          ["圣诞节", YMD(y, 12, 25), 1]
+        ]
       };
     };
 
-    const getPriority = (name, cat, sourceKind) => !enablePrioritySort ? 1 : (sourceKind === "custom" ? (enableExclusiveWeight ? 9 : (basePriority[cat] ?? 1)) : (specialPriority[name] ?? basePriority[cat] ?? 1));
+    const getPriority = (name, cat, sourceKind) => {
+      if (!enablePrioritySort) return 1;
 
-    const rawResult = { legal: new Map(), folk: new Map(), intl: new Map(), exclusive: new Map() };
-    const todayFests = [], todayFinance = [], pinnedMap = new Map(), processedFests = new Set();
-    todayItems = []; 
+      if (sourceKind === "custom") {
+        return enableExclusiveWeight
+          ? 9
+          : basePriority[cat] ?? 1;
+      }
+
+      return specialPriority[name] ?? basePriority[cat] ?? 1;
+    };
+
+    const isInFestivalPeriod = (diff, duration) =>
+      diff <= 0 && diff > -duration;
+
+    const rawResult = {
+      legal: new Map(),
+      folk: new Map(),
+      intl: new Map(),
+      exclusive: new Map()
+    };
+
+    const todayFests = [];
+    const todayFinance = [];
+    const todayFestSet = new Set();
+    const todayItemKeySet = new Set();
+    const pinnedMap = new Map();
+
+    todayItems = [];
+
+    const addTodayItem = (name, diff, priority, cat) => {
+      const key = `${cat}:${name}`;
+
+      if (todayItemKeySet.has(key)) return;
+
+      todayItemKeySet.add(key);
+
+      todayItems.push({
+        name,
+        diff,
+        priority: priority + 100,
+        cat
+      });
+    };
+
+    const addFestival = (cat, name, dateStr, duration = 1, sourceKind = "") => {
+      if (!name || !dateStr) return;
+
+      const [yy, mm, dd] = dateStr.split("/").map(Number);
+
+      if (!Number.isInteger(yy) || !isValidMonthDay(yy, mm, dd)) {
+        return;
+      }
+
+      const diff = (Date.UTC(yy, mm - 1, dd) - todayMs) / 86400000;
+      const priority = getPriority(name, cat, sourceKind);
+
+      if (isInFestivalPeriod(diff, duration)) {
+        if (!todayFestSet.has(name)) {
+          todayFestSet.add(name);
+          todayFests.push(name);
+        }
+
+        addTodayItem(name, diff, priority, cat);
+        return;
+      }
+
+      if (diff > 0) {
+        if (pinnedHolidays.includes(name) && diff <= 200) {
+          const oldPinnedDiff = pinnedMap.get(name);
+
+          if (oldPinnedDiff === undefined || diff < oldPinnedDiff) {
+            pinnedMap.set(name, diff);
+          }
+        }
+
+        const old = rawResult[cat].get(name);
+
+        if (!old || diff < old.diff) {
+          rawResult[cat].set(name, {
+            name,
+            diff,
+            priority,
+            cat
+          });
+        }
+      }
+    };
 
     for (const y of [Y - 1, Y, Y + 1]) {
       const f = getFests(y);
+
       for (const cat of Object.keys(rawResult)) {
-        const catMap = rawResult[cat];
         for (const [name, dateStr, duration = 1, sourceKind = ""] of f[cat]) {
-          if (!dateStr || processedFests.has(name)) continue;
-
-          const [yy, mm, dd] = dateStr.split("/").map(Number);
-          const diff = (Date.UTC(yy, mm - 1, dd) - todayMs) / 86400000;
-
-          if (diff <= 0) {
-            if (diff > -duration) {
-              todayFests.push(name);
-              processedFests.add(name);
-              todayItems.push({ name, diff, priority: getPriority(name, cat, sourceKind) + 100, cat });
-            }
-            continue;
-          }
-
-          processedFests.add(name);
-          if (pinnedHolidays.includes(name) && diff <= 200) {
-            if (!pinnedMap.has(name) || diff < pinnedMap.get(name)) pinnedMap.set(name, diff);
-          }
-          if (!catMap.has(name)) catMap.set(name, { name, diff, priority: getPriority(name, cat, sourceKind), cat });
+          addFestival(cat, name, dateStr, duration, sourceKind);
         }
       }
     }
@@ -226,110 +652,285 @@ export default function (ctx) {
     if (showFinanceDates) {
       const processFinance = (name, nth, dow) => {
         const diff = (nextFinanceDate(nth, dow) - todayMs) / 86400000;
+        const priority = getPriority(name, "exclusive");
+
         if (diff === 0 && currentHour < 15) {
           todayFinance.push(name);
-          todayItems.push({ name, diff, priority: getPriority(name, "exclusive") + 100, cat: "exclusive" });
-        } else if (diff > 0) rawResult.exclusive.set(name, { name, diff, priority: getPriority(name, "exclusive"), cat: "exclusive" });
+          addTodayItem(name, diff, priority, "exclusive");
+        } else if (diff > 0) {
+          rawResult.exclusive.set(name, {
+            name,
+            diff,
+            priority,
+            cat: "exclusive"
+          });
+        }
       };
-      processFinance("交割", 3, 5); processFinance("行权", 4, 3);
+
+      processFinance("交割", 3, 5);
+      processFinance("行权", 4, 3);
     }
 
     result = {};
+
     Object.keys(rawResult).forEach(cat => {
       result[cat] = Array.from(rawResult[cat].values())
-        .filter(i => !pinnedMap.has(i.name))
-        .sort((a, b) => a.diff !== b.diff ? a.diff - b.diff : (enablePrioritySort ? b.priority - a.priority : 0))
+        .filter(i => !pinnedMap.has(i.name) && !todayFestSet.has(i.name))
+        .sort((a, b) => {
+          if (a.diff !== b.diff) return a.diff - b.diff;
+          return enablePrioritySort ? b.priority - a.priority : 0;
+        })
         .slice(0, 7);
     });
 
     const todayNoticeParts = [];
-    if (todayFests.length > 0) todayNoticeParts.push(`今日 ${todayFests.slice(0, 2).join("·")}${todayFests.length > 2 ? "…" : ""}`);
-    if (todayFinance.length > 0) todayNoticeParts.push(`今日 ${todayFinance.join("·")}`);
+
+    if (todayFests.length > 0) {
+      todayNoticeParts.push(
+        `今日 ${todayFests.slice(0, 2).join("·")}${todayFests.length > 2 ? "…" : ""}`
+      );
+    }
+
+    if (todayFinance.length > 0) {
+      todayNoticeParts.push(`今日 ${todayFinance.join("·")}`);
+    }
+
     todayNoticeText = todayNoticeParts.join(" ｜ ");
 
-    pinnedData = pinnedHolidays.filter(n => pinnedMap.has(n)).map(n => ({ name: n, diff: pinnedMap.get(n) }));
+    pinnedData = pinnedHolidays
+      .filter(n => pinnedMap.has(n))
+      .map(n => ({
+        name: n,
+        diff: pinnedMap.get(n)
+      }));
 
     if (ctx.storage) {
-      try { 
-        ctx.storage.setJSON(CACHE_KEY, { 
-          date: todayStr, 
-          envFingerprint: envFingerprint, 
-          payload: { result, todayNoticeText, pinnedData, todayItems } 
-        }); 
+      try {
+        ctx.storage.setJSON(CACHE_KEY, {
+          date: todayStr,
+          envFingerprint,
+          payload: {
+            result,
+            todayNoticeText,
+            pinnedData,
+            todayItems
+          }
+        });
       } catch (e) {}
     }
   }
 
   const stickyParts = (pinnedData || []).map(p => `${p.name} ${p.diff}天`);
-  const stickyText  = stickyParts.join("·");
+  const stickyText = stickyParts.join("·");
 
-  const formatStr = (cat, limit) => (result[cat] || []).slice(0, limit).map(i => formatItemStr(i.name, i.diff)).join("，");
+  const formatStr = (cat, limit) =>
+    (result[cat] || [])
+      .slice(0, limit)
+      .map(i => formatItemStr(i.name, i.diff))
+      .join("，");
 
-  const themeKey = (todayItems && todayItems.length > 0) ? "fest" : (enableWeekendTheme && (currentDay === 0 || currentDay === 6)) ? "weekend" : "workday";
-  const backgroundGradient = { type: "linear", colors: themeKey === "fest" ? C.bgFest : themeKey === "weekend" ? C.bgWeekend : C.bgWorkday, startPoint: { x: 0, y: 0 }, endPoint: { x: 1, y: 1 } };
+  const themeKey =
+    todayItems && todayItems.length > 0
+      ? "fest"
+      : enableWeekendTheme && (currentDay === 0 || currentDay === 6)
+        ? "weekend"
+        : "workday";
+
+  const backgroundGradient = {
+    type: "linear",
+    colors:
+      themeKey === "fest"
+        ? C.bgFest
+        : themeKey === "weekend"
+          ? C.bgWeekend
+          : C.bgWorkday,
+    startPoint: { x: 0, y: 0 },
+    endPoint: { x: 1, y: 1 }
+  };
 
   if (isSmall) {
-    const smallRows = CATEGORY_CONFIG.map(cfg => {
-      const catTodayItems = (todayItems || []).filter(i => i.cat === cfg.key);
-      const fests = [...catTodayItems, ...(result[cfg.key] || [])].slice(0, 2);
-      if (fests.length === 0) return null;
-      return mkRow([
-        mkRow([mkSpacer(), mkIcon(cfg.icon, cfg.color, 13), mkSpacer()], 0, { width: 16 }),
-        mkText(fests.map(i => formatItemStr(i.name, i.diff)).join("，"), 12, "medium", cfg.color, { flex: 1, maxLines: 1 })
-      ], 6);
-    }).filter(Boolean);
+    const smallRows = CATEGORY_CONFIG
+      .map(cfg => {
+        const catTodayItems = (todayItems || []).filter(i => i.cat === cfg.key);
+        const fests = [...catTodayItems, ...(result[cfg.key] || [])].slice(0, 2);
+
+        if (fests.length === 0) return null;
+
+        return mkRow([
+          mkRow([
+            mkSpacer(),
+            mkIcon(cfg.icon, cfg.color, 13),
+            mkSpacer()
+          ], 0, { width: 16 }),
+
+          mkText(
+            fests.map(i => formatItemStr(i.name, i.diff)).join("，"),
+            12,
+            "medium",
+            cfg.color,
+            {
+              flex: 1,
+              maxLines: 1
+            }
+          )
+        ], 6);
+      })
+      .filter(Boolean);
 
     return {
-      type: "widget", padding: 14, backgroundGradient,
+      type: "widget",
+      padding: 14,
+      backgroundGradient,
       children: [
         mkRow([
-          mkIcon("hourglass.circle.fill", C.main, 16), mkText("时光\n倒数", 14, "heavy", C.main, { maxLines: 2 }), mkSpacer(),
-          ...(stickyParts.length > 0 ? [mkText(stickyParts[0], 11, "bold", C.red, { maxLines: 1 })] : [])
+          mkIcon("hourglass.circle.fill", C.main, 16),
+          mkText("时光\n倒数", 14, "heavy", C.main, { maxLines: 2 }),
+          mkSpacer(),
+          ...(
+            stickyParts.length > 0
+              ? [mkText(stickyParts[0], 11, "bold", C.red, { maxLines: 1 })]
+              : []
+          )
         ], 6),
-        mkSpacer(10), { type: "stack", direction: "column", gap: 8, flex: 1, children: smallRows }
+
+        mkSpacer(10),
+
+        {
+          type: "stack",
+          direction: "column",
+          gap: 8,
+          flex: 1,
+          children: smallRows.length > 0
+            ? smallRows
+            : [mkText("近期暂无倒计时", 12, "medium", C.muted)]
+        }
       ]
     };
   }
 
-  const layoutConfig = { fz: isLarge ? 14 : 13.5, icz: isLarge ? 15 : 13.5, lw: isLarge ? 60 : 52, maxW: isLarge ? 36 : 45, rowGap: isLarge ? 6 : 4, titleFz: isLarge ? 17 : 15, titleIcz: isLarge ? 18 : 16, topFz: isLarge ? 13 : 12.5 };
-  
+  const layoutConfig = {
+    fz: isLarge ? 14 : 13.5,
+    icz: isLarge ? 15 : 13.5,
+    lw: isLarge ? 60 : 52,
+    maxW: isLarge ? 36 : 45,
+    rowGap: isLarge ? 6 : 4,
+    titleFz: isLarge ? 17 : 15,
+    titleIcz: isLarge ? 18 : 16,
+    topFz: isLarge ? 13 : 12.5
+  };
+
   const gridRows = CATEGORY_CONFIG.flatMap(cfg => {
-    const rawText = formatStr(cfg.key, isLarge ? 7 : (cfg.key === "exclusive" ? 6 : 3));
-    return rawText ? splitTextToLines(rawText, layoutConfig.maxW).map((lineStr, idx) => ({
-      type: "stack", direction: "row", alignItems: "start", gap: layoutConfig.rowGap,
+    const rawText = formatStr(
+      cfg.key,
+      isLarge ? 7 : cfg.key === "exclusive" ? 6 : 3
+    );
+
+    if (!rawText) return [];
+
+    return splitTextToLines(rawText, layoutConfig.maxW).map((lineStr, idx) => ({
+      type: "stack",
+      direction: "row",
+      alignItems: "start",
+      gap: layoutConfig.rowGap,
       children: [
-        mkRow([ 
-          mkRow([mkSpacer(), mkIcon(idx === 0 ? cfg.icon : "circle.fill", idx === 0 ? cfg.color : C.transparent, layoutConfig.icz), mkSpacer()], 0, { width: layoutConfig.titleIcz }), 
-          mkText(idx === 0 ? cfg.label : " ", layoutConfig.fz, "heavy", idx === 0 ? cfg.color : C.transparent), 
-          mkSpacer() 
+        mkRow([
+          mkRow([
+            mkSpacer(),
+            mkIcon(
+              idx === 0 ? cfg.icon : "circle.fill",
+              idx === 0 ? cfg.color : C.transparent,
+              layoutConfig.icz
+            ),
+            mkSpacer()
+          ], 0, { width: layoutConfig.titleIcz }),
+
+          mkText(
+            idx === 0 ? cfg.label : " ",
+            layoutConfig.fz,
+            "heavy",
+            idx === 0 ? cfg.color : C.transparent
+          ),
+
+          mkSpacer()
         ], 2, { width: layoutConfig.lw }),
-        mkText(lineStr, layoutConfig.fz, "medium", cfg.key === "exclusive" && /(交割|行权)/.test(lineStr) ? C.red : C.sub, { flex: 1, maxLines: 1 })
+
+        mkText(
+          lineStr,
+          layoutConfig.fz,
+          "medium",
+          cfg.key === "exclusive" && /(交割|行权)/.test(lineStr)
+            ? C.red
+            : C.sub,
+          {
+            flex: 1,
+            maxLines: 1
+          }
+        )
       ]
-    })) : [];
+    }));
   });
 
   const rightHeaderElements = [];
+
   if (todayNoticeText) {
-    rightHeaderElements.push(mkIcon("sparkles", C.red, layoutConfig.topFz), mkText(todayNoticeText, layoutConfig.topFz, "bold", C.red));
+    rightHeaderElements.push(
+      mkIcon("sparkles", C.red, layoutConfig.topFz),
+      mkText(todayNoticeText, layoutConfig.topFz, "bold", C.red)
+    );
   } else {
-    rightHeaderElements.push(mkIcon("tortoise", C.blue2, Math.round(layoutConfig.topFz * 1.5)), mkText(RANDOM_NOTICES[Math.floor(Math.random() * RANDOM_NOTICES.length)], layoutConfig.topFz, "medium", C.green));
+    rightHeaderElements.push(
+      mkIcon("tortoise", C.blue2, Math.round(layoutConfig.topFz * 1.5)),
+      mkText(
+        RANDOM_NOTICES[Math.floor(Math.random() * RANDOM_NOTICES.length)],
+        layoutConfig.topFz,
+        "medium",
+        C.green
+      )
+    );
   }
-  
+
   if (stickyText) {
-    rightHeaderElements.push(mkText(" ｜ ", layoutConfig.topFz, "bold", C.red));
-    rightHeaderElements.push(mkText(stickyText, layoutConfig.topFz, "bold", C.red));
+    rightHeaderElements.push(
+      mkText(" ｜ ", layoutConfig.topFz, "bold", C.red),
+      mkText(stickyText, layoutConfig.topFz, "bold", C.red)
+    );
   }
 
   return {
-    type: "widget", padding: isLarge ? 16 : 12, backgroundGradient,
+    type: "widget",
+    padding: isLarge ? 16 : 12,
+    backgroundGradient,
     children: [
-      mkRow([ 
-  mkIcon("hourglass.circle.fill", C.main, layoutConfig.titleIcz), 
-  mkText("时光倒数", layoutConfig.titleFz, "heavy", C.main), 
-  mkSpacer(), 
-  mkRow(rightHeaderElements, 4) ], 6),
+      mkRow([
+        mkIcon("hourglass.circle.fill", C.main, layoutConfig.titleIcz),
+        mkText("时光倒数", layoutConfig.titleFz, "heavy", C.main),
+        mkSpacer(),
+        mkRow(rightHeaderElements, 4)
+      ], 6),
+
       mkSpacer(gridRows.length <= 4 ? 12 : 10),
-      ...(gridRows.length > 0 ? [{ type: "stack", direction: "column", alignItems: "start", gap: gridRows.length <= 4 ? (isLarge ? 14 : 11) : (isLarge ? 10 : 8), children: gridRows }] : [mkText("近期暂无倒计时", layoutConfig.fz, "medium", C.muted)]),
+
+      ...(
+        gridRows.length > 0
+          ? [{
+              type: "stack",
+              direction: "column",
+              alignItems: "start",
+              gap: gridRows.length <= 4
+                ? isLarge ? 14 : 11
+                : isLarge ? 10 : 8,
+              children: gridRows
+            }]
+          : [
+              mkText(
+                "近期暂无倒计时",
+                layoutConfig.fz,
+                "medium",
+                C.muted
+              )
+            ]
+      ),
+
       mkSpacer()
     ]
   };
