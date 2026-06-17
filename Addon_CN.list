@@ -12,6 +12,9 @@ DOMAIN-SUFFIX,xmancdn.com
 # > CTC-02
 IP-CIDR,47.115.49.0/24,no-resolve
 
+# > Krill-AI
+DOMAIN-SUFFIX,api-slb.krill-ai.com
+
 # > Domestic DNS
 IP-CIDR,1.12.12.12/32,no-resolve
 IP-CIDR,114.114.114.114/32,no-resolve
