@@ -41,15 +41,20 @@ export default async function(ctx) {
         gap: 6,
         children: [
           {
-            type: 'text',
-            text: `#${rank}`,
-            font: {
-              size: 'subheadline',
-              weight: 'bold'
-            },
-            textColor:
-              ['#FF3B30', '#FF9500', '#FFCC00'][i] || '#8E8E93',
-            width: 30
+            type: 'stack',
+            width: 30,
+            children: [
+              {
+                type: 'text',
+                text: `#${rank}`,
+                font: {
+                  size: 'subheadline',
+                  weight: 'bold'
+                },
+                textColor:
+                  ['#FF3B30', '#FF9500', '#FFCC00'][i] || '#8E8E93'
+              }
+            ]
           },
           {
             type: 'text',
@@ -76,6 +81,20 @@ export default async function(ctx) {
             }
           }
         ]
+      });
+    }
+
+    if (items.length === 0) {
+      items.push({
+        type: 'text',
+        text: '暂无热搜数据',
+        font: {
+          size: 'subheadline'
+        },
+        textColor: {
+          light: '#8E8E93',
+          dark: '#C7C7CC'
+        }
       });
     }
 
@@ -130,7 +149,7 @@ export default async function(ctx) {
         ...items
       ]
     };
-  } catch {
+  } catch (err) {
     return {
       type: 'widget',
       padding: 16,
@@ -141,7 +160,7 @@ export default async function(ctx) {
       children: [
         {
           type: 'text',
-          text: '⚠️ 加载失败',
+          text: `⚠️ 加载失败：${err?.message || '未知错误'}`,
           font: {
             size: 'body'
           },
