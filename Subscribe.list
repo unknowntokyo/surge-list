@@ -1,4 +1,5 @@
 DOMAIN,sub-store.vercel.app
+DOMAIN-SUFFIX,ctc.run
 DOMAIN-SUFFIX,github.com
 DOMAIN-SUFFIX,githubusercontent.com
 DOMAIN-SUFFIX,jsdelivr.com
@@ -9,7 +10,6 @@ DOMAIN-SUFFIX,sub.store
 DOMAIN-SUFFIX,sublink.dev
 DOMAIN-KEYWORD,amy
 DOMAIN-KEYWORD,cordcloud
-DOMAIN-KEYWORD,ctc
 DOMAIN-KEYWORD,flowercloud
 DOMAIN-KEYWORD,huacloud
 DOMAIN-KEYWORD,liangxin
