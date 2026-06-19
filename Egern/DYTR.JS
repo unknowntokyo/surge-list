@@ -118,7 +118,7 @@ function createHotItem(item, index) {
 function createEmptyItem() {
   return {
     type: 'text',
-    text: '暂无热榜数据',
+    text: '暂无数据',
     font: FONT_SUBHEADLINE,
     textColor: SECONDARY_TEXT_COLOR
   };
