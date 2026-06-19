@@ -96,7 +96,7 @@ export default async function(ctx) {
     if (items.length === 0) {
       items.push({
         type: 'text',
-        text: '暂无热榜数据',
+        text: '暂无数据',
         font: {
           size: 'subheadline'
         },
