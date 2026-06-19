@@ -1,7 +1,7 @@
 export default async function(ctx) {
   try {
     const resp = await ctx.http.get(
-      'https://api.zxki.cn/api/jhrs?type=douyin',
+      'https://dabenshi.cn/other/api/hot.php?type=douyinhot',
       { timeout: 15000 }
     );
 
