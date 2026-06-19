@@ -16,6 +16,12 @@ export default async function(ctx) {
     const currentTime = new Date().toTimeString().slice(0, 5);
     const items = [];
 
+    // 判断是否是0万
+    const isZero = value => {
+      const text = String(value ?? '').replace(/\s+/g, '');
+      return /^0(?:\.0+)?万$/.test(text);
+    };
+
     for (let i = 0; i < Math.min(5, hotList.length); i++) {
       const item = hotList[i];
       const rank = i + 1;
@@ -33,6 +39,9 @@ export default async function(ctx) {
         item?.desc ||
         ''
       );
+
+      // 如果是 0万，只是不显示热度文字，条目仍然保留
+      const displayHot = isZero(hot) ? '' : hot;
 
       items.push({
         type: 'stack',
@@ -71,7 +80,7 @@ export default async function(ctx) {
           },
           {
             type: 'text',
-            text: hot,
+            text: displayHot,
             font: {
               size: 'caption1'
             },
