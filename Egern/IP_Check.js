@@ -153,7 +153,8 @@ const cityMap = {
 
   // 欧洲
   'london': '伦敦',
-  'swindon': '斯温顿', 
+  'canary wharf': '金丝雀码头',
+  'swindon': '斯温顿',
   'slough': '斯劳',
   'manchester': '曼彻斯特',
   'brussels': '布鲁塞尔',
