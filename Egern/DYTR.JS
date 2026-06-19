@@ -30,7 +30,7 @@ export default async function(ctx) {
         item?.title ||
         item?.name ||
         item?.keyword ||
-        `热搜 ${rank}`
+        `热榜 ${rank}`
       );
 
       const hot = String(
@@ -40,7 +40,7 @@ export default async function(ctx) {
         ''
       );
 
-      // 如果是 0万，只是不显示热度文字，条目仍然保留
+      // 热度值为0不显示，条目仍保留
       const displayHot = hnisZero(hot) ? '' : hot;
 
       items.push({
@@ -96,7 +96,7 @@ export default async function(ctx) {
     if (items.length === 0) {
       items.push({
         type: 'text',
-        text: '暂无热搜数据',
+        text: '暂无热榜数据',
         font: {
           size: 'subheadline'
         },
@@ -131,7 +131,7 @@ export default async function(ctx) {
             },
             {
               type: 'text',
-              text: ' 抖音热搜',
+              text: ' 抖音热榜',
               font: {
                 size: 'subheadline',
                 weight: 'bold'
