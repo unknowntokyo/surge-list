@@ -16,8 +16,8 @@ export default async function(ctx) {
     const currentTime = new Date().toTimeString().slice(0, 5);
     const items = [];
 
-    // 判断是否是0万
-    const isZero = value => {
+    // 判断热度值是否为0
+    const hnisZero = value => {
       const text = String(value ?? '').replace(/\s+/g, '');
       return /^0(?:\.0+)?万$/.test(text);
     };
@@ -41,7 +41,7 @@ export default async function(ctx) {
       );
 
       // 如果是 0万，只是不显示热度文字，条目仍然保留
-      const displayHot = isZero(hot) ? '' : hot;
+      const displayHot = hnisZero(hot) ? '' : hot;
 
       items.push({
         type: 'stack',
