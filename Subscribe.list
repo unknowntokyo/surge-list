@@ -1,3 +1,4 @@
+DOMAIN,sub-store.vercel.app
 DOMAIN-SUFFIX,github.com
 DOMAIN-SUFFIX,githubusercontent.com
 DOMAIN-SUFFIX,jsdelivr.com
@@ -6,7 +7,6 @@ DOMAIN-SUFFIX,rawgit.com
 DOMAIN-SUFFIX,rawgithub.com
 DOMAIN-SUFFIX,sub.store
 DOMAIN-SUFFIX,sublink.dev
-DOMAIN-SUFFIX,vercel.app
 DOMAIN-KEYWORD,amy
 DOMAIN-KEYWORD,cordcloud
 DOMAIN-KEYWORD,ctc
