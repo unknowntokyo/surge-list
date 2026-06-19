@@ -6,6 +6,9 @@ USER-AGENT,NeteaseMusic*
 DOMAIN-SUFFIX,cn
 DEST-PORT,22
 
+# > Sub-Store
+DOMAIN,sub-store.vercel.app
+
 # > FlowerCloud
 DOMAIN-SUFFIX,xmancdn.com
 
