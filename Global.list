@@ -318,8 +318,10 @@
 .cloudflareclient.com
 .cloudflarecp.com
 .cloudflareinsights.com
+.cloudflaremirrors.com
 .cloudflareok.com
 .cloudflarepartners.com
+.cloudflareperf.com
 .cloudflareportal.com
 .cloudflarepreview.com
 .cloudflareregistrar.com
@@ -1111,6 +1113,7 @@
 .nissanusa.com
 .nist.gov
 .nobelprize.org
+.nodejs.org
 .nodeseek.com
 .nokia.com
 .notebookcheck.com
@@ -1369,6 +1372,7 @@
 .scriptable.app
 .scroll.com
 .seagm.com
+.search-sharp.com
 .sectigo.com
 .seeds.services
 .sega.com
