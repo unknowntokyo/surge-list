@@ -15,23 +15,17 @@ export default async function(ctx) {
 
     const currentTime = new Date().toTimeString().slice(0, 5);
     const items = [];
+    const rankColors = ['#FF3B30', '#FF9500', '#FFCC00'];
 
     // 判断热度值是否为0
     const isZeroHot = value => {
       const text = String(value ?? '').replace(/\s+/g, '');
-      return /^0(?:\.0+)?万$/.test(text);
+      return /^0+(?:\.0+)?(?:万)?$/.test(text);
     };
 
-    for (let i = 0; i < Math.min(5, hotList.length); i++) {
+    // 最多显示5条非0热度的
+    for (let i = 0; i < hotList.length && items.length < 5; i++) {
       const item = hotList[i];
-      const rank = i + 1;
-
-      const text = String(
-        item?.title ||
-        item?.name ||
-        item?.keyword ||
-        `热榜 ${rank}`
-      );
 
       const hot = String(
         item?.hot ??
@@ -40,8 +34,20 @@ export default async function(ctx) {
         ''
       );
 
-      // 热度值为0不显示热度值，但保留这条热榜
-      const displayHot = isZeroHot(hot) ? ' ' : hot;
+      // 热度为0，整条不显示
+      if (isZeroHot(hot)) {
+        continue;
+      }
+
+      // 使用显示排名，避免跳号
+      const rank = items.length + 1;
+
+      const text = String(
+        item?.title ||
+        item?.name ||
+        item?.keyword ||
+        `热榜 ${rank}`
+      );
 
       items.push({
         type: 'stack',
@@ -60,8 +66,7 @@ export default async function(ctx) {
                   size: 'subheadline',
                   weight: 'bold'
                 },
-                textColor:
-                  ['#FF3B30', '#FF9500', '#FFCC00'][i] || '#8E8E93'
+                textColor: rankColors[rank - 1] || '#8E8E93'
               }
             ]
           },
@@ -80,7 +85,7 @@ export default async function(ctx) {
           },
           {
             type: 'text',
-            text: displayHot,
+            text: hot,
             font: {
               size: 'caption1'
             },
@@ -96,7 +101,7 @@ export default async function(ctx) {
     if (items.length === 0) {
       items.push({
         type: 'text',
-        text: '暂无数据',
+        text: '暂无有效热榜数据',
         font: {
           size: 'subheadline'
         },
