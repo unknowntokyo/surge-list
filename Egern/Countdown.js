@@ -771,8 +771,8 @@ export default function (ctx = {}) {
           });
 
           ctx.notify({
-            title: "📅 今日提醒",
-            body: notifyNames.join("、"),
+            title: "时光倒数",
+            body: `✨ 今日 ${notifyNames.join("、")}`,
             sound: true
           });
         }
