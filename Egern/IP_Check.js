@@ -37,6 +37,8 @@ const cityMap = {
   'kaohsiung': '高雄',
   'taichung': '台中',
   'zhubei': '竹北',
+  'hsinchu': '新竹',
+  'tainan': '台南',
 
   // 中国澳门
   'macau': '澳门',
@@ -59,7 +61,12 @@ const cityMap = {
   'hitachinaka': '常陆那珂',
   'sendai': '仙台',
   'akita': '秋田',
-  'toyosu': '丰洲', 
+  'toyosu': '丰洲',
+  'shinagawa': '品川',
+  'shinjuku': '新宿',
+  'shibuya': '涩谷',
+  'ishikari': '石狩',
+  'koto': '江东区',
 
   // 韩国
   'seoul': '首尔',
@@ -82,6 +89,9 @@ const cityMap = {
   'yeongdeungpo gu': '永登浦区',
   'gangseo gu': '江西区',
   'songpa gu': '松坡区',
+  'seocho gu': '瑞草区',
+  'bundang gu': '盆唐区',
+  'anyang': '安养',
 
   // 新加坡 & 马来西亚
   'singapore': '新加坡',
