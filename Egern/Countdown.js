@@ -933,7 +933,7 @@ export default function (ctx = {}) {
 
   if (todayNoticeText) {
     rightHeaderElements.push(
-      mkIcon("sparkles", C.gold, layoutConfig.topFz),
+      mkIcon("sparkles", C.purple, layoutConfig.topFz),
       mkText(todayNoticeText, layoutConfig.topFz, "bold", C.purple)
     );
   } else {
