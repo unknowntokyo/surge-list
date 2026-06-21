@@ -9,6 +9,7 @@
  * • 自定义配置：支持通过环境变量设置最多 6 个专属纪念日，支持修改清明节及春/秋假的起始日期。
  * • 排序与显示：支持按倒数天数及分类优先级进行排序，支持指定节日跨分类置顶。
  * • 状态响应：根据工作日、周末、节假日当天状态切换背景渐变色；当天节日提示于中大号标题栏显示，小号于分类行内显示。
+ * • 当天提醒：节日 / 专属日期 / 金融日期当天弹窗提醒，每天只弹一次。
  *
  * 🔗 作者: https://github.com/jnlaoshu/MySelf/tree/1c35eedff4e052e7dc4e9d87105e32f2490617cf/Egern/Widget
  * ⏱️ 更新时间: 2026.04.01 01:40
@@ -722,6 +723,65 @@ export default function (ctx = {}) {
 
   const stickyParts = (pinnedData || []).map(p => `${p.name} ${p.diff}天`);
   const stickyText = stickyParts.join("·");
+
+  // ===== 当天弹窗提醒：每天只弹一次 =====
+  // 不新增环境变量：
+  // 1. 默认开启提醒
+  // 2. 默认只在节日 / 专属日期 / 金融日期正日提醒
+  // 3. 春节、国庆、春假、秋假等多天节日，只在第一天提醒
+  if (
+    typeof ctx.notify === "function" &&
+    ctx.storage &&
+    Array.isArray(todayItems) &&
+    todayItems.length > 0
+  ) {
+    try {
+      const notifyDate = `${Y}-${String(M).padStart(2, "0")}-${String(D).padStart(2, "0")}`;
+      const notifyKey = "countdown_today_notify_once";
+
+      const notified = ctx.storage.getJSON(notifyKey) || {};
+
+      if (notified.date !== notifyDate) {
+        const notifyItems = todayItems
+          // 只提醒正日，避免春节第二天、国庆第二天继续弹
+          .filter(i => i.diff === 0)
+          .slice()
+          .sort((a, b) => {
+            if ((b.priority ?? 0) !== (a.priority ?? 0)) {
+              return (b.priority ?? 0) - (a.priority ?? 0);
+            }
+
+            return (a.diff ?? 0) - (b.diff ?? 0);
+          });
+
+        const notifyNames = [
+          ...new Set(
+            notifyItems
+              .map(i => i.name)
+              .filter(Boolean)
+          )
+        ];
+
+        if (notifyNames.length > 0) {
+          // 先写入已提醒状态，避免 Widget 连续刷新导致重复弹窗
+          ctx.storage.setJSON(notifyKey, {
+            date: notifyDate,
+            names: notifyNames,
+            time: Date.now()
+          });
+
+          ctx.notify({
+            title: "📅 时光倒数",
+            subtitle: "今日提醒",
+            body: `今天是：${notifyNames.join("、")}`,
+            sound: true,
+            duration: 10
+          });
+        }
+      }
+    } catch (e) {}
+  }
+  // ===== 当天弹窗提醒结束 =====
 
   const formatStr = (cat, limit) =>
     (result[cat] || [])
