@@ -40,6 +40,7 @@ const C = {
   blue2: { light: "#007AFF", dark: "#0A84FF" },
   teal: { light: "#628C7B", dark: "#73A491" },
   green: { light: "#34C759", dark: "#30D158" },
+  purple: { light: "#D14FE2", dark: "#CA31E1" }, 
   transparent: "#00000000"
 };
 
@@ -932,8 +933,8 @@ export default function (ctx = {}) {
 
   if (todayNoticeText) {
     rightHeaderElements.push(
-      mkIcon("sparkles", C.red, layoutConfig.topFz),
-      mkText(todayNoticeText, layoutConfig.topFz, "bold", C.red)
+      mkIcon("sparkles", C.gold, layoutConfig.topFz),
+      mkText(todayNoticeText, layoutConfig.topFz, "bold", C.purple)
     );
   } else {
     rightHeaderElements.push(
