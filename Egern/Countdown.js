@@ -771,11 +771,9 @@ export default function (ctx = {}) {
           });
 
           ctx.notify({
-            title: "📅 时光倒数",
-            subtitle: "今日提醒",
-            body: `今天是：${notifyNames.join("、")}`,
-            sound: true,
-            duration: 10
+            title: "📅 今日提醒",
+            body: notifyNames.join("、"),
+            sound: true
           });
         }
       }
