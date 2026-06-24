@@ -465,8 +465,7 @@ function modResponseBody(ipInfo, speedMbps, ipPureInfo) {
     ...(speedMbps && { '下行带宽': speedMbps }),
 
     ...(ipPureInfo && {
-      '原生属性': ipPureInfo.nativeText,
-      '风险评级': ipPureInfo.riskText
+      'IP纯净度': `${ipPureInfo.nativeText} & ${ipPureInfo.riskText}`
     }),
 
     '客户端': ipInfo.user_agent ? ipInfo.user_agent.replace(/^egern/i, 'Egern') : 'Egern'
