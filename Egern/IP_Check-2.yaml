@@ -65,6 +65,8 @@ scriptings:
     timeout: 8
     body_required: true
     binary_body: false
+    env:
+     POLICY: "{{{指定策略组}}}" 
 mitm:
   hostnames:
     includes:

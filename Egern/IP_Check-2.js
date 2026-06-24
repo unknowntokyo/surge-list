@@ -295,7 +295,6 @@ const SORTED_CITY_KEYS = Object.keys(cityMap)
 const CITY_REGEX = new RegExp('\\b(' + SORTED_CITY_KEYS.map(escapeRegExp).join('|') + ')\\b');
 
 function translateCity(text) {
-
   if (typeof text !== 'string') return '';
 
   const key = text.trim().toLowerCase().normalize('NFD')
@@ -307,30 +306,37 @@ function translateCity(text) {
 
   const match = CITY_REGEX.exec(key);
   if (match) return cityMap[match[1]];
-  
+
   return text;
+}
+
+function isEnvOn(v) {
+  return String(v || '') === '开启';
+}
+
+function getPolicy(ctx) {
+  return ctx.env?.POLICY || 'DIRECT';
 }
 
 async function getIPInfo(ctx) {
   try {
-
     const resp = ctx.response;
     let data = typeof resp.json === 'function' ? await resp.json() : resp.body;
 
     if (typeof data === 'string') data = JSON.parse(data);
 
     if (!data) {
-      console.log("IP信息为空，脚本终止");
+      console.log('IP信息为空，脚本终止');
       return null;
     }
 
     if (data?.city_name) {
       data.city_name_zh = translateCity(data.city_name);
     }
-    
+
     return data;
   } catch (e) {
-    console.log("IP信息错误，脚本终止"); 
+    console.log('IP信息错误，脚本终止:', e);
     return null;
   }
 }
@@ -349,6 +355,7 @@ async function getSpeedTest(ctx) {
     const downloadPromise = (async () => {
       const response = await ctx.http.get(`https://speed.cloudflare.com/__down?bytes=${SPEED_TEST_PACKET}`, {
         timeout: SPEED_TEST_TIMEOUT,
+        policy: getPolicy(ctx),
         credentials: 'omit'
       });
 
@@ -370,9 +377,14 @@ async function getSpeedTest(ctx) {
     ]);
 
   } catch (e) {
+    console.log('测速失败:', e);
   } finally {
     if (timeoutId) clearTimeout(timeoutId);
-    if (reader) try { await reader.cancel(); } catch {}
+    if (reader) {
+      try {
+        await reader.cancel();
+      } catch {}
+    }
   }
 
   if (downloadedBytes === 0) return '⚠️ 测速失败';
@@ -381,10 +393,6 @@ async function getSpeedTest(ctx) {
   if (durationSeconds < 0.2) return '⚠️ 测速失败';
 
   return `${((downloadedBytes * 8) / 1e6 / durationSeconds).toFixed(1)} Mbps`;
-}
-
-function isEnvOn(v) {
-  return String(v || '') === '开启';
 }
 
 function formatNativeType(d) {
@@ -409,6 +417,7 @@ async function getIPPureInfo(ctx) {
   try {
     const res = await ctx.http.get('https://my.ippure.com/v1/info', {
       timeout: 5000,
+      policy: getPolicy(ctx),
       credentials: 'omit'
     });
 
@@ -417,7 +426,8 @@ async function getIPPureInfo(ctx) {
     if (typeof res.json === 'function') {
       d = await res.json();
     } else if (typeof res.text === 'function') {
-      d = JSON.parse(await res.text());
+      const text = await res.text();
+      d = JSON.parse(text);
     } else if (typeof res.body === 'string') {
       d = JSON.parse(res.body);
     } else {
@@ -425,6 +435,7 @@ async function getIPPureInfo(ctx) {
     }
 
     if (!d) {
+      console.log('IPPure 返回为空');
       return {
         nativeText: '获取失败',
         riskText: '获取失败'
@@ -435,8 +446,9 @@ async function getIPPureInfo(ctx) {
       nativeText: formatNativeType(d),
       riskText: formatRiskLevel(d.fraudScore)
     };
+
   } catch (e) {
-    console.log('IPPure 信息获取失败');
+    console.log('IPPure 信息获取失败:', e);
     return {
       nativeText: '获取失败',
       riskText: '获取失败'
