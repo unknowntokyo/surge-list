@@ -40,7 +40,7 @@ env_schema:
       - 6.5秒
   SHOW_IPPURE:
     name: IP纯净度
-    description: IP纯净度的功能开关，开启后可以显示节点的原生属性和风险评级，默认关闭，关闭后可以节省流量并加快响应
+    description: IP纯净度的功能开关，开启后可以显示节点的原生属性和风险评级信息，默认关闭，关闭后可以节省流量并加快响应
     default_value: 关闭
     options:
       - 开启
