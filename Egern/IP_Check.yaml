@@ -1,13 +1,13 @@
 name: IP Check
-description: 提供精准的IP信息展示、全中文显示及下行测速功能，使用说明：设置IP信息URL为http://ipwho.de/json（IPv4+IPv6）或https://4.ipwho.de/json（仅IPv4），并指定策略组，请在你指定的策略组下进行测试
+description: 提供精准的IP信息展示、全中文显示、IP纯净度显示及下行测速功能，使用说明：设置IP信息URL为http://ipwho.de/json（IPv4+IPv6）或https://4.ipwho.de/json（仅IPv4），并指定策略组，请在你指定的策略组下进行测试
 compat_arguments:
   指定策略组: DIRECT  
-compat_arguments_desc: 指定ipwho.de和speed.cloudflare.com走的策略组，默认为DIRECT，请在你指定的策略组下进行测试
+compat_arguments_desc: 指定ipwho.de、speed.cloudflare.com和ippure.com走的策略组，默认为DIRECT，请在你指定的策略组下进行测试
 
 env_schema:
   SHOW_SPEED_TEST:
     name: 下行测速功能
-    description: 下行测速的功能开关，开启后可以显示节点的下行带宽，默认关闭，关闭后可以节省流量并加快响应
+    description: 下行测速的功能开关，开启后可以显示节点的下行带宽，默认关闭，关闭后可以节省流量并加快响应，连续切换节点测试时，建议间隔5秒以上，避免因连接复用导致结果未及时更新
     default_value: 关闭
     options:
       - 开启
@@ -38,23 +38,35 @@ env_schema:
       - 5.5秒
       - 6秒
       - 6.5秒
+  SHOW_IPPURE:
+    name: IP纯净度
+    description: IP纯净度的功能开关，开启后可以显示节点的原生属性与风险评级信息，默认关闭，连续切换节点测试时，建议间隔5秒以上，避免因连接复用导致结果未及时更新
+    default_value: 关闭
+    options:
+      - 开启
+      - 关闭  
 author: unknownTokyo
 rules:
 - domain:
     match: speed.cloudflare.com
     policy: "{{{指定策略组}}}"
 - domain_suffix:
+    match: ippure.com
+    policy: "{{{指定策略组}}}" 
+- domain_suffix:
     match: ipwho.de
     policy: "{{{指定策略组}}}"
 scriptings:
 - http_response:
     name: IP Check
-    match: ^https?://(4\.)?ipwho\.de
-    script_url: https://raw.githubusercontent.com/unknowntokyo/surge-list/master/Egern/IP_Check.js
+    match: ^https?://(?:4\.)?ipwho\.de(?::\d+)?(?:[/?#]|$)
+    script_url: https://raw.githubusercontent.com/unknowntokyo/surge-list/master/Egern/IP_Check-2.js
     update_interval: 86400
     timeout: 8
     body_required: true
     binary_body: false
+    env:
+      POLICY: "{{{指定策略组}}}" 
 mitm:
   hostnames:
     includes:
