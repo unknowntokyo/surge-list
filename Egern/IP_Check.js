@@ -347,7 +347,7 @@ async function getIPInfo(ctx) {
 
 async function getSpeedTest(ctx) {
   const SPEED_TEST_TIMEOUT =
-    (parseFloat(ctx.env?.SPEED_TEST_TIMEOUT) || 4) * 1000;
+    (parseFloat(ctx.env?.SPEED_TEST_TIMEOUT) || 5) * 1000;
 
   const SPEED_TEST_PACKET =
     Math.floor((parseFloat(ctx.env?.SPEED_TEST_PACKET) || 3) * 1048576);
@@ -516,7 +516,7 @@ function normalizeIPPureInfo(d) {
 async function getIPPureInfo(ctx) {
   try {
     const res = await ctx.http.get('https://my.ippure.com/v1/info', {
-      timeout: 4000,
+      timeout: 5000,
       policy: getPolicy(ctx),
       credentials: 'omit'
     });

@@ -26,8 +26,8 @@ env_schema:
       - 4MB
   SPEED_TEST_TIMEOUT:
     name: 测速超时
-    description: 设置下行测速的超时时间，默认为4秒，网速慢的可以适当调高该参数
-    default_value: 4秒
+    description: 设置下行测速的超时时间，默认为5秒，网速慢的可以适当调高该参数
+    default_value: 5秒
     options:
       - 2.5秒
       - 3秒
