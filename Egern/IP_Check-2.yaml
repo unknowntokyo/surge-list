@@ -2,7 +2,7 @@ name: IP Check
 description: 提供精准的IP信息展示、全中文显示及下行测速功能，使用说明：设置IP信息URL为http://ipwho.de/json（IPv4+IPv6）或https://4.ipwho.de/json（仅IPv4），并指定策略组，请在你指定的策略组下进行测试
 compat_arguments:
   指定策略组: DIRECT  
-compat_arguments_desc: 指定ipwho.de和speed.cloudflare.com走的策略组，默认为DIRECT，请在你指定的策略组下进行测试
+compat_arguments_desc: 指定 ipwho.de、speed.cloudflare.com 和 ippure.com 走的策略组，默认为 DIRECT，请在你指定的策略组下进行测试
 
 env_schema:
   SHOW_SPEED_TEST:
@@ -59,14 +59,14 @@ rules:
 scriptings:
 - http_response:
     name: IP Check
-    match: ^https?://(4\.)?ipwho\.de
+    match: ^https?://(?:4\.)?ipwho\.de(?::\d+)?(?:[/?#]|$)
     script_url: https://raw.githubusercontent.com/unknowntokyo/surge-list/master/Egern/IP_Check-2.js
     update_interval: 86400
     timeout: 8
     body_required: true
     binary_body: false
     env:
-     POLICY: "{{{指定策略组}}}" 
+      POLICY: "{{{指定策略组}}}" 
 mitm:
   hostnames:
     includes:

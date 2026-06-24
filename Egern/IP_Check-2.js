@@ -320,17 +320,14 @@ function getPolicy(ctx) {
 
 async function getIPInfo(ctx) {
   try {
-    const resp = ctx.response;
-    let data = typeof resp.json === 'function' ? await resp.json() : resp.body;
+    const data = await ctx.response.json();
 
-    if (typeof data === 'string') data = JSON.parse(data);
-
-    if (!data) {
+    if (!data || typeof data !== 'object') {
       console.log('IP信息为空，脚本终止');
       return null;
     }
 
-    if (data?.city_name) {
+    if (data.city_name) {
       data.city_name_zh = translateCity(data.city_name);
     }
 
@@ -396,8 +393,8 @@ async function getSpeedTest(ctx) {
 }
 
 function formatNativeType(d) {
-  if (d?.isResidential === true) return '🏠 原生住宅';
-  if (d?.isResidential === false) return '🏢 商业机房';
+  if (d?.isResidential === true) return '原生住宅';
+  if (d?.isResidential === false) return '商业机房';
   return '获取失败';
 }
 
@@ -407,39 +404,37 @@ function formatRiskLevel(risk) {
   const score = Number(risk);
   if (Number.isNaN(score)) return '获取失败';
 
-  if (score >= 80) return `🔴 极高风险 (${score})`;
-  if (score >= 70) return `🟠 高风险 (${score})`;
-  if (score >= 40) return `🟡 中等风险 (${score})`;
-  return `🟢 纯净低危 (${score})`;
+  if (score >= 80) return `极高风险 (${score})`;
+  if (score >= 70) return `高风险 (${score})`;
+  if (score >= 40) return `中等风险 (${score})`;
+  return `纯净低危 (${score})`;
+}
+
+function ipPureFailed() {
+  return {
+    nativeText: '获取失败',
+    riskText: '获取失败'
+  };
 }
 
 async function getIPPureInfo(ctx) {
   try {
     const res = await ctx.http.get('https://my.ippure.com/v1/info', {
-      timeout: 5000,
+      timeout: 4000,
       policy: getPolicy(ctx),
       credentials: 'omit'
     });
 
-    let d;
-
-    if (typeof res.json === 'function') {
-      d = await res.json();
-    } else if (typeof res.text === 'function') {
-      const text = await res.text();
-      d = JSON.parse(text);
-    } else if (typeof res.body === 'string') {
-      d = JSON.parse(res.body);
-    } else {
-      d = res.body;
+    if (typeof res.status === 'number' && (res.status < 200 || res.status >= 300)) {
+      console.log('IPPure HTTP状态异常:', res.status);
+      return ipPureFailed();
     }
 
-    if (!d) {
-      console.log('IPPure 返回为空');
-      return {
-        nativeText: '获取失败',
-        riskText: '获取失败'
-      };
+    const d = await res.json();
+
+    if (!d || typeof d !== 'object') {
+      console.log('IPPure返回为空');
+      return ipPureFailed();
     }
 
     return {
@@ -448,15 +443,30 @@ async function getIPPureInfo(ctx) {
     };
 
   } catch (e) {
-    console.log('IPPure 信息获取失败:', e);
-    return {
-      nativeText: '获取失败',
-      riskText: '获取失败'
-    };
+    console.log('IPPure信息获取失败:', e);
+    return ipPureFailed();
   }
 }
 
+function formatIPPureText(ipPureInfo) {
+  if (!ipPureInfo) return null;
+
+  const nativeText = ipPureInfo.nativeText || '获取失败';
+  const riskText = ipPureInfo.riskText || '获取失败';
+
+  const nativeFailed = nativeText === '获取失败';
+  const riskFailed = riskText === '获取失败';
+
+  if (nativeFailed && riskFailed) return '获取失败';
+  if (nativeFailed) return riskText;
+  if (riskFailed) return nativeText;
+
+  return `${nativeText} & ${riskText}`;
+}
+
 function modResponseBody(ipInfo, speedMbps, ipPureInfo) {
+  const ipPureText = formatIPPureText(ipPureInfo);
+
   return {
     'IP地址': ipInfo.ip,
     '地区': codeMap[ipInfo.country_code] || ipInfo.country_code || '未知',
@@ -464,8 +474,8 @@ function modResponseBody(ipInfo, speedMbps, ipPureInfo) {
     '互联网服务提供商': ipInfo.asn ? `AS${ipInfo.asn} ${ipInfo.as_desc || ''}` : '未知',
     ...(speedMbps && { '下行带宽': speedMbps }),
 
-    ...(ipPureInfo && {
-      'IP纯净度': `${ipPureInfo.nativeText} & ${ipPureInfo.riskText}`
+    ...(ipPureText && {
+      'IP纯净度': ipPureText
     }),
 
     '客户端': ipInfo.user_agent ? ipInfo.user_agent.replace(/^egern/i, 'Egern') : 'Egern'
@@ -479,10 +489,10 @@ export default async function(ctx) {
   const showIPPure = isEnvOn(ctx.env?.SHOW_IPPURE);
 
   const [ipInfo, speedMbps, ipPureInfo] = await Promise.all([
-    getIPInfo(ctx),
-    showSpeedTest ? getSpeedTest(ctx) : Promise.resolve(null),
-    showIPPure ? getIPPureInfo(ctx) : Promise.resolve(null)
-  ]);
+  getIPInfo(ctx),
+  showSpeedTest ? getSpeedTest(ctx) : null,
+  showIPPure ? getIPPureInfo(ctx) : null
+]);
 
   return ipInfo ? { body: modResponseBody(ipInfo, speedMbps, ipPureInfo) } : { body: ctx.response.body };
 }
