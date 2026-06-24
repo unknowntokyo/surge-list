@@ -325,30 +325,6 @@ function getPolicy(ctx) {
   return ctx.env?.POLICY || 'DIRECT';
 }
 
-function normalizeIP(ip) {
-  if (typeof ip !== 'string') return '';
-
-  let normalized = ip
-    .trim()
-    .replace(/^\[|\]$/g, '')
-    .toLowerCase();
-
-  if (normalized.startsWith('::ffff:')) {
-    normalized = normalized.slice(7);
-  }
-
-  return normalized;
-}
-
-function isSameIP(a, b) {
-  const ipA = normalizeIP(a);
-  const ipB = normalizeIP(b);
-
-  if (!ipA || !ipB) return true;
-
-  return ipA === ipB;
-}
-
 async function getIPInfo(ctx) {
   try {
     const data = await ctx.response.json();
@@ -489,18 +465,16 @@ function ipPureFailed(reason) {
 
   return {
     failed: true,
-    ip: null,
     nativeText: null,
     riskText: null
   };
 }
 
-function ipPureNoRating(reason, ip = null) {
-  if (reason) console.log('IPPure暂无评级:', reason);
+function ipPureNoRating(reason) {
+  if (reason) console.log('暂无评级:', reason);
 
   return {
     failed: false,
-    ip,
     nativeText: null,
     riskText: '暂无评级'
   };
@@ -509,12 +483,6 @@ function ipPureNoRating(reason, ip = null) {
 function normalizeIPPureInfo(d) {
   const data = pickIPPureData(d);
   if (!data) return ipPureNoRating('IPPure返回数据为空');
-
-  const ip = firstValid(
-    data.ip,
-    data.query,
-    data.address
-  );
 
   const rawResidential = firstValid(
     data.isResidential,
@@ -535,12 +503,11 @@ function normalizeIPPureInfo(d) {
 
   if (!nativeText && !riskText) {
     console.log('IPPure字段缺失:', JSON.stringify(data).slice(0, 300));
-    return ipPureNoRating('缺少fraudScore 和isResidential字段', ip);
+    return ipPureNoRating('缺少fraudScore和isResidential字段');
   }
 
   return {
     failed: false,
-    ip,
     nativeText,
     riskText
   };
@@ -580,20 +547,10 @@ async function getIPPureInfo(ctx) {
   }
 }
 
-function formatIPPureText(ipPureInfo, ipInfoIP) {
+function formatIPPureText(ipPureInfo) {
   if (!ipPureInfo) return null;
 
   if (ipPureInfo.failed) return 'IPPure信息获取失败';
-
-  if (
-    ipPureInfo.ip &&
-    ipInfoIP &&
-    !isSameIP(ipPureInfo.ip, ipInfoIP)
-  ) {
-    console.log(`IPPure IP不一致: ipwho=${ipInfoIP}, ippure=${ipPureInfo.ip}`);
-
-    return `⚠️ 旧连接复用导致结果未更新（IPPure: ${ipPureInfo.ip}）`;
-  }
 
   const nativeText = ipPureInfo.nativeText;
   const riskText = ipPureInfo.riskText;
@@ -606,7 +563,7 @@ function formatIPPureText(ipPureInfo, ipInfoIP) {
 }
 
 function modResponseBody(ipInfo, speedMbps, ipPureInfo) {
-  const ipPureText = formatIPPureText(ipPureInfo, ipInfo.ip);
+  const ipPureText = formatIPPureText(ipPureInfo);
 
   return {
     'IP地址': ipInfo.ip || '未知',
