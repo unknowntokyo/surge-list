@@ -1,0 +1,62 @@
+name: "网上国网 Widget"
+description: "网上国网电量、电费、余额小组件"
+author: "custom"
+icon: "bolt.square.fill"
+
+env_schema:
+  SGCC_USERNAME:
+    name: "网上国网账号"
+    description: "一般是手机号或网上国网登录账号"
+    default_value: ""
+
+  SGCC_PASSWORD:
+    name: "网上国网密码"
+    description: "网上国网 App 或 95598.cn 登录密码"
+    default_value: ""
+
+  ACCOUNT_INDEX:
+    name: "户号序号"
+    description: "多个户号时选择第几个，默认 0"
+    default_value: "0"
+
+  REFRESH_MINUTES:
+    name: "刷新间隔分钟"
+    description: "小组件自动刷新间隔，建议 30-120"
+    default_value: "60"
+
+  TITLE:
+    name: "小组件标题"
+    description: "默认显示 网上国网"
+    default_value: "网上国网"
+
+scriptings:
+  - http_request:
+      name: "sgcc-service"
+      match: "^https?:\\/\\/api\\.wsgw-rewrite\\.com\\/electricity\\/bill\\/all"
+      script_url: "https://raw.githubusercontent.com/Yuheng0101/X/main/Tasks/95598/95598.js"
+      body_required: true
+      max_size: 10485760
+      timeout: 60
+      update_interval: 86400
+
+  - generic:
+      name: "sgcc-widget"
+      script_url: "https://raw.githubusercontent.com/unknowntokyo/surge-list/master/Egern/SGCC_Widget.JS"
+      timeout: 60
+      update_interval: 86400
+      env:
+        API_URL: "https://api.wsgw-rewrite.com/electricity/bill/all"
+
+widgets:
+  - name: "sgcc-widget"
+    script_name: "sgcc-widget"
+    env:
+      API_URL: "https://api.wsgw-rewrite.com/electricity/bill/all"
+      ACCOUNT_INDEX: "0"
+      REFRESH_MINUTES: "60"
+      TITLE: "网上国网"
+
+mitm:
+  hostnames:
+    includes:
+      - "api.wsgw-rewrite.com"
