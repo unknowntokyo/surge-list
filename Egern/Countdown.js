@@ -838,7 +838,7 @@ export default function (ctx = {}) {
 
     return {
       type: "widget",
-      padding: 14,
+      padding: 10,
       backgroundGradient,
       children: [
         mkRow([
