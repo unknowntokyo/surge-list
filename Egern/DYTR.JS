@@ -60,8 +60,13 @@ export default async function(ctx) {
         children: [
           {
             type: 'stack',
+            direction: 'row',
+            alignItems: 'center',
             width: 30,
             children: [
+              {
+                type: 'spacer'
+              },
               {
                 type: 'text',
                 text: `#${rank}`,
@@ -70,6 +75,9 @@ export default async function(ctx) {
                   weight: 'bold'
                 },
                 textColor: rankColors[rank - 1] || '#8E8E93'
+              },
+              {
+                type: 'spacer'
               }
             ]
           },
@@ -104,7 +112,7 @@ export default async function(ctx) {
     if (items.length === 0) {
       items.push({
         type: 'text',
-        text: '暂无有效热榜数据',
+        text: '暂无数据',
         font: {
           size: 'subheadline'
         },
@@ -131,11 +139,25 @@ export default async function(ctx) {
           alignItems: 'center',
           children: [
             {
-              type: 'image',
-              src: 'sf-symbol:flame',
-              color: '#FF3B30',
-              width: 16,
-              height: 16
+              type: 'stack',
+              direction: 'row',
+              alignItems: 'center',
+              width: 30,
+              children: [
+                {
+                  type: 'spacer'
+                },
+                {
+                  type: 'image',
+                  src: 'sf-symbol:flame',
+                  color: '#FF3B30',
+                  width: 16,
+                  height: 16
+                },
+                {
+                  type: 'spacer'
+                }
+              ]
             },
             {
               type: 'text',
