@@ -5,9 +5,9 @@ export default async function(ctx) {
       { timeout: 15000 }
     );
 
-    if (resp.status !== 200) {
-      throw new Error(`HTTP ${resp.status}`);
-    }
+    //if (resp.status !== 200) {
+      //throw new Error(`HTTP ${resp.status}`);
+    //}
 
     const data = await resp.json();
 
