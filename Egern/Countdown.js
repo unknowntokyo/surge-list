@@ -102,9 +102,13 @@ const mkSpacer = length =>
 
 const YMD = (y, m, d) =>
   `${y}/${m < 10 ? "0" + m : m}/${d < 10 ? "0" + d : d}`;
+const displayName = name =>
+  name === "万圣节" ? "🎃" : name; 
 
-const formatItemStr = (name, diff) =>
-  diff <= 0 ? `今日 ${name}` : `${name} ${diff}天`;
+const formatItemStr = (name, diff) => {
+  const n = displayName(name);
+  return diff <= 0 ? `今日 ${n}` : `${n} ${diff}天`;
+};
 
 const splitTextToLines = (str, maxW) => {
   const lines = [];
