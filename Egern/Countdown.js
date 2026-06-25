@@ -106,8 +106,7 @@ const displayName = name =>
   ({
     端午节: "🐲",
     七夕节: "💘",
-    万圣节: "🎃",
-    平安夜: "🍎"
+    万圣节: "🎃"
   }[name] ?? name);
 
 const formatItemStr = (name, diff) => {
