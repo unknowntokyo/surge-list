@@ -103,7 +103,12 @@ const mkSpacer = length =>
 const YMD = (y, m, d) =>
   `${y}/${m < 10 ? "0" + m : m}/${d < 10 ? "0" + d : d}`;
 const displayName = name =>
-  name === "万圣节" ? "🎃" : name; 
+  ({
+    端午节: "🐲",
+    七夕节: "💘",
+    万圣节: "🎃",
+    平安夜: "🍎"
+  }[name] ?? name);
 
 const formatItemStr = (name, diff) => {
   const n = displayName(name);
