@@ -1,4 +1,4 @@
-export default async function (ctx) {
+export default async function(ctx) {
   try {
     const resp = await ctx.http.get(
       'https://dabenshi.cn/other/api/hot.php?type=douyinhot',
@@ -14,8 +14,7 @@ export default async function (ctx) {
 
     const data = await resp.json();
 
-    const hotList =
-      [data, data?.data, data?.list, data?.result].find(Array.isArray) || [];
+    const hotList = [data, data?.data, data?.list, data?.result].find(Array.isArray) || [];
 
     const currentTime = new Date().toTimeString().slice(0, 5);
     const items = [];
@@ -27,11 +26,16 @@ export default async function (ctx) {
       return /^0+(?:\.0+)?(?:万)?$/.test(text);
     };
 
-    // 最多显示5条非0热度内容
+    // 最多显示5条非0热度的
     for (let i = 0; i < hotList.length && items.length < 5; i++) {
       const item = hotList[i];
 
-      const hot = String(item?.hot ?? item?.hot_num ?? item?.desc ?? '');
+      const hot = String(
+        item?.hot ??
+        item?.hot_num ??
+        item?.desc ??
+        ''
+      );
 
       // 热度为0，整条不显示
       if (isZeroHot(hot)) {
@@ -43,9 +47,9 @@ export default async function (ctx) {
 
       const text = String(
         item?.title ||
-          item?.name ||
-          item?.keyword ||
-          `热榜 ${rank}`
+        item?.name ||
+        item?.keyword ||
+        `热榜 ${rank}`
       );
 
       items.push({
@@ -100,7 +104,7 @@ export default async function (ctx) {
     if (items.length === 0) {
       items.push({
         type: 'text',
-        text: '暂无数据',
+        text: '暂无有效热榜数据',
         font: {
           size: 'subheadline'
         },
@@ -113,7 +117,7 @@ export default async function (ctx) {
 
     return {
       type: 'widget',
-      refreshAfter: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+      refreshAfter: new Date(Date.now() + 900000).toISOString(),
       padding: 14,
       gap: 6,
       backgroundColor: {
@@ -135,7 +139,7 @@ export default async function (ctx) {
             },
             {
               type: 'text',
-              text: '抖音热榜',
+              text: ' 抖音热榜',
               font: {
                 size: 'subheadline',
                 weight: 'bold'
