@@ -118,7 +118,7 @@ export default async function(ctx) {
     return {
       type: 'widget',
       refreshAfter: new Date(Date.now() + 900000).toISOString(),
-      padding: 14,
+      padding: 10,
       gap: 6,
       backgroundColor: {
         light: '#FFFFFF',
@@ -169,7 +169,7 @@ export default async function(ctx) {
   } catch (err) {
     return {
       type: 'widget',
-      padding: 16,
+      padding: 14,
       backgroundColor: {
         light: '#F2F2F7',
         dark: '#1C1C1E'
