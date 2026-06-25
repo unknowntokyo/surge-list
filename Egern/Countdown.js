@@ -871,7 +871,7 @@ export default function (ctx = {}) {
     fz: isLarge ? 14 : 13.5,
     icz: isLarge ? 15 : 13.5,
     lw: isLarge ? 60 : 52,
-    maxW: isLarge ? 36 : 48,
+    maxW: isLarge ? 36 : 45,
     rowGap: isLarge ? 6 : 4,
     titleFz: isLarge ? 17 : 15,
     titleIcz: isLarge ? 18 : 16,
@@ -957,7 +957,7 @@ export default function (ctx = {}) {
 
   return {
     type: "widget",
-    padding: isLarge ? 16 : 10,
+    padding: isLarge ? 16 : 12,
     backgroundGradient,
     children: [
       mkRow([
