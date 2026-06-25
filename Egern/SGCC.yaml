@@ -29,10 +29,6 @@ env_schema:
     description: "默认显示 网上国网"
     default_value: "网上国网"
 
-dns:
-  hosts:
-    api.wsgw-rewrite.com: 1.1.1.1
-
 scriptings:
   - http_request:
       name: "sgcc-service"
