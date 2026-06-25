@@ -8,25 +8,21 @@ env_schema:
     name: "网上国网账号"
     description: "一般是手机号或网上国网登录账号"
     default_value: ""
-
   SGCC_PASSWORD:
     name: "网上国网密码"
     description: "网上国网 App 或 95598.cn 登录密码"
     default_value: ""
-
   ACCOUNT_INDEX:
     name: "户号序号"
     description: "多个户号时选择第几个，默认 0"
     default_value: "0"
-
   REFRESH_MINUTES:
     name: "刷新间隔分钟"
     description: "建议 30-120"
     default_value: "60"
-
   TITLE:
     name: "小组件标题"
-    description: "默认显示 网上国网"
+    description: "不填默认显示户名或户号"
     default_value: "网上国网"
 
 scriptings:
@@ -42,22 +38,14 @@ scriptings:
         SGCC_SERVICE: "true"
         SGCC_SILENT: "true"
 
-  - generic:
+  - widget: # 【修复】改为了标准的 Egern widget 声明
       name: "sgcc-widget"
+      # 注意：如果你的 JS 是本地文件，请把 script_url 改为 script_path: "SGCC_Widget.JS"
       script_url: "https://raw.githubusercontent.com/unknowntokyo/surge-list/refs/heads/master/Egern/SGCC_Widget.JS"
       timeout: 60
       update_interval: 86400
       env:
         API_URL: "https://api.wsgw-rewrite.com/electricity/bill/all"
-
-widgets:
-  - name: "sgcc-widget"
-    script_name: "sgcc-widget"
-    env:
-      API_URL: "https://api.wsgw-rewrite.com/electricity/bill/all"
-      ACCOUNT_INDEX: "0"
-      REFRESH_MINUTES: "60"
-      TITLE: "网上国网"
 
 mitm:
   hostnames:
