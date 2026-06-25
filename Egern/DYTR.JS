@@ -1,13 +1,16 @@
 export default async function(ctx) {
   try {
     const resp = await ctx.http.get(
-      'https://dabenshi.cn/other/api/hot.php?type=douyinhot',
-      { timeout: 15000 }
-    );
+  'https://dabenshi.cn/other/api/hot.php?type=douyinhot',
+  {
+    timeout: 15000,
+    insecureTls: true
+  }
+);
 
-    //if (resp.status !== 200) {
-      //throw new Error(`HTTP ${resp.status}`);
-    //}
+    if (resp.status !== 200) {
+      throw new Error(`HTTP ${resp.status}`);
+    }
 
     const data = await resp.json();
 
