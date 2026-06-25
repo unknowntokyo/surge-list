@@ -169,7 +169,7 @@ export default async function(ctx) {
   } catch (err) {
     return {
       type: 'widget',
-      padding: 16,
+      padding: 14,
       backgroundColor: {
         light: '#F2F2F7',
         dark: '#1C1C1E'
