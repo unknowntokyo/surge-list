@@ -871,7 +871,7 @@ export default function (ctx = {}) {
     fz: isLarge ? 14 : 13.5,
     icz: isLarge ? 15 : 13.5,
     lw: isLarge ? 60 : 52,
-    maxW: isLarge ? 36 : 45,
+    maxW: isLarge ? 36 : 34,
     rowGap: isLarge ? 6 : 4,
     titleFz: isLarge ? 17 : 15,
     titleIcz: isLarge ? 18 : 16,
