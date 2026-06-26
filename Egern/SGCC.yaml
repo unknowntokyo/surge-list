@@ -1,0 +1,20 @@
+#!name=网上国网 Widget
+#!desc=网上国网电费 / 电量桌面小组件
+#!author=ONZ3V / Egern Widget by ChatGPT
+
+scriptings:
+  - generic:
+      name: sgcc-widget
+      script_url: "https://raw.githubusercontent.com/unknowntokyo/surge-list/master/Egern/SGCC_Widget.js"
+      update_interval: 86400
+      timeout: 60
+      env:
+        USERNAME: ""
+        PASSWORD: ""
+        DEBUG: "false"
+        SHOW_RECENT_USAGE: "false"
+        NOTIFY_ALL_ACCOUNTS: "false"
+
+widgets:
+  - name: "网上国网"
+    script_name: sgcc-widget
