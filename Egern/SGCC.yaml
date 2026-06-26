@@ -29,7 +29,7 @@ scriptings:
   - http_request:
       name: "网上国网接口重写"
       match: "^https?:\\/\\/api\\.wsgw-rewrite\\.com\\/electricity\\/bill\\/all"
-      script_url: "https://raw.githubusercontent.com/你的用户名/你的仓库/main/sgcc-egern-api-wrapper.js"
+      script_url: "https://raw.githubusercontent.com/unknowntokyo/surge-list/master/Egern/SGCC_API.js"
       update_interval: 86400
       body_required: false
       max_size: 1048576
