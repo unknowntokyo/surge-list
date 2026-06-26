@@ -4,7 +4,7 @@
 
 scriptings:
   - generic:
-      name: sgcc-widget
+      name: SGCC_Widget
       script_url: "https://raw.githubusercontent.com/unknowntokyo/surge-list/master/Egern/SGCC_Widget.js"
       update_interval: 86400
       timeout: 60
@@ -17,4 +17,4 @@ scriptings:
 
 widgets:
   - name: "网上国网"
-    script_name: sgcc-widget
+    script_name: SGCC_Widget
