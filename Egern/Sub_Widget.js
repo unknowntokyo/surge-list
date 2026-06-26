@@ -47,8 +47,8 @@ const REFRESH_INTERVAL_MS = 60 * 60 * 1000;
 const NETWORK_COOLDOWN_MS = 30 * 60 * 1000;
 const MAX_STALE_MS = 10 * 24 * 60 * 60 * 1000;
 
-const CACHE_PREFIX = "sub_cache_v2";
-const CACHE_META_PREFIX = "sub_cache_meta_v2";
+const CACHE_PREFIX = "sub_cache";
+const CACHE_META_PREFIX = "sub_cache_meta";
 
 const UNITS = ["B", "KB", "MB", "GB", "TB", "PB"];
 const REGEX_USERINFO = /([-\w]+)\s*=\s*([\d.eE+-]+)/g;
