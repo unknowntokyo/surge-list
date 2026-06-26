@@ -48,7 +48,6 @@ const NETWORK_COOLDOWN_MS = 30 * 60 * 1000;
 const MAX_STALE_MS = 10 * 24 * 60 * 60 * 1000;
 
 const CACHE_PREFIX = "sub_cache";
-const CACHE_META_PREFIX = "sub_cache_meta";
 
 const UNITS = ["B", "KB", "MB", "GB", "TB", "PB"];
 const REGEX_USERINFO = /([-\w]+)\s*=\s*([\d.eE+-]+)/g;
@@ -191,8 +190,6 @@ export default async function (ctx) {
 async function fetchInfo(ctx, slot, now) {
   const cacheKey = `${CACHE_PREFIX}_${slot.id}_${hashString(slot.url)}`;
   const nowTime = now.getTime();
-
-  cleanupPreviousSlotCache(ctx, slot.id, cacheKey);
 
   let cacheData = null;
   let lastErrorMsg = "Unknown";
@@ -373,9 +370,7 @@ function buildCard(result, ctx) {
   }
 
   const p = Math.min(Math.max(safePercent, 0), 100);
-
   const displayPercent = Math.max(0, safePercent);
-
   const displayName = isFallback ? `${name} · ${cacheAgeText || "缓存"}` : name;
 
   let expireText = "永久有效";
@@ -726,24 +721,6 @@ async function concurrentMap(items, maxConcurrent, fn) {
 
   await Promise.all(Array.from({ length: workerCount }, worker));
   return results;
-}
-
-function cleanupPreviousSlotCache(ctx, slotId, currentKey) {
-  const metaKey = `${CACHE_META_PREFIX}_${slotId}`;
-
-  try {
-    const meta = ctx.storage.getJSON(metaKey);
-
-    if (meta?.key && meta.key !== currentKey) {
-      try {
-        ctx.storage.delete(meta.key);
-      } catch (e) {}
-    }
-
-    if (!meta || meta.key !== currentKey) {
-      ctx.storage.setJSON(metaKey, { key: currentKey });
-    }
-  } catch (e) {}
 }
 
 function hashString(str) {
