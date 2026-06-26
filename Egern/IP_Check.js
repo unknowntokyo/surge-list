@@ -413,6 +413,9 @@ function firstValid(...values) {
   return values.find(v => v !== undefined && v !== null && v !== '');
 }
 
+const TRUE_BOOL_SET = new Set(['true', '1', 'yes', 'y']);
+const FALSE_BOOL_SET = new Set(['false', '0', 'no', 'n']);
+
 function toBool(v) {
   if (typeof v === 'boolean') return v;
 
@@ -424,8 +427,8 @@ function toBool(v) {
   if (typeof v === 'string') {
     const s = v.trim().toLowerCase();
 
-    if (['true', '1', 'yes', 'y'].includes(s)) return true;
-    if (['false', '0', 'no', 'n'].includes(s)) return false;
+    if (TRUE_BOOL_SET.has(s)) return true;
+    if (FALSE_BOOL_SET.has(s)) return false;
   }
 
   return undefined;
