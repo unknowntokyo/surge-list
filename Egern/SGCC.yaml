@@ -39,7 +39,7 @@ scriptings:
   - http_request:
       name: "sgcc-api"
       match: '^https?://api\.wsgw-rewrite\.com/electricity/bill/all(?:\?.*)?$'
-      script_url: "https://raw.githubusercontent.com/你的用户名/你的仓库/main/sgcc-egern-api-wrapper.js"
+      script_url: "https://raw.githubusercontent.com/unknowntokyo/surge-list/master/Egern/SGCC_API.js"
       update_interval: 86400
       timeout: 60
       body_required: false
@@ -53,7 +53,7 @@ scriptings:
 
   - generic:
       name: "sgcc-widget"
-      script_url: "https://raw.githubusercontent.com/你的用户名/你的仓库/main/sgcc-egern-widget.js"
+      script_url: "https://raw.githubusercontent.com/unknowntokyo/surge-list/master/Egern/SGCC_Widget.js"
       update_interval: 86400
       timeout: 30
       env:
