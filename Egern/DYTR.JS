@@ -110,7 +110,7 @@ function makeHeader() {
       }),
       {
         type: 'text',
-        text: ' 抖音热榜',
+        text: '抖音热榜',
         font: {
           size: 'subheadline',
           weight: 'bold'
