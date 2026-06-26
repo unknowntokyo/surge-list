@@ -3,13 +3,13 @@ description: "余量查询"
 author: "𝐎𝐍𝐙𝟑𝐕"
 
 compat_arguments:
-  CRONEXP: 0 9 * * *
-  USERNAME: ''
-  PASSWORD: ''
-  调试模式: 'false'
-  近期用量: 'false'
-  通知全部户号: 'false'
-  TIMEOUT: '60'
+  CRONEXP: "0 9 * * *"
+  USERNAME: ""
+  PASSWORD: ""
+  调试模式: "false"
+  近期用量: "false"
+  通知全部户号: "false"
+  TIMEOUT: "60"
 
 compat_arguments_desc: |-
   CRONEXP: 默认每天9点执行, 只想用接口可以设置成"0 0 30 2 *"
@@ -29,17 +29,17 @@ compat_arguments_desc: |-
 scriptings:
   - http_request:
       name: "网上国网接口重写"
-      match: "^https?:\\/\\/api\\.wsgw-rewrite\\.com\\/electricity\\/bill\\/all"
+      match: "^https?://api\\.wsgw-rewrite\\.com/electricity/bill/all"
       script_url: "https://raw.githubusercontent.com/Yuheng0101/X/main/Tasks/95598/95598.js"
       body_required: true
       max_size: -1
-      timeout: {{{TIMEOUT}}}
+      timeout: "{{{TIMEOUT}}}"
 
   - schedule:
       name: "网上国网"
       cron: "{{{CRONEXP}}}"
       script_url: "https://raw.githubusercontent.com/Yuheng0101/X/main/Tasks/95598/95598.js"
-      timeout: {{{TIMEOUT}}}
+      timeout: "{{{TIMEOUT}}}"
       env:
         username: "{{{USERNAME}}}"
         password: "{{{PASSWORD}}}"
