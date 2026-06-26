@@ -55,9 +55,9 @@ export default async function(ctx) {
         item?.hot_num ??
         item?.desc ??
         ''
-      );
+      ).trim();
 
-      if (isZeroHot(hot)) {
+      if (!hot || isZeroHot(hot)) {
         continue;
       }
 
@@ -91,15 +91,7 @@ export default async function(ctx) {
 }
 
 function getHotList(data) {
-  return [
-    data,
-    data?.data,
-    data?.data?.list,
-    data?.data?.result,
-    data?.list,
-    data?.result,
-    data?.result?.list
-  ].find(Array.isArray) || [];
+  return Array.isArray(data?.data) ? data.data : [];
 }
 
 function makeHeader() {
