@@ -1,312 +1,320 @@
-const ORIGINAL_SCRIPT =
-  "https://raw.githubusercontent.com/Yuheng0101/X/main/Tasks/95598/95598.js";
+export default async function(ctx) {
+  const env = ctx.env || {};
+  const family = ctx.widgetFamily || "systemMedium";
+  const API_URL =
+    env.API_URL || "https://api.wsgw-rewrite.com/electricity/bill/all";
 
-const env = ctx.env || {};
-const family = ctx.widgetFamily || "systemMedium";
-
-const USERNAME = env.USERNAME || env.username || "";
-const PASSWORD = env.PASSWORD || env.password || "";
-const DEBUG = env.DEBUG || env.debug || "false";
-const SHOW_RECENT_USAGE =
-  env.SHOW_RECENT_USAGE || env.show_recent_usage || "false";
-const NOTIFY_ALL_ACCOUNTS =
-  env.NOTIFY_ALL_ACCOUNTS || env.notify_all_accounts || "false";
-
-function boolValue(v) {
-  return String(v).toLowerCase() === "true" || String(v) === "1";
-}
-
-function makeArgs() {
-  const p = new URLSearchParams();
-  p.set("username", USERNAME);
-  p.set("password", PASSWORD);
-  p.set("debug", DEBUG);
-  p.set("show_recent_usage", SHOW_RECENT_USAGE);
-  p.set("notify_all_accounts", NOTIFY_ALL_ACCOUNTS);
-  p.set("silent", "false");
-  return p.toString();
-}
-
-function httpGet(url) {
-  return new Promise((resolve, reject) => {
-    if (typeof $httpClient !== "undefined") {
-      $httpClient.get({ url, timeout: 15 }, (err, resp, body) => {
-        if (err) reject(err);
-        else resolve(body);
-      });
-    } else if (typeof fetch !== "undefined") {
-      fetch(url).then(r => r.text()).then(resolve).catch(reject);
-    } else {
-      reject(new Error("当前环境不支持网络请求"));
-    }
-  });
-}
-
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-function textNode(text, size = "caption1", weight = "regular", color, lineLimit) {
-  const node = {
-    type: "text",
-    text: String(text ?? ""),
-    font: { size, weight },
-    textColor: color || {
-      light: "#111827",
-      dark: "#F9FAFB"
-    }
-  };
-  if (lineLimit) node.lineLimit = lineLimit;
-  return node;
-}
-
-function spacer(length) {
-  const node = { type: "spacer" };
-  if (length) node.length = length;
-  return node;
-}
-
-function cleanLines(str) {
-  return String(str || "")
-    .split(/\r?\n/)
-    .map(i => i.trim())
-    .filter(Boolean);
-}
-
-function flattenNoticeList(list) {
-  if (!list.length) {
-    return {
-      title: "网上国网",
-      subtitle: "暂无数据",
-      body: "请检查账号密码或稍后刷新小组件"
+  function text(text, size = "caption1", weight = "regular", color, maxLines) {
+    const node = {
+      type: "text",
+      text: String(text ?? ""),
+      font: {
+        size,
+        weight
+      },
+      textColor: color || {
+        light: "#111827",
+        dark: "#F9FAFB"
+      }
     };
+
+    if (maxLines) node.maxLines = maxLines;
+    return node;
   }
 
-  const first = list[0];
-  return {
-    title: first.title || "网上国网",
-    subtitle: first.subtitle || first.subt || "",
-    body: list
-      .map(item => {
-        return [item.subtitle || item.subt || "", item.body || ""]
-          .filter(Boolean)
-          .join("\n");
-      })
-      .join("\n\n")
-  };
-}
+  function spacer(length) {
+    const node = { type: "spacer" };
+    if (length) node.length = length;
+    return node;
+  }
 
-function buildAccessoryWidget(info) {
-  const body = info.body || info.subtitle || "暂无数据";
-  const lines = cleanLines(body);
-  const main =
-    lines.find(i => i.includes("余额")) ||
-    lines.find(i => i.includes("本期电量")) ||
-    lines[0] ||
-    "网上国网";
-
-  if (family === "accessoryInline") {
+  function errorWidget(msg) {
     return {
       type: "widget",
+      padding: 14,
+      gap: 8,
+      backgroundColor: {
+        light: "#FEF2F2",
+        dark: "#450A0A"
+      },
       children: [
-        textNode(`⚡ ${main}`, "caption1", "medium", "#FFFFFF", 1)
+        text("网上国网", "headline", "bold", {
+          light: "#DC2626",
+          dark: "#F87171"
+        }),
+        text("❌ 查询失败", "caption1", "semibold", {
+          light: "#991B1B",
+          dark: "#FCA5A5"
+        }),
+        text(msg, "caption2", "regular", {
+          light: "#7F1D1D",
+          dark: "#FECACA"
+        }, 5)
       ]
     };
   }
 
-  if (family === "accessoryCircular") {
+  function normalizeAccount(item) {
+    const user = item.userInfo || item.user || {};
+    const billRaw = item.eleBill || item.bill || {};
+    const bill = Array.isArray(billRaw) ? billRaw[0] || {} : billRaw;
+
+    const dayRaw = item.dayElecQuantity || item.dayElecQuantity31 || {};
+    const day = Array.isArray(dayRaw) ? dayRaw[0] || {} : dayRaw;
+
+    const monthRaw = item.monthElecQuantity || {};
+    const month = Array.isArray(monthRaw) ? monthRaw[0] || {} : monthRaw;
+
+    const consNo =
+      user.consNo_dst ||
+      user.consNo ||
+      user.consNoSrc ||
+      bill.consNo ||
+      "";
+
+    const name =
+      user.consName_dst ||
+      user.consName ||
+      user.realName ||
+      user.userName ||
+      "";
+
+    const address =
+      user.elecAddr_dst ||
+      user.elecAddr ||
+      user.address ||
+      "";
+
+    const balanceRaw = bill.sumMoney ?? bill.balance ?? bill.prepayBal ?? "";
+    const balanceNum = Number(balanceRaw);
+    const hasBalance = balanceRaw !== "" && balanceRaw !== undefined && balanceRaw !== null;
+
+    const isOwe =
+      item.arrearsOfFees === true ||
+      Number(bill.historyOwe || 0) > 0 ||
+      balanceNum < 0;
+
+    const currentUsage =
+      bill.totalPq ||
+      day.totalPq ||
+      day.totalPower ||
+      "";
+
+    const billDate =
+      bill.date ||
+      bill.billDate ||
+      day.endTime ||
+      "";
+
+    const estimatedDays =
+      bill.dayNum ||
+      bill.estimatedDays ||
+      "";
+
+    const annualUsage =
+      month?.dataInfo?.totalEleNum ||
+      month?.totalEleNum ||
+      "";
+
+    const annualCost =
+      month?.dataInfo?.totalEleCost ||
+      month?.totalEleCost ||
+      "";
+
+    return {
+      consNo,
+      name,
+      address,
+      balance: hasBalance ? Math.abs(balanceNum).toFixed(2) : "",
+      isOwe,
+      currentUsage,
+      billDate,
+      estimatedDays,
+      annualUsage,
+      annualCost
+    };
+  }
+
+  function buildLines(accounts) {
+    const lines = [];
+
+    accounts.forEach((acc, idx) => {
+      if (accounts.length > 1) {
+        lines.push(`户号 ${idx + 1}`);
+      }
+
+      if (acc.currentUsage) {
+        lines.push(`本期电量：${acc.currentUsage} 度`);
+      }
+
+      if (acc.balance) {
+        lines.push(`账户余额：${acc.isOwe ? "-" : ""}${acc.balance} 元`);
+      }
+
+      if (acc.billDate) {
+        lines.push(`截至日期：${acc.billDate}`);
+      }
+
+      if (acc.estimatedDays) {
+        lines.push(`预计可用：${acc.estimatedDays} 天`);
+      }
+
+      if (acc.annualUsage || acc.annualCost) {
+        lines.push(`年度用电：${acc.annualUsage || "--"} 度 / ${acc.annualCost || "--"} 元`);
+      }
+
+      if (acc.consNo) {
+        lines.push(`户号信息：${acc.consNo}${acc.name ? "|" + acc.name : ""}`);
+      }
+
+      if (family !== "systemSmall" && acc.address) {
+        lines.push(`用电地址：${acc.address}`);
+      }
+
+      if (accounts.length > 1) {
+        lines.push("");
+      }
+    });
+
+    return lines.filter(Boolean);
+  }
+
+  function buildAccessory(accounts) {
+    const acc = accounts[0] || {};
+    const main = acc.balance
+      ? `${acc.isOwe ? "-" : ""}${acc.balance}元`
+      : acc.currentUsage
+        ? `${acc.currentUsage}度`
+        : "网上国网";
+
+    if (family === "accessoryInline") {
+      return {
+        type: "widget",
+        children: [
+          text(`⚡ ${main}`, "caption1", "medium", "#FFFFFF", 1)
+        ]
+      };
+    }
+
     return {
       type: "widget",
       children: [
-        textNode("⚡", "title3", "bold", "#FFFFFF", 1),
-        textNode(main.replace(/^账户余额[:：]\s*/, ""), "caption2", "medium", "#FFFFFF", 2)
+        text("⚡", "title3", "bold", "#FFFFFF", 1),
+        text(main, "caption2", "semibold", "#FFFFFF", 2)
       ]
     };
   }
 
-  return {
-    type: "widget",
-    children: [
-      textNode("网上国网", "caption2", "medium", "#FFFFFF", 1),
-      textNode(main, "caption1", "semibold", "#FFFFFF", 2)
-    ]
-  };
-}
+  function buildWidget(accounts) {
+    if (family.startsWith("accessory")) {
+      return buildAccessory(accounts);
+    }
 
-function buildWidget(info) {
-  if (family.startsWith("accessory")) {
-    return buildAccessoryWidget(info);
-  }
+    const lines = buildLines(accounts);
 
-  const isError =
-    /❌|错误|失败|请先配置|账号|密码/.test(info.subtitle || "") ||
-    /❌|错误|失败|请先配置|账号|密码/.test(info.body || "");
+    const maxLines =
+      family === "systemSmall"
+        ? 5
+        : family === "systemMedium"
+          ? 8
+          : 16;
 
-  const lines = cleanLines(info.body || info.subtitle || "暂无数据");
+    const shown = lines.slice(0, maxLines);
 
-  const maxLines =
-    family === "systemSmall"
-      ? 5
-      : family === "systemMedium"
-        ? 8
-        : 16;
-
-  const displayLines = lines.slice(0, maxLines);
-
-  const titleColor = isError
-    ? { light: "#DC2626", dark: "#F87171" }
-    : { light: "#047857", dark: "#34D399" };
-
-  const bodyColor = {
-    light: "#374151",
-    dark: "#D1D5DB"
-  };
-
-  const children = [
-    {
-      type: "stack",
-      direction: "row",
-      alignment: "center",
-      gap: 6,
+    return {
+      type: "widget",
+      padding: 14,
+      gap: 7,
+      backgroundColor: {
+        light: "#F0FDF4",
+        dark: "#052E16"
+      },
       children: [
         {
-          type: "image",
-          src: "sf-symbol:bolt.fill",
-          width: 18,
-          height: 18,
-          tintColor: titleColor
+          type: "stack",
+          direction: "row",
+          alignItems: "center",
+          gap: 6,
+          children: [
+            {
+              type: "image",
+              src: "sf-symbol:bolt.fill",
+              color: {
+                light: "#059669",
+                dark: "#34D399"
+              },
+              width: 18,
+              height: 18
+            },
+            text("网上国网", "headline", "bold", {
+              light: "#047857",
+              dark: "#6EE7B7"
+            }, 1),
+            spacer(),
+            {
+              type: "date",
+              date: new Date().toISOString(),
+              format: "time",
+              font: {
+                size: "caption2",
+                weight: "regular"
+              },
+              textColor: {
+                light: "#6B7280",
+                dark: "#9CA3AF"
+              }
+            }
+          ]
         },
-        textNode(info.title || "网上国网", "headline", "bold", titleColor, 1),
-        spacer(),
         {
-          type: "date",
-          date: new Date().toISOString(),
-          format: "time",
-          font: { size: "caption2", weight: "regular" },
-          textColor: {
-            light: "#6B7280",
-            dark: "#9CA3AF"
-          }
+          type: "stack",
+          direction: "column",
+          alignItems: "start",
+          gap: 3,
+          children: shown.map(line => {
+            const important =
+              line.includes("余额") ||
+              line.includes("本期电量") ||
+              line.includes("预计可用");
+
+            return text(
+              line,
+              family === "systemSmall" ? "caption2" : "caption1",
+              important ? "semibold" : "regular",
+              important
+                ? { light: "#111827", dark: "#FFFFFF" }
+                : { light: "#374151", dark: "#D1D5DB" },
+              1
+            );
+          })
         }
       ]
-    }
-  ];
-
-  if (info.subtitle) {
-    children.push(
-      textNode(
-        info.subtitle,
-        "caption1",
-        "semibold",
-        isError
-          ? { light: "#DC2626", dark: "#F87171" }
-          : { light: "#111827", dark: "#F9FAFB" },
-        2
-      )
-    );
+    };
   }
-
-  children.push(
-    {
-      type: "stack",
-      direction: "column",
-      gap: 3,
-      children: displayLines.map(line => {
-        const highlight =
-          line.includes("余额") ||
-          line.includes("本期电量") ||
-          line.includes("预计可用") ||
-          line.includes("五日用电");
-
-        const color = highlight
-          ? { light: "#111827", dark: "#FFFFFF" }
-          : bodyColor;
-
-        return textNode(
-          line,
-          family === "systemSmall" ? "caption2" : "caption1",
-          highlight ? "medium" : "regular",
-          color,
-          1
-        );
-      })
-    }
-  );
-
-  return {
-    type: "widget",
-    backgroundColor: {
-      light: "#F0FDF4",
-      dark: "#052E16"
-    },
-    padding: 12,
-    gap: 8,
-    children
-  };
-}
-
-async function runOriginalScript() {
-  const notices = [];
-
-  if (!USERNAME || !PASSWORD) {
-    return buildWidget({
-      title: "网上国网",
-      subtitle: "请先配置账号密码",
-      body: "在 Egern 模块 env 中填写 USERNAME 和 PASSWORD"
-    });
-  }
-
-  let doneResolve;
-  const donePromise = new Promise(resolve => {
-    doneResolve = resolve;
-  });
-
-  globalThis.$argument = makeArgs();
-
-  globalThis.$done = payload => {
-    doneResolve(payload || {});
-  };
-
-  globalThis.$notification = {
-    post(title, subtitle, body, options) {
-      notices.push({
-        title,
-        subtitle,
-        body,
-        options
-      });
-    }
-  };
 
   try {
-    const code = await httpGet(ORIGINAL_SCRIPT);
+    const url = `${API_URL}?_=${Date.now()}`;
+    const resp = await ctx.http.get(url);
+    const json = await resp.json();
 
-    try {
-      (0, eval)(code);
-    } catch (e) {
-      notices.push({
-        title: "网上国网",
-        subtitle: "❌ 脚本加载失败",
-        body: String(e && e.message ? e.message : e)
-      });
-      doneResolve({});
+    if (json && json.error) {
+      return errorWidget(json.message || json.error);
     }
 
-    await Promise.race([
-      donePromise,
-      sleep(55000).then(() => {
-        throw new Error("查询超时，请稍后刷新 Widget");
-      })
-    ]);
+    const arr = Array.isArray(json)
+      ? json
+      : Array.isArray(json.data)
+        ? json.data
+        : [json];
 
-    return buildWidget(flattenNoticeList(notices));
+    const accounts = arr.map(normalizeAccount);
+
+    if (!accounts.length) {
+      return errorWidget("接口没有返回户号数据");
+    }
+
+    return buildWidget(accounts);
   } catch (e) {
-    return buildWidget({
-      title: "网上国网",
-      subtitle: "❌ Widget 执行失败",
-      body: String(e && e.message ? e.message : e)
-    });
+    return errorWidget(String(e && e.message ? e.message : e));
   }
 }
-
-return await runOriginalScript();
