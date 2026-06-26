@@ -1,50 +1,59 @@
-#!name=网上国网 Widget
-#!desc=网上国网电费 / 电量桌面小组件
-#!author=ONZ3V / Egern Widget by ChatGPT
-
-scriptings:
-  - generic:
-      name: SGCC_Widget
-      script_url: "https://raw.githubusercontent.com/unknowntokyo/surge-list/master/Egern/SGCC_Widget.js"
-      update_interval: 86400
-      timeout: 10
-      env:
-        USERNAME: ""
-        PASSWORD: ""
-        DEBUG: "false"
-        SHOW_RECENT_USAGE: "false"
-        NOTIFY_ALL_ACCOUNTS: "false"
-
-widgets:
-  - name: "网上国网"
-    script_name: SGCC_Widget
-    
-    
 name: "网上国网 Widget"
-description: "网上国网电费 / 电量查询 Widget，保留接口重写模式"
-author: "ONZ3V / Egern by ChatGPT"
+description: "网上国网电费 / 电量查询 Widget for Egern"
+author: "ChatGPT"
+homepage: "https://github.com/Yuheng0101/X"
+icon: "bolt.fill"
+
+env_schema:
+  SGCC_USERNAME:
+    name: "网上国网账号"
+    description: "一般是手机号"
+    default_value: ""
+  SGCC_PASSWORD:
+    name: "网上国网密码"
+    description: "网上国网 App 登录密码"
+    default_value: ""
+  SGCC_DEBUG:
+    name: "调试日志"
+    description: "true 或 false"
+    default_value: "false"
+    options:
+      - "true"
+      - "false"
+  SGCC_SHOW_RECENT_USAGE:
+    name: "显示近日电量"
+    description: "true 或 false"
+    default_value: "false"
+    options:
+      - "true"
+      - "false"
+  SGCC_NOTIFY_ALL_ACCOUNTS:
+    name: "显示全部户号"
+    description: "true 或 false"
+    default_value: "true"
+    options:
+      - "true"
+      - "false"
 
 scriptings:
-  # 1. 接口重写：负责把 api.wsgw-rewrite.com 转成电费 JSON
   - http_request:
-      name: "网上国网接口重写"
-      match: "^https?:\\/\\/api\\.wsgw-rewrite\\.com\\/electricity\\/bill\\/all"
-      script_url: "https://raw.githubusercontent.com/unknowntokyo/surge-list/master/Egern/SGCC_API.js"
+      name: "sgcc-api"
+      match: '^https?://api\.wsgw-rewrite\.com/electricity/bill/all(?:\?.*)?$'
+      script_url: "https://raw.githubusercontent.com/你的用户名/你的仓库/main/sgcc-egern-api-wrapper.js"
       update_interval: 86400
+      timeout: 60
       body_required: false
       max_size: 1048576
-      timeout: 60
       env:
-        USERNAME: "你的网上国网账号"
-        PASSWORD: "你的网上国网密码"
-        DEBUG: "false"
-        SHOW_RECENT_USAGE: "false"
-        NOTIFY_ALL_ACCOUNTS: "true"
+        SGCC_USERNAME: ""
+        SGCC_PASSWORD: ""
+        SGCC_DEBUG: "false"
+        SGCC_SHOW_RECENT_USAGE: "false"
+        SGCC_NOTIFY_ALL_ACCOUNTS: "true"
 
-  # 2. Widget 脚本：负责请求上面的接口并显示
   - generic:
       name: "sgcc-widget"
-      script_url: "https://raw.githubusercontent.com/unknowntokyo/surge-list/master/Egern/SGCC_Widget.js"
+      script_url: "https://raw.githubusercontent.com/你的用户名/你的仓库/main/sgcc-egern-widget.js"
       update_interval: 86400
       timeout: 30
       env:
@@ -56,5 +65,4 @@ widgets:
 
 mitm:
   hostnames:
-    includes:
-      - "api.wsgw-rewrite.com"
+    - "api.wsgw-rewrite.com"
