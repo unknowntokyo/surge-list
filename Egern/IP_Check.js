@@ -284,137 +284,80 @@ const cityMap = {
   'cape town': '开普敦'
 };
 
-function escapeRegExp(str) {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
+let CITY_REGEX = null;
+let CITY_REGEX_READY = false;
 
-const SORTED_CITY_KEYS = Object.keys(cityMap)
-  .filter(k => k.length > 2)
-  .sort((a, b) => b.length - a.length);
-
-const CITY_REGEX = SORTED_CITY_KEYS.length
-  ? new RegExp('\\b(' + SORTED_CITY_KEYS.map(escapeRegExp).join('|') + ')\\b')
-  : null;
-
-function translateCity(text) {
-  if (typeof text !== 'string') return '';
-
-  const key = text
-    .trim()
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f.,]/g, '')
-    .replace(/[-\s]+/g, ' ');
-
-  const exactMatch = cityMap[key];
-  if (exactMatch) return exactMatch;
-
-  if (CITY_REGEX) {
-    const match = CITY_REGEX.exec(key);
-    if (match) return cityMap[match[1]];
-  }
-
-  return text;
+function now() {
+  return typeof performance !== 'undefined' && typeof performance.now === 'function'
+    ? performance.now()
+    : Date.now();
 }
 
 function isEnvOn(v) {
   return String(v || '').trim() === '开启';
 }
 
-function getPolicy(ctx) {
-  return ctx.env?.POLICY || 'DIRECT';
+function escapeRegExp(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-async function getIPInfo(ctx) {
-  try {
-    const data = await ctx.response.json();
+function getCityRegex() {
+  if (CITY_REGEX_READY) return CITY_REGEX;
 
-    if (!data || typeof data !== 'object') {
-      console.log('IP信息为空，脚本终止');
-      return null;
-    }
+  const keys = Object.keys(cityMap)
+    .filter(k => k.length > 2)
+    .sort((a, b) => b.length - a.length);
 
-    if (data.city_name) {
-      data.city_name_zh = translateCity(data.city_name);
-    }
+  CITY_REGEX = keys.length
+    ? new RegExp('\\b(' + keys.map(escapeRegExp).join('|') + ')\\b')
+    : null;
 
-    return data;
-  } catch (e) {
-    console.log('IP信息错误，脚本终止:', e);
-    return null;
-  }
+  CITY_REGEX_READY = true;
+  return CITY_REGEX;
 }
 
-async function getSpeedTest(ctx) {
-  const SPEED_TEST_TIMEOUT =
-    (parseFloat(ctx.env?.SPEED_TEST_TIMEOUT) || 5) * 1000;
+function normalizeCityKey(text) {
+  return text
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f.,]/g, '')
+    .replace(/[-_\s]+/g, ' ');
+}
 
-  const SPEED_TEST_PACKET =
-    Math.floor((parseFloat(ctx.env?.SPEED_TEST_PACKET) || 3) * 1048576);
+function translateCity(text) {
+  if (typeof text !== 'string') return '';
 
-  let downloadedBytes = 0;
-  let reader;
-  let timeoutId = null;
+  const raw = text.trim();
+  if (!raw) return '';
 
-  const dlStartTime = performance.now();
+  const lower = raw.toLowerCase();
 
-  try {
-    const downloadPromise = (async () => {
-      const response = await ctx.http.get(
-        `https://speed.cloudflare.com/__down?bytes=${SPEED_TEST_PACKET}`,
-        {
-          timeout: SPEED_TEST_TIMEOUT,
-          policy: getPolicy(ctx),
-          credentials: 'omit'
-        }
-      );
+  let translated = cityMap[lower];
+  if (translated) return translated;
 
-      reader = response?.body?.getReader();
-      if (!reader) throw new Error('Reader Error');
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        downloadedBytes += value?.byteLength || value?.length || 0;
-      }
-    })();
-
-    await Promise.race([
-      downloadPromise,
-      new Promise((_, reject) => {
-        timeoutId = setTimeout(
-          () => reject(new Error('Timeout')),
-          SPEED_TEST_TIMEOUT
-        );
-      })
-    ]);
-  } catch (e) {
-    console.log('测速失败:', e);
-  } finally {
-    if (timeoutId) clearTimeout(timeoutId);
-
-    if (reader) {
-      try {
-        await reader.cancel();
-      } catch {}
-    }
+  if (lower.includes('-') || lower.includes('_')) {
+    const simpleKey = lower.replace(/[-_]+/g, ' ');
+    translated = cityMap[simpleKey];
+    if (translated) return translated;
   }
 
-  if (downloadedBytes === 0) return '⚠️ 测速失败';
+  const key = normalizeCityKey(raw);
+  if (!key) return raw;
 
-  const durationSeconds = (performance.now() - dlStartTime) / 1000;
-  if (durationSeconds < 0.2) return '⚠️ 测速失败';
+  if (key !== lower) {
+    translated = cityMap[key];
+    if (translated) return translated;
+  }
 
-  return `${((downloadedBytes * 8) / 1e6 / durationSeconds).toFixed(1)} Mbps`;
+  const regex = getCityRegex();
+  if (regex) {
+    const match = regex.exec(key);
+    if (match) return cityMap[match[1]];
+  }
+
+  return raw;
 }
-
-function firstValid(...values) {
-  return values.find(v => v !== undefined && v !== null && v !== '');
-}
-
-const TRUE_BOOL_SET = new Set(['true', '1', 'yes', 'y']);
-const FALSE_BOOL_SET = new Set(['false', '0', 'no', 'n']);
 
 function parseBooleanLike(v) {
   if (typeof v === 'boolean') return v;
@@ -422,16 +365,151 @@ function parseBooleanLike(v) {
   if (typeof v === 'number') {
     if (v === 1) return true;
     if (v === 0) return false;
+    return undefined;
   }
 
   if (typeof v === 'string') {
-    const s = v.trim().toLowerCase();
+    switch (v.trim().toLowerCase()) {
+      case 'true':
+      case '1':
+      case 'yes':
+      case 'y':
+        return true;
 
-    if (TRUE_BOOL_SET.has(s)) return true;
-    if (FALSE_BOOL_SET.has(s)) return false;
+      case 'false':
+      case '0':
+      case 'no':
+      case 'n':
+        return false;
+
+      default:
+        return undefined;
+    }
   }
 
   return undefined;
+}
+
+function isValidValue(v) {
+  return v !== undefined && v !== null && v !== '';
+}
+
+function firstValid4(a, b, c, d) {
+  if (isValidValue(a)) return a;
+  if (isValidValue(b)) return b;
+  if (isValidValue(c)) return c;
+  if (isValidValue(d)) return d;
+  return undefined;
+}
+
+function parsePositiveFloat(v, fallback) {
+  const n = Number.parseFloat(v);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+}
+
+async function getIPInfo(ctx) {
+  let text;
+  let bodyRead = false;
+
+  try {
+    text = await ctx.response.text();
+    bodyRead = true;
+
+    const data = JSON.parse(text);
+
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+      console.log('IP信息为空，脚本终止');
+
+      return {
+        ipInfo: null,
+        fallbackBody: text,
+        bodyRead
+      };
+    }
+
+    if (typeof data.city_name === 'string' && data.city_name) {
+      data.city_name_zh = translateCity(data.city_name);
+    }
+
+    return {
+      ipInfo: data,
+      fallbackBody: text,
+      bodyRead
+    };
+  } catch (e) {
+    console.log('IP信息错误，脚本终止:', e);
+
+    return {
+      ipInfo: null,
+      fallbackBody: bodyRead ? text : undefined,
+      bodyRead
+    };
+  }
+}
+
+async function getSpeedTest(ctx, policy, timeoutMs, packetBytes) {
+  let downloadedBytes = 0;
+  let reader = null;
+  let timeoutId = null;
+  let downloadCompleted = false;
+
+  const start = now();
+
+  const downloadPromise = (async () => {
+    const response = await ctx.http.get(
+      `https://speed.cloudflare.com/__down?bytes=${packetBytes}`,
+      {
+        timeout: timeoutMs,
+        policy,
+        credentials: 'omit'
+      }
+    );
+
+    if (
+      typeof response?.status === 'number' &&
+      (response.status < 200 || response.status >= 300)
+    ) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    reader = response?.body?.getReader?.();
+    if (!reader) throw new Error('Reader Error');
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      downloadedBytes += value?.byteLength || value?.length || 0;
+    }
+  })();
+
+  const timeoutPromise = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error('Timeout'));
+    }, timeoutMs);
+  });
+
+  try {
+    await Promise.race([downloadPromise, timeoutPromise]);
+    downloadCompleted = true;
+  } catch (e) {
+    console.log('测速失败:', e);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+
+    if (!downloadCompleted && reader) {
+      try {
+        await reader.cancel();
+      } catch {}
+    }
+  }
+
+  if (downloadedBytes <= 0) return '⚠️ 测速失败';
+
+  const seconds = (now() - start) / 1000;
+  if (seconds < 0.2) return '⚠️ 测速失败';
+
+  return `${((downloadedBytes * 8) / 1e6 / seconds).toFixed(1)} Mbps`;
 }
 
 function pickIPPureData(d) {
@@ -454,7 +532,7 @@ function formatRiskLevel(risk) {
   if (risk === undefined || risk === null || risk === '') return null;
 
   const score = Number(risk);
-  if (Number.isNaN(score)) return null;
+  if (!Number.isFinite(score)) return null;
 
   if (score >= 80) return `极高风险 (${score})`;
   if (score >= 70) return `高风险 (${score})`;
@@ -487,21 +565,21 @@ function normalizeIPPureInfo(d) {
   const data = pickIPPureData(d);
   if (!data) return ipPureNoRating('IPPure返回数据为空');
 
-  const rawResidential = firstValid(
+  const rawResidential = firstValid4(
     data.isResidential,
     data.is_residential,
-    data.residential
+    data.residential,
+    undefined
   );
 
-  const rawRiskScore = firstValid(
+  const rawRiskScore = firstValid4(
     data.fraudScore,
     data.riskScore,
     data.risk_score,
     data.score
   );
 
-  const isResidential = parseBooleanLike(rawResidential);
-  const nativeText = formatNativeType(isResidential);
+  const nativeText = formatNativeType(parseBooleanLike(rawResidential));
   const riskText = formatRiskLevel(rawRiskScore);
 
   if (!nativeText && !riskText) {
@@ -516,11 +594,11 @@ function normalizeIPPureInfo(d) {
   };
 }
 
-async function getIPPureInfo(ctx) {
+async function getIPPureInfo(ctx, policy) {
   try {
     const res = await ctx.http.get('https://my.ippure.com/v1/info', {
       timeout: 5000,
-      policy: getPolicy(ctx),
+      policy,
       credentials: 'omit'
     });
 
@@ -551,65 +629,105 @@ async function getIPPureInfo(ctx) {
 
 function formatIPPureText(ipPureInfo) {
   if (!ipPureInfo) return null;
-
   if (ipPureInfo.failed) return 'IPPure信息获取失败';
 
   const nativeText = ipPureInfo.nativeText;
   const riskText = ipPureInfo.riskText;
 
   if (nativeText && riskText) return `${nativeText} & ${riskText}`;
-  if (nativeText) return nativeText;
-  if (riskText) return riskText;
 
-  return '暂无评级';
+  return nativeText || riskText || '暂无评级';
 }
 
 function modResponseBody(ipInfo, speedMbps, ipPureInfo) {
+  const countryCode = String(ipInfo.country_code || '').toUpperCase();
   const ipPureText = formatIPPureText(ipPureInfo);
 
-  return {
+  const body = {
     'IP地址': ipInfo.ip || '未知',
 
     '地区':
-      codeMap[ipInfo.country_code] ||
-      ipInfo.country_code ||
+      codeMap[countryCode] ||
+      countryCode ||
       '未知',
-
-    ...(ipInfo.city_name_zh && {
-      '城市': ipInfo.city_name_zh
-    }),
 
     '互联网服务提供商': ipInfo.asn
       ? `AS${ipInfo.asn} ${ipInfo.as_desc || ''}`.trim()
       : '未知',
 
-    ...(speedMbps && {
-      '下行带宽': speedMbps
-    }),
-
-    ...(ipPureText && {
-      'IP纯净度': ipPureText
-    }),
-
     '客户端': ipInfo.user_agent
       ? ipInfo.user_agent.replace(/^egern/i, 'Egern')
       : 'Egern'
   };
+
+  if (ipInfo.city_name_zh) {
+    body['城市'] = ipInfo.city_name_zh;
+  }
+
+  if (speedMbps) {
+    body['下行带宽'] = speedMbps;
+  }
+
+  if (ipPureText) {
+    body['IP纯净度'] = ipPureText;
+  }
+
+  return body;
 }
 
 export default async function(ctx) {
   if (!ctx.response) return;
 
-  const showSpeedTest = isEnvOn(ctx.env?.SHOW_SPEED_TEST);
-  const showIPPure = isEnvOn(ctx.env?.SHOW_IPPURE);
+  const env = ctx.env || {};
+  const policy = env.POLICY || 'DIRECT';
 
-  const [ipInfo, speedMbps, ipPureInfo] = await Promise.all([
-    getIPInfo(ctx),
-    showSpeedTest ? getSpeedTest(ctx) : null,
-    showIPPure ? getIPPureInfo(ctx) : null
+  const showSpeedTest = isEnvOn(env.SHOW_SPEED_TEST);
+  const showIPPure = isEnvOn(env.SHOW_IPPURE);
+
+  const ipTask = getIPInfo(ctx);
+
+  let speedTask = null;
+
+  if (showSpeedTest) {
+    const speedTimeoutMs = Math.floor(
+      parsePositiveFloat(env.SPEED_TEST_TIMEOUT, 5) * 1000
+    );
+
+    const speedPacketBytes = Math.floor(
+      parsePositiveFloat(env.SPEED_TEST_PACKET, 3) * 1048576
+    );
+
+    speedTask = getSpeedTest(
+      ctx,
+      policy,
+      speedTimeoutMs,
+      speedPacketBytes
+    );
+  }
+
+  const ipPureTask = showIPPure
+    ? getIPPureInfo(ctx, policy)
+    : null;
+
+  const [ipResult, speedMbps, ipPureInfo] = await Promise.all([
+    ipTask,
+    speedTask,
+    ipPureTask
   ]);
 
-  return ipInfo
-    ? { body: modResponseBody(ipInfo, speedMbps, ipPureInfo) }
-    : { body: ctx.response.body };
+  const ipInfo = ipResult?.ipInfo;
+
+  if (ipInfo) {
+    return {
+      body: modResponseBody(ipInfo, speedMbps, ipPureInfo)
+    };
+  }
+
+  if (ipResult?.bodyRead && typeof ipResult.fallbackBody === 'string') {
+    return {
+      body: ipResult.fallbackBody
+    };
+  }
+
+  return;
 }
