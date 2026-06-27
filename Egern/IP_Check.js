@@ -394,12 +394,8 @@ function isValidValue(v) {
   return v !== undefined && v !== null && v !== '';
 }
 
-function firstValid4(a, b, c, d) {
-  if (isValidValue(a)) return a;
-  if (isValidValue(b)) return b;
-  if (isValidValue(c)) return c;
-  if (isValidValue(d)) return d;
-  return undefined;
+function firstValid(...values) {
+  return values.find(isValidValue);
 }
 
 function parsePositiveFloat(v, fallback) {
@@ -409,11 +405,9 @@ function parsePositiveFloat(v, fallback) {
 
 async function getIPInfo(ctx) {
   let text;
-  let bodyRead = false;
 
   try {
     text = await ctx.response.text();
-    bodyRead = true;
 
     const data = JSON.parse(text);
 
@@ -422,8 +416,7 @@ async function getIPInfo(ctx) {
 
       return {
         ipInfo: null,
-        fallbackBody: text,
-        bodyRead
+        fallbackBody: text
       };
     }
 
@@ -433,16 +426,14 @@ async function getIPInfo(ctx) {
 
     return {
       ipInfo: data,
-      fallbackBody: text,
-      bodyRead
+      fallbackBody: text
     };
   } catch (e) {
     console.log('IP信息错误，脚本终止:', e);
 
     return {
       ipInfo: null,
-      fallbackBody: bodyRead ? text : undefined,
-      bodyRead
+      fallbackBody: typeof text === 'string' ? text : undefined
     };
   }
 }
@@ -565,14 +556,13 @@ function normalizeIPPureInfo(d) {
   const data = pickIPPureData(d);
   if (!data) return ipPureNoRating('IPPure返回数据为空');
 
-  const rawResidential = firstValid4(
+  const rawResidential = firstValid(
     data.isResidential,
     data.is_residential,
-    data.residential,
-    undefined
+    data.residential
   );
 
-  const rawRiskScore = firstValid4(
+  const rawRiskScore = firstValid(
     data.fraudScore,
     data.riskScore,
     data.risk_score,
@@ -675,6 +665,29 @@ function modResponseBody(ipInfo, speedMbps, ipPureInfo) {
   return body;
 }
 
+function deleteBodyRelatedHeaders(headers) {
+  headers.delete('Content-Length');
+  headers.delete('Content-Encoding');
+  headers.delete('ETag');
+}
+
+function makeModifiedJsonHeaders(ctx) {
+  const headers = ctx.response.headers;
+
+  headers.set('Content-Type', 'application/json; charset=utf-8');
+  deleteBodyRelatedHeaders(headers);
+
+  return headers;
+}
+
+function makeRewrittenBodyHeaders(ctx) {
+  const headers = ctx.response.headers;
+
+  deleteBodyRelatedHeaders(headers);
+
+  return headers;
+}
+
 export default async function(ctx) {
   if (!ctx.response) return;
 
@@ -719,12 +732,14 @@ export default async function(ctx) {
 
   if (ipInfo) {
     return {
+      headers: makeModifiedJsonHeaders(ctx),
       body: modResponseBody(ipInfo, speedMbps, ipPureInfo)
     };
   }
 
-  if (ipResult?.bodyRead && typeof ipResult.fallbackBody === 'string') {
+  if (typeof ipResult?.fallbackBody === 'string') {
     return {
+      headers: makeRewrittenBodyHeaders(ctx),
       body: ipResult.fallbackBody
     };
   }
