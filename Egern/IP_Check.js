@@ -416,7 +416,7 @@ function firstValid(...values) {
 const TRUE_BOOL_SET = new Set(['true', '1', 'yes', 'y']);
 const FALSE_BOOL_SET = new Set(['false', '0', 'no', 'n']);
 
-function toBool(v) {
+function parseBooleanLike(v) {
   if (typeof v === 'boolean') return v;
 
   if (typeof v === 'number') {
@@ -500,7 +500,7 @@ function normalizeIPPureInfo(d) {
     data.score
   );
 
-  const isResidential = toBool(rawResidential);
+  const isResidential = parseBooleanLike(rawResidential);
   const nativeText = formatNativeType(isResidential);
   const riskText = formatRiskLevel(rawRiskScore);
 
@@ -528,7 +528,10 @@ async function getIPPureInfo(ctx) {
       return ipPureFailed('无响应');
     }
 
-    if (typeof res.status === 'number' && (res.status < 200 || res.status >= 300)) {
+    if (
+      typeof res.status === 'number' &&
+      (res.status < 200 || res.status >= 300)
+    ) {
       console.log('IPPure HTTP状态异常:', res.status);
       return ipPureFailed(`HTTP ${res.status}`);
     }
