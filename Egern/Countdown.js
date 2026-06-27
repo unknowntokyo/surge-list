@@ -212,13 +212,6 @@ function isValidLunarYear(y) {
   return Number.isInteger(y) && y >= MIN_LUNAR_YEAR && y <= MAX_LUNAR_YEAR;
 }
 
-/**
- * 农历累计偏移缓存。
- *
- * 修改点：
- * 原实现当 maxYear 增大时会重新从 1900 年构建 Map。
- * 这里改为惰性增量扩展，只补算新增年份。
- */
 let lunarCumulativeCache = {
   maxYear: MIN_LUNAR_YEAR - 1,
   nextOffset: 0,
@@ -240,37 +233,99 @@ function ensureLunarCumulative(maxYear) {
   lunarCumulativeCache.maxYear = safeMaxYear;
 }
 
-function stableStringify(value) {
-  const seen = new WeakSet();
+const CACHE_ENV_KEYS = Object.freeze([
+  "SHOW_SCHOOL_HOLIDAYS",
+  "SHOW_FINANCE_DATES",
+  "ENABLE_PRIORITY_SORT",
+  "ENABLE_EXCLUSIVE_WEIGHT",
 
-  const normalize = v => {
-    if (v instanceof Date) return v.toISOString();
+  "SPRING_BREAK_DATE",
+  "AUTUMN_BREAK_DATE",
+  "QINGMING_DATE",
+  "PINNED_HOLIDAY",
 
-    if (v && typeof v === "object") {
-      if (seen.has(v)) return "[Circular]";
-      seen.add(v);
+  "EXCLUSIVE_NAME",
+  "EXCLUSIVE_DATE",
 
-      if (Array.isArray(v)) {
-        return v.map(normalize);
-      }
+  "EXCLUSIVE_NAME_1",
+  "EXCLUSIVE_DATE_1",
+  "EXCLUSIVE_NAME_2",
+  "EXCLUSIVE_DATE_2",
+  "EXCLUSIVE_NAME_3",
+  "EXCLUSIVE_DATE_3",
+  "EXCLUSIVE_NAME_4",
+  "EXCLUSIVE_DATE_4",
+  "EXCLUSIVE_NAME_5",
+  "EXCLUSIVE_DATE_5",
+  "EXCLUSIVE_NAME_6",
+  "EXCLUSIVE_DATE_6"
+]);
 
-      return Object.keys(v)
-        .sort()
-        .reduce((acc, key) => {
-          acc[key] = normalize(v[key]);
-          return acc;
-        }, {});
+const CACHE_BOOL_ENV_KEYS = new Set([
+  "SHOW_SCHOOL_HOLIDAYS",
+  "SHOW_FINANCE_DATES",
+  "ENABLE_PRIORITY_SORT",
+  "ENABLE_EXCLUSIVE_WEIGHT"
+]);
+
+const BOOL_FALSE_VALUES = new Set([
+  "false",
+  "0",
+  "no",
+  "off",
+  "disabled"
+]);
+
+const BOOL_TRUE_VALUES = new Set([
+  "true",
+  "1",
+  "yes",
+  "on",
+  "enabled"
+]);
+
+function normalizeCacheEnvValue(key, value) {
+  if (CACHE_BOOL_ENV_KEYS.has(key)) {
+    if (value === undefined || value === null || String(value).trim() === "") {
+      return "1";
     }
 
-    return v;
-  };
+    const s = String(value).trim().toLowerCase();
 
-  try {
-    const json = JSON.stringify(normalize(value));
-    return json === undefined ? String(value) : json;
-  } catch (e) {
-    return String(value);
+    if (BOOL_FALSE_VALUES.has(s)) return "0";
+    if (BOOL_TRUE_VALUES.has(s)) return "1";
+
+    return "1";
   }
+
+  if (value === undefined || value === null) {
+    return "";
+  }
+
+  const s = String(value).trim();
+
+  if (key === "PINNED_HOLIDAY") {
+    return s
+      .split(",")
+      .map(v => v.trim())
+      .filter(Boolean)
+      .join(",");
+  }
+
+  return s;
+}
+
+function buildEnvFingerprint(env) {
+  let fp = "";
+
+  for (const key of CACHE_ENV_KEYS) {
+    fp += key;
+    fp += "=";
+    fp += normalizeCacheEnvValue(key, env?.[key]);
+    fp += "|";
+  }
+
+  return fp;
 }
 
 function isValidCachedPayload(payload) {
@@ -294,8 +349,8 @@ export default function (ctx = {}) {
 
     const s = String(v).trim().toLowerCase();
 
-    if (["false", "0", "no", "off", "disabled"].includes(s)) return false;
-    if (["true", "1", "yes", "on", "enabled"].includes(s)) return true;
+    if (BOOL_FALSE_VALUES.has(s)) return false;
+    if (BOOL_TRUE_VALUES.has(s)) return true;
 
     return defaultVal;
   };
@@ -314,10 +369,7 @@ export default function (ctx = {}) {
   const currentDay = bjDate.getUTCDay();
   const todayMs = Date.UTC(Y, M - 1, D);
 
-  const envFingerprint = Object.keys(env)
-    .sort()
-    .map(k => `${k}:${stableStringify(env[k])}`)
-    .join("|");
+  const envFingerprint = buildEnvFingerprint(env);
 
   const CACHE_KEY = "countdown_daily_cache";
   const timePhase = currentHour >= 15 ? "after3pm" : "before3pm";
@@ -741,11 +793,6 @@ export default function (ctx = {}) {
   const stickyParts = (pinnedData || []).map(p => `${p.name} ${p.diff}天`);
   const stickyText = stickyParts.join("·");
 
-  // ===== 当天弹窗提醒：每天只弹一次 =====
-  // 不新增环境变量：
-  // 1. 默认开启提醒
-  // 2. 默认只在节日 / 专属日期 / 金融日期正日提醒
-  // 3. 春节、国庆、春假、秋假等多天节日，只在第一天提醒
   if (
     typeof ctx.notify === "function" &&
     ctx.storage &&
@@ -760,7 +807,6 @@ export default function (ctx = {}) {
 
       if (notified.date !== notifyDate) {
         const notifyItems = todayItems
-          // 只提醒正日，避免春节第二天、国庆第二天继续弹
           .filter(i => i.diff === 0)
           .slice()
           .sort((a, b) => {
@@ -780,7 +826,6 @@ export default function (ctx = {}) {
         ];
 
         if (notifyNames.length > 0) {
-          // 先写入已提醒状态，避免 Widget 连续刷新导致重复弹窗
           ctx.storage.setJSON(notifyKey, {
             date: notifyDate,
             names: notifyNames,
@@ -796,7 +841,6 @@ export default function (ctx = {}) {
       }
     } catch (e) {}
   }
-  // ===== 当天弹窗提醒结束 =====
 
   const formatStr = (cat, limit) =>
     (result[cat] || [])
