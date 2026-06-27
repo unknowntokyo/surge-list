@@ -624,22 +624,35 @@ function formatIPPureText(ipPureInfo) {
   const nativeText = ipPureInfo.nativeText;
   const riskText = ipPureInfo.riskText;
 
-  if (nativeText && riskText) return `${nativeText} & ${riskText}`;
+  if (nativeText && riskText) return `${nativeText}·${riskText}`;
 
   return nativeText || riskText || '暂无评级';
 }
 
-function modResponseBody(ipInfo, speedMbps, ipPureInfo) {
+function formatLocationName(ipInfo) {
   const countryCode = String(ipInfo.country_code || '').toUpperCase();
+
+  const countryName =
+    codeMap[countryCode] ||
+    countryCode ||
+    '未知';
+
+  const cityName = typeof ipInfo.city_name_zh === 'string'
+    ? ipInfo.city_name_zh.trim()
+    : '';
+
+  return cityName
+    ? `${countryName}·${cityName}`
+    : countryName;
+}
+
+function modResponseBody(ipInfo, speedMbps, ipPureInfo) {
   const ipPureText = formatIPPureText(ipPureInfo);
 
   const body = {
     'IP地址': ipInfo.ip || '未知',
 
-    '地区':
-      codeMap[countryCode] ||
-      countryCode ||
-      '未知',
+    '出口': formatLocationName(ipInfo),
 
     '互联网服务提供商': ipInfo.asn
       ? `AS${ipInfo.asn} ${ipInfo.as_desc || ''}`.trim()
@@ -649,10 +662,6 @@ function modResponseBody(ipInfo, speedMbps, ipPureInfo) {
       ? ipInfo.user_agent.replace(/^egern/i, 'Egern')
       : 'Egern'
   };
-
-  if (ipInfo.city_name_zh) {
-    body['城市'] = ipInfo.city_name_zh;
-  }
 
   if (speedMbps) {
     body['下行带宽'] = speedMbps;
