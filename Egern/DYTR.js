@@ -53,7 +53,7 @@ export default async function(ctx) {
       const hot = String(
         item?.hot ??
         item?.hot_num ??
-        item?.desc ??
+        item?.hot_value ??
         ''
       ).trim();
 
@@ -65,6 +65,7 @@ export default async function(ctx) {
 
       const text = String(
         item?.title ||
+        item?.word ||
         item?.name ||
         item?.keyword ||
         (typeof item === 'string' ? item : '') ||
@@ -222,11 +223,12 @@ function isZeroHot(value) {
 }
 
 function currentTime() {
-  const date = new Date();
-  const hour = String(date.getHours()).padStart(2, '0');
-  const minute = String(date.getMinutes()).padStart(2, '0');
-
-  return `${hour}:${minute}`;
+  return new Intl.DateTimeFormat('zh-CN', {
+    timeZone: 'Asia/Shanghai',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  }).format(new Date());
 }
 
 function after(ms) {
