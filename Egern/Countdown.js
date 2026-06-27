@@ -40,7 +40,7 @@ const C = {
   blue2: { light: "#007AFF", dark: "#0A84FF" },
   teal: { light: "#628C7B", dark: "#73A491" },
   green: { light: "#34C759", dark: "#30D158" },
-  purple: { light: "#D14FE2", dark: "#CA31E1" }, 
+  purple: { light: "#D14FE2", dark: "#CA31E1" },
   transparent: "#00000000"
 };
 
@@ -102,12 +102,14 @@ const mkSpacer = length =>
 
 const YMD = (y, m, d) =>
   `${y}/${m < 10 ? "0" + m : m}/${d < 10 ? "0" + d : d}`;
-const displayName = name =>
-  ({
-    端午节: "🐲",
-    七夕节: "💘",
-    万圣节: "🎃"
-  }[name] ?? name);
+
+const DISPLAY_NAME_MAP = {
+  端午节: "🐲",
+  七夕节: "💘",
+  万圣节: "🎃"
+};
+
+const displayName = name => DISPLAY_NAME_MAP[name] ?? name;
 
 const formatItemStr = (name, diff) => {
   const n = displayName(name);
@@ -210,26 +212,32 @@ function isValidLunarYear(y) {
   return Number.isInteger(y) && y >= MIN_LUNAR_YEAR && y <= MAX_LUNAR_YEAR;
 }
 
-let lunarCumulativeCache = null;
+/**
+ * 农历累计偏移缓存。
+ *
+ * 修改点：
+ * 原实现当 maxYear 增大时会重新从 1900 年构建 Map。
+ * 这里改为惰性增量扩展，只补算新增年份。
+ */
+let lunarCumulativeCache = {
+  maxYear: MIN_LUNAR_YEAR - 1,
+  nextOffset: 0,
+  off: []
+};
 
 function ensureLunarCumulative(maxYear) {
   const safeMaxYear = Math.min(maxYear, MAX_LUNAR_YEAR);
 
-  if (lunarCumulativeCache && lunarCumulativeCache.maxYear >= safeMaxYear) {
+  if (lunarCumulativeCache.maxYear >= safeMaxYear) {
     return;
   }
 
-  lunarCumulativeCache = {
-    maxYear: safeMaxYear,
-    off: new Map()
-  };
-
-  let off = 0;
-
-  for (let i = MIN_LUNAR_YEAR; i <= safeMaxYear; i++) {
-    lunarCumulativeCache.off.set(i, off);
-    off += Lunar.lDays(i);
+  for (let y = lunarCumulativeCache.maxYear + 1; y <= safeMaxYear; y++) {
+    lunarCumulativeCache.off[y - MIN_LUNAR_YEAR] = lunarCumulativeCache.nextOffset;
+    lunarCumulativeCache.nextOffset += Lunar.lDays(y);
   }
+
+  lunarCumulativeCache.maxYear = safeMaxYear;
 }
 
 function stableStringify(value) {
@@ -433,7 +441,7 @@ export default function (ctx = {}) {
 
       ensureLunarCumulative(y);
 
-      let off = lunarCumulativeCache.off.get(y) ?? 0;
+      let off = lunarCumulativeCache.off[y - MIN_LUNAR_YEAR] ?? 0;
       const info = Lunar.info[y - 1900];
       const leapMonth = info & 0xf;
 
