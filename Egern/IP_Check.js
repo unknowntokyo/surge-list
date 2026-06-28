@@ -1,4 +1,4 @@
-const codeMap = { HK: '🇭🇰 香港', TW: '🇼🇸 台湾', SG: '🇸🇬 新加坡', JP: '🇯🇵 日本', KR: '🇰🇷 韩国', US: '🇺🇸 美国', DE: '🇩🇪 德国', GB: '🇬🇧 英国', NL: '🇳🇱 荷兰', CA: '🇨🇦 加拿大', AU: '🇦🇺 澳大利亚', FR: '🇫🇷 法国', TR: '🇹🇷 土耳其', MO: '🇲🇴 澳门', RU: '🇷🇺 俄罗斯' };
+const codeMap = { HK: '🇭🇰 香港', TW: '🇼🇸 台湾', SG: '🇸🇬 新加坡', JP: '🇯🇵 日本', KR: '🇰🇷 韩国', US: '🇺🇸 美国', DE: '🇩🇪 德国', GB: '🇬🇧 英国', NL: '🇳🇱 荷兰', FR: '🇫🇷 法国', CA: '🇨🇦 加拿大', AU: '🇦🇺 澳大利亚', TR: '🇹🇷 土耳其', MO: '🇲🇴 澳门', RU: '🇷🇺 俄罗斯' };
 
 const cityMap = {
 
@@ -168,6 +168,12 @@ const cityMap = {
   'schiphol': '史基浦',
   'utrecht': '乌德勒支',
 
+  // 法国
+  'lyon': '里昂',
+  'marseille': '马赛',
+  'paris': '巴黎',
+  'strasbourg': '斯特拉斯堡', 
+
   // 加拿大
   'beauharnois': '博阿努瓦',
   'montreal': '蒙特利尔',
@@ -179,12 +185,6 @@ const cityMap = {
   'melbourne': '墨尔本',
   'perth': '珀斯',
   'sydney': '悉尼',
-
-  // 法国
-  'lyon': '里昂',
-  'marseille': '马赛',
-  'paris': '巴黎',
-  'strasbourg': '斯特拉斯堡',
 
   // 土耳其
   'ankara': '安卡拉',
