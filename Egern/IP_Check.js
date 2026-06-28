@@ -92,7 +92,7 @@ const cityMap = {
   'saint petersburg': '圣彼得堡',
   'st petersburg': '圣彼得堡',
 
-  // 新加坡 & 马来西亚
+  // 新加坡
   'singapore': '新加坡',
   'loyang': '罗央',
  
