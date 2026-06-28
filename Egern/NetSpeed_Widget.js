@@ -10,7 +10,7 @@ export default async function(ctx) {
   const SPEED_TEST_PACKET = Math.floor((parseFloat(ctx.env?.SPEED_TEST_PACKET) || 3) * 1048576);
   const SPEED_TEST_URL = `https://speed.cloudflare.com/__down?bytes=${SPEED_TEST_PACKET}`;
   const CACHE_KEY = `netspeed_cache_${POLICY}`;
-  const TIMEOUT = 10000;
+  const TIMEOUT = 8000;
   
   let speedData = { mbps: 0, mBs: 0, duration: 0, timestamp: 0 };
   
