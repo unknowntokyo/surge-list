@@ -28,7 +28,7 @@ const colors = {
 export default async function(ctx) {
   try {
     const resp = await ctx.http.get(API_URL, {
-      timeout: 15000,
+      timeout: 5000,
       insecureTls: true,
       credentials: 'omit'
     });
