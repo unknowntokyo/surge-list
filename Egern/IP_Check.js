@@ -1,4 +1,4 @@
-const codeMap = { HK: '🇭🇰 香港', MO: '🇲🇴 澳门', TW: '🇼🇸 台湾', KR: '🇰🇷 韩国', JP: '🇯🇵 日本', RU: '🇷🇺 俄罗斯', TR: '🇹🇷 土耳其', AU: '🇦🇺 澳大利亚', DE: '🇩🇪 德国', NL: '🇳🇱 荷兰', FR: '🇫🇷 法国', GB: '🇬🇧 英国', CA: '🇨🇦 加拿大', US: '🇺🇸 美国' };
+const codeMap = { HK: '🇭🇰 香港', MO: '🇲🇴 澳门', TW: '🇼🇸 台湾', KR: '🇰🇷 韩国', JP: '🇯🇵 日本', RU: '🇷🇺 俄罗斯', SG: '🇸🇬 新加坡', TR: '🇹🇷 土耳其', AU: '🇦🇺 澳大利亚', DE: '🇩🇪 德国', NL: '🇳🇱 荷兰', FR: '🇫🇷 法国', GB: '🇬🇧 英国', CA: '🇨🇦 加拿大', US: '🇺🇸 美国' };
 
 const cityMap = {
 
@@ -92,6 +92,10 @@ const cityMap = {
   'saint petersburg': '圣彼得堡',
   'st petersburg': '圣彼得堡',
 
+  // 新加坡 & 马来西亚
+  'singapore': '新加坡',
+  'loyang': '罗央',
+ 
   // 土耳其
   'ankara': '安卡拉',
   'istanbul': '伊斯坦布尔',
