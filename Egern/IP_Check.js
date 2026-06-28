@@ -1,4 +1,4 @@
-const codeMap = { HK: '🇭🇰 香港', MO: '🇲🇴 澳门', TW: '🇼🇸 台湾', KR: '🇰🇷 韩国', JP: '🇯🇵 日本', RU: '🇷🇺 俄罗斯', SG: '🇸🇬 新加坡', TR: '🇹🇷 土耳其', AU: '🇦🇺 澳大利亚', DE: '🇩🇪 德国', NL: '🇳🇱 荷兰', FR: '🇫🇷 法国', GB: '🇬🇧 英国', CA: '🇨🇦 加拿大', US: '🇺🇸 美国' };
+const codeMap = { HK: '🇭🇰 香港', TW: '🇼🇸 台湾', SG: '🇸🇬 新加坡', JP: '🇯🇵 日本', KR: '🇰🇷 韩国', US: '🇺🇸 美国', DE: '🇩🇪 德国', GB: '🇬🇧 英国', NL: '🇳🇱 荷兰', CA: '🇨🇦 加拿大', AU: '🇦🇺 澳大利亚', FR: '🇫🇷 法国', TR: '🇹🇷 土耳其', MO: '🇲🇴 澳门', RU: '🇷🇺 俄罗斯' };
 
 const cityMap = {
 
@@ -23,10 +23,6 @@ const cityMap = {
   'wan chai': '湾仔',
   'yuen long': '元朗',
 
-  // 中国澳门
-  'macao': '澳门',
-  'macau': '澳门',
-
   // 中国台湾
   'banqiao': '板桥',
   'changhua': '彰化',
@@ -40,29 +36,9 @@ const cityMap = {
   'xizhi': '汐止',
   'zhubei': '竹北',
 
-  // 韩国
-  'anyang': '安养',
-  'busan': '釜山',
-  'chuncheon': '春川',
-  'daegu': '大邱',
-  'daejeon': '大田',
-  'gangnam gu': '江南区',
-  'gangseo gu': '江西区',
-  'geumcheon gu': '衿川区',
-  'guro gu': '九老区',
-  'gwangju': '光州',
-  'incheon': '仁川',
-  'jeju': '济州',
-  'mapo gu': '麻浦区',
-  'seocho gu': '瑞草区',
-  'seongdong gu': '城东区',
-  'seongnam': '城南',
-  'seoul': '首尔',
-  'songpa gu': '松坡区',
-  'suwon': '水原',
-  'ulsan': '蔚山',
-  'yeongdeungpo gu': '永登浦区',
-  'yongsan gu': '龙山区',
+  // 新加坡
+  'singapore': '新加坡',
+  'loyang': '罗央',
 
   // 日本
   'akita': '秋田',
@@ -87,62 +63,29 @@ const cityMap = {
   'toyosu': '丰洲',
   'yokohama': '横滨',
 
-  // 俄罗斯
-  'moscow': '莫斯科',
-  'saint petersburg': '圣彼得堡',
-  'st petersburg': '圣彼得堡',
-
-  // 新加坡
-  'singapore': '新加坡',
-  'loyang': '罗央',
- 
-  // 土耳其
-  'ankara': '安卡拉',
-  'istanbul': '伊斯坦布尔',
-  'izmir': '伊兹密尔',
-
-  // 澳大利亚
-  'brisbane': '布里斯班',
-  'melbourne': '墨尔本',
-  'perth': '珀斯',
-  'sydney': '悉尼',
-
-  // 德国
-  'berlin': '柏林',
-  'dusseldorf': '杜塞尔多夫',
-  'falkenstein': '法尔肯施泰因',
-  'frankfurt': '法兰克福',
-  'hamburg': '汉堡',
-  'munich': '慕尼黑',
-  'nuremberg': '纽伦堡',
-  'stuttgart': '斯图加特',
-
-  // 荷兰
-  'amsterdam': '阿姆斯特丹',
-  'eindhoven': '埃因霍温',
-  'haarlem': '哈勒姆',
-  'rotterdam': '鹿特丹',
-  'schiphol': '史基浦',
-  'utrecht': '乌德勒支',
-
-  // 法国
-  'lyon': '里昂',
-  'marseille': '马赛',
-  'paris': '巴黎',
-  'strasbourg': '斯特拉斯堡',
-
-  // 英国
-  'canary wharf': '金丝雀码头',
-  'london': '伦敦',
-  'manchester': '曼彻斯特',
-  'reading': '雷丁',
-  'slough': '斯劳',
-
-  // 加拿大
-  'beauharnois': '博阿努瓦',
-  'montreal': '蒙特利尔',
-  'toronto': '多伦多',
-  'vancouver': '温哥华',
+  // 韩国
+  'anyang': '安养',
+  'busan': '釜山',
+  'chuncheon': '春川',
+  'daegu': '大邱',
+  'daejeon': '大田',
+  'gangnam gu': '江南区',
+  'gangseo gu': '江西区',
+  'geumcheon gu': '衿川区',
+  'guro gu': '九老区',
+  'gwangju': '光州',
+  'incheon': '仁川',
+  'jeju': '济州',
+  'mapo gu': '麻浦区',
+  'seocho gu': '瑞草区',
+  'seongdong gu': '城东区',
+  'seongnam': '城南',
+  'seoul': '首尔',
+  'songpa gu': '松坡区',
+  'suwon': '水原',
+  'ulsan': '蔚山',
+  'yeongdeungpo gu': '永登浦区',
+  'yongsan gu': '龙山区',
 
   // 美国
   'ashburn': '阿什本',
@@ -198,7 +141,64 @@ const cityMap = {
   'somerset': '萨默塞特',
   'sunnyvale': '桑尼维尔',
   'tampa': '坦帕',
-  'the dalles': '达尔斯'
+  'the dalles': '达尔斯',
+
+  // 德国
+  'berlin': '柏林',
+  'dusseldorf': '杜塞尔多夫',
+  'falkenstein': '法尔肯施泰因',
+  'frankfurt': '法兰克福',
+  'hamburg': '汉堡',
+  'munich': '慕尼黑',
+  'nuremberg': '纽伦堡',
+  'stuttgart': '斯图加特',
+
+  // 英国
+  'canary wharf': '金丝雀码头',
+  'london': '伦敦',
+  'manchester': '曼彻斯特',
+  'reading': '雷丁',
+  'slough': '斯劳',
+
+  // 荷兰
+  'amsterdam': '阿姆斯特丹',
+  'eindhoven': '埃因霍温',
+  'haarlem': '哈勒姆',
+  'rotterdam': '鹿特丹',
+  'schiphol': '史基浦',
+  'utrecht': '乌德勒支',
+
+  // 加拿大
+  'beauharnois': '博阿努瓦',
+  'montreal': '蒙特利尔',
+  'toronto': '多伦多',
+  'vancouver': '温哥华',
+
+  // 澳大利亚
+  'brisbane': '布里斯班',
+  'melbourne': '墨尔本',
+  'perth': '珀斯',
+  'sydney': '悉尼',
+
+  // 法国
+  'lyon': '里昂',
+  'marseille': '马赛',
+  'paris': '巴黎',
+  'strasbourg': '斯特拉斯堡',
+
+  // 土耳其
+  'ankara': '安卡拉',
+  'istanbul': '伊斯坦布尔',
+  'izmir': '伊兹密尔',
+
+  // 中国澳门
+  'macao': '澳门',
+  'macau': '澳门',
+
+  // 俄罗斯
+  'moscow': '莫斯科',
+  'saint petersburg': '圣彼得堡',
+  'st petersburg': '圣彼得堡'
 };
 
 let CITY_REGEX = null;
