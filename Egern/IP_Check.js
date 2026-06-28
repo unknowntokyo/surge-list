@@ -403,7 +403,60 @@ function parsePositiveFloat(v, fallback) {
   return Number.isFinite(n) && n > 0 ? n : fallback;
 }
 
+function isSuccessfulResponse(ctx) {
+  const status = ctx.response?.status;
+
+  return typeof status !== 'number' || (status >= 200 && status < 300);
+}
+
+function isJsonLikeResponse(ctx) {
+  const contentType = ctx.response?.headers?.get?.('Content-Type') || '';
+
+  return /(?:application|text)\/json|\+json|text\/plain/i.test(contentType);
+}
+
+function isValidIPInfoObject(data) {
+  return (
+    data &&
+    typeof data === 'object' &&
+    !Array.isArray(data) &&
+    typeof data.ip === 'string' &&
+    data.ip.trim() !== ''
+  );
+}
+
 async function getIPInfo(ctx) {
+  if (!ctx.response) {
+    return {
+      ipInfo: null,
+      fallbackBody: undefined,
+      passthrough: true
+    };
+  }
+
+  if (!isSuccessfulResponse(ctx)) {
+    console.log('原始响应状态码非 2xx，跳过改写:', ctx.response.status);
+
+    return {
+      ipInfo: null,
+      fallbackBody: undefined,
+      passthrough: true
+    };
+  }
+
+  if (!isJsonLikeResponse(ctx)) {
+    console.log(
+      '原始响应不是 JSON-like 类型，跳过改写:',
+      ctx.response.headers?.get?.('Content-Type') || '无 Content-Type'
+    );
+
+    return {
+      ipInfo: null,
+      fallbackBody: undefined,
+      passthrough: true
+    };
+  }
+
   let text;
 
   try {
@@ -411,12 +464,13 @@ async function getIPInfo(ctx) {
 
     const data = JSON.parse(text);
 
-    if (!data || typeof data !== 'object' || Array.isArray(data)) {
-      console.log('IP信息为空，脚本终止');
+    if (!isValidIPInfoObject(data)) {
+      console.log('响应不是预期 IP 信息结构，跳过格式化改写');
 
       return {
         ipInfo: null,
-        fallbackBody: text
+        fallbackBody: text,
+        passthrough: false
       };
     }
 
@@ -426,14 +480,16 @@ async function getIPInfo(ctx) {
 
     return {
       ipInfo: data,
-      fallbackBody: text
+      fallbackBody: text,
+      passthrough: false
     };
   } catch (e) {
     console.log('IP信息错误，脚本终止:', e);
 
     return {
       ipInfo: null,
-      fallbackBody: typeof text === 'string' ? text : undefined
+      fallbackBody: typeof text === 'string' ? text : undefined,
+      passthrough: false
     };
   }
 }
@@ -491,6 +547,12 @@ async function getSpeedTest(ctx, policy, timeoutMs, packetBytes) {
     if (!downloadCompleted && reader) {
       try {
         await reader.cancel();
+      } catch {}
+    }
+
+    if (reader?.releaseLock) {
+      try {
+        reader.releaseLock();
       } catch {}
     }
   }
@@ -629,21 +691,48 @@ function formatIPPureText(ipPureInfo) {
   return nativeText || riskText || '暂无评级';
 }
 
-function formatLocationName(ipInfo) {
-  const countryCode = String(ipInfo.country_code || '').toUpperCase();
+function normalizePlaceNameForCompare(text) {
+  return String(text || '')
+    .replace(/[\u{1F1E6}-\u{1F1FF}]/gu, '')
+    .replace(/\s+/g, '')
+    .replace(/[·・.。,_-]/g, '')
+    .trim()
+    .toLowerCase();
+}
 
-  const countryName =
+function getCountryName(ipInfo) {
+  const countryCode = String(ipInfo?.country_code || '').toUpperCase();
+
+  return (
     codeMap[countryCode] ||
     countryCode ||
-    '未知';
+    '未知'
+  ).trim();
+}
+
+function formatLocationName(ipInfo) {
+  const countryName = getCountryName(ipInfo);
 
   const cityName = typeof ipInfo.city_name_zh === 'string'
     ? ipInfo.city_name_zh.trim()
     : '';
 
-  return cityName
-    ? `${countryName}·${cityName}`
-    : countryName;
+  if (!cityName) {
+    return countryName;
+  }
+
+  const normalizedCountry = normalizePlaceNameForCompare(countryName);
+  const normalizedCity = normalizePlaceNameForCompare(cityName);
+
+  if (
+    normalizedCountry &&
+    normalizedCity &&
+    normalizedCountry.endsWith(normalizedCity)
+  ) {
+    return countryName;
+  }
+
+  return `${countryName}·${cityName}`;
 }
 
 function modResponseBody(ipInfo, speedMbps, ipPureInfo) {
@@ -703,10 +792,27 @@ export default async function(ctx) {
   const env = ctx.env || {};
   const policy = env.POLICY || 'DIRECT';
 
+  const ipResult = await getIPInfo(ctx);
+
+  if (ipResult?.passthrough) {
+    return;
+  }
+
+  const ipInfo = ipResult?.ipInfo;
+
+  if (!ipInfo) {
+    if (typeof ipResult?.fallbackBody === 'string') {
+      return {
+        headers: makeRewrittenBodyHeaders(ctx),
+        body: ipResult.fallbackBody
+      };
+    }
+
+    return;
+  }
+
   const showSpeedTest = isEnvOn(env.SHOW_SPEED_TEST);
   const showIPPure = isEnvOn(env.SHOW_IPPURE);
-
-  const ipTask = getIPInfo(ctx);
 
   let speedTask = null;
 
@@ -731,27 +837,13 @@ export default async function(ctx) {
     ? getIPPureInfo(ctx, policy)
     : null;
 
-  const [ipResult, speedMbps, ipPureInfo] = await Promise.all([
-    ipTask,
+  const [speedMbps, ipPureInfo] = await Promise.all([
     speedTask,
     ipPureTask
   ]);
 
-  const ipInfo = ipResult?.ipInfo;
-
-  if (ipInfo) {
-    return {
-      headers: makeModifiedJsonHeaders(ctx),
-      body: modResponseBody(ipInfo, speedMbps, ipPureInfo)
-    };
-  }
-
-  if (typeof ipResult?.fallbackBody === 'string') {
-    return {
-      headers: makeRewrittenBodyHeaders(ctx),
-      body: ipResult.fallbackBody
-    };
-  }
-
-  return;
+  return {
+    headers: makeModifiedJsonHeaders(ctx),
+    body: modResponseBody(ipInfo, speedMbps, ipPureInfo)
+  };
 }
