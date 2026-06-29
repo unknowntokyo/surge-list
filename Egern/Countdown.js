@@ -1074,7 +1074,7 @@ export default function (ctx = {}) {
   const gridRows = CATEGORY_CONFIG.flatMap(cfg => {
     const rawText = formatStr(
       cfg.key,
-      isLarge ? 7 : cfg.key === "exclusive" ? 6 : 3
+      isLarge ? 7 : 3
     );
 
     if (!rawText) return [];
