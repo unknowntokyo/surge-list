@@ -5,6 +5,7 @@
  * ✨ 主要功能：
  * • 尺寸适配：支持 Small、Medium、Large 三种组件尺寸，区分紧凑列表与定宽多行列表排版。
  * • 节日计算：内置农历算法数组，支持计算法定节假日、民俗节日、国际节日、金融交割/行权日的倒计时。
+ * • 官方假期：法定分类优先拉取 NateScarlet/holiday-cn 当前年与下一年数据，按实际放假安排展示。
  * • 时区基准：采用 UTC+8 固定时区进行绝对时间计算。
  * • 自定义配置：支持通过环境变量设置最多 6 个专属纪念日，支持修改清明节及春/秋假的起始日期。
  * • 排序与显示：支持按倒数天数及分类优先级进行排序，支持指定节日跨分类置顶。
@@ -72,6 +73,8 @@ const specialPriority = {
   除夕: 6
 };
 
+const DAY_MS = 86400000;
+
 const mkText = (text, size, weight, color, opts = {}) => ({
   type: "text",
   text: String(text ?? ""),
@@ -100,8 +103,10 @@ const mkIcon = (src, color, size = 13) => ({
 const mkSpacer = length =>
   length != null ? { type: "spacer", length } : { type: "spacer" };
 
+const pad2 = n => String(n).padStart(2, "0");
+
 const YMD = (y, m, d) =>
-  `${y}/${m < 10 ? "0" + m : m}/${d < 10 ? "0" + d : d}`;
+  `${y}/${pad2(m)}/${pad2(d)}`;
 
 const DISPLAY_NAME_MAP = {
   端午节: "🐲",
@@ -285,6 +290,8 @@ const CACHE_ENV_KEYS = Object.freeze([
   "ENABLE_PRIORITY_SORT",
   "ENABLE_EXCLUSIVE_WEIGHT",
 
+  "OFFICIAL_HOLIDAY_FORCE_REFRESH",
+
   "SPRING_BREAK_DATE",
   "AUTUMN_BREAK_DATE",
   "QINGMING_DATE",
@@ -383,7 +390,353 @@ function isValidCachedPayload(payload) {
   return CATEGORY_CONFIG.every(cfg => Array.isArray(payload.result[cfg.key]));
 }
 
-export default function (ctx = {}) {
+const OFFICIAL_HOLIDAY_STORAGE_KEY = "countdown_official_holidays_v1";
+const OFFICIAL_HOLIDAY_STORAGE_VERSION = 2;
+
+const isoToMs = iso => {
+  const [y, m, d] = String(iso).split("-").map(Number);
+  return Date.UTC(y, m - 1, d);
+};
+
+const isoToSlashYMD = iso => String(iso || "").replace(/-/g, "/");
+
+const isValidISODate = date => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date))) {
+    return false;
+  }
+
+  const [y, m, d] = String(date).split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+
+  return (
+    dt.getUTCFullYear() === y &&
+    dt.getUTCMonth() + 1 === m &&
+    dt.getUTCDate() === d
+  );
+};
+
+function hashString(str) {
+  let h = 5381;
+
+  for (let i = 0; i < str.length; i++) {
+    h = ((h << 5) + h) ^ str.charCodeAt(i);
+  }
+
+  return (h >>> 0).toString(36);
+}
+
+function buildOfficialHolidayRanges(days) {
+  const offDays = days
+    .filter(day =>
+      day &&
+      day.isOffDay === true &&
+      typeof day.name === "string" &&
+      day.name.trim() &&
+      isValidISODate(day.date)
+    )
+    .map(day => ({
+      name: day.name.trim(),
+      date: day.date,
+      ms: isoToMs(day.date)
+    }))
+    .sort((a, b) => a.ms - b.ms);
+
+  const groups = [];
+
+  for (const day of offDays) {
+    const last = groups[groups.length - 1];
+
+    if (
+      last &&
+      last.name === day.name &&
+      day.ms - last.endMs === DAY_MS
+    ) {
+      last.end = day.date;
+      last.endMs = day.ms;
+      last.duration += 1;
+    } else {
+      groups.push({
+        name: day.name,
+        start: day.date,
+        end: day.date,
+        startMs: day.ms,
+        endMs: day.ms,
+        duration: 1
+      });
+    }
+  }
+
+  return groups.map(group => ({
+    name: group.name,
+    start: group.start,
+    end: group.end,
+    duration: group.duration
+  }));
+}
+
+function normalizeHolidayCnYearData(data, year) {
+  if (!data || typeof data !== "object") {
+    throw new Error(`invalid official holiday data: ${year}`);
+  }
+
+  if (Number(data.year) !== Number(year)) {
+    throw new Error(`official holiday year mismatch: expected ${year}, got ${data.year}`);
+  }
+
+  if (!Array.isArray(data.days)) {
+    throw new Error(`official holiday days missing: ${year}`);
+  }
+
+  const days = data.days
+    .filter(day =>
+      day &&
+      typeof day.name === "string" &&
+      typeof day.date === "string" &&
+      typeof day.isOffDay === "boolean" &&
+      isValidISODate(day.date)
+    )
+    .map(day => ({
+      name: day.name.trim(),
+      date: day.date,
+      isOffDay: day.isOffDay
+    }))
+    .sort((a, b) => isoToMs(a.date) - isoToMs(b.date));
+
+  return {
+    days
+  };
+}
+
+function readOfficialHolidayCache(ctx) {
+  try {
+    const cache = ctx.storage?.getJSON(OFFICIAL_HOLIDAY_STORAGE_KEY);
+
+    if (
+      cache &&
+      cache.version === OFFICIAL_HOLIDAY_STORAGE_VERSION &&
+      cache.years &&
+      typeof cache.years === "object"
+    ) {
+      return cache;
+    }
+  } catch (e) {}
+
+  return null;
+}
+
+function pruneOfficialYears(years, currentYear) {
+  const keep = new Set([
+    String(currentYear - 1),
+    String(currentYear),
+    String(currentYear + 1)
+  ]);
+
+  const pruned = {};
+
+  for (const [year, data] of Object.entries(years || {})) {
+    if (keep.has(year)) {
+      pruned[year] = data;
+    }
+  }
+
+  return pruned;
+}
+
+function buildOfficialFingerprint(yearsData) {
+  if (!yearsData || typeof yearsData !== "object") {
+    return "none";
+  }
+
+  const parts = [];
+
+  for (const year of Object.keys(yearsData).sort()) {
+    const yearData = yearsData[year];
+
+    if (!yearData || !Array.isArray(yearData.days)) continue;
+
+    parts.push(year);
+
+    for (const day of yearData.days) {
+      parts.push(`${day.date}:${day.name}:${day.isOffDay ? 1 : 0}`);
+    }
+  }
+
+  if (parts.length === 0) {
+    return "none";
+  }
+
+  return hashString(parts.join("|"));
+}
+
+async function parseHttpJson(resp) {
+  if (!resp) {
+    throw new Error("empty response");
+  }
+
+  if (typeof resp.json === "function") {
+    return await resp.json();
+  }
+
+  if (resp.body && typeof resp.body === "object") {
+    return resp.body;
+  }
+
+  if (resp.data && typeof resp.data === "object") {
+    return resp.data;
+  }
+
+  const raw =
+    typeof resp.body === "string"
+      ? resp.body
+      : typeof resp.data === "string"
+        ? resp.data
+        : typeof resp === "string"
+          ? resp
+          : "";
+
+  if (!raw) {
+    throw new Error("response json body missing");
+  }
+
+  return JSON.parse(raw);
+}
+
+async function fetchOfficialHolidayYear(ctx, year) {
+  if (!ctx.http || typeof ctx.http.get !== "function") {
+    throw new Error("ctx.http unavailable");
+  }
+
+  const url = `https://raw.githubusercontent.com/NateScarlet/holiday-cn/master/${year}.json`;
+  const resp = await ctx.http.get(url);
+  const status = resp?.status ?? resp?.statusCode;
+
+  if (typeof status === "number" && status >= 400) {
+    throw new Error(`HTTP ${status}`);
+  }
+
+  const data = await parseHttpJson(resp);
+
+  return normalizeHolidayCnYearData(data, year);
+}
+
+async function loadOfficialHolidayDaily(ctx, env, currentYear, todayIso) {
+  const oldCache = readOfficialHolidayCache(ctx);
+
+  if (!ctx.http || !ctx.storage) {
+    return oldCache;
+  }
+
+  const forceKey = String(env?.OFFICIAL_HOLIDAY_FORCE_REFRESH ?? "").trim();
+  const requestYears = [currentYear, currentYear + 1];
+  const yearsKey = requestYears.join(",");
+
+  if (
+    oldCache &&
+    oldCache.checkedDate === todayIso &&
+    oldCache.forceKey === forceKey &&
+    oldCache.yearsKey === yearsKey
+  ) {
+    return oldCache;
+  }
+
+  const mergedYears = pruneOfficialYears(oldCache?.years || {}, currentYear);
+
+  const results = await Promise.allSettled(
+    requestYears.map(async year => {
+      const data = await fetchOfficialHolidayYear(ctx, year);
+
+      return {
+        key: String(year),
+        data
+      };
+    })
+  );
+
+  let successCount = 0;
+
+  for (const result of results) {
+    if (result.status === "fulfilled") {
+      const { key, data } = result.value;
+      mergedYears[key] = data;
+      successCount += 1;
+    }
+  }
+
+  if (successCount === 0) {
+    return oldCache;
+  }
+
+  const newCache = {
+    version: OFFICIAL_HOLIDAY_STORAGE_VERSION,
+    checkedDate: todayIso,
+    forceKey,
+    yearsKey,
+    fingerprint: buildOfficialFingerprint(mergedYears),
+    years: mergedYears
+  };
+
+  try {
+    ctx.storage.setJSON(OFFICIAL_HOLIDAY_STORAGE_KEY, newCache);
+  } catch (e) {}
+
+  return newCache;
+}
+
+function isValidOfficialRange(range) {
+  if (!range || typeof range !== "object") return false;
+  if (typeof range.name !== "string" || !range.name.trim()) return false;
+  if (!isValidISODate(range.start)) return false;
+
+  const duration = Number(range.duration);
+  return Number.isInteger(duration) && duration >= 1 && duration <= 30;
+}
+
+function getOfficialLegalHolidays(officialHolidayCache, year) {
+  const yearData = officialHolidayCache?.years?.[String(year)];
+
+  if (!yearData || !Array.isArray(yearData.days)) {
+    return null;
+  }
+
+  const ranges = buildOfficialHolidayRanges(yearData.days);
+
+  const rows = ranges
+    .filter(isValidOfficialRange)
+    .map(range => [
+      range.name.trim(),
+      isoToSlashYMD(range.start),
+      Number(range.duration),
+      "official"
+    ]);
+
+  return rows.length > 0 ? rows : null;
+}
+
+function getOfficialDayInfo(officialHolidayCache, isoDate) {
+  if (!isValidISODate(isoDate)) {
+    return null;
+  }
+
+  const years = officialHolidayCache?.years;
+
+  if (!years || typeof years !== "object") {
+    return null;
+  }
+
+  for (const yearData of Object.values(years)) {
+    if (!yearData || !Array.isArray(yearData.days)) continue;
+
+    const found = yearData.days.find(day => day.date === isoDate);
+
+    if (found) {
+      return found;
+    }
+  }
+
+  return null;
+}
+
+export default async function (ctx = {}) {
   const env = ctx.env ?? {};
 
   const getBool = (key, defaultVal = true) => {
@@ -414,11 +767,24 @@ export default function (ctx = {}) {
   const currentHour = bjDate.getUTCHours();
   const currentDay = bjDate.getUTCDay();
   const todayMs = Date.UTC(Y, M - 1, D);
+  const todayIso = `${Y}-${pad2(M)}-${pad2(D)}`;
 
-  const envFingerprint = buildEnvFingerprint(env);
+  const officialHolidayCache = await loadOfficialHolidayDaily(
+    ctx,
+    env,
+    Y,
+    todayIso
+  );
+
+  const officialFingerprint =
+    officialHolidayCache?.fingerprint
+      ? `official=${officialHolidayCache.fingerprint}`
+      : "official=none";
+
+  const envFingerprint = `${buildEnvFingerprint(env)}|${officialFingerprint}`;
 
   const CACHE_KEY = "countdown_daily_cache";
-  const CACHE_VERSION = 4;
+  const CACHE_VERSION = 5;
   const timePhase = currentHour >= 15 ? "after3pm" : "before3pm";
   const todayStr = `${Y}_${M}_${D}_${timePhase}`;
 
@@ -587,7 +953,7 @@ export default function (ctx = {}) {
       }
 
       const date = new Date(
-        Date.UTC(1900, 0, 31) + (off + d - 1) * 86400000
+        Date.UTC(1900, 0, 31) + (off + d - 1) * DAY_MS
       );
 
       return YMD(
@@ -622,15 +988,19 @@ export default function (ctx = {}) {
 
       const qmDateStr = getCustomDate(y, qingmingDateStr, () => term(7));
 
-      const legal = [
-        ["元旦", YMD(y, 1, 1), 1],
-        ["春节", l2s(y, 1, 1), 3],
-        ["清明节", qmDateStr, 1],
-        ["劳动节", YMD(y, 5, 1), 1],
-        ["端午节", l2s(y, 5, 5), 1],
-        ["中秋节", l2s(y, 8, 15), 1],
-        ["国庆节", YMD(y, 10, 1), 3]
-      ];
+      const officialLegal = getOfficialLegalHolidays(officialHolidayCache, y);
+
+      const legal = officialLegal
+        ? [...officialLegal]
+        : [
+            ["元旦", YMD(y, 1, 1), 1],
+            ["春节", l2s(y, 1, 1), 3],
+            ["清明节", qmDateStr, 1],
+            ["劳动节", YMD(y, 5, 1), 1],
+            ["端午节", l2s(y, 5, 5), 1],
+            ["中秋节", l2s(y, 8, 15), 1],
+            ["国庆节", YMD(y, 10, 1), 3]
+          ];
 
       if (showSchoolHolidays) {
         const springDate = getCustomDate(y, springDateStr, () => {
@@ -764,7 +1134,7 @@ export default function (ctx = {}) {
         return;
       }
 
-      const diff = (Date.UTC(yy, mm - 1, dd) - todayMs) / 86400000;
+      const diff = (Date.UTC(yy, mm - 1, dd) - todayMs) / DAY_MS;
       const priority = getPriority(name, cat, sourceKind);
 
       if (isInFestivalPeriod(diff, duration)) {
@@ -857,7 +1227,7 @@ export default function (ctx = {}) {
             )
           : thisMonthDate;
 
-        const diff = (targetDate - todayMs) / 86400000;
+        const diff = (targetDate - todayMs) / DAY_MS;
 
         if (diff > 0) {
           if (pinnedHolidays.includes(name) && diff <= 200) {
@@ -948,7 +1318,7 @@ export default function (ctx = {}) {
     todayItems.length > 0
   ) {
     try {
-      const notifyDate = `${Y}-${String(M).padStart(2, "0")}-${String(D).padStart(2, "0")}`;
+      const notifyDate = `${Y}-${pad2(M)}-${pad2(D)}`;
       const notifyKey = "countdown_today_notify_once";
 
       const notified = ctx.storage.getJSON(notifyKey) || {};
@@ -996,10 +1366,19 @@ export default function (ctx = {}) {
       .map(i => formatDisplayItem(i))
       .join("，");
 
+  const officialTodayInfo = getOfficialDayInfo(officialHolidayCache, todayIso);
+
+  const isOfficialOffDay = officialTodayInfo?.isOffDay === true;
+  const isOfficialAdjustedWorkday = officialTodayInfo?.isOffDay === false;
+
   const themeKey =
     todayItems && todayItems.length > 0
       ? "fest"
-      : enableWeekendTheme && (currentDay === 0 || currentDay === 6)
+      : enableWeekendTheme &&
+        (
+          isOfficialOffDay ||
+          (!isOfficialAdjustedWorkday && (currentDay === 0 || currentDay === 6))
+        )
         ? "weekend"
         : "workday";
 
