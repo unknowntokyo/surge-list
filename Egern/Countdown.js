@@ -390,7 +390,7 @@ function isValidCachedPayload(payload) {
   return CATEGORY_CONFIG.every(cfg => Array.isArray(payload.result[cfg.key]));
 }
 
-const OFFICIAL_HOLIDAY_STORAGE_KEY = "countdown_official_holidays_v1";
+const OFFICIAL_HOLIDAY_STORAGE_KEY = "countdown_official_holidays";
 const OFFICIAL_HOLIDAY_STORAGE_VERSION = 2;
 
 const isoToMs = iso => {
