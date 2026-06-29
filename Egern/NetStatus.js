@@ -3,12 +3,12 @@
  * 📌 网络服务解锁监测 (NetStatus) 小组件
  *
  * ✨ 主要功能：
- * • 实时检测：支持 YouTube、Netflix、ChatGPT、Gemini 4 项主流服务。
- * • 真实地区：通过 ipwho.de 按服务对应策略检测真实出口 IP 地区。
+ * • 刷新时检测：支持 YouTube、Netflix、ChatGPT、Gemini 4 项主流服务。
+ * • 真实地区：通过 ipwho.de 按服务对应策略检测出口 IP 地区。
  * • 策略配置：通过 Egern Widget 环境变量配置每个服务使用的策略。
  * • 智能布局：适配 iOS Small、Medium、Large 三种组件尺寸。
  * • 布局样式：Medium / Large 使用上面两个、下面两个的 2×2 布局。
- * • 状态展示：显示服务连通状态、真实出口地区及响应延迟。
+ * • 状态展示：显示服务连通状态、出口地区及响应延迟。
  *
  * Egern 环境变量示例：
  *
@@ -23,6 +23,7 @@
  * 注意：
  * • 环境变量的值必须填写为你 Egern 中真实存在的策略名 / 策略组名。
  * • 如果某个环境变量不填写，则对应服务使用当前默认策略。
+ * • 该组件会在每次刷新时发起网络检测请求，不是严格实时检测。
  * ==========================================================================
  */
 
@@ -35,18 +36,8 @@ export default async function(ctx) {
   const isSmall = sizeStr.includes('small');
   const isLarge = sizeStr.includes('large');
 
-  /**
-   * 从 Egern 环境变量读取每个服务对应的策略名。
-   *
-   * 可在 Egern Widget env 中配置：
-   * YouTube
-   * Netflix
-   * ChatGPT
-   * Gemini
-   *
-   * 说明：
-   * Gemini 环境变量用于 Gemini 检测。
-   */
+  const REFRESH_INTERVAL_MINUTES = 15;
+
   const SERVICE_POLICY = {
     YouTube: String(env.YouTube || '').trim(),
     Netflix: String(env.Netflix || '').trim(),
@@ -68,7 +59,7 @@ export default async function(ctx) {
 
   const codeMap = {
     HK: '🇭🇰 香港',
-    TW: '🇼🇸 台湾',
+    TW: '🇹🇼 台湾',
     SG: '🇸🇬 新加坡',
     JP: '🇯🇵 日本',
     KR: '🇰🇷 韩国',
@@ -89,6 +80,25 @@ export default async function(ctx) {
     'Cache-Control': 'no-cache, no-store, must-revalidate',
     'Pragma': 'no-cache'
   };
+
+  function nextRefreshISO(minutes = REFRESH_INTERVAL_MINUTES) {
+    return new Date(Date.now() + minutes * 60 * 1000).toISOString();
+  }
+
+  function monoFont(size, weight = 'medium') {
+    return {
+      size,
+      weight,
+      family: 'Menlo'
+    };
+  }
+
+  function fixedSpace(length) {
+    return {
+      type: 'spacer',
+      length
+    };
+  }
 
   function now() {
     return typeof performance !== 'undefined' && typeof performance.now === 'function'
@@ -138,21 +148,15 @@ export default async function(ctx) {
     return finalOptions;
   }
 
-  async function timed(fn, timeoutMs = 3000) {
+  /**
+   * 只统计耗时，不再使用 Promise.race 做 JS 层超时。
+   * 请求超时完全交给 ctx.http.get 的 timeout 选项处理。
+   */
+  async function timed(fn) {
     const start = now();
-    let timeoutId = null;
 
     try {
-      const timeoutPromise = new Promise((_, reject) => {
-        timeoutId = setTimeout(() => {
-          reject(new Error('Timeout'));
-        }, timeoutMs);
-      });
-
-      const result = await Promise.race([
-        fn(),
-        timeoutPromise
-      ]);
+      const result = await fn();
 
       return {
         ...result,
@@ -165,9 +169,131 @@ export default async function(ctx) {
         regionText: '--',
         ms: Math.round(now() - start)
       };
-    } finally {
-      if (timeoutId) clearTimeout(timeoutId);
     }
+  }
+
+  function includesAny(text, keywords) {
+    const lowerText = String(text || '').toLowerCase();
+    return keywords.some(keyword => lowerText.includes(String(keyword).toLowerCase()));
+  }
+
+  function isBlockedBody(text) {
+    return includesAny(text, [
+      'access denied',
+      'not available in your country',
+      'not available in your region',
+      'unsupported country',
+      'unsupported region',
+      'service unavailable in your country',
+      'too many requests',
+      'captcha',
+      'verify you are human'
+    ]);
+  }
+
+  /**
+   * 服务检测配置集中管理。
+   *
+   * 说明：
+   * - YouTube 使用 generate_204，要求返回 204。
+   * - Netflix / ChatGPT / Gemini 不再只用 status === 200 判断，
+   *   会检查返回体中是否出现明显的封锁、风控、不可用提示。
+   * - 由于不同服务页面内容会变化，此处仍然是启发式检测，
+   *   但比简单 HTTP 状态码判断更保守，能减少误报 OK。
+   */
+  const SERVICE_CONFIGS = [
+    {
+      name: 'YouTube',
+      url: () => `https://www.youtube.com/generate_204?_t=${Date.now()}`,
+      timeout: 3000,
+      redirect: 'manual',
+      needBody: false,
+      validate: ({ status }) => status === 204
+    },
+    {
+      name: 'Netflix',
+      url: () => `https://www.netflix.com/title/81280792?_t=${Date.now()}`,
+      timeout: 5000,
+      redirect: 'follow',
+      needBody: true,
+      validate: ({ status, body }) => {
+        if (status < 200 || status >= 400) return false;
+        if (!body) return false;
+        if (isBlockedBody(body)) return false;
+
+        return includesAny(body, [
+          'netflix',
+          'watch',
+          'title',
+          'signin',
+          'sign in'
+        ]);
+      }
+    },
+    {
+      name: 'ChatGPT',
+      url: () => `https://chatgpt.com/?_t=${Date.now()}`,
+      timeout: 4000,
+      redirect: 'follow',
+      needBody: true,
+      validate: ({ status, body }) => {
+        if (status < 200 || status >= 400) return false;
+        if (!body) return false;
+        if (isBlockedBody(body)) return false;
+
+        return includesAny(body, [
+          'chatgpt',
+          'openai'
+        ]);
+      }
+    },
+    {
+      name: 'Gemini',
+      url: () => `https://gemini.google.com/app?_t=${Date.now()}`,
+      timeout: 4000,
+      redirect: 'follow',
+      needBody: true,
+      validate: ({ status, body }) => {
+        if (status < 200 || status >= 400) return false;
+        if (!body) return false;
+        if (isBlockedBody(body)) return false;
+
+        return includesAny(body, [
+          'gemini',
+          'google'
+        ]);
+      }
+    }
+  ];
+
+  async function checkServiceAvailability(service, policy = '') {
+    const res = await ctx.http
+      .get(service.url(), buildOptions({
+        timeout: service.timeout,
+        redirect: service.redirect
+      }, policy))
+      .catch(() => null);
+
+    if (!res) {
+      return {
+        code: 'ERR'
+      };
+    }
+
+    let body = '';
+
+    if (service.needBody) {
+      body = await res.text().catch(() => '');
+    }
+
+    const ok = service.validate({
+      status: res.status,
+      body
+    });
+
+    return {
+      code: ok ? 'OK' : 'ERR'
+    };
   }
 
   async function fetchRegionByPolicy(policy = '') {
@@ -196,8 +322,7 @@ export default async function(ctx) {
           data.country_code,
           data.countryCode,
           data.countryCode2,
-          data.country_code2,
-          data.countryCode3
+          data.country_code2
         )
       );
 
@@ -235,92 +360,15 @@ export default async function(ctx) {
     return regionCache.get(key);
   }
 
-  async function checkYouTube(policy = '') {
-    const res = await ctx.http
-      .get(`https://www.youtube.com/generate_204?_t=${Date.now()}`, buildOptions({
-        timeout: 3000,
-        redirect: 'manual'
-      }, policy))
-      .catch(() => null);
-
-    return {
-      code: res?.status === 204 ? 'OK' : 'ERR'
-    };
-  }
-
-  async function checkNetflix(policy = '') {
-    const res = await ctx.http
-      .get(`https://www.netflix.com/title/81280792?_t=${Date.now()}`, buildOptions({
-        timeout: 5000,
-        redirect: 'follow'
-      }, policy))
-      .catch(() => null);
-
-    return {
-      code: res?.status === 200 ? 'OK' : 'ERR'
-    };
-  }
-
-  async function checkChatGPT(policy = '') {
-    const res = await ctx.http
-      .get(`https://chatgpt.com/?_t=${Date.now()}`, buildOptions({
-        timeout: 3000,
-        redirect: 'manual'
-      }, policy))
-      .catch(() => null);
-
-    return {
-      code: res && res.status !== 403 && res.status !== 429 && res.status < 500
-        ? 'OK'
-        : 'ERR'
-    };
-  }
-
-  async function checkGemini(policy = '') {
-    const res = await ctx.http
-      .get(`https://gemini.google.com/app?_t=${Date.now()}`, buildOptions({
-        timeout: 3000,
-        redirect: 'follow'
-      }, policy))
-      .catch(() => null);
-
-    return {
-      code: res && res.status === 200 ? 'OK' : 'ERR'
-    };
-  }
-
-  const SERVICES = [
-    {
-      name: 'YouTube',
-      check: checkYouTube,
-      timeout: 3000
-    },
-    {
-      name: 'Netflix',
-      check: checkNetflix,
-      timeout: 5000
-    },
-    {
-      name: 'ChatGPT',
-      check: checkChatGPT,
-      timeout: 3000
-    },
-    {
-      name: 'Gemini',
-      check: checkGemini,
-      timeout: 3000
-    }
-  ];
-
   async function checkService(service) {
     const policy = SERVICE_POLICY[service.name] || '';
 
     const [statusResult, regionResult] = await Promise.all([
-      timed(() => service.check(policy), service.timeout),
-      timed(() => getRegionByPolicy(policy), 2500)
+      timed(() => checkServiceAvailability(service, policy)),
+      timed(() => getRegionByPolicy(policy))
     ]);
 
-    const available = statusResult.code !== 'ERR';
+    const available = statusResult.code === 'OK';
     const regionAvailable = regionResult.code === 'OK';
 
     return {
@@ -335,12 +383,12 @@ export default async function(ctx) {
   }
 
   const allServices = await Promise.all(
-    SERVICES.map(service => checkService(service))
+    SERVICE_CONFIGS.map(service => checkService(service))
   );
 
   const totalCount = allServices.length;
   const okCount = allServices.filter(s => s.info.available).length;
-  const lockedCount = totalCount - okCount;
+  const unavailableCount = totalCount - okCount;
 
   const nowDate = new Date();
   const time = `${String(nowDate.getHours()).padStart(2, '0')}:${String(nowDate.getMinutes()).padStart(2, '0')}`;
@@ -354,17 +402,14 @@ export default async function(ctx) {
     type: 'stack',
     direction: 'row',
     alignItems: 'center',
+    gap: 8,
     children: [
       {
         type: 'image',
         src: 'sf-symbol:antenna.radiowaves.left.and.right',
-        color: lockedCount === 0 ? C.ok : C.dim,
+        color: unavailableCount === 0 ? C.ok : C.dim,
         width: 14,
         height: 14
-      },
-      {
-        type: 'stack',
-        width: 8
       },
       {
         type: 'text',
@@ -387,54 +432,47 @@ export default async function(ctx) {
           {
             type: 'text',
             text: `${okCount}/${totalCount}`,
-            font: {
-              size: 10,
-              weight: 'bold',
-              design: 'monospaced'
-            },
-            textColor: lockedCount === 0 ? C.ok : C.fail
+            font: monoFont(10, 'bold'),
+            textColor: unavailableCount === 0 ? C.ok : C.fail
           }
         ]
       },
       {
-        type: 'stack',
-        width: 8
-      },
-      {
         type: 'text',
         text: time,
-        font: {
-          size: 12,
-          weight: 'medium',
-          design: 'monospaced'
-        },
+        font: monoFont(12, 'medium'),
         textColor: C.dim
       }
     ]
   });
 
-  const renderSmall = () => {
+  function baseWidget(extra) {
     return {
       type: 'widget',
+      refreshAfter: nextRefreshISO(),
       backgroundColor: C.bg,
+      ...extra
+    };
+  }
+
+  const renderSmall = () => {
+    return baseWidget({
       padding: [10, 14, 10, 14],
+      gap: 4,
       children: [
         {
           type: 'stack',
           direction: 'row',
           alignItems: 'center',
+          gap: 6,
           padding: [0, 0, 4, 0],
           children: [
             {
               type: 'image',
               src: 'sf-symbol:antenna.radiowaves.left.and.right',
-              color: lockedCount === 0 ? C.ok : C.dim,
+              color: unavailableCount === 0 ? C.ok : C.dim,
               width: 12,
               height: 12
-            },
-            {
-              type: 'stack',
-              width: 6
             },
             {
               type: 'text',
@@ -443,7 +481,8 @@ export default async function(ctx) {
                 size: 11,
                 weight: 'bold'
               },
-              textColor: C.dim
+              textColor: C.dim,
+              maxLines: 1
             },
             {
               type: 'spacer'
@@ -457,28 +496,18 @@ export default async function(ctx) {
                 {
                   type: 'text',
                   text: `${okCount}/${totalCount}`,
-                  font: {
-                    size: 10,
-                    weight: 'bold',
-                    design: 'monospaced'
-                  },
-                  textColor: lockedCount === 0 ? C.ok : C.fail
+                  font: monoFont(10, 'bold'),
+                  textColor: unavailableCount === 0 ? C.ok : C.fail
                 }
               ]
             },
-            {
-              type: 'stack',
-              width: 8
-            },
+            fixedSpace(2),
             {
               type: 'text',
               text: time,
-              font: {
-                size: 10,
-                weight: 'medium',
-                design: 'monospaced'
-              },
-              textColor: C.dim
+              font: monoFont(10, 'medium'),
+              textColor: C.dim,
+              maxLines: 1
             }
           ]
         },
@@ -486,13 +515,12 @@ export default async function(ctx) {
           type: 'stack',
           direction: 'column',
           flex: 1,
-          justifyContent: 'space-around',
-          gap: 4,
+          gap: 5,
           children: allServices.map(item => ({
             type: 'stack',
             direction: 'row',
             alignItems: 'center',
-            spacing: 6,
+            gap: 6,
             children: [
               {
                 type: 'stack',
@@ -509,7 +537,8 @@ export default async function(ctx) {
                   weight: 'bold'
                 },
                 textColor: C.text,
-                maxLines: 1
+                maxLines: 1,
+                minScale: 0.7
               },
               {
                 type: 'spacer'
@@ -517,52 +546,51 @@ export default async function(ctx) {
               {
                 type: 'text',
                 text: item.info.regionText,
-                font: {
-                  size: 10,
-                  weight: 'bold',
-                  design: 'monospaced'
-                },
+                font: monoFont(10, 'bold'),
                 textColor: C.dim,
-                maxLines: 1
+                maxLines: 1,
+                minScale: 0.7
               }
             ]
           }))
         }
       ]
-    };
+    });
   };
 
-  const renderMedium = () => {
-    const MediumServiceBlock = (item) => ({
+  function renderServiceBlock(item, style) {
+    return {
       type: 'stack',
       direction: 'column',
       backgroundColor: C.panel,
-      borderRadius: 8,
-      padding: [8, 8, 8, 8],
+      borderRadius: style.borderRadius,
+      padding: style.padding,
       flex: 1,
-      gap: 5,
+      gap: style.gap,
       children: [
         {
           type: 'stack',
           direction: 'row',
           alignItems: 'center',
+          gap: 6,
           children: [
             {
               type: 'text',
               text: item.name,
               font: {
-                size: 11,
+                size: style.nameSize,
                 weight: 'bold'
               },
               textColor: C.text,
               flex: 1,
-              maxLines: 1
+              maxLines: 1,
+              minScale: 0.7
             },
             {
               type: 'stack',
-              width: 5,
-              height: 5,
-              borderRadius: 2.5,
+              width: style.dotSize,
+              height: style.dotSize,
+              borderRadius: style.dotSize / 2,
               backgroundColor: item.info.available ? C.ok : C.fail
             }
           ]
@@ -571,17 +599,15 @@ export default async function(ctx) {
           type: 'stack',
           direction: 'row',
           alignItems: 'center',
+          gap: 6,
           children: [
             {
               type: 'text',
               text: item.info.regionText,
-              font: {
-                size: 10,
-                weight: 'semibold',
-                design: 'monospaced'
-              },
+              font: monoFont(style.regionSize, style.regionWeight),
               textColor: C.dim,
-              maxLines: 1
+              maxLines: 1,
+              minScale: 0.7
             },
             {
               type: 'spacer'
@@ -589,148 +615,88 @@ export default async function(ctx) {
             {
               type: 'text',
               text: `${item.info.ms}ms`,
-              font: {
-                size: 9,
-                weight: 'medium',
-                design: 'monospaced'
-              },
-              textColor: responseColor(item.info.ms, item.info.available)
+              font: monoFont(style.msSize, 'medium'),
+              textColor: responseColor(item.info.ms, item.info.available),
+              maxLines: 1,
+              minScale: 0.7
             }
           ]
         }
       ]
-    });
+    };
+  }
 
+  function renderGrid(style) {
     return {
-      type: 'widget',
-      backgroundColor: C.bg,
+      type: 'stack',
+      direction: 'column',
+      gap: style.rowGap,
+      flex: 1,
+      children: [
+        {
+          type: 'stack',
+          direction: 'row',
+          gap: style.columnGap,
+          flex: 1,
+          children: allServices.slice(0, 2).map(item => renderServiceBlock(item, style.card))
+        },
+        {
+          type: 'stack',
+          direction: 'row',
+          gap: style.columnGap,
+          flex: 1,
+          children: allServices.slice(2, 4).map(item => renderServiceBlock(item, style.card))
+        }
+      ]
+    };
+  }
+
+  const renderMedium = () => {
+    return baseWidget({
       padding: [14, 14, 14, 14],
       gap: 10,
       children: [
         renderHeader(),
-        {
-          type: 'stack',
-          direction: 'column',
-          gap: 8,
-          flex: 1,
-          children: [
-            {
-              type: 'stack',
-              direction: 'row',
-              gap: 8,
-              children: allServices.slice(0, 2).map(MediumServiceBlock)
-            },
-            {
-              type: 'stack',
-              direction: 'row',
-              gap: 8,
-              children: allServices.slice(2, 4).map(MediumServiceBlock)
-            }
-          ]
-        }
+        renderGrid({
+          rowGap: 8,
+          columnGap: 8,
+          card: {
+            borderRadius: 8,
+            padding: [8, 8, 8, 8],
+            gap: 5,
+            nameSize: 11,
+            regionSize: 10,
+            regionWeight: 'semibold',
+            msSize: 9,
+            dotSize: 5
+          }
+        })
       ]
-    };
+    });
   };
 
   const renderLarge = () => {
-    const LargeServiceBlock = (item) => ({
-      type: 'stack',
-      direction: 'column',
-      backgroundColor: C.panel,
-      borderRadius: 12,
-      padding: [12, 14, 12, 14],
-      flex: 1,
-      gap: 6,
-      children: [
-        {
-          type: 'stack',
-          direction: 'row',
-          alignItems: 'center',
-          children: [
-            {
-              type: 'text',
-              text: item.name,
-              font: {
-                size: 13,
-                weight: 'bold'
-              },
-              textColor: C.text,
-              flex: 1
-            },
-            {
-              type: 'stack',
-              width: 7,
-              height: 7,
-              borderRadius: 3.5,
-              backgroundColor: item.info.available ? C.ok : C.fail
-            }
-          ]
-        },
-        {
-          type: 'stack',
-          direction: 'row',
-          alignItems: 'center',
-          children: [
-            {
-              type: 'text',
-              text: item.info.regionText,
-              font: {
-                size: 11,
-                weight: 'bold',
-                design: 'monospaced'
-              },
-              textColor: C.dim,
-              maxLines: 1
-            },
-            {
-              type: 'spacer'
-            },
-            {
-              type: 'text',
-              text: `${item.info.ms}ms`,
-              font: {
-                size: 11,
-                weight: 'medium',
-                design: 'monospaced'
-              },
-              textColor: responseColor(item.info.ms, item.info.available)
-            }
-          ]
-        }
-      ]
-    });
-
-    return {
-      type: 'widget',
-      backgroundColor: C.bg,
+    return baseWidget({
       padding: [16, 16, 16, 16],
       gap: 10,
       children: [
         renderHeader(),
-        {
-          type: 'stack',
-          direction: 'column',
-          gap: 10,
-          flex: 1,
-          children: [
-            {
-              type: 'stack',
-              direction: 'row',
-              gap: 10,
-              flex: 1,
-              children: allServices.slice(0, 2).map(LargeServiceBlock)
-            },
-            {
-              type: 'stack',
-              direction: 'row',
-              gap: 10,
-              flex: 1,
-              children: allServices.slice(2, 4).map(LargeServiceBlock)
-            }
-          ]
-        }
+        renderGrid({
+          rowGap: 10,
+          columnGap: 10,
+          card: {
+            borderRadius: 12,
+            padding: [12, 14, 12, 14],
+            gap: 6,
+            nameSize: 13,
+            regionSize: 11,
+            regionWeight: 'bold',
+            msSize: 11,
+            dotSize: 7
+          }
+        })
       ]
-    };
+    });
   };
 
   if (isSmall) return renderSmall();
