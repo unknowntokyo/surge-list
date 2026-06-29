@@ -18,7 +18,7 @@
  *       YouTube: "YouTube"
  *       Netflix: "Netflix"
  *       ChatGPT: "OpenAI"
- *       Google: "Google"
+ *       Gemini: "Gemini"
  *
  * 注意：
  * • 环境变量的值必须填写为你 Egern 中真实存在的策略名 / 策略组名。
@@ -42,16 +42,16 @@ export default async function(ctx) {
    * YouTube
    * Netflix
    * ChatGPT
-   * Google
+   * Gemini
    *
    * 说明：
-   * Google 环境变量用于 Gemini 检测。
+   * Gemini 环境变量用于 Gemini 检测。
    */
   const SERVICE_POLICY = {
     YouTube: String(env.YouTube || '').trim(),
     Netflix: String(env.Netflix || '').trim(),
     ChatGPT: String(env.ChatGPT || '').trim(),
-    Gemini: String(env.Google || '').trim()
+    Gemini: String(env.Gemini || '').trim()
   };
 
   const C = {
