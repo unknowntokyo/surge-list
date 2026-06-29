@@ -132,6 +132,14 @@ const formatPeriodStr = (label, diff, duration = 1) => {
 const formatItemStr = (name, diff, duration = 1) =>
   formatPeriodStr(displayName(name), diff, duration);
 
+const formatDisplayItem = item => {
+  if (item?.status === "ended") {
+    return `${displayName(item.name)}已结束`;
+  }
+
+  return formatItemStr(item.name, item.diff, item.duration);
+};
+
 const formatTodayFestStr = (name, diff, duration = 1) =>
   formatPeriodStr(name, diff, duration);
 
@@ -410,7 +418,7 @@ export default function (ctx = {}) {
   const envFingerprint = buildEnvFingerprint(env);
 
   const CACHE_KEY = "countdown_daily_cache";
-  const CACHE_VERSION = 3;
+  const CACHE_VERSION = 4;
   const timePhase = currentHour >= 15 ? "after3pm" : "before3pm";
   const todayStr = `${Y}_${M}_${D}_${timePhase}`;
 
@@ -485,7 +493,6 @@ export default function (ctx = {}) {
         };
       }
 
-      // 一次性日期：严格只允许 YYYY/MM/DD，例如 2027/06/07。
       m = s.match(/^(\d{4})\/(\d{2})\/(\d{2})$/);
 
       if (m) {
@@ -534,15 +541,11 @@ export default function (ctx = {}) {
 
     const customDays = [1, 2, 3, 4, 5, 6]
       .map(i => {
-        const name = getStr(
-          `EXCLUSIVE_NAME_${i}`,
-          i === 1 ? getStr("EXCLUSIVE_NAME", "我的生日") : ""
-        );
+        const legacyName = i === 1 ? getStr("EXCLUSIVE_NAME") : "";
+        const legacyDate = i === 1 ? getStr("EXCLUSIVE_DATE") : "";
 
-        const date = getStr(
-          `EXCLUSIVE_DATE_${i}`,
-          i === 1 ? getStr("EXCLUSIVE_DATE", "11/10") : ""
-        );
+        const name = getStr(`EXCLUSIVE_NAME_${i}`) || legacyName;
+        const date = getStr(`EXCLUSIVE_DATE_${i}`) || legacyDate;
 
         return {
           name,
@@ -559,21 +562,6 @@ export default function (ctx = {}) {
         monthIndex,
         1 + ((targetDow - firstDow + 7) % 7) + (nth - 1) * 7
       );
-    };
-
-    const nextFinanceDate = (nth, dow) => {
-      let d = getFinanceDate(Y, M - 1, nth, dow);
-
-      if (todayMs > d || (todayMs === d && currentHour >= 15)) {
-        d = getFinanceDate(
-          M === 12 ? Y + 1 : Y,
-          M === 12 ? 0 : M,
-          nth,
-          dow
-        );
-      }
-
-      return d;
     };
 
     const l2s = (y, m, d) => {
@@ -743,14 +731,15 @@ export default function (ctx = {}) {
 
     const todayFests = [];
     const todayFinance = [];
+    const todayFinanceEnded = [];
     const todayFestSet = new Set();
     const todayItemKeySet = new Set();
     const pinnedMap = new Map();
 
     todayItems = [];
 
-    const addTodayItem = (name, diff, priority, cat, duration = 1) => {
-      const key = `${cat}:${name}`;
+    const addTodayItem = (name, diff, priority, cat, duration = 1, status = "") => {
+      const key = `${cat}:${name}:${status || "active"}`;
 
       if (todayItemKeySet.has(key)) return;
 
@@ -761,7 +750,8 @@ export default function (ctx = {}) {
         diff,
         duration,
         priority: priority + 100,
-        cat
+        cat,
+        ...(status ? { status } : {})
       });
     };
 
@@ -843,14 +833,31 @@ export default function (ctx = {}) {
 
     if (showFinanceDates) {
       const processFinance = (name, nth, dow) => {
-        const diff = (nextFinanceDate(nth, dow) - todayMs) / 86400000;
         const priority = getPriority(name, "exclusive");
+        const thisMonthDate = getFinanceDate(Y, M - 1, nth, dow);
 
-        if (diff === 0 && currentHour < 15) {
-          todayFinance.push(name);
-          addTodayItem(name, diff, priority, "exclusive", 1);
+        if (todayMs === thisMonthDate) {
+          if (currentHour < 15) {
+            todayFinance.push(name);
+            addTodayItem(name, 0, priority, "exclusive", 1);
+          } else {
+            todayFinanceEnded.push(name);
+            addTodayItem(name, 0, priority, "exclusive", 1, "ended");
+          }
+
           return;
         }
+
+        const targetDate = todayMs > thisMonthDate
+          ? getFinanceDate(
+              M === 12 ? Y + 1 : Y,
+              M === 12 ? 0 : M,
+              nth,
+              dow
+            )
+          : thisMonthDate;
+
+        const diff = (targetDate - todayMs) / 86400000;
 
         if (diff > 0) {
           if (pinnedHolidays.includes(name) && diff <= 200) {
@@ -897,6 +904,14 @@ export default function (ctx = {}) {
       todayNoticeParts.push(`今日 ${todayFinance.join("·")}`);
     }
 
+    if (todayFinanceEnded.length > 0) {
+      todayNoticeParts.push(
+        todayFinanceEnded
+          .map(name => `${name}已结束`)
+          .join("·")
+      );
+    }
+
     todayNoticeText = todayNoticeParts.join(" ｜ ");
 
     pinnedData = pinnedHolidays
@@ -940,7 +955,7 @@ export default function (ctx = {}) {
 
       if (notified.date !== notifyDate) {
         const notifyItems = todayItems
-          .filter(i => i.diff === 0)
+          .filter(i => i.diff === 0 && i.status !== "ended")
           .slice()
           .sort((a, b) => {
             if ((b.priority ?? 0) !== (a.priority ?? 0)) {
@@ -978,7 +993,7 @@ export default function (ctx = {}) {
   const formatStr = (cat, limit) =>
     (result[cat] || [])
       .slice(0, limit)
-      .map(i => formatItemStr(i.name, i.diff, i.duration))
+      .map(i => formatDisplayItem(i))
       .join("，");
 
   const themeKey =
@@ -1016,7 +1031,7 @@ export default function (ctx = {}) {
           ], 0, { width: 16 }),
 
           mkText(
-            fests.map(i => formatItemStr(i.name, i.diff, i.duration)).join("，"),
+            fests.map(i => formatDisplayItem(i)).join("，"),
             12,
             "medium",
             cfg.color,
