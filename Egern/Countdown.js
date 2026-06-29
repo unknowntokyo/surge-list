@@ -111,9 +111,47 @@ const DISPLAY_NAME_MAP = {
 
 const displayName = name => DISPLAY_NAME_MAP[name] ?? name;
 
-const formatItemStr = (name, diff) => {
-  const n = displayName(name);
-  return diff <= 0 ? `今日 ${n}` : `${n} ${diff}天`;
+const formatPeriodStr = (label, diff, duration = 1) => {
+  if (diff === 0) {
+    return `今日 ${label}`;
+  }
+
+  const total = Math.max(1, Number(duration) || 1);
+
+  if (diff < 0 && total > 1) {
+    const dayIndex = Math.floor(Math.abs(diff)) + 1;
+
+    return dayIndex >= total
+      ? `${label}最后一天`
+      : `${label}第${dayIndex}天`;
+  }
+
+  return `${label} ${diff}天`;
+};
+
+const formatItemStr = (name, diff, duration = 1) =>
+  formatPeriodStr(displayName(name), diff, duration);
+
+const formatTodayFestStr = (name, diff, duration = 1) =>
+  formatPeriodStr(name, diff, duration);
+
+const formatTodayFestGroup = items => {
+  let todayPrefixUsed = false;
+
+  const parts = items.slice(0, 2).map(item => {
+    if (item.diff === 0) {
+      if (!todayPrefixUsed) {
+        todayPrefixUsed = true;
+        return `今日 ${item.name}`;
+      }
+
+      return item.name;
+    }
+
+    return formatTodayFestStr(item.name, item.diff, item.duration);
+  });
+
+  return `${parts.join("、")}${items.length > 2 ? "…" : ""}`;
 };
 
 const splitTextToLines = (str, maxW) => {
@@ -372,6 +410,7 @@ export default function (ctx = {}) {
   const envFingerprint = buildEnvFingerprint(env);
 
   const CACHE_KEY = "countdown_daily_cache";
+  const CACHE_VERSION = 3;
   const timePhase = currentHour >= 15 ? "after3pm" : "before3pm";
   const todayStr = `${Y}_${M}_${D}_${timePhase}`;
 
@@ -383,6 +422,7 @@ export default function (ctx = {}) {
 
       if (
         stored &&
+        stored.version === CACHE_VERSION &&
         stored.date === todayStr &&
         stored.envFingerprint === envFingerprint &&
         isValidCachedPayload(stored.payload)
@@ -425,6 +465,53 @@ export default function (ctx = {}) {
       return d >= 1 && d <= maxDay;
     };
 
+    const parseExclusiveDateSpec = raw => {
+      const s = String(raw ?? "").trim();
+
+      let m = s.match(/^(\d{1,2})\/(\d{1,2})$/);
+
+      if (m) {
+        const month = Number(m[1]);
+        const day = Number(m[2]);
+
+        if (!isValidMonthDay(2000, month, day)) {
+          return null;
+        }
+
+        return {
+          type: "annual",
+          month,
+          day
+        };
+      }
+
+      // 一次性日期：严格只允许 YYYY/MM/DD，例如 2027/06/07。
+      m = s.match(/^(\d{4})\/(\d{2})\/(\d{2})$/);
+
+      if (m) {
+        const year = Number(m[1]);
+        const month = Number(m[2]);
+        const day = Number(m[3]);
+
+        if (year < 1900 || year > 9999) {
+          return null;
+        }
+
+        if (!isValidMonthDay(year, month, day)) {
+          return null;
+        }
+
+        return {
+          type: "once",
+          year,
+          month,
+          day
+        };
+      }
+
+      return null;
+    };
+
     const getCustomDate = (y, dateStr, fallbackFn) => {
       if (!dateStr || typeof dateStr !== "string") {
         return fallbackFn ? fallbackFn() : null;
@@ -446,17 +533,23 @@ export default function (ctx = {}) {
     };
 
     const customDays = [1, 2, 3, 4, 5, 6]
-      .map(i => ({
-        name: getStr(
+      .map(i => {
+        const name = getStr(
           `EXCLUSIVE_NAME_${i}`,
           i === 1 ? getStr("EXCLUSIVE_NAME", "我的生日") : ""
-        ),
-        date: getStr(
+        );
+
+        const date = getStr(
           `EXCLUSIVE_DATE_${i}`,
           i === 1 ? getStr("EXCLUSIVE_DATE", "11/10") : ""
-        )
-      }))
-      .filter(item => item.name && /^\d{1,2}\/\d{1,2}$/.test(item.date));
+        );
+
+        return {
+          name,
+          spec: parseExclusiveDateSpec(date)
+        };
+      })
+      .filter(item => item.name && item.spec);
 
     const getFinanceDate = (y, monthIndex, nth, targetDow) => {
       const firstDow = new Date(Date.UTC(y, monthIndex, 1)).getUTCDay();
@@ -587,12 +680,18 @@ export default function (ctx = {}) {
       return {
         legal,
 
-        exclusive: customDays.map(item => [
-          item.name,
-          getCustomDate(y, item.date),
-          1,
-          "custom"
-        ]),
+        exclusive: customDays
+          .filter(item => item.spec.type === "annual")
+          .map(item => {
+            const { month, day } = item.spec;
+
+            return [
+              item.name,
+              isValidMonthDay(y, month, day) ? YMD(y, month, day) : null,
+              1,
+              "custom"
+            ];
+          }),
 
         folk: [
           ["元宵节", l2s(y, 1, 15), 1],
@@ -650,7 +749,7 @@ export default function (ctx = {}) {
 
     todayItems = [];
 
-    const addTodayItem = (name, diff, priority, cat) => {
+    const addTodayItem = (name, diff, priority, cat, duration = 1) => {
       const key = `${cat}:${name}`;
 
       if (todayItemKeySet.has(key)) return;
@@ -660,6 +759,7 @@ export default function (ctx = {}) {
       todayItems.push({
         name,
         diff,
+        duration,
         priority: priority + 100,
         cat
       });
@@ -680,10 +780,15 @@ export default function (ctx = {}) {
       if (isInFestivalPeriod(diff, duration)) {
         if (!todayFestSet.has(name)) {
           todayFestSet.add(name);
-          todayFests.push(name);
+
+          todayFests.push({
+            name,
+            diff,
+            duration
+          });
         }
 
-        addTodayItem(name, diff, priority, cat);
+        addTodayItem(name, diff, priority, cat, duration);
         return;
       }
 
@@ -702,6 +807,7 @@ export default function (ctx = {}) {
           rawResult[cat].set(name, {
             name,
             diff,
+            duration,
             priority,
             cat
           });
@@ -709,7 +815,9 @@ export default function (ctx = {}) {
       }
     };
 
-    for (const y of [Y - 1, Y, Y + 1]) {
+    const yearsToScan = [Y - 1, Y, Y + 1, Y + 2, Y + 3, Y + 4];
+
+    for (const y of yearsToScan) {
       const f = getFests(y);
 
       for (const cat of Object.keys(rawResult)) {
@@ -719,6 +827,20 @@ export default function (ctx = {}) {
       }
     }
 
+    for (const item of customDays) {
+      if (item.spec.type !== "once") continue;
+
+      const { year, month, day } = item.spec;
+
+      addFestival(
+        "exclusive",
+        item.name,
+        YMD(year, month, day),
+        1,
+        "custom"
+      );
+    }
+
     if (showFinanceDates) {
       const processFinance = (name, nth, dow) => {
         const diff = (nextFinanceDate(nth, dow) - todayMs) / 86400000;
@@ -726,11 +848,23 @@ export default function (ctx = {}) {
 
         if (diff === 0 && currentHour < 15) {
           todayFinance.push(name);
-          addTodayItem(name, diff, priority, "exclusive");
-        } else if (diff > 0) {
+          addTodayItem(name, diff, priority, "exclusive", 1);
+          return;
+        }
+
+        if (diff > 0) {
+          if (pinnedHolidays.includes(name) && diff <= 200) {
+            const oldPinnedDiff = pinnedMap.get(name);
+
+            if (oldPinnedDiff === undefined || diff < oldPinnedDiff) {
+              pinnedMap.set(name, diff);
+            }
+          }
+
           rawResult.exclusive.set(name, {
             name,
             diff,
+            duration: 1,
             priority,
             cat: "exclusive"
           });
@@ -756,9 +890,7 @@ export default function (ctx = {}) {
     const todayNoticeParts = [];
 
     if (todayFests.length > 0) {
-      todayNoticeParts.push(
-        `今日 ${todayFests.slice(0, 2).join("·")}${todayFests.length > 2 ? "…" : ""}`
-      );
+      todayNoticeParts.push(formatTodayFestGroup(todayFests));
     }
 
     if (todayFinance.length > 0) {
@@ -777,6 +909,7 @@ export default function (ctx = {}) {
     if (ctx.storage) {
       try {
         ctx.storage.setJSON(CACHE_KEY, {
+          version: CACHE_VERSION,
           date: todayStr,
           envFingerprint,
           payload: {
@@ -845,7 +978,7 @@ export default function (ctx = {}) {
   const formatStr = (cat, limit) =>
     (result[cat] || [])
       .slice(0, limit)
-      .map(i => formatItemStr(i.name, i.diff))
+      .map(i => formatItemStr(i.name, i.diff, i.duration))
       .join("，");
 
   const themeKey =
@@ -883,7 +1016,7 @@ export default function (ctx = {}) {
           ], 0, { width: 16 }),
 
           mkText(
-            fests.map(i => formatItemStr(i.name, i.diff)).join("，"),
+            fests.map(i => formatItemStr(i.name, i.diff, i.duration)).join("，"),
             12,
             "medium",
             cfg.color,
