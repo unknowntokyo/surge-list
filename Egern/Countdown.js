@@ -74,6 +74,21 @@ const specialPriority = {
 };
 
 const DAY_MS = 86400000;
+const HTTP_TIMEOUT_MS = 5000;
+
+function withTimeout(promise, ms = HTTP_TIMEOUT_MS, label = "operation") {
+  let timer;
+
+  const timeoutPromise = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      reject(new Error(`${label} timeout after ${ms}ms`));
+    }, ms);
+  });
+
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    clearTimeout(timer);
+  });
+}
 
 const mkText = (text, size, weight, color, opts = {}) => ({
   type: "text",
@@ -381,13 +396,97 @@ function buildEnvFingerprint(env) {
   return fp;
 }
 
+const VALID_CATEGORY_KEYS = new Set(CATEGORY_CONFIG.map(cfg => cfg.key));
+
+function isValidCountdownItem(item) {
+  if (!item || typeof item !== "object") return false;
+  if (typeof item.name !== "string") return false;
+
+  if (
+    typeof item.diff !== "number" ||
+    !Number.isFinite(item.diff)
+  ) {
+    return false;
+  }
+
+  if (
+    item.duration !== undefined &&
+    (
+      typeof item.duration !== "number" ||
+      !Number.isInteger(item.duration) ||
+      item.duration < 1 ||
+      item.duration > 30
+    )
+  ) {
+    return false;
+  }
+
+  if (
+    typeof item.cat !== "string" ||
+    !VALID_CATEGORY_KEYS.has(item.cat)
+  ) {
+    return false;
+  }
+
+  if (
+    item.priority !== undefined &&
+    (
+      typeof item.priority !== "number" ||
+      !Number.isFinite(item.priority)
+    )
+  ) {
+    return false;
+  }
+
+  if (
+    item.status !== undefined &&
+    typeof item.status !== "string"
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+function isValidPinnedItem(item) {
+  return (
+    item &&
+    typeof item === "object" &&
+    typeof item.name === "string" &&
+    typeof item.diff === "number" &&
+    Number.isFinite(item.diff)
+  );
+}
+
 function isValidCachedPayload(payload) {
   if (!payload || typeof payload !== "object") return false;
   if (!payload.result || typeof payload.result !== "object") return false;
   if (!Array.isArray(payload.todayItems)) return false;
   if (!Array.isArray(payload.pinnedData)) return false;
 
-  return CATEGORY_CONFIG.every(cfg => Array.isArray(payload.result[cfg.key]));
+  if (
+    payload.todayNoticeText !== undefined &&
+    typeof payload.todayNoticeText !== "string"
+  ) {
+    return false;
+  }
+
+  if (!payload.todayItems.every(isValidCountdownItem)) {
+    return false;
+  }
+
+  if (!payload.pinnedData.every(isValidPinnedItem)) {
+    return false;
+  }
+
+  return CATEGORY_CONFIG.every(cfg => {
+    const arr = payload.result[cfg.key];
+
+    return (
+      Array.isArray(arr) &&
+      arr.every(isValidCountdownItem)
+    );
+  });
 }
 
 const OFFICIAL_HOLIDAY_STORAGE_KEY = "countdown_official_holidays";
@@ -577,8 +676,14 @@ async function parseHttpJson(resp) {
     return await resp.json();
   }
 
-  if (resp.body && typeof resp.body === "object") {
-    return resp.body;
+  if (typeof resp.text === "function") {
+    const raw = await resp.text();
+
+    if (!raw) {
+      throw new Error("response text body missing");
+    }
+
+    return JSON.parse(raw);
   }
 
   if (resp.data && typeof resp.data === "object") {
@@ -586,10 +691,10 @@ async function parseHttpJson(resp) {
   }
 
   const raw =
-    typeof resp.body === "string"
-      ? resp.body
-      : typeof resp.data === "string"
-        ? resp.data
+    typeof resp.data === "string"
+      ? resp.data
+      : typeof resp.body === "string"
+        ? resp.body
         : typeof resp === "string"
           ? resp
           : "";
@@ -607,7 +712,13 @@ async function fetchOfficialHolidayYear(ctx, year) {
   }
 
   const url = `https://raw.githubusercontent.com/NateScarlet/holiday-cn/master/${year}.json`;
-  const resp = await ctx.http.get(url);
+
+  const resp = await withTimeout(
+    ctx.http.get(url),
+    HTTP_TIMEOUT_MS,
+    `fetch official holiday ${year}`
+  );
+
   const status = resp?.status ?? resp?.statusCode;
 
   if (typeof status === "number" && status >= 400) {
@@ -768,6 +879,16 @@ export default async function (ctx = {}) {
   const currentDay = bjDate.getUTCDay();
   const todayMs = Date.UTC(Y, M - 1, D);
   const todayIso = `${Y}-${pad2(M)}-${pad2(D)}`;
+
+  const nextRefreshMs =
+    currentHour < 15
+      ? Date.UTC(Y, M - 1, D, 15, 1) - 8 * 3600000
+      : Date.UTC(Y, M - 1, D + 1, 0, 1) - 8 * 3600000;
+
+  const withRefresh = widget => ({
+    ...widget,
+    refreshAfter: new Date(nextRefreshMs).toISOString()
+  });
 
   const officialHolidayCache = await loadOfficialHolidayDaily(
     ctx,
@@ -1108,6 +1229,18 @@ export default async function (ctx = {}) {
 
     todayItems = [];
 
+    const updatePinned = (name, diff) => {
+      if (!pinnedHolidays.includes(name) || diff > 200) {
+        return;
+      }
+
+      const oldPinnedDiff = pinnedMap.get(name);
+
+      if (oldPinnedDiff === undefined || diff < oldPinnedDiff) {
+        pinnedMap.set(name, diff);
+      }
+    };
+
     const addTodayItem = (name, diff, priority, cat, duration = 1, status = "") => {
       const key = `${cat}:${name}:${status || "active"}`;
 
@@ -1153,13 +1286,7 @@ export default async function (ctx = {}) {
       }
 
       if (diff > 0) {
-        if (pinnedHolidays.includes(name) && diff <= 200) {
-          const oldPinnedDiff = pinnedMap.get(name);
-
-          if (oldPinnedDiff === undefined || diff < oldPinnedDiff) {
-            pinnedMap.set(name, diff);
-          }
-        }
+        updatePinned(name, diff);
 
         const old = rawResult[cat].get(name);
 
@@ -1175,7 +1302,9 @@ export default async function (ctx = {}) {
       }
     };
 
-    const yearsToScan = [Y - 1, Y, Y + 1, Y + 2, Y + 3, Y + 4];
+    // Y - 1: 用于识别跨年假期仍在进行中的情况
+    // Y 和 Y + 1: 足以覆盖所有年度重复节日的下一次发生
+    const yearsToScan = [Y - 1, Y, Y + 1];
 
     for (const y of yearsToScan) {
       const f = getFests(y);
@@ -1230,13 +1359,7 @@ export default async function (ctx = {}) {
         const diff = (targetDate - todayMs) / DAY_MS;
 
         if (diff > 0) {
-          if (pinnedHolidays.includes(name) && diff <= 200) {
-            const oldPinnedDiff = pinnedMap.get(name);
-
-            if (oldPinnedDiff === undefined || diff < oldPinnedDiff) {
-              pinnedMap.set(name, diff);
-            }
-          }
+          updatePinned(name, diff);
 
           rawResult.exclusive.set(name, {
             name,
@@ -1344,16 +1467,16 @@ export default async function (ctx = {}) {
         ];
 
         if (notifyNames.length > 0) {
+          await Promise.resolve(ctx.notify({
+            title: "✨ 今日提醒",
+            body: notifyNames.join("、"),
+            sound: true
+          }));
+
           ctx.storage.setJSON(notifyKey, {
             date: notifyDate,
             names: notifyNames,
             time: Date.now()
-          });
-
-          ctx.notify({
-            title: "✨ 今日提醒",
-            body: notifyNames.join("、"),
-            sound: true
           });
         }
       }
@@ -1423,7 +1546,7 @@ export default async function (ctx = {}) {
       })
       .filter(Boolean);
 
-    return {
+    return withRefresh({
       type: "widget",
       padding: 10,
       backgroundGradient,
@@ -1451,7 +1574,7 @@ export default async function (ctx = {}) {
             : [mkText("近期暂无倒计时", 12, "medium", C.muted)]
         }
       ]
-    };
+    });
   }
 
   const layoutConfig = {
@@ -1542,7 +1665,7 @@ export default async function (ctx = {}) {
     );
   }
 
-  return {
+  return withRefresh({
     type: "widget",
     padding: isLarge ? 14 : 12,
     backgroundGradient,
@@ -1579,5 +1702,5 @@ export default async function (ctx = {}) {
 
       mkSpacer()
     ]
-  };
+  });
 }
