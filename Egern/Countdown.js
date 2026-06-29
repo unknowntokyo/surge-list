@@ -5,7 +5,7 @@
  * ✨ 主要功能：
  * • 尺寸适配：支持 Small、Medium、Large 三种组件尺寸，区分紧凑列表与定宽多行列表排版。
  * • 节日计算：内置农历算法数组，支持计算法定节假日、民俗节日、国际节日、金融交割/行权日的倒计时。
- * • 官方假期：法定分类优先拉取 NateScarlet/holiday-cn 当前年与下一年数据，按实际放假安排展示。
+ * • 官方假期：法定分类优先拉取 NateScarlet/holiday-cn 上一年、当前年与下一年数据，按实际放假安排展示。
  * • 时区基准：采用 UTC+8 固定时区进行绝对时间计算。
  * • 自定义配置：支持通过环境变量设置最多 6 个专属纪念日，支持修改清明节及春/秋假的起始日期。
  * • 排序与显示：支持按倒数天数及分类优先级进行排序，支持指定节日跨分类置顶。
@@ -160,9 +160,6 @@ const formatDisplayItem = item => {
   return formatItemStr(item.name, item.diff, item.duration);
 };
 
-const formatTodayFestStr = (name, diff, duration = 1) =>
-  formatPeriodStr(name, diff, duration);
-
 const formatTodayFestGroup = items => {
   let todayPrefixUsed = false;
 
@@ -176,7 +173,7 @@ const formatTodayFestGroup = items => {
       return item.name;
     }
 
-    return formatTodayFestStr(item.name, item.diff, item.duration);
+    return formatPeriodStr(item.name, item.diff, item.duration);
   });
 
   return `${parts.join("、")}${items.length > 2 ? "…" : ""}`;
@@ -352,18 +349,22 @@ const BOOL_TRUE_VALUES = new Set([
   "enabled"
 ]);
 
+function parseBoolValue(value, defaultVal = true) {
+  if (value === undefined || value === null || String(value).trim() === "") {
+    return defaultVal;
+  }
+
+  const s = String(value).trim().toLowerCase();
+
+  if (BOOL_FALSE_VALUES.has(s)) return false;
+  if (BOOL_TRUE_VALUES.has(s)) return true;
+
+  return defaultVal;
+}
+
 function normalizeCacheEnvValue(key, value) {
   if (CACHE_BOOL_ENV_KEYS.has(key)) {
-    if (value === undefined || value === null || String(value).trim() === "") {
-      return "1";
-    }
-
-    const s = String(value).trim().toLowerCase();
-
-    if (BOOL_FALSE_VALUES.has(s)) return "0";
-    if (BOOL_TRUE_VALUES.has(s)) return "1";
-
-    return "1";
+    return parseBoolValue(value, true) ? "1" : "0";
   }
 
   if (value === undefined || value === null) {
@@ -641,6 +642,18 @@ function pruneOfficialYears(years, currentYear) {
   return pruned;
 }
 
+function hasRequestedOfficialYears(cache, requestYears) {
+  return requestYears.every(year => {
+    const yearData = cache?.years?.[String(year)];
+
+    return (
+      yearData &&
+      Array.isArray(yearData.days) &&
+      yearData.days.length > 0
+    );
+  });
+}
+
 function buildOfficialFingerprint(yearsData) {
   if (!yearsData || typeof yearsData !== "object") {
     return "none";
@@ -738,14 +751,18 @@ async function loadOfficialHolidayDaily(ctx, env, currentYear, todayIso) {
   }
 
   const forceKey = String(env?.OFFICIAL_HOLIDAY_FORCE_REFRESH ?? "").trim();
-  const requestYears = [currentYear, currentYear + 1];
+
+  // 业务侧会扫描 [Y - 1, Y, Y + 1]，
+  // 因此官方节假日数据也同步拉取上一年、当前年、下一年。
+  const requestYears = [currentYear - 1, currentYear, currentYear + 1];
   const yearsKey = requestYears.join(",");
 
   if (
     oldCache &&
     oldCache.checkedDate === todayIso &&
     oldCache.forceKey === forceKey &&
-    oldCache.yearsKey === yearsKey
+    oldCache.yearsKey === yearsKey &&
+    hasRequestedOfficialYears(oldCache, requestYears)
   ) {
     return oldCache;
   }
@@ -777,7 +794,7 @@ async function loadOfficialHolidayDaily(ctx, env, currentYear, todayIso) {
     return oldCache;
   }
 
-  const newCache = {
+  const candidateCache = {
     version: OFFICIAL_HOLIDAY_STORAGE_VERSION,
     checkedDate: todayIso,
     forceKey,
@@ -786,11 +803,17 @@ async function loadOfficialHolidayDaily(ctx, env, currentYear, todayIso) {
     years: mergedYears
   };
 
+  // 必须确保上一年、当前年、下一年三份数据都存在，才写入"当日已检查"的官方假期缓存。
+  // 避免部分年份请求失败时，将不完整数据写成当天有效缓存，导致当天后续不再补齐。
+  if (!hasRequestedOfficialYears(candidateCache, requestYears)) {
+    return oldCache;
+  }
+
   try {
-    ctx.storage.setJSON(OFFICIAL_HOLIDAY_STORAGE_KEY, newCache);
+    ctx.storage.setJSON(OFFICIAL_HOLIDAY_STORAGE_KEY, candidateCache);
   } catch (e) {}
 
-  return newCache;
+  return candidateCache;
 }
 
 function isValidOfficialRange(range) {
@@ -850,20 +873,8 @@ function getOfficialDayInfo(officialHolidayCache, isoDate) {
 export default async function (ctx = {}) {
   const env = ctx.env ?? {};
 
-  const getBool = (key, defaultVal = true) => {
-    const v = env[key];
-
-    if (v === undefined || v === null || String(v).trim() === "") {
-      return defaultVal;
-    }
-
-    const s = String(v).trim().toLowerCase();
-
-    if (BOOL_FALSE_VALUES.has(s)) return false;
-    if (BOOL_TRUE_VALUES.has(s)) return true;
-
-    return defaultVal;
-  };
+  const getBool = (key, defaultVal = true) =>
+    parseBoolValue(env[key], defaultVal);
 
   const enableWeekendTheme = getBool("ENABLE_WEEKEND_THEME", true);
 
