@@ -77,6 +77,9 @@ const DAY_MS = 86400000;
 const HTTP_TIMEOUT_MS = 5000;
 const OFFICIAL_REFRESH_INTERVAL_MS = 3 * DAY_MS;
 const OFFICIAL_FAILED_RETRY_INTERVAL_MS = DAY_MS;
+
+const OFFICIAL_FAILED_REQUEST_THROTTLE_MS = OFFICIAL_FAILED_RETRY_INTERVAL_MS;
+
 const NOTIFY_LOCK_TTL_MS = 2 * 60 * 1000;
 
 const DISPLAY_LINE_MAX_WIDTH = {
@@ -861,6 +864,16 @@ function isOfficialYearRetryBlocked(cache, year, now = Date.now()) {
   return Number.isFinite(retryAt) && retryAt > now;
 }
 
+function isOfficialFailureThrottleBlocked(cache, now = Date.now()) {
+  const lastFailedAttemptTime = Number(cache?.lastFailedAttemptTime);
+
+  return (
+    Number.isFinite(lastFailedAttemptTime) &&
+    now - lastFailedAttemptTime >= 0 &&
+    now - lastFailedAttemptTime < OFFICIAL_FAILED_REQUEST_THROTTLE_MS
+  );
+}
+
 function normalizeOfficialCachePayload(oldCache, years, currentYear, todayIso) {
   const requestYears = officialRequestYears(currentYear);
   const requiredYears = officialRequiredYears(currentYear);
@@ -886,6 +899,9 @@ function normalizeOfficialCachePayload(oldCache, years, currentYear, todayIso) {
       oldCache?.retryAfterByYear,
       currentYear
     ),
+    ...(oldCache?.lastFailedAttemptTime
+      ? { lastFailedAttemptTime: oldCache.lastFailedAttemptTime }
+      : {}),
     years
   };
 }
@@ -944,12 +960,22 @@ async function loadOfficialHolidayDaily(ctx, currentYear, todayIso) {
     currentYear
   );
 
+  const now = Date.now();
+
+  if (isOfficialFailureThrottleBlocked(oldCache, now)) {
+    return normalizeOfficialCachePayload(
+      oldCache,
+      mergedYears,
+      currentYear,
+      todayIso
+    );
+  }
+
   const cacheForFreshCheck = {
     ...oldCache,
     years: mergedYears
   };
 
-  const now = Date.now();
   const allMissingBeforeFetch = getMissingOfficialYears(
     mergedYears,
     requestYears
@@ -976,7 +1002,9 @@ async function loadOfficialHolidayDaily(ctx, currentYear, todayIso) {
   if (requiredFresh) {
     yearsToFetch = optionalMissingBeforeFetch
       .map(Number)
-      .filter(year => !isOfficialYearRetryBlocked({ retryAfterByYear }, year, now));
+      .filter(year =>
+        !isOfficialYearRetryBlocked({ retryAfterByYear }, year, now)
+      );
 
     if (yearsToFetch.length === 0) {
       return normalizeOfficialCachePayload(
@@ -989,7 +1017,9 @@ async function loadOfficialHolidayDaily(ctx, currentYear, todayIso) {
   } else if (requiredMissingBeforeFetch.length > 0) {
     yearsToFetch = allMissingBeforeFetch
       .map(Number)
-      .filter(year => !isOfficialYearRetryBlocked({ retryAfterByYear }, year, now));
+      .filter(year =>
+        !isOfficialYearRetryBlocked({ retryAfterByYear }, year, now)
+      );
 
     if (yearsToFetch.length === 0) {
       return normalizeOfficialCachePayload(
@@ -1001,7 +1031,18 @@ async function loadOfficialHolidayDaily(ctx, currentYear, todayIso) {
     }
   } else {
     yearsToFetch = requestYears
-      .filter(year => !isOfficialYearRetryBlocked({ retryAfterByYear }, year, now));
+      .filter(year =>
+        !isOfficialYearRetryBlocked({ retryAfterByYear }, year, now)
+      );
+  }
+
+  if (yearsToFetch.length === 0) {
+    return normalizeOfficialCachePayload(
+      oldCache,
+      mergedYears,
+      currentYear,
+      todayIso
+    );
   }
 
   const results = await Promise.allSettled(
@@ -1016,6 +1057,7 @@ async function loadOfficialHolidayDaily(ctx, currentYear, todayIso) {
   );
 
   let successCount = 0;
+  let failedCount = 0;
   const successfulFetchYearSet = new Set();
 
   for (let i = 0; i < results.length; i++) {
@@ -1025,11 +1067,13 @@ async function loadOfficialHolidayDaily(ctx, currentYear, todayIso) {
 
     if (result.status === "fulfilled") {
       const { data } = result.value;
+
       mergedYears[key] = data;
       delete retryAfterByYear[key];
       successCount += 1;
       successfulFetchYearSet.add(key);
     } else {
+      failedCount += 1;
       retryAfterByYear[key] = now + OFFICIAL_FAILED_RETRY_INTERVAL_MS;
 
       warnLog(
@@ -1067,12 +1111,13 @@ async function loadOfficialHolidayDaily(ctx, currentYear, todayIso) {
 
   const checkedDate = allFetchedRequiredYearsSucceeded
     ? todayIso
-    : oldCache?.checkedDate || todayIso;
+    : oldCache?.checkedDate;
 
   const newCache = {
     version: OFFICIAL_HOLIDAY_STORAGE_VERSION,
-    checkedDate,
-    lastAttemptDate: todayIso,
+
+    ...(checkedDate ? { checkedDate } : {}),
+
     yearsKey,
     requiredYearsKey,
     complete: missingYears.length === 0,
@@ -1086,7 +1131,11 @@ async function loadOfficialHolidayDaily(ctx, currentYear, todayIso) {
       retryAfterByYear,
       currentYear
     ),
-    years: mergedYears
+    years: mergedYears,
+
+    ...(failedCount > 0
+      ? { lastFailedAttemptTime: now }
+      : {})
   };
 
   try {
