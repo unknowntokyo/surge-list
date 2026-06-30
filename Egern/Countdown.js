@@ -75,6 +75,8 @@ const specialPriority = {
 
 const DAY_MS = 86400000;
 const HTTP_TIMEOUT_MS = 5000;
+const OFFICIAL_REFRESH_INTERVAL_MS = 3 * DAY_MS;
+const NOTIFY_LOCK_TTL_MS = 2 * 60 * 1000;
 
 const mkText = (text, size, weight, color, opts = {}) => ({
   type: "text",
@@ -479,26 +481,46 @@ function isValidCachedPayload(payload) {
 const OFFICIAL_HOLIDAY_STORAGE_KEY = "countdown_official_holidays";
 const OFFICIAL_HOLIDAY_STORAGE_VERSION = 2;
 
-const isoToMs = iso => {
-  const [y, m, d] = String(iso).split("-").map(Number);
-  return Date.UTC(y, m - 1, d);
-};
+function parseISODateParts(date) {
+  const match = String(date ?? "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
 
-const isoToSlashYMD = iso => String(iso || "").replace(/-/g, "/");
-
-const isValidISODate = date => {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date))) {
-    return false;
+  if (!match) {
+    return null;
   }
 
-  const [y, m, d] = String(date).split("-").map(Number);
+  const y = Number(match[1]);
+  const m = Number(match[2]);
+  const d = Number(match[3]);
+
   const dt = new Date(Date.UTC(y, m - 1, d));
 
-  return (
-    dt.getUTCFullYear() === y &&
-    dt.getUTCMonth() + 1 === m &&
-    dt.getUTCDate() === d
-  );
+  if (
+    dt.getUTCFullYear() !== y ||
+    dt.getUTCMonth() + 1 !== m ||
+    dt.getUTCDate() !== d
+  ) {
+    return null;
+  }
+
+  return { y, m, d };
+}
+
+const isValidISODate = date => parseISODateParts(date) !== null;
+
+const isoToMs = iso => {
+  const parts = parseISODateParts(iso);
+
+  return parts
+    ? Date.UTC(parts.y, parts.m - 1, parts.d)
+    : NaN;
+};
+
+const isoToYMD = iso => {
+  const parts = parseISODateParts(iso);
+
+  return parts
+    ? YMD(parts.y, parts.m, parts.d)
+    : null;
 };
 
 function hashString(str) {
@@ -605,7 +627,9 @@ function readOfficialHolidayCache(ctx) {
     ) {
       return cache;
     }
-  } catch (e) {}
+  } catch (e) {
+    console.warn?.("[Countdown] failed to read official holiday cache:", e);
+  }
 
   return null;
 }
@@ -669,42 +693,11 @@ function buildOfficialFingerprint(yearsData) {
 }
 
 async function parseHttpJson(resp) {
-  if (!resp) {
-    throw new Error("empty response");
+  if (!resp || typeof resp.json !== "function") {
+    throw new Error("invalid Egern http response: response.json unavailable");
   }
 
-  if (typeof resp.json === "function") {
-    return await resp.json();
-  }
-
-  if (typeof resp.text === "function") {
-    const raw = await resp.text();
-
-    if (!raw) {
-      throw new Error("response text body missing");
-    }
-
-    return JSON.parse(raw);
-  }
-
-  if (resp.data && typeof resp.data === "object") {
-    return resp.data;
-  }
-
-  const raw =
-    typeof resp.data === "string"
-      ? resp.data
-      : typeof resp.body === "string"
-        ? resp.body
-        : typeof resp === "string"
-          ? resp
-          : "";
-
-  if (!raw) {
-    throw new Error("response json body missing");
-  }
-
-  return JSON.parse(raw);
+  return await resp.json();
 }
 
 async function fetchOfficialHolidayYear(ctx, year) {
@@ -733,6 +726,21 @@ async function fetchOfficialHolidayYear(ctx, year) {
   return normalizeHolidayCnYearData(data, year);
 }
 
+function isOfficialCacheFresh(cache, todayIso) {
+  if (
+    !cache ||
+    cache.complete !== true ||
+    !isValidISODate(cache.checkedDate) ||
+    !isValidISODate(todayIso)
+  ) {
+    return false;
+  }
+
+  const age = isoToMs(todayIso) - isoToMs(cache.checkedDate);
+
+  return age >= 0 && age < OFFICIAL_REFRESH_INTERVAL_MS;
+}
+
 async function loadOfficialHolidayDaily(ctx, env, currentYear, todayIso) {
   const oldCache = readOfficialHolidayCache(ctx);
 
@@ -741,23 +749,40 @@ async function loadOfficialHolidayDaily(ctx, env, currentYear, todayIso) {
   }
 
   const forceKey = String(env?.OFFICIAL_HOLIDAY_FORCE_REFRESH ?? "").trim();
-
   const requestYears = [currentYear - 1, currentYear, currentYear + 1];
   const yearsKey = requestYears.join(",");
 
-  if (
+  const sameCacheScope =
     oldCache &&
-    oldCache.checkedDate === todayIso &&
     oldCache.forceKey === forceKey &&
-    oldCache.yearsKey === yearsKey
+    oldCache.yearsKey === yearsKey;
+
+  const mergedYears = sameCacheScope
+    ? pruneOfficialYears(oldCache.years || {}, currentYear)
+    : {};
+
+  const missingBeforeFetch = getMissingOfficialYears(
+    mergedYears,
+    requestYears
+  );
+
+  if (
+    sameCacheScope &&
+    oldCache.complete === true &&
+    missingBeforeFetch.length === 0 &&
+    isOfficialCacheFresh(oldCache, todayIso)
   ) {
     return oldCache;
   }
 
-  const mergedYears = pruneOfficialYears(oldCache?.years || {}, currentYear);
+  const yearsToFetch = !sameCacheScope
+    ? requestYears
+    : missingBeforeFetch.length > 0
+      ? missingBeforeFetch.map(Number)
+      : requestYears;
 
   const results = await Promise.allSettled(
-    requestYears.map(async year => {
+    yearsToFetch.map(async year => {
       const data = await fetchOfficialHolidayYear(ctx, year);
 
       return {
@@ -774,10 +799,18 @@ async function loadOfficialHolidayDaily(ctx, env, currentYear, todayIso) {
       const { key, data } = result.value;
       mergedYears[key] = data;
       successCount += 1;
+    } else {
+      console.warn?.(
+        "[Countdown] failed to fetch official holiday:",
+        result.reason
+      );
     }
   }
 
-  const missingYears = getMissingOfficialYears(mergedYears, requestYears);
+  const missingYears = getMissingOfficialYears(
+    mergedYears,
+    requestYears
+  );
 
   const newCache = {
     version: OFFICIAL_HOLIDAY_STORAGE_VERSION,
@@ -793,7 +826,9 @@ async function loadOfficialHolidayDaily(ctx, env, currentYear, todayIso) {
 
   try {
     ctx.storage.setJSON(OFFICIAL_HOLIDAY_STORAGE_KEY, newCache);
-  } catch (e) {}
+  } catch (e) {
+    console.warn?.("[Countdown] failed to save official holiday cache:", e);
+  }
 
   return newCache;
 }
@@ -807,25 +842,107 @@ function isValidOfficialRange(range) {
   return Number.isInteger(duration) && duration >= 1 && duration <= 30;
 }
 
-function getOfficialLegalHolidays(officialHolidayCache, year) {
-  const yearData = officialHolidayCache?.years?.[String(year)];
+function slashYMDToMs(dateStr) {
+  const match = String(dateStr ?? "").match(
+    /^(\d{4})\/(\d{1,2})\/(\d{1,2})$/
+  );
 
-  if (!yearData || !Array.isArray(yearData.days)) {
+  if (!match) {
+    return NaN;
+  }
+
+  const y = Number(match[1]);
+  const m = Number(match[2]);
+  const d = Number(match[3]);
+
+  const dt = new Date(Date.UTC(y, m - 1, d));
+
+  if (
+    dt.getUTCFullYear() !== y ||
+    dt.getUTCMonth() + 1 !== m ||
+    dt.getUTCDate() !== d
+  ) {
+    return NaN;
+  }
+
+  return Date.UTC(y, m - 1, d);
+}
+
+function officialRangeOverlapsYear(range, year) {
+  const startMs = isoToMs(range.start);
+  const duration = Number(range.duration);
+
+  if (
+    !Number.isFinite(startMs) ||
+    !Number.isInteger(duration) ||
+    duration < 1
+  ) {
+    return false;
+  }
+
+  const endMs = startMs + (duration - 1) * DAY_MS;
+  const yearStartMs = Date.UTC(year, 0, 1);
+  const yearEndMs = Date.UTC(year, 11, 31);
+
+  return startMs <= yearEndMs && endMs >= yearStartMs;
+}
+
+function getOfficialLegalHolidays(officialHolidayCache, year) {
+  const yearsToRead = [year - 1, year, year + 1];
+  const allDays = [];
+
+  for (const y of yearsToRead) {
+    const yearData = officialHolidayCache?.years?.[String(y)];
+
+    if (yearData && Array.isArray(yearData.days)) {
+      allDays.push(...yearData.days);
+    }
+  }
+
+  if (allDays.length === 0) {
     return null;
   }
 
-  const ranges = buildOfficialHolidayRanges(yearData.days);
+  const ranges = buildOfficialHolidayRanges(allDays);
 
   const rows = ranges
-    .filter(isValidOfficialRange)
+    .filter(range =>
+      isValidOfficialRange(range) &&
+      officialRangeOverlapsYear(range, year)
+    )
     .map(range => [
       range.name.trim(),
-      isoToSlashYMD(range.start),
+      isoToYMD(range.start),
       Number(range.duration),
       "official"
-    ]);
+    ])
+    .filter(row => row[1]);
 
   return rows.length > 0 ? rows : null;
+}
+
+function officialRowDistanceToFallback(row, fallbackMs) {
+  const startMs = slashYMDToMs(row?.[1]);
+  const duration = Number(row?.[2]) || 1;
+
+  if (!Number.isFinite(startMs)) {
+    return Infinity;
+  }
+
+  if (!Number.isFinite(fallbackMs)) {
+    return 0;
+  }
+
+  const endMs = startMs + (Math.max(1, duration) - 1) * DAY_MS;
+
+  if (fallbackMs >= startMs && fallbackMs <= endMs) {
+    return 0;
+  }
+
+  return Math.min(
+    Math.abs(fallbackMs - startMs),
+    Math.abs(fallbackMs - endMs)
+  );
 }
 
 function mergeLegalHolidays(fallbackLegal, officialLegal) {
@@ -837,27 +954,69 @@ function mergeLegalHolidays(fallbackLegal, officialLegal) {
     return [...fallbackLegal];
   }
 
-  const officialByName = new Map();
+  const officialRows = officialLegal.filter(row =>
+    Array.isArray(row) &&
+    typeof row[0] === "string" &&
+    row[0].trim() &&
+    typeof row[1] === "string"
+  );
 
-  for (const row of officialLegal) {
-    if (!Array.isArray(row)) continue;
-
-    const name = String(row[0] ?? "").trim();
-
-    if (!name) continue;
-
-    officialByName.set(name, row);
+  if (officialRows.length === 0) {
+    return [...fallbackLegal];
   }
+
+  const usedOfficialIndexes = new Set();
+  const fallbackNames = new Set(
+    fallbackLegal
+      .map(row => String(row?.[0] ?? "").trim())
+      .filter(Boolean)
+  );
 
   const merged = fallbackLegal.map(row => {
     const name = String(row?.[0] ?? "").trim();
 
-    return officialByName.get(name) || row;
+    if (!name) {
+      return row;
+    }
+
+    const fallbackMs = slashYMDToMs(row?.[1]);
+
+    let bestIndex = -1;
+    let bestDistance = Infinity;
+
+    for (let i = 0; i < officialRows.length; i++) {
+      if (usedOfficialIndexes.has(i)) continue;
+
+      const officialName = String(officialRows[i]?.[0] ?? "").trim();
+
+      if (officialName !== name) continue;
+
+      const distance = officialRowDistanceToFallback(
+        officialRows[i],
+        fallbackMs
+      );
+
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestIndex = i;
+      }
+    }
+
+    if (bestIndex >= 0) {
+      usedOfficialIndexes.add(bestIndex);
+      return officialRows[bestIndex];
+    }
+
+    return row;
   });
 
-  for (const [name, row] of officialByName.entries()) {
-    if (!fallbackLegal.some(item => String(item?.[0] ?? "").trim() === name)) {
-      merged.push(row);
+  for (let i = 0; i < officialRows.length; i++) {
+    if (usedOfficialIndexes.has(i)) continue;
+
+    const name = String(officialRows[i]?.[0] ?? "").trim();
+
+    if (!fallbackNames.has(name)) {
+      merged.push(officialRows[i]);
     }
   }
 
@@ -953,7 +1112,9 @@ export default async function (ctx = {}) {
       ) {
         cachedData = stored.payload;
       }
-    } catch (e) {}
+    } catch (e) {
+      console.warn?.("[Countdown] failed to read daily cache:", e);
+    }
   }
 
   let result;
@@ -1453,7 +1614,9 @@ export default async function (ctx = {}) {
             todayItems
           }
         });
-      } catch (e) {}
+      } catch (e) {
+        console.warn?.("[Countdown] failed to save daily cache:", e);
+      }
     }
   }
 
@@ -1466,47 +1629,71 @@ export default async function (ctx = {}) {
     Array.isArray(todayItems) &&
     todayItems.length > 0
   ) {
+    const notifyDate = `${Y}-${pad2(M)}-${pad2(D)}`;
+    const notifyKey = "countdown_today_notify_once";
+
     try {
-      const notifyDate = `${Y}-${pad2(M)}-${pad2(D)}`;
-      const notifyKey = "countdown_today_notify_once";
+      const notifyItems = todayItems
+        .filter(i => i.diff === 0 && i.status !== "ended")
+        .slice()
+        .sort((a, b) => {
+          if ((b.priority ?? 0) !== (a.priority ?? 0)) {
+            return (b.priority ?? 0) - (a.priority ?? 0);
+          }
 
-      const notified = ctx.storage.getJSON(notifyKey) || {};
+          return (a.diff ?? 0) - (b.diff ?? 0);
+        });
 
-      if (notified.date !== notifyDate) {
-        const notifyItems = todayItems
-          .filter(i => i.diff === 0 && i.status !== "ended")
-          .slice()
-          .sort((a, b) => {
-            if ((b.priority ?? 0) !== (a.priority ?? 0)) {
-              return (b.priority ?? 0) - (a.priority ?? 0);
-            }
+      const notifyNames = [
+        ...new Set(
+          notifyItems
+            .map(i => i.name)
+            .filter(Boolean)
+        )
+      ];
 
-            return (a.diff ?? 0) - (b.diff ?? 0);
-          });
+      if (notifyNames.length > 0) {
+        const now = Date.now();
+        const notified = ctx.storage.getJSON(notifyKey) || {};
 
-        const notifyNames = [
-          ...new Set(
-            notifyItems
-              .map(i => i.name)
-              .filter(Boolean)
-          )
-        ];
+        const lockFresh =
+          notified.lockDate === notifyDate &&
+          Number.isFinite(Number(notified.lockTime)) &&
+          now - Number(notified.lockTime) < NOTIFY_LOCK_TTL_MS;
 
-        if (notifyNames.length > 0) {
-          await Promise.resolve(ctx.notify({
-            title: "✨ 今日提醒",
-            body: notifyNames.join("、"),
-            sound: true
-          }));
-
+        if (notified.date !== notifyDate && !lockFresh) {
           ctx.storage.setJSON(notifyKey, {
-            date: notifyDate,
-            names: notifyNames,
-            time: Date.now()
+            ...notified,
+            lockDate: notifyDate,
+            lockTime: now
           });
+
+          try {
+            await Promise.resolve(ctx.notify({
+              title: "✨ 今日提醒",
+              body: notifyNames.join("、"),
+              sound: true
+            }));
+
+            ctx.storage.setJSON(notifyKey, {
+              date: notifyDate,
+              names: notifyNames,
+              time: Date.now()
+            });
+          } catch (e) {
+            console.warn?.("[Countdown] notify failed:", e);
+
+            ctx.storage.setJSON(notifyKey, {
+              ...notified,
+              failedDate: notifyDate,
+              failedTime: Date.now()
+            });
+          }
         }
       }
-    } catch (e) {}
+    } catch (e) {
+      console.warn?.("[Countdown] notify process failed:", e);
+    }
   }
 
   const formatStr = (cat, limit) =>
