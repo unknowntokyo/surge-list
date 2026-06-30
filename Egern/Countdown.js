@@ -77,6 +77,7 @@ const DAY_MS = 86400000;
 const HTTP_TIMEOUT_MS = 5000;
 const OFFICIAL_REFRESH_INTERVAL_MS = 3 * DAY_MS;
 const OFFICIAL_FAILED_RETRY_INTERVAL_MS = DAY_MS;
+const OFFICIAL_OPTIONAL_FAILED_RETRY_INTERVAL_MS = 7 * DAY_MS;
 
 const NOTIFY_LOCK_TTL_MS = 2 * 60 * 1000;
 
@@ -269,16 +270,18 @@ const formatTodayFestGroup = items => {
   let todayPrefixUsed = false;
 
   const parts = items.slice(0, 2).map(item => {
+    const name = displayName(item.name);
+
     if (item.diff === 0) {
       if (!todayPrefixUsed) {
         todayPrefixUsed = true;
-        return `今日 ${item.name}`;
+        return `今日 ${name}`;
       }
 
-      return item.name;
+      return name;
     }
 
-    return formatPeriodStr(item.name, item.diff, item.duration);
+    return formatPeriodStr(name, item.diff, item.duration);
   });
 
   return `${parts.join("、")}${items.length > 2 ? "…" : ""}`;
@@ -323,18 +326,23 @@ function buildDisplayText(result, cat, limit) {
     .join("，");
 }
 
-function buildDisplayCache(result) {
-  const cache = {};
+function buildDisplayCache(result, displayMode = "medium") {
+  const isLargeMode = displayMode === "large";
+  const limit = isLargeMode ? 7 : 3;
+  const maxWidth = isLargeMode
+    ? DISPLAY_LINE_MAX_WIDTH.large
+    : DISPLAY_LINE_MAX_WIDTH.medium;
+
+  const cache = {
+    mode: displayMode
+  };
 
   for (const cfg of CATEGORY_CONFIG) {
-    const mediumText = buildDisplayText(result, cfg.key, 3);
-    const largeText = buildDisplayText(result, cfg.key, 7);
+    const text = buildDisplayText(result, cfg.key, limit);
 
     cache[cfg.key] = {
-      mediumText,
-      largeText,
-      mediumLines: splitTextToLines(mediumText, DISPLAY_LINE_MAX_WIDTH.medium),
-      largeLines: splitTextToLines(largeText, DISPLAY_LINE_MAX_WIDTH.large)
+      text,
+      lines: splitTextToLines(text, maxWidth)
     };
   }
 
@@ -451,6 +459,7 @@ const CACHE_ENV_KEYS = Object.freeze([
   "SHOW_FINANCE_DATES",
   "ENABLE_PRIORITY_SORT",
   "ENABLE_EXCLUSIVE_WEIGHT",
+  "ENABLE_WEEKEND_THEME",
 
   "SPRING_BREAK_DATE",
   "AUTUMN_BREAK_DATE",
@@ -478,7 +487,8 @@ const CACHE_BOOL_ENV_KEYS = new Set([
   "SHOW_SCHOOL_HOLIDAYS",
   "SHOW_FINANCE_DATES",
   "ENABLE_PRIORITY_SORT",
-  "ENABLE_EXCLUSIVE_WEIGHT"
+  "ENABLE_EXCLUSIVE_WEIGHT",
+  "ENABLE_WEEKEND_THEME"
 ]);
 
 const BOOL_FALSE_VALUES = new Set([
@@ -604,8 +614,15 @@ function isValidStringArray(arr) {
   return Array.isArray(arr) && arr.every(v => typeof v === "string");
 }
 
-function isValidDisplayCache(displayCache) {
+function isValidDisplayCache(displayCache, expectedMode) {
   if (!displayCache || typeof displayCache !== "object") {
+    return false;
+  }
+
+  if (
+    expectedMode &&
+    displayCache.mode !== expectedMode
+  ) {
     return false;
   }
 
@@ -615,20 +632,18 @@ function isValidDisplayCache(displayCache) {
     return (
       item &&
       typeof item === "object" &&
-      typeof item.mediumText === "string" &&
-      typeof item.largeText === "string" &&
-      isValidStringArray(item.mediumLines) &&
-      isValidStringArray(item.largeLines)
+      typeof item.text === "string" &&
+      isValidStringArray(item.lines)
     );
   });
 }
 
-function isValidCachedPayload(payload) {
+function isValidCachedPayload(payload, expectedDisplayMode) {
   if (!payload || typeof payload !== "object") return false;
   if (!payload.result || typeof payload.result !== "object") return false;
   if (!Array.isArray(payload.todayItems)) return false;
   if (!Array.isArray(payload.pinnedData)) return false;
-  if (!isValidDisplayCache(payload.displayCache)) return false;
+  if (!isValidDisplayCache(payload.displayCache, expectedDisplayMode)) return false;
 
   if (
     payload.todayNoticeText !== undefined &&
@@ -928,6 +943,12 @@ function officialOptionalYears(currentYear) {
   return [currentYear + 1];
 }
 
+function getOfficialFailedRetryIntervalMs(year, currentYear) {
+  return officialOptionalYears(currentYear).includes(Number(year))
+    ? OFFICIAL_OPTIONAL_FAILED_RETRY_INTERVAL_MS
+    : OFFICIAL_FAILED_RETRY_INTERVAL_MS;
+}
+
 function pruneOfficialYears(years, currentYear) {
   const keep = new Set(officialRequestYears(currentYear).map(String));
   const pruned = {};
@@ -1128,33 +1149,49 @@ async function loadOfficialHolidayDaily(
     currentYear
   );
 
-  let yearsToFetch = [];
+  const todayParts = parseISODateParts(todayIso);
+  const currentMonth = todayParts?.m ?? 1;
+
+  const missingRequiredYears = getMissingOfficialYears(
+    mergedYears,
+    requiredYears
+  ).map(Number);
+
+  const optionalYears = officialOptionalYears(currentYear);
+  const missingOptionalYears = getMissingOfficialYears(
+    mergedYears,
+    optionalYears
+  ).map(Number);
+
+  const allowOptionalFetch = currentMonth >= 7;
+
+  const uniqueNumbers = arr =>
+    [...new Set(arr.map(Number))]
+      .filter(Number.isFinite);
+
+  let fetchCandidates = [];
 
   if (requiredFresh) {
-    yearsToFetch = getMissingOfficialYears(mergedYears, requestYears)
-      .map(Number)
-      .filter(year =>
-        !isOfficialYearRetryBlocked({ retryAfterByYear }, year, now)
-      );
+    fetchCandidates = allowOptionalFetch
+      ? missingOptionalYears
+      : [];
+  } else if (missingRequiredYears.length > 0) {
+    fetchCandidates = [
+      ...missingRequiredYears,
+      currentYear,
+      ...(allowOptionalFetch ? missingOptionalYears : [])
+    ];
   } else {
-    const missingRequestYears = getMissingOfficialYears(
-      mergedYears,
-      requestYears
-    );
-
-    if (missingRequestYears.length > 0) {
-      yearsToFetch = missingRequestYears
-        .map(Number)
-        .filter(year =>
-          !isOfficialYearRetryBlocked({ retryAfterByYear }, year, now)
-        );
-    } else {
-      yearsToFetch = requestYears
-        .filter(year =>
-          !isOfficialYearRetryBlocked({ retryAfterByYear }, year, now)
-        );
-    }
+    fetchCandidates = [
+      currentYear,
+      ...(allowOptionalFetch ? missingOptionalYears : [])
+    ];
   }
+
+  const yearsToFetch = uniqueNumbers(fetchCandidates)
+    .filter(year =>
+      !isOfficialYearRetryBlocked({ retryAfterByYear }, year, now)
+    );
 
   if (yearsToFetch.length === 0) {
     return normalizeOfficialCachePayload(
@@ -1181,7 +1218,8 @@ async function loadOfficialHolidayDaily(
       delete retryAfterByYear[key];
       successfulFetchYearSet.add(key);
     } else {
-      retryAfterByYear[key] = now + OFFICIAL_FAILED_RETRY_INTERVAL_MS;
+      retryAfterByYear[key] =
+        now + getOfficialFailedRetryIntervalMs(year, currentYear);
 
       warnLog(
         "[Countdown] failed to fetch official holiday:",
@@ -1271,7 +1309,45 @@ function isValidOfficialRange(range) {
   if (!isValidISODate(range.start)) return false;
 
   const duration = Number(range.duration);
-  return Number.isInteger(duration) && duration >= 1 && duration <= 30;
+
+  if (
+    !Number.isInteger(duration) ||
+    duration < 1 ||
+    duration > 30
+  ) {
+    return false;
+  }
+
+  if (
+    range.end !== undefined &&
+    !isValidISODate(range.end)
+  ) {
+    return false;
+  }
+
+  if (
+    range.startMs !== undefined &&
+    !Number.isFinite(Number(range.startMs))
+  ) {
+    return false;
+  }
+
+  if (
+    range.endMs !== undefined &&
+    !Number.isFinite(Number(range.endMs))
+  ) {
+    return false;
+  }
+
+  if (
+    range.startMs !== undefined &&
+    range.endMs !== undefined &&
+    Number(range.endMs) < Number(range.startMs)
+  ) {
+    return false;
+  }
+
+  return true;
 }
 
 function slashYMDToMs(dateStr) {
@@ -1545,6 +1621,14 @@ export default async function (ctx = {}) {
   const isSmall = family.includes("small");
   const isLarge = family.includes("large");
 
+  const layoutMode = isSmall
+    ? "small"
+    : isLarge
+      ? "large"
+      : "medium";
+
+  const displayMode = isLarge ? "large" : "medium";
+
   const bjDate = new Date(Date.now() + 8 * 3600000);
   const Y = bjDate.getUTCFullYear();
   const M = bjDate.getUTCMonth() + 1;
@@ -1584,9 +1668,9 @@ export default async function (ctx = {}) {
 
   const envFingerprint = `${envStorageFingerprint}|${officialFingerprint}`;
 
-  const CACHE_KEY = `${storageScope}:daily:${envStorageId}`;
+  const CACHE_KEY = `${storageScope}:daily:${envStorageId}:${layoutMode}`;
   const NOTIFY_KEY = `${storageScope}:notify:${envStorageId}`;
-  const CACHE_VERSION = 7;
+  const CACHE_VERSION = 8;
   const timePhase = currentHour >= 15 ? "after3pm" : "before3pm";
   const todayStr = `${Y}_${M}_${D}_${timePhase}`;
 
@@ -1601,7 +1685,7 @@ export default async function (ctx = {}) {
         stored.version === CACHE_VERSION &&
         stored.date === todayStr &&
         stored.envFingerprint === envFingerprint &&
-        isValidCachedPayload(stored.payload)
+        isValidCachedPayload(stored.payload, displayMode)
       ) {
         cachedData = stored.payload;
       }
@@ -1637,10 +1721,14 @@ export default async function (ctx = {}) {
     const autumnDateStr = getStr("AUTUMN_BREAK_DATE");
     const qingmingDateStr = getStr("QINGMING_DATE", "");
 
-    const pinnedHolidays = getStr("PINNED_HOLIDAY")
-      .split(",")
-      .map(s => s.trim())
-      .filter(Boolean);
+    const pinnedHolidays = [
+      ...new Set(
+        getStr("PINNED_HOLIDAY")
+          .split(",")
+          .map(s => s.trim())
+          .filter(Boolean)
+      )
+    ];
 
     const pinnedHolidaySet = new Set(pinnedHolidays);
 
@@ -2058,40 +2146,49 @@ export default async function (ctx = {}) {
         const priority = getPriority(name, "exclusive");
         const thisMonthDate = getFinanceDate(Y, M - 1, nth, dow);
 
+        const getNextMonthDate = () =>
+          getFinanceDate(
+            M === 12 ? Y + 1 : Y,
+            M === 12 ? 0 : M,
+            nth,
+            dow
+          );
+
+        const addFutureFinanceDate = targetDate => {
+          const diff = (targetDate - todayMs) / DAY_MS;
+
+          if (diff > 0) {
+            updatePinned(name, diff);
+
+            rawResult.exclusive.set(name, {
+              name,
+              diff,
+              duration: 1,
+              priority,
+              cat: "exclusive"
+            });
+          }
+        };
+
         if (todayMs === thisMonthDate) {
           if (currentHour < 15) {
             todayFinance.push(name);
             addTodayItem(name, 0, priority, "exclusive", 1);
-          } else {
-            todayFinanceEnded.push(name);
-            addTodayItem(name, 0, priority, "exclusive", 1, "ended");
+            return;
           }
 
+          todayFinanceEnded.push(name);
+          addTodayItem(name, 0, priority, "exclusive", 1, "ended");
+
+          addFutureFinanceDate(getNextMonthDate());
           return;
         }
 
         const targetDate = todayMs > thisMonthDate
-          ? getFinanceDate(
-              M === 12 ? Y + 1 : Y,
-              M === 12 ? 0 : M,
-              nth,
-              dow
-            )
+          ? getNextMonthDate()
           : thisMonthDate;
 
-        const diff = (targetDate - todayMs) / DAY_MS;
-
-        if (diff > 0) {
-          updatePinned(name, diff);
-
-          rawResult.exclusive.set(name, {
-            name,
-            diff,
-            duration: 1,
-            priority,
-            cat: "exclusive"
-          });
-        }
+        addFutureFinanceDate(targetDate);
       };
 
       processFinance("交割", 3, 5);
@@ -2140,7 +2237,7 @@ export default async function (ctx = {}) {
         diff: pinnedMap.get(n)
       }));
 
-    displayCache = buildDisplayCache(result);
+    displayCache = buildDisplayCache(result, displayMode);
 
     if (ctx.storage) {
       try {
@@ -2162,8 +2259,8 @@ export default async function (ctx = {}) {
     }
   }
 
-  if (!displayCache || !isValidDisplayCache(displayCache)) {
-    displayCache = buildDisplayCache(result);
+  if (!displayCache || !isValidDisplayCache(displayCache, displayMode)) {
+    displayCache = buildDisplayCache(result, displayMode);
   }
 
   const todayItemsByCat = groupTodayItemsByCat(todayItems);
@@ -2351,12 +2448,9 @@ export default async function (ctx = {}) {
     topFz: isLarge ? 13 : 12.5
   };
 
-  const lineKey = isLarge ? "largeLines" : "mediumLines";
-  const textKey = isLarge ? "largeText" : "mediumText";
-
   const gridRows = CATEGORY_CONFIG.flatMap(cfg => {
-    const cachedLines = displayCache?.[cfg.key]?.[lineKey];
-    const rawText = displayCache?.[cfg.key]?.[textKey] ??
+    const cachedLines = displayCache?.[cfg.key]?.lines;
+    const rawText = displayCache?.[cfg.key]?.text ??
       buildDisplayText(result, cfg.key, isLarge ? 7 : 3);
 
     if (!rawText) return [];
