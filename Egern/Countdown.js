@@ -78,6 +78,11 @@ const HTTP_TIMEOUT_MS = 5000;
 const OFFICIAL_REFRESH_INTERVAL_MS = 3 * DAY_MS;
 const NOTIFY_LOCK_TTL_MS = 2 * 60 * 1000;
 
+const DISPLAY_LINE_MAX_WIDTH = {
+  medium: 45,
+  large: 36
+};
+
 const mkText = (text, size, weight, color, opts = {}) => ({
   type: "text",
   text: String(text ?? ""),
@@ -110,6 +115,18 @@ const pad2 = n => String(n).padStart(2, "0");
 
 const YMD = (y, m, d) =>
   `${y}/${pad2(m)}/${pad2(d)}`;
+
+const msToYMD = ms => {
+  if (!Number.isFinite(ms)) return null;
+
+  const date = new Date(ms);
+
+  return YMD(
+    date.getUTCFullYear(),
+    date.getUTCMonth() + 1,
+    date.getUTCDate()
+  );
+};
 
 const DISPLAY_NAME_MAP = {
   端午节: "🐲",
@@ -198,6 +215,55 @@ const splitTextToLines = (str, maxW) => {
 
   return lines;
 };
+
+function buildDisplayCache(result) {
+  const cache = {};
+
+  for (const cfg of CATEGORY_CONFIG) {
+    const items = Array.isArray(result?.[cfg.key])
+      ? result[cfg.key]
+      : [];
+
+    const mediumText = items
+      .slice(0, 3)
+      .map(formatDisplayItem)
+      .join("，");
+
+    const largeText = items
+      .slice(0, 7)
+      .map(formatDisplayItem)
+      .join("，");
+
+    cache[cfg.key] = {
+      mediumText,
+      largeText,
+      mediumLines: splitTextToLines(mediumText, DISPLAY_LINE_MAX_WIDTH.medium),
+      largeLines: splitTextToLines(largeText, DISPLAY_LINE_MAX_WIDTH.large)
+    };
+  }
+
+  return cache;
+}
+
+function groupTodayItemsByCat(items) {
+  const grouped = {};
+
+  for (const cfg of CATEGORY_CONFIG) {
+    grouped[cfg.key] = [];
+  }
+
+  for (const item of items || []) {
+    if (!item || typeof item.cat !== "string") continue;
+
+    if (!grouped[item.cat]) {
+      grouped[item.cat] = [];
+    }
+
+    grouped[item.cat].push(item);
+  }
+
+  return grouped;
+}
 
 const Lunar = {
   info: [
@@ -373,16 +439,9 @@ function normalizeCacheEnvValue(key, value) {
 }
 
 function buildEnvFingerprint(env) {
-  let fp = "";
-
-  for (const key of CACHE_ENV_KEYS) {
-    fp += key;
-    fp += "=";
-    fp += normalizeCacheEnvValue(key, env?.[key]);
-    fp += "|";
-  }
-
-  return fp;
+  return CACHE_ENV_KEYS
+    .map(key => `${key}=${normalizeCacheEnvValue(key, env?.[key])}`)
+    .join("|");
 }
 
 const VALID_CATEGORY_KEYS = new Set(CATEGORY_CONFIG.map(cfg => cfg.key));
@@ -447,11 +506,35 @@ function isValidPinnedItem(item) {
   );
 }
 
+function isValidStringArray(arr) {
+  return Array.isArray(arr) && arr.every(v => typeof v === "string");
+}
+
+function isValidDisplayCache(displayCache) {
+  if (!displayCache || typeof displayCache !== "object") {
+    return false;
+  }
+
+  return CATEGORY_CONFIG.every(cfg => {
+    const item = displayCache[cfg.key];
+
+    return (
+      item &&
+      typeof item === "object" &&
+      typeof item.mediumText === "string" &&
+      typeof item.largeText === "string" &&
+      isValidStringArray(item.mediumLines) &&
+      isValidStringArray(item.largeLines)
+    );
+  });
+}
+
 function isValidCachedPayload(payload) {
   if (!payload || typeof payload !== "object") return false;
   if (!payload.result || typeof payload.result !== "object") return false;
   if (!Array.isArray(payload.todayItems)) return false;
   if (!Array.isArray(payload.pinnedData)) return false;
+  if (!isValidDisplayCache(payload.displayCache)) return false;
 
   if (
     payload.todayNoticeText !== undefined &&
@@ -542,11 +625,18 @@ function buildOfficialHolidayRanges(days) {
       day.name.trim() &&
       isValidISODate(day.date)
     )
-    .map(day => ({
-      name: day.name.trim(),
-      date: day.date,
-      ms: isoToMs(day.date)
-    }))
+    .map(day => {
+      const ms = Number.isFinite(Number(day.ms))
+        ? Number(day.ms)
+        : isoToMs(day.date);
+
+      return {
+        name: day.name.trim(),
+        date: day.date,
+        ms
+      };
+    })
+    .filter(day => Number.isFinite(day.ms))
     .sort((a, b) => a.ms - b.ms);
 
   const groups = [];
@@ -578,6 +668,10 @@ function buildOfficialHolidayRanges(days) {
     name: group.name,
     start: group.start,
     end: group.end,
+    startMs: group.startMs,
+    endMs: group.endMs,
+    startYMD: msToYMD(group.startMs),
+    endYMD: msToYMD(group.endMs),
     duration: group.duration
   }));
 }
@@ -603,12 +697,18 @@ function normalizeHolidayCnYearData(data, year) {
       typeof day.isOffDay === "boolean" &&
       isValidISODate(day.date)
     )
-    .map(day => ({
-      name: day.name.trim(),
-      date: day.date,
-      isOffDay: day.isOffDay
-    }))
-    .sort((a, b) => isoToMs(a.date) - isoToMs(b.date));
+    .map(day => {
+      const ms = isoToMs(day.date);
+
+      return {
+        name: day.name.trim(),
+        date: day.date,
+        isOffDay: day.isOffDay,
+        ms
+      };
+    })
+    .filter(day => Number.isFinite(day.ms))
+    .sort((a, b) => a.ms - b.ms);
 
   return {
     days
@@ -869,8 +969,10 @@ function slashYMDToMs(dateStr) {
 }
 
 function officialRangeOverlapsYear(range, year) {
-  const startMs = isoToMs(range.start);
   const duration = Number(range.duration);
+  const startMs = Number.isFinite(Number(range.startMs))
+    ? Number(range.startMs)
+    : isoToMs(range.start);
 
   if (
     !Number.isFinite(startMs) ||
@@ -880,49 +982,71 @@ function officialRangeOverlapsYear(range, year) {
     return false;
   }
 
-  const endMs = startMs + (duration - 1) * DAY_MS;
+  const endMs = Number.isFinite(Number(range.endMs))
+    ? Number(range.endMs)
+    : startMs + (duration - 1) * DAY_MS;
+
   const yearStartMs = Date.UTC(year, 0, 1);
   const yearEndMs = Date.UTC(year, 11, 31);
 
   return startMs <= yearEndMs && endMs >= yearStartMs;
 }
 
-function getOfficialLegalHolidays(officialHolidayCache, year) {
-  const yearsToRead = [year - 1, year, year + 1];
+function buildOfficialHolidayRangeCache(officialHolidayCache) {
+  const years = officialHolidayCache?.years;
+
+  if (!years || typeof years !== "object") {
+    return [];
+  }
+
   const allDays = [];
 
-  for (const y of yearsToRead) {
-    const yearData = officialHolidayCache?.years?.[String(y)];
+  for (const yearData of Object.values(years)) {
+    if (!yearData || !Array.isArray(yearData.days)) continue;
 
-    if (yearData && Array.isArray(yearData.days)) {
-      allDays.push(...yearData.days);
+    for (const day of yearData.days) {
+      allDays.push(day);
     }
   }
 
-  if (allDays.length === 0) {
+  return buildOfficialHolidayRanges(allDays);
+}
+
+function getOfficialLegalHolidaysFromRanges(officialRanges, year) {
+  if (!Array.isArray(officialRanges) || officialRanges.length === 0) {
     return null;
   }
 
-  const ranges = buildOfficialHolidayRanges(allDays);
-
-  const rows = ranges
+  const rows = officialRanges
     .filter(range =>
       isValidOfficialRange(range) &&
       officialRangeOverlapsYear(range, year)
     )
-    .map(range => [
-      range.name.trim(),
-      isoToYMD(range.start),
-      Number(range.duration),
-      "official"
-    ])
+    .map(range => {
+      const startMs = Number.isFinite(Number(range.startMs))
+        ? Number(range.startMs)
+        : isoToMs(range.start);
+
+      const ymd = range.startYMD || msToYMD(startMs) || isoToYMD(range.start);
+
+      return [
+        range.name.trim(),
+        ymd,
+        Number(range.duration),
+        "official",
+        startMs
+      ];
+    })
     .filter(row => row[1]);
 
   return rows.length > 0 ? rows : null;
 }
 
 function officialRowDistanceToFallback(row, fallbackMs) {
-  const startMs = slashYMDToMs(row?.[1]);
+  const startMs = Number.isFinite(Number(row?.[4]))
+    ? Number(row[4])
+    : slashYMDToMs(row?.[1]);
+
   const duration = Number(row?.[2]) || 1;
 
   if (!Number.isFinite(startMs)) {
@@ -1023,28 +1147,29 @@ function mergeLegalHolidays(fallbackLegal, officialLegal) {
   return merged;
 }
 
-function getOfficialDayInfo(officialHolidayCache, isoDate) {
-  if (!isValidISODate(isoDate)) {
-    return null;
-  }
-
+function buildOfficialDayIndex(officialHolidayCache) {
+  const index = new Map();
   const years = officialHolidayCache?.years;
 
   if (!years || typeof years !== "object") {
-    return null;
+    return index;
   }
 
   for (const yearData of Object.values(years)) {
     if (!yearData || !Array.isArray(yearData.days)) continue;
 
-    const found = yearData.days.find(day => day.date === isoDate);
-
-    if (found) {
-      return found;
+    for (const day of yearData.days) {
+      if (
+        day &&
+        typeof day.date === "string" &&
+        isValidISODate(day.date)
+      ) {
+        index.set(day.date, day);
+      }
     }
   }
 
-  return null;
+  return index;
 }
 
 export default async function (ctx = {}) {
@@ -1085,6 +1210,9 @@ export default async function (ctx = {}) {
     todayIso
   );
 
+  const officialRanges = buildOfficialHolidayRangeCache(officialHolidayCache);
+  const officialDayIndex = buildOfficialDayIndex(officialHolidayCache);
+
   const officialFingerprint =
     officialHolidayCache?.fingerprint
       ? `official=${officialHolidayCache.fingerprint}`
@@ -1093,7 +1221,7 @@ export default async function (ctx = {}) {
   const envFingerprint = `${buildEnvFingerprint(env)}|${officialFingerprint}`;
 
   const CACHE_KEY = "countdown_daily_cache";
-  const CACHE_VERSION = 5;
+  const CACHE_VERSION = 6;
   const timePhase = currentHour >= 15 ? "after3pm" : "before3pm";
   const todayStr = `${Y}_${M}_${D}_${timePhase}`;
 
@@ -1121,9 +1249,16 @@ export default async function (ctx = {}) {
   let todayNoticeText;
   let pinnedData;
   let todayItems;
+  let displayCache;
 
   if (cachedData) {
-    ({ result, todayNoticeText, pinnedData, todayItems } = cachedData);
+    ({
+      result,
+      todayNoticeText,
+      pinnedData,
+      todayItems,
+      displayCache
+    } = cachedData);
   } else {
     const getStr = (key, defaultVal = "") =>
       String(env[key] ?? defaultVal).trim();
@@ -1141,6 +1276,8 @@ export default async function (ctx = {}) {
       .split(",")
       .map(s => s.trim())
       .filter(Boolean);
+
+    const pinnedHolidaySet = new Set(pinnedHolidays);
 
     const isValidMonthDay = (y, m, d) => {
       if (!Number.isInteger(m) || !Number.isInteger(d)) return false;
@@ -1241,37 +1378,58 @@ export default async function (ctx = {}) {
       );
     };
 
+    const lunarToSolarCache = new Map();
+
     const l2s = (y, m, d) => {
-      if (!isValidLunarYear(y)) return null;
-      if (!Number.isInteger(m) || m < 1 || m > 12) return null;
+      const cacheKey = `${y}-${m}-${d}`;
 
-      const monthDays = Lunar.mDays(y, m);
+      if (lunarToSolarCache.has(cacheKey)) {
+        return lunarToSolarCache.get(cacheKey);
+      }
 
-      if (!Number.isInteger(d) || d < 1 || d > monthDays) return null;
+      let resultDate = null;
 
-      ensureLunarCumulative(y);
+      if (
+        isValidLunarYear(y) &&
+        Number.isInteger(m) &&
+        m >= 1 &&
+        m <= 12
+      ) {
+        const monthDays = Lunar.mDays(y, m);
 
-      let off = lunarCumulativeCache.off[y - MIN_LUNAR_YEAR] ?? 0;
-      const info = Lunar.info[y - 1900];
-      const leapMonth = info & 0xf;
+        if (
+          Number.isInteger(d) &&
+          d >= 1 &&
+          d <= monthDays
+        ) {
+          ensureLunarCumulative(y);
 
-      for (let i = 1; i < m; i++) {
-        off += Lunar.mDays(y, i);
+          let off = lunarCumulativeCache.off[y - MIN_LUNAR_YEAR] ?? 0;
+          const info = Lunar.info[y - 1900];
+          const leapMonth = info & 0xf;
 
-        if (leapMonth > 0 && i === leapMonth) {
-          off += info & 0x10000 ? 30 : 29;
+          for (let i = 1; i < m; i++) {
+            off += Lunar.mDays(y, i);
+
+            if (leapMonth > 0 && i === leapMonth) {
+              off += info & 0x10000 ? 30 : 29;
+            }
+          }
+
+          const date = new Date(
+            Date.UTC(1900, 0, 31) + (off + d - 1) * DAY_MS
+          );
+
+          resultDate = YMD(
+            date.getUTCFullYear(),
+            date.getUTCMonth() + 1,
+            date.getUTCDate()
+          );
         }
       }
 
-      const date = new Date(
-        Date.UTC(1900, 0, 31) + (off + d - 1) * DAY_MS
-      );
-
-      return YMD(
-        date.getUTCFullYear(),
-        date.getUTCMonth() + 1,
-        date.getUTCDate()
-      );
+      lunarToSolarCache.set(cacheKey, resultDate);
+      return resultDate;
     };
 
     const getFests = y => {
@@ -1309,7 +1467,11 @@ export default async function (ctx = {}) {
         ["国庆节", YMD(y, 10, 1), 3]
       ];
 
-      const officialLegal = getOfficialLegalHolidays(officialHolidayCache, y);
+      const officialLegal = getOfficialLegalHolidaysFromRanges(
+        officialRanges,
+        y
+      );
+
       const legal = mergeLegalHolidays(fallbackLegal, officialLegal);
 
       if (showSchoolHolidays) {
@@ -1419,7 +1581,7 @@ export default async function (ctx = {}) {
     todayItems = [];
 
     const updatePinned = (name, diff) => {
-      if (!pinnedHolidays.includes(name) || diff > 200) {
+      if (!pinnedHolidaySet.has(name) || diff > 200) {
         return;
       }
 
@@ -1601,6 +1763,8 @@ export default async function (ctx = {}) {
         diff: pinnedMap.get(n)
       }));
 
+    displayCache = buildDisplayCache(result);
+
     if (ctx.storage) {
       try {
         ctx.storage.setJSON(CACHE_KEY, {
@@ -1611,7 +1775,8 @@ export default async function (ctx = {}) {
             result,
             todayNoticeText,
             pinnedData,
-            todayItems
+            todayItems,
+            displayCache
           }
         });
       } catch (e) {
@@ -1619,6 +1784,12 @@ export default async function (ctx = {}) {
       }
     }
   }
+
+  if (!displayCache || !isValidDisplayCache(displayCache)) {
+    displayCache = buildDisplayCache(result);
+  }
+
+  const todayItemsByCat = groupTodayItemsByCat(todayItems);
 
   const stickyParts = (pinnedData || []).map(p => `${p.name} ${p.diff}天`);
   const stickyText = stickyParts.join("·");
@@ -1702,7 +1873,7 @@ export default async function (ctx = {}) {
       .map(i => formatDisplayItem(i))
       .join("，");
 
-  const officialTodayInfo = getOfficialDayInfo(officialHolidayCache, todayIso);
+  const officialTodayInfo = officialDayIndex.get(todayIso) || null;
 
   const isOfficialOffDay = officialTodayInfo?.isOffDay === true;
   const isOfficialAdjustedWorkday = officialTodayInfo?.isOffDay === false;
@@ -1733,7 +1904,7 @@ export default async function (ctx = {}) {
   if (isSmall) {
     const smallRows = CATEGORY_CONFIG
       .map(cfg => {
-        const catTodayItems = (todayItems || []).filter(i => i.cat === cfg.key);
+        const catTodayItems = todayItemsByCat[cfg.key] || [];
         const fests = [...catTodayItems, ...(result[cfg.key] || [])].slice(0, 2);
 
         if (fests.length === 0) return null;
@@ -1794,22 +1965,28 @@ export default async function (ctx = {}) {
     fz: isLarge ? 14 : 13.5,
     icz: isLarge ? 15 : 13.5,
     lw: isLarge ? 60 : 52,
-    maxW: isLarge ? 36 : 45,
+    maxW: isLarge ? DISPLAY_LINE_MAX_WIDTH.large : DISPLAY_LINE_MAX_WIDTH.medium,
     rowGap: isLarge ? 6 : 4,
     titleFz: isLarge ? 17 : 15,
     titleIcz: isLarge ? 18 : 16,
     topFz: isLarge ? 13 : 12.5
   };
 
+  const lineKey = isLarge ? "largeLines" : "mediumLines";
+  const textKey = isLarge ? "largeText" : "mediumText";
+
   const gridRows = CATEGORY_CONFIG.flatMap(cfg => {
-    const rawText = formatStr(
-      cfg.key,
-      isLarge ? 7 : 3
-    );
+    const cachedLines = displayCache?.[cfg.key]?.[lineKey];
+    const rawText = displayCache?.[cfg.key]?.[textKey] ??
+      formatStr(cfg.key, isLarge ? 7 : 3);
 
     if (!rawText) return [];
 
-    return splitTextToLines(rawText, layoutConfig.maxW).map((lineStr, idx) => ({
+    const lines = Array.isArray(cachedLines)
+      ? cachedLines
+      : splitTextToLines(rawText, layoutConfig.maxW);
+
+    return lines.map((lineStr, idx) => ({
       type: "stack",
       direction: "row",
       alignItems: "start",
