@@ -78,8 +78,6 @@ const HTTP_TIMEOUT_MS = 5000;
 const OFFICIAL_REFRESH_INTERVAL_MS = 3 * DAY_MS;
 const OFFICIAL_FAILED_RETRY_INTERVAL_MS = DAY_MS;
 
-const OFFICIAL_FAILED_REQUEST_THROTTLE_MS = OFFICIAL_FAILED_RETRY_INTERVAL_MS;
-
 const NOTIFY_LOCK_TTL_MS = 2 * 60 * 1000;
 
 const DISPLAY_LINE_MAX_WIDTH = {
@@ -864,44 +862,27 @@ function isOfficialYearRetryBlocked(cache, year, now = Date.now()) {
   return Number.isFinite(retryAt) && retryAt > now;
 }
 
-function isOfficialFailureThrottleBlocked(cache, now = Date.now()) {
-  const lastFailedAttemptTime = Number(cache?.lastFailedAttemptTime);
-
-  return (
-    Number.isFinite(lastFailedAttemptTime) &&
-    now - lastFailedAttemptTime >= 0 &&
-    now - lastFailedAttemptTime < OFFICIAL_FAILED_REQUEST_THROTTLE_MS
-  );
-}
-
 function normalizeOfficialCachePayload(oldCache, years, currentYear, todayIso) {
-  const requestYears = officialRequestYears(currentYear);
-  const requiredYears = officialRequiredYears(currentYear);
-  const optionalYears = officialOptionalYears(currentYear);
+  const requiredReady = isOfficialRequiredReady(years, currentYear);
 
-  const missingYears = getMissingOfficialYears(years, requestYears);
-  const missingRequiredYears = getMissingOfficialYears(years, requiredYears);
-  const optionalMissingYears = getMissingOfficialYears(years, optionalYears);
+  const checkedDate = isValidISODate(oldCache?.checkedDate)
+    ? oldCache.checkedDate
+    : requiredReady
+      ? todayIso
+      : undefined;
 
   return {
     version: OFFICIAL_HOLIDAY_STORAGE_VERSION,
-    checkedDate: oldCache?.checkedDate || todayIso,
-    yearsKey: requestYears.join(","),
-    requiredYearsKey: requiredYears.join(","),
-    complete: missingYears.length === 0,
-    requiredComplete: missingRequiredYears.length === 0,
-    missingYears,
-    missingRequiredYears,
-    optionalMissingYears,
-    lastSuccessCount: Number(oldCache?.lastSuccessCount) || 0,
+
+    ...(checkedDate ? { checkedDate } : {}),
+
     fingerprint: buildOfficialFingerprint(years),
+
     retryAfterByYear: pruneRetryAfterByYear(
       oldCache?.retryAfterByYear,
       currentYear
     ),
-    ...(oldCache?.lastFailedAttemptTime
-      ? { lastFailedAttemptTime: oldCache.lastFailedAttemptTime }
-      : {}),
+
     years
   };
 }
@@ -947,14 +928,11 @@ async function loadOfficialHolidayDaily(ctx, currentYear, todayIso) {
     return oldCache;
   }
 
-  const requestYears = officialRequestYears(currentYear);
   const requiredYears = officialRequiredYears(currentYear);
   const optionalYears = officialOptionalYears(currentYear);
 
-  const yearsKey = requestYears.join(",");
-  const requiredYearsKey = requiredYears.join(",");
-
   const mergedYears = pruneOfficialYears(oldCache?.years || {}, currentYear);
+
   const retryAfterByYear = pruneRetryAfterByYear(
     oldCache?.retryAfterByYear,
     currentYear
@@ -962,34 +940,10 @@ async function loadOfficialHolidayDaily(ctx, currentYear, todayIso) {
 
   const now = Date.now();
 
-  if (isOfficialFailureThrottleBlocked(oldCache, now)) {
-    return normalizeOfficialCachePayload(
-      oldCache,
-      mergedYears,
-      currentYear,
-      todayIso
-    );
-  }
-
   const cacheForFreshCheck = {
     ...oldCache,
     years: mergedYears
   };
-
-  const allMissingBeforeFetch = getMissingOfficialYears(
-    mergedYears,
-    requestYears
-  );
-
-  const requiredMissingBeforeFetch = getMissingOfficialYears(
-    mergedYears,
-    requiredYears
-  );
-
-  const optionalMissingBeforeFetch = getMissingOfficialYears(
-    mergedYears,
-    optionalYears
-  );
 
   const requiredFresh = isOfficialCacheFresh(
     cacheForFreshCheck,
@@ -997,43 +951,32 @@ async function loadOfficialHolidayDaily(ctx, currentYear, todayIso) {
     currentYear
   );
 
-  let yearsToFetch;
+  let yearsToFetch = [];
 
   if (requiredFresh) {
-    yearsToFetch = optionalMissingBeforeFetch
+    yearsToFetch = getMissingOfficialYears(mergedYears, optionalYears)
       .map(Number)
       .filter(year =>
         !isOfficialYearRetryBlocked({ retryAfterByYear }, year, now)
       );
-
-    if (yearsToFetch.length === 0) {
-      return normalizeOfficialCachePayload(
-        oldCache,
-        mergedYears,
-        currentYear,
-        todayIso
-      );
-    }
-  } else if (requiredMissingBeforeFetch.length > 0) {
-    yearsToFetch = allMissingBeforeFetch
-      .map(Number)
-      .filter(year =>
-        !isOfficialYearRetryBlocked({ retryAfterByYear }, year, now)
-      );
-
-    if (yearsToFetch.length === 0) {
-      return normalizeOfficialCachePayload(
-        oldCache,
-        mergedYears,
-        currentYear,
-        todayIso
-      );
-    }
   } else {
-    yearsToFetch = requestYears
-      .filter(year =>
-        !isOfficialYearRetryBlocked({ retryAfterByYear }, year, now)
-      );
+    const missingRequiredYears = getMissingOfficialYears(
+      mergedYears,
+      requiredYears
+    );
+
+    if (missingRequiredYears.length > 0) {
+      yearsToFetch = missingRequiredYears
+        .map(Number)
+        .filter(year =>
+          !isOfficialYearRetryBlocked({ retryAfterByYear }, year, now)
+        );
+    } else {
+      yearsToFetch = requiredYears
+        .filter(year =>
+          !isOfficialYearRetryBlocked({ retryAfterByYear }, year, now)
+        );
+    }
   }
 
   if (yearsToFetch.length === 0) {
@@ -1056,8 +999,6 @@ async function loadOfficialHolidayDaily(ctx, currentYear, todayIso) {
     })
   );
 
-  let successCount = 0;
-  let failedCount = 0;
   const successfulFetchYearSet = new Set();
 
   for (let i = 0; i < results.length; i++) {
@@ -1070,10 +1011,8 @@ async function loadOfficialHolidayDaily(ctx, currentYear, todayIso) {
 
       mergedYears[key] = data;
       delete retryAfterByYear[key];
-      successCount += 1;
       successfulFetchYearSet.add(key);
     } else {
-      failedCount += 1;
       retryAfterByYear[key] = now + OFFICIAL_FAILED_RETRY_INTERVAL_MS;
 
       warnLog(
@@ -1083,21 +1022,6 @@ async function loadOfficialHolidayDaily(ctx, currentYear, todayIso) {
       );
     }
   }
-
-  const missingYears = getMissingOfficialYears(
-    mergedYears,
-    requestYears
-  );
-
-  const missingRequiredYears = getMissingOfficialYears(
-    mergedYears,
-    requiredYears
-  );
-
-  const optionalMissingYears = getMissingOfficialYears(
-    mergedYears,
-    optionalYears
-  );
 
   const fetchedRequiredYears = yearsToFetch
     .filter(year => requiredYears.includes(year))
@@ -1109,33 +1033,27 @@ async function loadOfficialHolidayDaily(ctx, currentYear, todayIso) {
       successfulFetchYearSet.has(year)
     );
 
+  const previousCheckedDate = isValidISODate(oldCache?.checkedDate)
+    ? oldCache.checkedDate
+    : undefined;
+
   const checkedDate = allFetchedRequiredYearsSucceeded
     ? todayIso
-    : oldCache?.checkedDate;
+    : previousCheckedDate;
 
   const newCache = {
     version: OFFICIAL_HOLIDAY_STORAGE_VERSION,
 
     ...(checkedDate ? { checkedDate } : {}),
 
-    yearsKey,
-    requiredYearsKey,
-    complete: missingYears.length === 0,
-    requiredComplete: missingRequiredYears.length === 0,
-    missingYears,
-    missingRequiredYears,
-    optionalMissingYears,
-    lastSuccessCount: successCount,
     fingerprint: buildOfficialFingerprint(mergedYears),
+
     retryAfterByYear: pruneRetryAfterByYear(
       retryAfterByYear,
       currentYear
     ),
-    years: mergedYears,
 
-    ...(failedCount > 0
-      ? { lastFailedAttemptTime: now }
-      : {})
+    years: mergedYears
   };
 
   try {
@@ -1145,6 +1063,28 @@ async function loadOfficialHolidayDaily(ctx, currentYear, todayIso) {
   }
 
   return newCache;
+}
+
+async function safeLoadOfficialHolidayDaily(ctx, currentYear, todayIso) {
+  try {
+    return await loadOfficialHolidayDaily(ctx, currentYear, todayIso);
+  } catch (e) {
+    warnLog(
+      "[Countdown] official holiday load failed, fallback to local/cache:",
+      e
+    );
+
+    try {
+      return readOfficialHolidayCache(ctx);
+    } catch (cacheError) {
+      warnLog(
+        "[Countdown] failed to read official holiday cache after load failure:",
+        cacheError
+      );
+
+      return null;
+    }
+  }
 }
 
 function isValidOfficialRange(range) {
@@ -1422,7 +1362,7 @@ export default async function (ctx = {}) {
     refreshAfter: new Date(nextRefreshMs).toISOString()
   });
 
-  const officialHolidayCache = await loadOfficialHolidayDaily(
+  const officialHolidayCache = await safeLoadOfficialHolidayDaily(
     ctx,
     Y,
     todayIso
@@ -2098,8 +2038,12 @@ export default async function (ctx = {}) {
   const isOfficialOffDay = officialTodayInfo?.isOffDay === true;
   const isOfficialAdjustedWorkday = officialTodayInfo?.isOffDay === false;
 
+  const hasActiveTodayItem =
+    Array.isArray(todayItems) &&
+    todayItems.some(item => item && item.status !== "ended");
+
   const themeKey =
-    todayItems && todayItems.length > 0
+    hasActiveTodayItem
       ? "fest"
       : enableWeekendTheme &&
         (
