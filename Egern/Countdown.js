@@ -611,6 +611,19 @@ function hashString(str) {
   return (h >>> 0).toString(36);
 }
 
+function warnLog(...args) {
+  try {
+    if (
+      typeof console !== "undefined" &&
+      console &&
+      typeof console.warn === "function"
+    ) {
+      console.warn(...args);
+    }
+  } catch (_) {
+  }
+}
+
 function buildOfficialHolidayRanges(days) {
   const offDays = days
     .filter(day =>
@@ -688,15 +701,17 @@ function normalizeHolidayCnYearData(data, year) {
     .filter(day =>
       day &&
       typeof day.name === "string" &&
+      day.name.trim() &&
       typeof day.date === "string" &&
       typeof day.isOffDay === "boolean" &&
       isValidISODate(day.date)
     )
     .map(day => {
+      const name = day.name.trim();
       const ms = isoToMs(day.date);
 
       return {
-        name: day.name.trim(),
+        name,
         date: day.date,
         isOffDay: day.isOffDay,
         ms
@@ -723,7 +738,7 @@ function readOfficialHolidayCache(ctx) {
       return cache;
     }
   } catch (e) {
-    console.warn?.("[Countdown] failed to read official holiday cache:", e);
+    warnLog("[Countdown] failed to read official holiday cache:", e);
   }
 
   return null;
@@ -909,7 +924,7 @@ async function fetchOfficialHolidayYear(ctx, year) {
   return normalizeHolidayCnYearData(data, year);
 }
 
-async function loadOfficialHolidayDaily(ctx, env, currentYear, todayIso) {
+async function loadOfficialHolidayDaily(ctx, currentYear, todayIso) {
   const oldCache = readOfficialHolidayCache(ctx);
 
   if (!ctx.http || !ctx.storage) {
@@ -1001,6 +1016,7 @@ async function loadOfficialHolidayDaily(ctx, env, currentYear, todayIso) {
   );
 
   let successCount = 0;
+  const successfulFetchYearSet = new Set();
 
   for (let i = 0; i < results.length; i++) {
     const result = results[i];
@@ -1012,10 +1028,11 @@ async function loadOfficialHolidayDaily(ctx, env, currentYear, todayIso) {
       mergedYears[key] = data;
       delete retryAfterByYear[key];
       successCount += 1;
+      successfulFetchYearSet.add(key);
     } else {
       retryAfterByYear[key] = now + OFFICIAL_FAILED_RETRY_INTERVAL_MS;
 
-      console.warn?.(
+      warnLog(
         "[Countdown] failed to fetch official holiday:",
         key,
         result.reason
@@ -1038,9 +1055,24 @@ async function loadOfficialHolidayDaily(ctx, env, currentYear, todayIso) {
     optionalYears
   );
 
+  const fetchedRequiredYears = yearsToFetch
+    .filter(year => requiredYears.includes(year))
+    .map(String);
+
+  const allFetchedRequiredYearsSucceeded =
+    fetchedRequiredYears.length > 0 &&
+    fetchedRequiredYears.every(year =>
+      successfulFetchYearSet.has(year)
+    );
+
+  const checkedDate = allFetchedRequiredYearsSucceeded
+    ? todayIso
+    : oldCache?.checkedDate || todayIso;
+
   const newCache = {
     version: OFFICIAL_HOLIDAY_STORAGE_VERSION,
-    checkedDate: todayIso,
+    checkedDate,
+    lastAttemptDate: todayIso,
     yearsKey,
     requiredYearsKey,
     complete: missingYears.length === 0,
@@ -1060,7 +1092,7 @@ async function loadOfficialHolidayDaily(ctx, env, currentYear, todayIso) {
   try {
     ctx.storage.setJSON(OFFICIAL_HOLIDAY_STORAGE_KEY, newCache);
   } catch (e) {
-    console.warn?.("[Countdown] failed to save official holiday cache:", e);
+    warnLog("[Countdown] failed to save official holiday cache:", e);
   }
 
   return newCache;
@@ -1308,6 +1340,11 @@ function buildOfficialDayIndex(officialHolidayCache) {
 export default async function (ctx = {}) {
   const env = ctx.env ?? {};
 
+  const scriptName = String(ctx.script?.name || "countdown");
+  const storageScope = `countdown:${hashString(scriptName)}`;
+  const envStorageFingerprint = buildEnvFingerprint(env);
+  const envStorageId = hashString(envStorageFingerprint);
+
   const getBool = (key, defaultVal = true) =>
     parseBoolValue(env[key], defaultVal);
 
@@ -1338,7 +1375,6 @@ export default async function (ctx = {}) {
 
   const officialHolidayCache = await loadOfficialHolidayDaily(
     ctx,
-    env,
     Y,
     todayIso
   );
@@ -1354,9 +1390,10 @@ export default async function (ctx = {}) {
       ? `official=${officialHolidayCache.fingerprint}`
       : "official=none";
 
-  const envFingerprint = `${buildEnvFingerprint(env)}|${officialFingerprint}`;
+  const envFingerprint = `${envStorageFingerprint}|${officialFingerprint}`;
 
-  const CACHE_KEY = "countdown_daily_cache";
+  const CACHE_KEY = `${storageScope}:daily:${envStorageId}`;
+  const NOTIFY_KEY = `${storageScope}:notify:${envStorageId}`;
   const CACHE_VERSION = 7;
   const timePhase = currentHour >= 15 ? "after3pm" : "before3pm";
   const todayStr = `${Y}_${M}_${D}_${timePhase}`;
@@ -1377,7 +1414,7 @@ export default async function (ctx = {}) {
         cachedData = stored.payload;
       }
     } catch (e) {
-      console.warn?.("[Countdown] failed to read daily cache:", e);
+      warnLog("[Countdown] failed to read daily cache:", e);
     }
   }
 
@@ -1916,7 +1953,7 @@ export default async function (ctx = {}) {
           }
         });
       } catch (e) {
-        console.warn?.("[Countdown] failed to save daily cache:", e);
+        warnLog("[Countdown] failed to save daily cache:", e);
       }
     }
   }
@@ -1937,7 +1974,7 @@ export default async function (ctx = {}) {
     todayItems.length > 0
   ) {
     const notifyDate = `${Y}-${pad2(M)}-${pad2(D)}`;
-    const notifyKey = "countdown_today_notify_once";
+    const notifyKey = NOTIFY_KEY;
 
     try {
       const notifyItems = todayItems
@@ -1990,7 +2027,7 @@ export default async function (ctx = {}) {
               time: Date.now()
             });
           } catch (e) {
-            console.warn?.("[Countdown] notify failed:", e);
+            warnLog("[Countdown] notify failed:", e);
 
             ctx.storage.setJSON(notifyKey, {
               ...lockedState,
@@ -2001,7 +2038,7 @@ export default async function (ctx = {}) {
         }
       }
     } catch (e) {
-      console.warn?.("[Countdown] notify process failed:", e);
+      warnLog("[Countdown] notify process failed:", e);
     }
   }
 
