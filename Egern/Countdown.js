@@ -138,6 +138,104 @@ const DISPLAY_NAME_MAP = {
 
 const displayName = name => DISPLAY_NAME_MAP[name] ?? name;
 
+function splitHolidayNames(name) {
+  const raw = String(name ?? "").trim();
+
+  if (!raw) return [];
+
+  return raw
+    .split(/[、，,\/]+/)
+    .map(s => s.trim())
+    .filter(Boolean);
+}
+
+function holidayNameIntersects(a, b) {
+  const aParts = splitHolidayNames(a);
+  const bParts = splitHolidayNames(b);
+
+  if (aParts.length === 0 || bParts.length === 0) {
+    return false;
+  }
+
+  return aParts.some(x => bParts.includes(x));
+}
+
+function officialNameMatches(officialName, fallbackName) {
+  return holidayNameIntersects(officialName, fallbackName);
+}
+
+function getSpecialHolidayPriority(name) {
+  const names = splitHolidayNames(name);
+
+  let maxPriority = Number.isFinite(specialPriority[name])
+    ? specialPriority[name]
+    : undefined;
+
+  for (const n of names) {
+    const p = specialPriority[n];
+
+    if (Number.isFinite(p)) {
+      maxPriority = maxPriority === undefined
+        ? p
+        : Math.max(maxPriority, p);
+    }
+  }
+
+  return maxPriority;
+}
+
+function getMatchedHolidayNames(name, targetNameSet) {
+  if (!(targetNameSet instanceof Set)) {
+    return [];
+  }
+
+  const matched = [];
+
+  for (const targetName of targetNameSet) {
+    if (holidayNameIntersects(name, targetName)) {
+      matched.push(targetName);
+    }
+  }
+
+  return matched;
+}
+
+function hasHolidayNameInSet(nameSet, name) {
+  if (!(nameSet instanceof Set)) {
+    return false;
+  }
+
+  if (nameSet.has(name)) {
+    return true;
+  }
+
+  for (const existingName of nameSet) {
+    if (holidayNameIntersects(existingName, name)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function hasHolidayNameInMap(nameMap, name) {
+  if (!(nameMap instanceof Map)) {
+    return false;
+  }
+
+  if (nameMap.has(name)) {
+    return true;
+  }
+
+  for (const existingName of nameMap.keys()) {
+    if (holidayNameIntersects(existingName, name)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 const formatPeriodStr = (label, diff, duration = 1) => {
   if (diff === 0) {
     return `今日 ${label}`;
@@ -680,7 +778,6 @@ function buildOfficialHolidayRanges(days) {
     startMs: group.startMs,
     endMs: group.endMs,
     startYMD: msToYMD(group.startMs),
-    endYMD: msToYMD(group.endMs),
     duration: group.duration
   }));
 }
@@ -726,9 +823,80 @@ function normalizeHolidayCnYearData(data, year) {
   };
 }
 
-function readOfficialHolidayCache(ctx) {
+function isValidOfficialDay(day) {
+  return (
+    day &&
+    typeof day === "object" &&
+    typeof day.name === "string" &&
+    day.name.trim() &&
+    typeof day.date === "string" &&
+    isValidISODate(day.date) &&
+    typeof day.isOffDay === "boolean" &&
+    (
+      day.ms === undefined ||
+      Number.isFinite(Number(day.ms))
+    )
+  );
+}
+
+function isValidOfficialYearData(yearData) {
+  return (
+    yearData &&
+    typeof yearData === "object" &&
+    Array.isArray(yearData.days) &&
+    yearData.days.length > 0 &&
+    yearData.days.every(isValidOfficialDay)
+  );
+}
+
+function normalizeCachedOfficialYearData(yearData) {
+  if (!isValidOfficialYearData(yearData)) {
+    return null;
+  }
+
+  const days = yearData.days
+    .map(day => {
+      const ms = Number.isFinite(Number(day.ms))
+        ? Number(day.ms)
+        : isoToMs(day.date);
+
+      return {
+        name: day.name.trim(),
+        date: day.date,
+        isOffDay: day.isOffDay,
+        ms
+      };
+    })
+    .filter(day => Number.isFinite(day.ms))
+    .sort((a, b) => a.ms - b.ms);
+
+  return days.length > 0 ? { days } : null;
+}
+
+function sanitizeOfficialYears(years) {
+  const sanitized = {};
+
+  if (!years || typeof years !== "object") {
+    return sanitized;
+  }
+
+  for (const [year, yearData] of Object.entries(years)) {
+    const normalized = normalizeCachedOfficialYearData(yearData);
+
+    if (normalized) {
+      sanitized[String(year)] = normalized;
+    }
+  }
+
+  return sanitized;
+}
+
+function readOfficialHolidayCache(
+  ctx,
+  storageKey = OFFICIAL_HOLIDAY_STORAGE_KEY
+) {
   try {
-    const cache = ctx.storage?.getJSON(OFFICIAL_HOLIDAY_STORAGE_KEY);
+    const cache = ctx.storage?.getJSON(storageKey);
 
     if (
       cache &&
@@ -736,7 +904,10 @@ function readOfficialHolidayCache(ctx) {
       cache.years &&
       typeof cache.years === "object"
     ) {
-      return cache;
+      return {
+        ...cache,
+        years: sanitizeOfficialYears(cache.years)
+      };
     }
   } catch (e) {
     warnLog("[Countdown] failed to read official holiday cache:", e);
@@ -762,8 +933,14 @@ function pruneOfficialYears(years, currentYear) {
   const pruned = {};
 
   for (const [year, data] of Object.entries(years || {})) {
-    if (keep.has(year)) {
-      pruned[year] = data;
+    if (!keep.has(String(year))) {
+      continue;
+    }
+
+    const normalized = normalizeCachedOfficialYearData(data);
+
+    if (normalized) {
+      pruned[String(year)] = normalized;
     }
   }
 
@@ -790,13 +967,7 @@ function pruneRetryAfterByYear(retryAfterByYear, currentYear) {
 }
 
 function hasOfficialYearData(yearsData, year) {
-  const yearData = yearsData?.[String(year)];
-
-  return !!(
-    yearData &&
-    Array.isArray(yearData.days) &&
-    yearData.days.length > 0
-  );
+  return isValidOfficialYearData(yearsData?.[String(year)]);
 }
 
 function getMissingOfficialYears(yearsData, requestYears) {
@@ -815,12 +986,12 @@ function buildOfficialFingerprint(yearsData) {
   for (const year of Object.keys(yearsData).sort()) {
     const yearData = yearsData[year];
 
-    if (!yearData || !Array.isArray(yearData.days)) continue;
+    if (!isValidOfficialYearData(yearData)) continue;
 
     parts.push(year);
 
     for (const day of yearData.days) {
-      parts.push(`${day.date}:${day.name}:${day.isOffDay ? 1 : 0}`);
+      parts.push(`${day.date}:${day.name.trim()}:${day.isOffDay ? 1 : 0}`);
     }
   }
 
@@ -905,6 +1076,7 @@ async function fetchOfficialHolidayYear(ctx, year) {
   const resp = await ctx.http.get(url, {
     timeout: HTTP_TIMEOUT_MS,
     credentials: "omit",
+    redirect: "follow",
     headers: {
       Accept: "application/json"
     }
@@ -921,15 +1093,20 @@ async function fetchOfficialHolidayYear(ctx, year) {
   return normalizeHolidayCnYearData(data, year);
 }
 
-async function loadOfficialHolidayDaily(ctx, currentYear, todayIso) {
-  const oldCache = readOfficialHolidayCache(ctx);
+async function loadOfficialHolidayDaily(
+  ctx,
+  currentYear,
+  todayIso,
+  storageKey = OFFICIAL_HOLIDAY_STORAGE_KEY
+) {
+  const oldCache = readOfficialHolidayCache(ctx, storageKey);
 
   if (!ctx.http || !ctx.storage) {
     return oldCache;
   }
 
+  const requestYears = officialRequestYears(currentYear);
   const requiredYears = officialRequiredYears(currentYear);
-  const optionalYears = officialOptionalYears(currentYear);
 
   const mergedYears = pruneOfficialYears(oldCache?.years || {}, currentYear);
 
@@ -954,25 +1131,25 @@ async function loadOfficialHolidayDaily(ctx, currentYear, todayIso) {
   let yearsToFetch = [];
 
   if (requiredFresh) {
-    yearsToFetch = getMissingOfficialYears(mergedYears, optionalYears)
+    yearsToFetch = getMissingOfficialYears(mergedYears, requestYears)
       .map(Number)
       .filter(year =>
         !isOfficialYearRetryBlocked({ retryAfterByYear }, year, now)
       );
   } else {
-    const missingRequiredYears = getMissingOfficialYears(
+    const missingRequestYears = getMissingOfficialYears(
       mergedYears,
-      requiredYears
+      requestYears
     );
 
-    if (missingRequiredYears.length > 0) {
-      yearsToFetch = missingRequiredYears
+    if (missingRequestYears.length > 0) {
+      yearsToFetch = missingRequestYears
         .map(Number)
         .filter(year =>
           !isOfficialYearRetryBlocked({ retryAfterByYear }, year, now)
         );
     } else {
-      yearsToFetch = requiredYears
+      yearsToFetch = requestYears
         .filter(year =>
           !isOfficialYearRetryBlocked({ retryAfterByYear }, year, now)
         );
@@ -989,14 +1166,7 @@ async function loadOfficialHolidayDaily(ctx, currentYear, todayIso) {
   }
 
   const results = await Promise.allSettled(
-    yearsToFetch.map(async year => {
-      const data = await fetchOfficialHolidayYear(ctx, year);
-
-      return {
-        key: String(year),
-        data
-      };
-    })
+    yearsToFetch.map(year => fetchOfficialHolidayYear(ctx, year))
   );
 
   const successfulFetchYearSet = new Set();
@@ -1007,9 +1177,7 @@ async function loadOfficialHolidayDaily(ctx, currentYear, todayIso) {
     const key = String(year);
 
     if (result.status === "fulfilled") {
-      const { data } = result.value;
-
-      mergedYears[key] = data;
+      mergedYears[key] = result.value;
       delete retryAfterByYear[key];
       successfulFetchYearSet.add(key);
     } else {
@@ -1057,7 +1225,7 @@ async function loadOfficialHolidayDaily(ctx, currentYear, todayIso) {
   };
 
   try {
-    ctx.storage.setJSON(OFFICIAL_HOLIDAY_STORAGE_KEY, newCache);
+    ctx.storage.setJSON(storageKey, newCache);
   } catch (e) {
     warnLog("[Countdown] failed to save official holiday cache:", e);
   }
@@ -1065,9 +1233,19 @@ async function loadOfficialHolidayDaily(ctx, currentYear, todayIso) {
   return newCache;
 }
 
-async function safeLoadOfficialHolidayDaily(ctx, currentYear, todayIso) {
+async function safeLoadOfficialHolidayDaily(
+  ctx,
+  currentYear,
+  todayIso,
+  storageKey = OFFICIAL_HOLIDAY_STORAGE_KEY
+) {
   try {
-    return await loadOfficialHolidayDaily(ctx, currentYear, todayIso);
+    return await loadOfficialHolidayDaily(
+      ctx,
+      currentYear,
+      todayIso,
+      storageKey
+    );
   } catch (e) {
     warnLog(
       "[Countdown] official holiday load failed, fallback to local/cache:",
@@ -1075,7 +1253,7 @@ async function safeLoadOfficialHolidayDaily(ctx, currentYear, todayIso) {
     );
 
     try {
-      return readOfficialHolidayCache(ctx);
+      return readOfficialHolidayCache(ctx, storageKey);
     } catch (cacheError) {
       warnLog(
         "[Countdown] failed to read official holiday cache after load failure:",
@@ -1243,18 +1421,20 @@ function mergeLegalHolidays(fallbackLegal, officialLegal) {
     return [...fallbackLegal];
   }
 
+  const merged = [];
   const usedOfficialIndexes = new Set();
-  const fallbackNames = new Set(
-    fallbackLegal
-      .map(row => String(row?.[0] ?? "").trim())
-      .filter(Boolean)
-  );
+  const coveredFallbackNames = new Set();
 
-  const merged = fallbackLegal.map(row => {
-    const name = String(row?.[0] ?? "").trim();
+  for (const row of fallbackLegal) {
+    const fallbackName = String(row?.[0] ?? "").trim();
 
-    if (!name) {
-      return row;
+    if (!fallbackName) {
+      merged.push(row);
+      continue;
+    }
+
+    if (coveredFallbackNames.has(fallbackName)) {
+      continue;
     }
 
     const fallbackMs = slashYMDToMs(row?.[1]);
@@ -1267,7 +1447,9 @@ function mergeLegalHolidays(fallbackLegal, officialLegal) {
 
       const officialName = String(officialRows[i]?.[0] ?? "").trim();
 
-      if (officialName !== name) continue;
+      if (!officialNameMatches(officialName, fallbackName)) {
+        continue;
+      }
 
       const distance = officialRowDistanceToFallback(
         officialRows[i],
@@ -1281,19 +1463,36 @@ function mergeLegalHolidays(fallbackLegal, officialLegal) {
     }
 
     if (bestIndex >= 0) {
-      usedOfficialIndexes.add(bestIndex);
-      return officialRows[bestIndex];
-    }
+      const officialRow = officialRows[bestIndex];
 
-    return row;
-  });
+      usedOfficialIndexes.add(bestIndex);
+
+      for (const name of splitHolidayNames(officialRow[0])) {
+        coveredFallbackNames.add(name);
+      }
+
+      merged.push(officialRow);
+    } else {
+      merged.push(row);
+    }
+  }
+
+  const fallbackNames = new Set(
+    fallbackLegal
+      .map(row => String(row?.[0] ?? "").trim())
+      .filter(Boolean)
+  );
 
   for (let i = 0; i < officialRows.length; i++) {
     if (usedOfficialIndexes.has(i)) continue;
 
-    const name = String(officialRows[i]?.[0] ?? "").trim();
+    const officialNameParts = splitHolidayNames(officialRows[i][0]);
 
-    if (!fallbackNames.has(name)) {
+    const overlapsFallback = officialNameParts.some(name =>
+      fallbackNames.has(name)
+    );
+
+    if (!overlapsFallback) {
       merged.push(officialRows[i]);
     }
   }
@@ -1331,6 +1530,9 @@ export default async function (ctx = {}) {
 
   const scriptName = String(ctx.script?.name || "countdown");
   const storageScope = `countdown:${hashString(scriptName)}`;
+  const officialHolidayStorageKey =
+    `${storageScope}:official_holidays:v${OFFICIAL_HOLIDAY_STORAGE_VERSION}`;
+
   const envStorageFingerprint = buildEnvFingerprint(env);
   const envStorageId = hashString(envStorageFingerprint);
 
@@ -1365,7 +1567,8 @@ export default async function (ctx = {}) {
   const officialHolidayCache = await safeLoadOfficialHolidayDaily(
     ctx,
     Y,
-    todayIso
+    todayIso,
+    officialHolidayStorageKey
   );
 
   const officialRanges = buildOfficialHolidayRangeCache(officialHolidayCache);
@@ -1720,7 +1923,9 @@ export default async function (ctx = {}) {
           : basePriority[cat] ?? 1;
       }
 
-      return specialPriority[name] ?? basePriority[cat] ?? 1;
+      const special = getSpecialHolidayPriority(name);
+
+      return special ?? basePriority[cat] ?? 1;
     };
 
     const isInFestivalPeriod = (diff, duration) =>
@@ -1743,14 +1948,21 @@ export default async function (ctx = {}) {
     todayItems = [];
 
     const updatePinned = (name, diff) => {
-      if (!pinnedHolidaySet.has(name) || diff > 200) {
+      const matchedPinnedNames = getMatchedHolidayNames(
+        name,
+        pinnedHolidaySet
+      );
+
+      if (matchedPinnedNames.length === 0) {
         return;
       }
 
-      const oldPinnedDiff = pinnedMap.get(name);
+      for (const pinnedName of matchedPinnedNames) {
+        const oldPinnedDiff = pinnedMap.get(pinnedName);
 
-      if (oldPinnedDiff === undefined || diff < oldPinnedDiff) {
-        pinnedMap.set(name, diff);
+        if (oldPinnedDiff === undefined || diff < oldPinnedDiff) {
+          pinnedMap.set(pinnedName, diff);
+        }
       }
     };
 
@@ -1784,7 +1996,7 @@ export default async function (ctx = {}) {
       const priority = getPriority(name, cat, sourceKind);
 
       if (isInFestivalPeriod(diff, duration)) {
-        if (!todayFestSet.has(name)) {
+        if (!hasHolidayNameInSet(todayFestSet, name)) {
           todayFestSet.add(name);
 
           todayFests.push({
@@ -1890,7 +2102,10 @@ export default async function (ctx = {}) {
 
     Object.keys(rawResult).forEach(cat => {
       result[cat] = Array.from(rawResult[cat].values())
-        .filter(i => !pinnedMap.has(i.name) && !todayFestSet.has(i.name))
+        .filter(i =>
+          !hasHolidayNameInMap(pinnedMap, i.name) &&
+          !hasHolidayNameInSet(todayFestSet, i.name)
+        )
         .sort((a, b) => {
           if (a.diff !== b.diff) return a.diff - b.diff;
           return enablePrioritySort ? b.priority - a.priority : 0;
