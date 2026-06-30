@@ -642,16 +642,18 @@ function pruneOfficialYears(years, currentYear) {
   return pruned;
 }
 
-function hasRequestedOfficialYears(cache, requestYears) {
-  return requestYears.every(year => {
-    const yearData = cache?.years?.[String(year)];
+function getMissingOfficialYears(yearsData, requestYears) {
+  return requestYears
+    .map(String)
+    .filter(year => {
+      const yearData = yearsData?.[year];
 
-    return (
-      yearData &&
-      Array.isArray(yearData.days) &&
-      yearData.days.length > 0
-    );
-  });
+      return !(
+        yearData &&
+        Array.isArray(yearData.days) &&
+        yearData.days.length > 0
+      );
+    });
 }
 
 function buildOfficialFingerprint(yearsData) {
@@ -757,12 +759,13 @@ async function loadOfficialHolidayDaily(ctx, env, currentYear, todayIso) {
   const requestYears = [currentYear - 1, currentYear, currentYear + 1];
   const yearsKey = requestYears.join(",");
 
+  // 今日已经尝试过相同年份组合，则直接使用缓存。
+  // 即使缓存不完整，也不在同一天每次打开小组件时重复请求。
   if (
     oldCache &&
     oldCache.checkedDate === todayIso &&
     oldCache.forceKey === forceKey &&
-    oldCache.yearsKey === yearsKey &&
-    hasRequestedOfficialYears(oldCache, requestYears)
+    oldCache.yearsKey === yearsKey
   ) {
     return oldCache;
   }
@@ -790,30 +793,27 @@ async function loadOfficialHolidayDaily(ctx, env, currentYear, todayIso) {
     }
   }
 
-  if (successCount === 0) {
-    return oldCache;
-  }
+  // 即使部分年份失败，甚至全部失败，也写入"今日已尝试"状态。
+  // 这样既避免同一天重复请求，又不会把缓存伪装成完整缓存。
+  const missingYears = getMissingOfficialYears(mergedYears, requestYears);
 
-  const candidateCache = {
+  const newCache = {
     version: OFFICIAL_HOLIDAY_STORAGE_VERSION,
     checkedDate: todayIso,
     forceKey,
     yearsKey,
+    complete: missingYears.length === 0,
+    missingYears,
+    lastSuccessCount: successCount,
     fingerprint: buildOfficialFingerprint(mergedYears),
     years: mergedYears
   };
 
-  // 必须确保上一年、当前年、下一年三份数据都存在，才写入"当日已检查"的官方假期缓存。
-  // 避免部分年份请求失败时，将不完整数据写成当天有效缓存，导致当天后续不再补齐。
-  if (!hasRequestedOfficialYears(candidateCache, requestYears)) {
-    return oldCache;
-  }
-
   try {
-    ctx.storage.setJSON(OFFICIAL_HOLIDAY_STORAGE_KEY, candidateCache);
+    ctx.storage.setJSON(OFFICIAL_HOLIDAY_STORAGE_KEY, newCache);
   } catch (e) {}
 
-  return candidateCache;
+  return newCache;
 }
 
 function isValidOfficialRange(range) {
