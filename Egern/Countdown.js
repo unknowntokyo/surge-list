@@ -742,13 +742,9 @@ async function loadOfficialHolidayDaily(ctx, env, currentYear, todayIso) {
 
   const forceKey = String(env?.OFFICIAL_HOLIDAY_FORCE_REFRESH ?? "").trim();
 
-  // 业务侧会扫描 [Y - 1, Y, Y + 1]，
-  // 因此官方节假日数据也同步拉取上一年、当前年、下一年。
   const requestYears = [currentYear - 1, currentYear, currentYear + 1];
   const yearsKey = requestYears.join(",");
 
-  // 今日已经尝试过相同年份组合，则直接使用缓存。
-  // 即使缓存不完整，也不在同一天每次打开小组件时重复请求。
   if (
     oldCache &&
     oldCache.checkedDate === todayIso &&
@@ -781,8 +777,6 @@ async function loadOfficialHolidayDaily(ctx, env, currentYear, todayIso) {
     }
   }
 
-  // 即使部分年份失败，甚至全部失败，也写入"今日已尝试"状态。
-  // 这样既避免同一天重复请求，又不会把缓存伪装成完整缓存。
   const missingYears = getMissingOfficialYears(mergedYears, requestYears);
 
   const newCache = {
@@ -1336,8 +1330,6 @@ export default async function (ctx = {}) {
       }
     };
 
-    // Y - 1: 用于识别跨年假期仍在进行中的情况
-    // Y 和 Y + 1: 足以覆盖所有年度重复节日的下一次发生
     const yearsToScan = [Y - 1, Y, Y + 1];
 
     for (const y of yearsToScan) {
