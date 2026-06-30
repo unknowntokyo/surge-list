@@ -76,20 +76,6 @@ const specialPriority = {
 const DAY_MS = 86400000;
 const HTTP_TIMEOUT_MS = 5000;
 
-function withTimeout(promise, ms = HTTP_TIMEOUT_MS, label = "operation") {
-  let timer;
-
-  const timeoutPromise = new Promise((_, reject) => {
-    timer = setTimeout(() => {
-      reject(new Error(`${label} timeout after ${ms}ms`));
-    }, ms);
-  });
-
-  return Promise.race([promise, timeoutPromise]).finally(() => {
-    clearTimeout(timer);
-  });
-}
-
 const mkText = (text, size, weight, color, opts = {}) => ({
   type: "text",
   text: String(text ?? ""),
@@ -728,11 +714,13 @@ async function fetchOfficialHolidayYear(ctx, year) {
 
   const url = `https://raw.githubusercontent.com/NateScarlet/holiday-cn/master/${year}.json`;
 
-  const resp = await withTimeout(
-    ctx.http.get(url),
-    HTTP_TIMEOUT_MS,
-    `fetch official holiday ${year}`
-  );
+  const resp = await ctx.http.get(url, {
+    timeout: HTTP_TIMEOUT_MS,
+    credentials: "omit",
+    headers: {
+      Accept: "application/json"
+    }
+  });
 
   const status = resp?.status ?? resp?.statusCode;
 
@@ -844,6 +832,42 @@ function getOfficialLegalHolidays(officialHolidayCache, year) {
     ]);
 
   return rows.length > 0 ? rows : null;
+}
+
+function mergeLegalHolidays(fallbackLegal, officialLegal) {
+  if (!Array.isArray(fallbackLegal)) {
+    return Array.isArray(officialLegal) ? [...officialLegal] : [];
+  }
+
+  if (!Array.isArray(officialLegal) || officialLegal.length === 0) {
+    return [...fallbackLegal];
+  }
+
+  const officialByName = new Map();
+
+  for (const row of officialLegal) {
+    if (!Array.isArray(row)) continue;
+
+    const name = String(row[0] ?? "").trim();
+
+    if (!name) continue;
+
+    officialByName.set(name, row);
+  }
+
+  const merged = fallbackLegal.map(row => {
+    const name = String(row?.[0] ?? "").trim();
+
+    return officialByName.get(name) || row;
+  });
+
+  for (const [name, row] of officialByName.entries()) {
+    if (!fallbackLegal.some(item => String(item?.[0] ?? "").trim() === name)) {
+      merged.push(row);
+    }
+  }
+
+  return merged;
 }
 
 function getOfficialDayInfo(officialHolidayCache, isoDate) {
@@ -991,7 +1015,7 @@ export default async function (ctx = {}) {
         };
       }
 
-      m = s.match(/^(\d{4})\/(\d{2})\/(\d{2})$/);
+      m = s.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/);
 
       if (m) {
         const year = Number(m[1]);
@@ -1120,19 +1144,18 @@ export default async function (ctx = {}) {
 
       const qmDateStr = getCustomDate(y, qingmingDateStr, () => term(7));
 
-      const officialLegal = getOfficialLegalHolidays(officialHolidayCache, y);
+      const fallbackLegal = [
+        ["元旦", YMD(y, 1, 1), 1],
+        ["春节", l2s(y, 1, 1), 3],
+        ["清明节", qmDateStr, 1],
+        ["劳动节", YMD(y, 5, 1), 1],
+        ["端午节", l2s(y, 5, 5), 1],
+        ["中秋节", l2s(y, 8, 15), 1],
+        ["国庆节", YMD(y, 10, 1), 3]
+      ];
 
-      const legal = officialLegal
-        ? [...officialLegal]
-        : [
-            ["元旦", YMD(y, 1, 1), 1],
-            ["春节", l2s(y, 1, 1), 3],
-            ["清明节", qmDateStr, 1],
-            ["劳动节", YMD(y, 5, 1), 1],
-            ["端午节", l2s(y, 5, 5), 1],
-            ["中秋节", l2s(y, 8, 15), 1],
-            ["国庆节", YMD(y, 10, 1), 3]
-          ];
+      const officialLegal = getOfficialLegalHolidays(officialHolidayCache, y);
+      const legal = mergeLegalHolidays(fallbackLegal, officialLegal);
 
       if (showSchoolHolidays) {
         const springDate = getCustomDate(y, springDateStr, () => {
