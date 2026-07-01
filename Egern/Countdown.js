@@ -5,7 +5,7 @@
  * ✨ 主要功能：
  * • 尺寸适配：支持 Small、Medium、Large 三种组件尺寸，区分紧凑列表与定宽多行列表排版。
  * • 节日计算：内置农历算法数组，支持计算法定节假日、民俗节日、国际节日、金融交割/行权日的倒计时。
- * • 官方假期：法定分类优先拉取 NateScarlet/holiday-cn 上一年、当前年与下一年数据，按实际放假安排展示。
+ * • 官方假期：法定分类优先拉取 NateScarlet/holiday-cn 上一年与当前年数据；每年 7 月后尝试预取下一年数据，按实际放假安排展示。
  * • 时区基准：采用 UTC+8 固定时区进行绝对时间计算。
  * • 自定义配置：支持通过环境变量设置最多 6 个专属纪念日，支持修改清明节及春/秋假的起始日期。
  * • 排序与显示：支持按倒数天数及分类优先级进行排序，支持指定节日跨分类置顶。
@@ -44,6 +44,32 @@ const C = {
   purple: { light: "#D14FE2", dark: "#CA31E1" },
   transparent: "#00000000"
 };
+
+const BACKGROUND_GRADIENTS = Object.freeze({
+  workday: Object.freeze({
+    type: "linear",
+    colors: C.bgWorkday,
+    startPoint: { x: 0, y: 0 },
+    endPoint: { x: 1, y: 1 }
+  }),
+
+  weekend: Object.freeze({
+    type: "linear",
+    colors: C.bgWeekend,
+    startPoint: { x: 0, y: 0 },
+    endPoint: { x: 1, y: 1 }
+  }),
+
+  fest: Object.freeze({
+    type: "linear",
+    colors: C.bgFest,
+    startPoint: { x: 0, y: 0 },
+    endPoint: { x: 1, y: 1 }
+  })
+});
+
+const getBackgroundGradient = themeKey =>
+  BACKGROUND_GRADIENTS[themeKey] || BACKGROUND_GRADIENTS.workday;
 
 const CATEGORY_CONFIG = [
   { key: "legal", label: "法定", icon: "building.columns.fill", color: C.red },
@@ -349,6 +375,90 @@ function buildDisplayCache(result, displayMode = "medium") {
   return cache;
 }
 
+function buildLayoutConfig(isLarge) {
+  return {
+    fz: isLarge ? 14 : 13.5,
+    icz: isLarge ? 15 : 13.5,
+    lw: isLarge ? 60 : 52,
+    maxW: isLarge
+      ? DISPLAY_LINE_MAX_WIDTH.large
+      : DISPLAY_LINE_MAX_WIDTH.medium,
+    rowGap: isLarge ? 6 : 4,
+    titleFz: isLarge ? 17 : 15,
+    titleIcz: isLarge ? 18 : 16,
+    topFz: isLarge ? 13 : 12.5
+  };
+}
+
+function buildGridRows(displayCache, result, layoutConfig, isLarge) {
+  return CATEGORY_CONFIG.flatMap(cfg => {
+    const cachedLines = displayCache?.[cfg.key]?.lines;
+    const rawText = displayCache?.[cfg.key]?.text ??
+      buildDisplayText(result, cfg.key, isLarge ? 7 : 3);
+
+    if (!rawText) return [];
+
+    const lines = Array.isArray(cachedLines)
+      ? cachedLines
+      : splitTextToLines(rawText, layoutConfig.maxW);
+
+    return lines.map((lineStr, idx) => ({
+      type: "stack",
+      direction: "row",
+      alignItems: "start",
+      gap: layoutConfig.rowGap,
+      children: [
+        mkRow([
+          mkRow([
+            mkSpacer(),
+            mkIcon(
+              idx === 0 ? cfg.icon : "circle.fill",
+              idx === 0 ? cfg.color : C.transparent,
+              layoutConfig.icz
+            ),
+            mkSpacer()
+          ], 0, { width: layoutConfig.titleIcz }),
+
+          mkText(
+            idx === 0 ? cfg.label : " ",
+            layoutConfig.fz,
+            "heavy",
+            idx === 0 ? cfg.color : C.transparent
+          ),
+
+          mkSpacer()
+        ], 2, { width: layoutConfig.lw }),
+
+        mkText(
+          lineStr,
+          layoutConfig.fz,
+          "medium",
+          cfg.key === "exclusive" && /(交割|行权)/.test(lineStr)
+            ? C.red
+            : C.sub,
+          {
+            flex: 1,
+            maxLines: 1
+          }
+        )
+      ]
+    }));
+  });
+}
+
+function isValidGridRowsCache(rows) {
+  return (
+    Array.isArray(rows) &&
+    rows.length <= 32 &&
+    rows.every(row =>
+      row &&
+      typeof row === "object" &&
+      row.type === "stack" &&
+      Array.isArray(row.children)
+    )
+  );
+}
+
 function groupTodayItemsByCat(items) {
   const grouped = {};
 
@@ -454,6 +564,61 @@ function ensureLunarCumulative(maxYear) {
   lunarCumulativeCache.maxYear = safeMaxYear;
 }
 
+const MAX_ENV_TEXT_LENGTH = 80;
+const MAX_EXCLUSIVE_NAME_LENGTH = 20;
+const MAX_EXCLUSIVE_DATE_LENGTH = 20;
+const MAX_PINNED_HOLIDAY_TOTAL_LENGTH = 120;
+const MAX_PINNED_HOLIDAY_ITEM_LENGTH = 20;
+const MAX_PINNED_HOLIDAY_COUNT = 12;
+
+function truncateByCodePoint(value, maxLength) {
+  const chars = [...String(value ?? "").trim()];
+  return chars.slice(0, maxLength).join("");
+}
+
+function getEnvValueMaxLength(key) {
+  if (/^EXCLUSIVE_NAME(_\d+)?$/.test(key)) {
+    return MAX_EXCLUSIVE_NAME_LENGTH;
+  }
+
+  if (/^EXCLUSIVE_DATE(_\d+)?$/.test(key)) {
+    return MAX_EXCLUSIVE_DATE_LENGTH;
+  }
+
+  if (
+    key === "SPRING_BREAK_DATE" ||
+    key === "AUTUMN_BREAK_DATE" ||
+    key === "QINGMING_DATE"
+  ) {
+    return MAX_EXCLUSIVE_DATE_LENGTH;
+  }
+
+  if (key === "PINNED_HOLIDAY") {
+    return MAX_PINNED_HOLIDAY_TOTAL_LENGTH;
+  }
+
+  return MAX_ENV_TEXT_LENGTH;
+}
+
+function sanitizeEnvStringValue(key, value) {
+  if (value === undefined || value === null) {
+    return "";
+  }
+
+  const raw = truncateByCodePoint(value, getEnvValueMaxLength(key));
+
+  if (key === "PINNED_HOLIDAY") {
+    return raw
+      .split(",")
+      .map(v => truncateByCodePoint(v, MAX_PINNED_HOLIDAY_ITEM_LENGTH))
+      .filter(Boolean)
+      .slice(0, MAX_PINNED_HOLIDAY_COUNT)
+      .join(",");
+  }
+
+  return raw;
+}
+
 const CACHE_ENV_KEYS = Object.freeze([
   "SHOW_SCHOOL_HOLIDAYS",
   "SHOW_FINANCE_DATES",
@@ -525,11 +690,7 @@ function normalizeCacheEnvValue(key, value) {
     return parseBoolValue(value, true) ? "1" : "0";
   }
 
-  if (value === undefined || value === null) {
-    return "";
-  }
-
-  const s = String(value).trim();
+  const s = sanitizeEnvStringValue(key, value);
 
   if (key === "PINNED_HOLIDAY") {
     return s
@@ -644,6 +805,7 @@ function isValidCachedPayload(payload, expectedDisplayMode) {
   if (!Array.isArray(payload.todayItems)) return false;
   if (!Array.isArray(payload.pinnedData)) return false;
   if (!isValidDisplayCache(payload.displayCache, expectedDisplayMode)) return false;
+  if (!isValidGridRowsCache(payload.gridRows)) return false;
 
   if (
     payload.todayNoticeText !== undefined &&
@@ -1576,29 +1738,43 @@ function mergeLegalHolidays(fallbackLegal, officialLegal) {
   return merged;
 }
 
-function buildOfficialDayIndex(officialHolidayCache) {
-  const index = new Map();
+function getOfficialDayInfo(officialHolidayCache, todayIso) {
+  if (!isValidISODate(todayIso)) {
+    return null;
+  }
+
   const years = officialHolidayCache?.years;
 
   if (!years || typeof years !== "object") {
-    return index;
+    return null;
   }
 
-  for (const yearData of Object.values(years)) {
-    if (!yearData || !Array.isArray(yearData.days)) continue;
+  const targetYear = String(parseISODateParts(todayIso)?.y ?? "");
 
-    for (const day of yearData.days) {
-      if (
-        day &&
-        typeof day.date === "string" &&
-        isValidISODate(day.date)
-      ) {
-        index.set(day.date, day);
-      }
+  const yearCandidates = [
+    years[targetYear],
+    ...Object.entries(years)
+      .filter(([year]) => year !== targetYear)
+      .map(([, data]) => data)
+  ];
+
+  for (const yearData of yearCandidates) {
+    const days = yearData?.days;
+
+    if (!Array.isArray(days)) continue;
+
+    const matched = days.find(day =>
+      day &&
+      day.date === todayIso &&
+      typeof day.isOffDay === "boolean"
+    );
+
+    if (matched) {
+      return matched;
     }
   }
 
-  return index;
+  return null;
 }
 
 export default async function (ctx = {}) {
@@ -1648,35 +1824,22 @@ export default async function (ctx = {}) {
     refreshAfter: new Date(nextRefreshMs).toISOString()
   });
 
-  const officialHolidayCache = await safeLoadOfficialHolidayDaily(
-    ctx,
-    Y,
-    todayIso,
-    officialHolidayStorageKey
-  );
-
-  const officialRanges = buildOfficialHolidayRangeCache(officialHolidayCache);
-
-  const officialDayIndex = enableWeekendTheme
-    ? buildOfficialDayIndex(officialHolidayCache)
-    : new Map();
-
-  const officialFingerprint =
-    officialHolidayCache?.fingerprint
-      ? `official=${officialHolidayCache.fingerprint}`
-      : "official=none";
-
-  const envFingerprint = `${envStorageFingerprint}|${officialFingerprint}`;
-
   const CACHE_KEY = `${storageScope}:daily:${envStorageId}:${layoutMode}`;
   const NOTIFY_KEY = `${storageScope}:notify:${envStorageId}`;
-  const CACHE_VERSION = 8;
+
+  const CACHE_VERSION = 9;
+
   const timePhase = currentHour >= 15 ? "after3pm" : "before3pm";
   const todayStr = `${Y}_${M}_${D}_${timePhase}`;
 
-  let cachedData = null;
+  const getOfficialFingerprintText = cache =>
+    cache?.fingerprint
+      ? `official=${cache.fingerprint}`
+      : "official=none";
 
-  if (ctx.storage) {
+  const readDailyCache = currentEnvFingerprint => {
+    if (!ctx.storage) return null;
+
     try {
       const stored = ctx.storage.getJSON(CACHE_KEY);
 
@@ -1684,14 +1847,40 @@ export default async function (ctx = {}) {
         stored &&
         stored.version === CACHE_VERSION &&
         stored.date === todayStr &&
-        stored.envFingerprint === envFingerprint &&
+        stored.envFingerprint === currentEnvFingerprint &&
         isValidCachedPayload(stored.payload, displayMode)
       ) {
-        cachedData = stored.payload;
+        return stored.payload;
       }
     } catch (e) {
       warnLog("[Countdown] failed to read daily cache:", e);
     }
+
+    return null;
+  };
+
+  let officialHolidayCache = readOfficialHolidayCache(
+    ctx,
+    officialHolidayStorageKey
+  );
+
+  let officialFingerprint = getOfficialFingerprintText(officialHolidayCache);
+  let envFingerprint = `${envStorageFingerprint}|${officialFingerprint}`;
+
+  let cachedData = readDailyCache(envFingerprint);
+
+  if (!cachedData) {
+    officialHolidayCache = await safeLoadOfficialHolidayDaily(
+      ctx,
+      Y,
+      todayIso,
+      officialHolidayStorageKey
+    );
+
+    officialFingerprint = getOfficialFingerprintText(officialHolidayCache);
+    envFingerprint = `${envStorageFingerprint}|${officialFingerprint}`;
+
+    cachedData = readDailyCache(envFingerprint);
   }
 
   let result;
@@ -1699,6 +1888,7 @@ export default async function (ctx = {}) {
   let pinnedData;
   let todayItems;
   let displayCache;
+  let gridRowsCache;
 
   if (cachedData) {
     ({
@@ -1706,11 +1896,14 @@ export default async function (ctx = {}) {
       todayNoticeText,
       pinnedData,
       todayItems,
-      displayCache
+      displayCache,
+      gridRows: gridRowsCache
     } = cachedData);
   } else {
+    const officialRanges = buildOfficialHolidayRangeCache(officialHolidayCache);
+
     const getStr = (key, defaultVal = "") =>
-      String(env[key] ?? defaultVal).trim();
+      sanitizeEnvStringValue(key, env[key] ?? defaultVal);
 
     const showSchoolHolidays = getBool("SHOW_SCHOOL_HOLIDAYS", true);
     const showFinanceDates = getBool("SHOW_FINANCE_DATES", true);
@@ -1822,13 +2015,36 @@ export default async function (ctx = {}) {
       .filter(item => item.name && item.spec);
 
     const getFinanceDate = (y, monthIndex, nth, targetDow) => {
+      if (
+        !Number.isInteger(y) ||
+        !Number.isInteger(monthIndex) ||
+        !Number.isInteger(nth) ||
+        !Number.isInteger(targetDow) ||
+        monthIndex < 0 ||
+        monthIndex > 11 ||
+        nth < 1 ||
+        nth > 5 ||
+        targetDow < 0 ||
+        targetDow > 6
+      ) {
+        return NaN;
+      }
+
       const firstDow = new Date(Date.UTC(y, monthIndex, 1)).getUTCDay();
 
-      return Date.UTC(
-        y,
-        monthIndex,
-        1 + ((targetDow - firstDow + 7) % 7) + (nth - 1) * 7
-      );
+      const day =
+        1 + ((targetDow - firstDow + 7) % 7) + (nth - 1) * 7;
+
+      const dt = new Date(Date.UTC(y, monthIndex, day));
+
+      if (
+        dt.getUTCFullYear() !== y ||
+        dt.getUTCMonth() !== monthIndex
+      ) {
+        return NaN;
+      }
+
+      return dt.getTime();
     };
 
     const lunarToSolarCache = new Map();
@@ -2146,6 +2362,10 @@ export default async function (ctx = {}) {
         const priority = getPriority(name, "exclusive");
         const thisMonthDate = getFinanceDate(Y, M - 1, nth, dow);
 
+        if (!Number.isFinite(thisMonthDate)) {
+          return;
+        }
+
         const getNextMonthDate = () =>
           getFinanceDate(
             M === 12 ? Y + 1 : Y,
@@ -2155,6 +2375,10 @@ export default async function (ctx = {}) {
           );
 
         const addFutureFinanceDate = targetDate => {
+          if (!Number.isFinite(targetDate)) {
+            return;
+          }
+
           const diff = (targetDate - todayMs) / DAY_MS;
 
           if (diff > 0) {
@@ -2235,9 +2459,16 @@ export default async function (ctx = {}) {
       .map(n => ({
         name: n,
         diff: pinnedMap.get(n)
-      }));
+      }))
+      .sort((a, b) => a.diff - b.diff);
 
     displayCache = buildDisplayCache(result, displayMode);
+
+    const layoutConfigForCache = buildLayoutConfig(isLarge);
+
+    gridRowsCache = isSmall
+      ? []
+      : buildGridRows(displayCache, result, layoutConfigForCache, isLarge);
 
     if (ctx.storage) {
       try {
@@ -2250,7 +2481,8 @@ export default async function (ctx = {}) {
             todayNoticeText,
             pinnedData,
             todayItems,
-            displayCache
+            displayCache,
+            gridRows: gridRowsCache
           }
         });
       } catch (e) {
@@ -2261,6 +2493,14 @@ export default async function (ctx = {}) {
 
   if (!displayCache || !isValidDisplayCache(displayCache, displayMode)) {
     displayCache = buildDisplayCache(result, displayMode);
+  }
+
+  if (!isValidGridRowsCache(gridRowsCache)) {
+    const layoutConfigForGrid = buildLayoutConfig(isLarge);
+
+    gridRowsCache = isSmall
+      ? []
+      : buildGridRows(displayCache, result, layoutConfigForGrid, isLarge);
   }
 
   const todayItemsByCat = groupTodayItemsByCat(todayItems);
@@ -2307,34 +2547,45 @@ export default async function (ctx = {}) {
           now - Number(notified.lockTime) < NOTIFY_LOCK_TTL_MS;
 
         if (notified.date !== notifyDate && !lockFresh) {
+          const lockToken = `${now}:${Math.random().toString(36).slice(2)}`;
+
           const lockedState = {
             ...notified,
             lockDate: notifyDate,
-            lockTime: now
+            lockTime: now,
+            lockToken
           };
 
           ctx.storage.setJSON(notifyKey, lockedState);
 
-          try {
-            await Promise.resolve(ctx.notify({
-              title: "✨ 今日提醒",
-              body: notifyNames.join("、"),
-              sound: true
-            }));
+          const verifiedState = ctx.storage.getJSON(notifyKey) || {};
 
-            ctx.storage.setJSON(notifyKey, {
-              date: notifyDate,
-              names: notifyNames,
-              time: Date.now()
-            });
-          } catch (e) {
-            warnLog("[Countdown] notify failed:", e);
+          const lockOwned =
+            verifiedState.lockDate === notifyDate &&
+            verifiedState.lockToken === lockToken;
 
-            ctx.storage.setJSON(notifyKey, {
-              ...lockedState,
-              failedDate: notifyDate,
-              failedTime: Date.now()
-            });
+          if (lockOwned) {
+            try {
+              await Promise.resolve(ctx.notify({
+                title: "✨ 今日提醒",
+                body: notifyNames.join("、"),
+                sound: true
+              }));
+
+              ctx.storage.setJSON(notifyKey, {
+                date: notifyDate,
+                names: notifyNames,
+                time: Date.now()
+              });
+            } catch (e) {
+              warnLog("[Countdown] notify failed:", e);
+
+              ctx.storage.setJSON(notifyKey, {
+                ...lockedState,
+                failedDate: notifyDate,
+                failedTime: Date.now()
+              });
+            }
           }
         }
       }
@@ -2344,7 +2595,7 @@ export default async function (ctx = {}) {
   }
 
   const officialTodayInfo = enableWeekendTheme
-    ? officialDayIndex.get(todayIso) || null
+    ? getOfficialDayInfo(officialHolidayCache, todayIso)
     : null;
 
   const isOfficialOffDay = officialTodayInfo?.isOffDay === true;
@@ -2365,17 +2616,7 @@ export default async function (ctx = {}) {
         ? "weekend"
         : "workday";
 
-  const backgroundGradient = {
-    type: "linear",
-    colors:
-      themeKey === "fest"
-        ? C.bgFest
-        : themeKey === "weekend"
-          ? C.bgWeekend
-          : C.bgWorkday,
-    startPoint: { x: 0, y: 0 },
-    endPoint: { x: 1, y: 1 }
-  };
+  const backgroundGradient = getBackgroundGradient(themeKey);
 
   if (isSmall) {
     const smallRows = CATEGORY_CONFIG
@@ -2437,70 +2678,11 @@ export default async function (ctx = {}) {
     });
   }
 
-  const layoutConfig = {
-    fz: isLarge ? 14 : 13.5,
-    icz: isLarge ? 15 : 13.5,
-    lw: isLarge ? 60 : 52,
-    maxW: isLarge ? DISPLAY_LINE_MAX_WIDTH.large : DISPLAY_LINE_MAX_WIDTH.medium,
-    rowGap: isLarge ? 6 : 4,
-    titleFz: isLarge ? 17 : 15,
-    titleIcz: isLarge ? 18 : 16,
-    topFz: isLarge ? 13 : 12.5
-  };
+  const layoutConfig = buildLayoutConfig(isLarge);
 
-  const gridRows = CATEGORY_CONFIG.flatMap(cfg => {
-    const cachedLines = displayCache?.[cfg.key]?.lines;
-    const rawText = displayCache?.[cfg.key]?.text ??
-      buildDisplayText(result, cfg.key, isLarge ? 7 : 3);
-
-    if (!rawText) return [];
-
-    const lines = Array.isArray(cachedLines)
-      ? cachedLines
-      : splitTextToLines(rawText, layoutConfig.maxW);
-
-    return lines.map((lineStr, idx) => ({
-      type: "stack",
-      direction: "row",
-      alignItems: "start",
-      gap: layoutConfig.rowGap,
-      children: [
-        mkRow([
-          mkRow([
-            mkSpacer(),
-            mkIcon(
-              idx === 0 ? cfg.icon : "circle.fill",
-              idx === 0 ? cfg.color : C.transparent,
-              layoutConfig.icz
-            ),
-            mkSpacer()
-          ], 0, { width: layoutConfig.titleIcz }),
-
-          mkText(
-            idx === 0 ? cfg.label : " ",
-            layoutConfig.fz,
-            "heavy",
-            idx === 0 ? cfg.color : C.transparent
-          ),
-
-          mkSpacer()
-        ], 2, { width: layoutConfig.lw }),
-
-        mkText(
-          lineStr,
-          layoutConfig.fz,
-          "medium",
-          cfg.key === "exclusive" && /(交割|行权)/.test(lineStr)
-            ? C.red
-            : C.sub,
-          {
-            flex: 1,
-            maxLines: 1
-          }
-        )
-      ]
-    }));
-  });
+  const gridRows = isValidGridRowsCache(gridRowsCache)
+    ? gridRowsCache
+    : buildGridRows(displayCache, result, layoutConfig, isLarge);
 
   const rightHeaderElements = [];
 
