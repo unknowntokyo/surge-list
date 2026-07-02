@@ -3,7 +3,7 @@
  * 📌 时光倒数 (Countdown) 小组件
  *
  * ✨ 主要功能：
- * • 尺寸适配：仅支持桌面 Small、Medium、Large 三种组件尺寸，不支持锁屏组件。
+ * • 尺寸适配：支持桌面 Small、Medium、Large 三种组件尺寸，不支持锁屏组件，区分紧凑列表与定宽多行列表排版。
  * • 节日计算：内置农历算法数组，支持计算法定节假日、民俗节日、国际节日、金融交割/行权日的倒计时。
  * • 官方假期：法定分类优先拉取 NateScarlet/holiday-cn 上一年与当前年数据；每年 7 月后尝试预取下一年数据，按实际放假安排展示。
  * • 时区基准：采用 UTC+8 固定时区进行绝对时间计算。
@@ -18,14 +18,14 @@
  */
 
 const RANDOM_NOTICES = [
-  "距离放假，还要摸鱼多少天？", "坚持住，就快放假啦！", "上班好累呀，下顿吃啥？",
-  "努力，我还能加班24小时！", "躺平中，等放假", "施主请回，此饼不吃",
-  "只有摸鱼才是赚老板的钱", "小乌龟慢慢爬", "加油，明天会更好！",
-  "生活本该如此轻松", "好累，但还能坚持一会儿", "快放假啦，期待放松的时光",
-  "给自己加个鸡腿！", "佛系上班，一切随缘", "我的理想是：不上班还有钱",
-  "放弃幻想，认清现状，低调搬砖", "生活碎片，拼凑成诗", "慢慢走，沿途的花都开了",
-  "没什么期待，也就没什么失望", "所谓的成长，就是学会不抱希望",
-  "只要努力工作，老板的午餐就是我的", "今天的任务是：不干活！", "用力生活，用力摸鱼"
+  " 距离放假，还要摸鱼多少天？", " 坚持住，就快放假啦！", " 上班好累呀，下顿吃啥？",
+  " 努力，我还能加班24小时！", " 躺平中，等放假", " 施主请回，此饼不吃",
+  " 只有摸鱼才是赚老板的钱", " 小乌龟慢慢爬", " 加油，明天会更好！",
+  " 生活本该如此轻松", " 好累，但还能坚持一会儿", " 快放假啦，期待放松的时光",
+  " 给自己加个鸡腿！", " 佛系上班，一切随缘", " 我的理想是：不上班还有钱",
+  " 放弃幻想，认清现状，低调搬砖", " 生活碎片，拼凑成诗", " 慢慢走，沿途的花都开了",
+  " 没什么期待，也就没什么失望", " 所谓的成长，就是学会不抱希望",
+  " 只要努力工作，老板的午餐就是我的", " 今天的任务是：不干活！", " 用力生活，用力摸鱼"
 ];
 
 const C = {
@@ -52,12 +52,14 @@ const BACKGROUND_GRADIENTS = Object.freeze({
     startPoint: { x: 0, y: 0 },
     endPoint: { x: 1, y: 1 }
   }),
+
   weekend: Object.freeze({
     type: "linear",
     colors: C.bgWeekend,
     startPoint: { x: 0, y: 0 },
     endPoint: { x: 1, y: 1 }
   }),
+
   fest: Object.freeze({
     type: "linear",
     colors: C.bgFest,
@@ -102,6 +104,8 @@ const HTTP_TIMEOUT_MS = 5000;
 const OFFICIAL_REFRESH_INTERVAL_MS = 3 * DAY_MS;
 const OFFICIAL_FAILED_RETRY_INTERVAL_MS = DAY_MS;
 const OFFICIAL_OPTIONAL_FAILED_RETRY_INTERVAL_MS = 7 * DAY_MS;
+
+const NOTIFY_LOCK_TTL_MS = 2 * 60 * 1000;
 
 const DISPLAY_LINE_MAX_WIDTH = {
   medium: 45,
@@ -161,49 +165,14 @@ const DISPLAY_NAME_MAP = {
 
 const displayName = name => DISPLAY_NAME_MAP[name] ?? name;
 
-const UNSAFE_CONTROL_CHARS_RE = /[\u0000-\u001F\u007F]/g;
-const BIDI_CONTROL_CHARS_RE = /[\u202A-\u202E\u2066-\u2069]/g;
-const HOLIDAY_LIST_SEPARATOR_RE = /[、，,\/]+/;
-
-const HOLIDAY_ALIAS_MAP = Object.freeze({
-  国庆: "国庆节",
-  十一: "国庆节",
-  劳动: "劳动节",
-  五一: "劳动节",
-  中秋: "中秋节",
-  端午: "端午节",
-  清明: "清明节",
-  元旦节: "元旦",
-  过年: "春节",
-  除夕夜: "除夕"
-});
-
-function sanitizePlainText(value) {
-  return String(value ?? "")
-    .replace(UNSAFE_CONTROL_CHARS_RE, "")
-    .replace(BIDI_CONTROL_CHARS_RE, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function splitConfigList(value) {
-  return String(value ?? "")
-    .split(HOLIDAY_LIST_SEPARATOR_RE)
-    .map(s => sanitizePlainText(s))
-    .filter(Boolean);
-}
-
-function normalizeHolidayName(name) {
-  const cleaned = sanitizePlainText(name);
-
-  if (!cleaned) return "";
-
-  return HOLIDAY_ALIAS_MAP[cleaned] || cleaned;
-}
-
 function splitHolidayNames(name) {
-  return splitConfigList(name)
-    .map(normalizeHolidayName)
+  const raw = String(name ?? "").trim();
+
+  if (!raw) return [];
+
+  return raw
+    .split(/[、，,\/]+/)
+    .map(s => s.trim())
     .filter(Boolean);
 }
 
@@ -215,9 +184,7 @@ function holidayNameIntersects(a, b) {
     return false;
   }
 
-  const bSet = new Set(bParts);
-
-  return aParts.some(x => bSet.has(x));
+  return aParts.some(x => bParts.includes(x));
 }
 
 function officialNameMatches(officialName, fallbackName) {
@@ -260,12 +227,34 @@ function getMatchedHolidayNames(name, targetNameSet) {
   return matched;
 }
 
-function hasHolidayNameInIterable(iterable, name) {
-  if (!iterable || typeof iterable[Symbol.iterator] !== "function") {
+function hasHolidayNameInSet(nameSet, name) {
+  if (!(nameSet instanceof Set)) {
     return false;
   }
 
-  for (const existingName of iterable) {
+  if (nameSet.has(name)) {
+    return true;
+  }
+
+  for (const existingName of nameSet) {
+    if (holidayNameIntersects(existingName, name)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function hasHolidayNameInMap(nameMap, name) {
+  if (!(nameMap instanceof Map)) {
+    return false;
+  }
+
+  if (nameMap.has(name)) {
+    return true;
+  }
+
+  for (const existingName of nameMap.keys()) {
     if (holidayNameIntersects(existingName, name)) {
       return true;
     }
@@ -457,6 +446,19 @@ function buildGridRows(displayCache, result, layoutConfig, isLarge) {
   });
 }
 
+function isValidGridRowsCache(rows) {
+  return (
+    Array.isArray(rows) &&
+    rows.length <= 32 &&
+    rows.every(row =>
+      row &&
+      typeof row === "object" &&
+      row.type === "stack" &&
+      Array.isArray(row.children)
+    )
+  );
+}
+
 function groupTodayItemsByCat(items) {
   const grouped = {};
 
@@ -570,7 +572,7 @@ const MAX_PINNED_HOLIDAY_ITEM_LENGTH = 20;
 const MAX_PINNED_HOLIDAY_COUNT = 12;
 
 function truncateByCodePoint(value, maxLength) {
-  const chars = [...sanitizePlainText(value)];
+  const chars = [...String(value ?? "").trim()];
   return chars.slice(0, maxLength).join("");
 }
 
@@ -605,10 +607,9 @@ function sanitizeEnvStringValue(key, value) {
   const raw = truncateByCodePoint(value, getEnvValueMaxLength(key));
 
   if (key === "PINNED_HOLIDAY") {
-    return splitConfigList(raw)
-      .map(v => normalizeHolidayName(
-        truncateByCodePoint(v, MAX_PINNED_HOLIDAY_ITEM_LENGTH)
-      ))
+    return raw
+      .split(",")
+      .map(v => truncateByCodePoint(v, MAX_PINNED_HOLIDAY_ITEM_LENGTH))
       .filter(Boolean)
       .slice(0, MAX_PINNED_HOLIDAY_COUNT)
       .join(",");
@@ -690,8 +691,9 @@ function normalizeCacheEnvValue(key, value) {
   const s = sanitizeEnvStringValue(key, value);
 
   if (key === "PINNED_HOLIDAY") {
-    return splitConfigList(s)
-      .map(normalizeHolidayName)
+    return s
+      .split(",")
+      .map(v => v.trim())
       .filter(Boolean)
       .join(",");
   }
@@ -801,6 +803,7 @@ function isValidCachedPayload(payload, expectedDisplayMode) {
   if (!Array.isArray(payload.todayItems)) return false;
   if (!Array.isArray(payload.pinnedData)) return false;
   if (!isValidDisplayCache(payload.displayCache, expectedDisplayMode)) return false;
+  if (!isValidGridRowsCache(payload.gridRows)) return false;
 
   if (
     payload.todayNoticeText !== undefined &&
@@ -895,168 +898,13 @@ function warnLog(...args) {
   }
 }
 
-async function notifyOnceAtMost(ctx, notifyKey, notifyDate, notifyNames) {
-  if (
-    typeof ctx.notify !== "function" ||
-    !ctx.storage ||
-    typeof ctx.storage.getJSON !== "function" ||
-    typeof ctx.storage.setJSON !== "function" ||
-    !Array.isArray(notifyNames) ||
-    notifyNames.length === 0
-  ) {
-    return;
-  }
-
-  const safeNames = [
-    ...new Set(
-      notifyNames
-        .map(sanitizePlainText)
-        .filter(Boolean)
-    )
-  ];
-
-  if (safeNames.length === 0) {
-    return;
-  }
-
-  try {
-    const current = ctx.storage.getJSON(notifyKey) || {};
-
-    if (current.date === notifyDate) {
-      return;
-    }
-
-    const token = `${Date.now()}:${Math.random().toString(36).slice(2)}`;
-
-    const reservedState = {
-      date: notifyDate,
-      names: safeNames,
-      status: "reserved",
-      token,
-      time: Date.now()
-    };
-
-    ctx.storage.setJSON(notifyKey, reservedState);
-
-    const verified = ctx.storage.getJSON(notifyKey) || {};
-
-    if (
-      verified.date !== notifyDate ||
-      verified.token !== token ||
-      verified.status !== "reserved"
-    ) {
-      return;
-    }
-
-    try {
-      await Promise.resolve(ctx.notify({
-        title: "✨ 今日提醒",
-        body: safeNames.join("、"),
-        sound: true
-      }));
-
-      ctx.storage.setJSON(notifyKey, {
-        date: notifyDate,
-        names: safeNames,
-        status: "sent",
-        time: Date.now()
-      });
-    } catch (e) {
-      warnLog("[Countdown] notify failed:", e);
-
-      ctx.storage.setJSON(notifyKey, {
-        date: notifyDate,
-        names: safeNames,
-        status: "failed",
-        failedTime: Date.now()
-      });
-    }
-  } catch (e) {
-    warnLog("[Countdown] notify process failed:", e);
-  }
-}
-
-function isValidOfficialDay(day) {
-  return (
-    day &&
-    typeof day === "object" &&
-    typeof day.name === "string" &&
-    sanitizePlainText(day.name) &&
-    typeof day.date === "string" &&
-    isValidISODate(day.date) &&
-    typeof day.isOffDay === "boolean" &&
-    (
-      day.ms === undefined ||
-      Number.isFinite(Number(day.ms))
-    )
-  );
-}
-
-function mergeHolidayDisplayNames(...names) {
-  const result = [];
-
-  for (const name of names) {
-    for (const part of splitConfigList(name)) {
-      const normalized = normalizeHolidayName(part);
-
-      if (normalized && !result.includes(normalized)) {
-        result.push(normalized);
-      }
-    }
-  }
-
-  return result.join("、");
-}
-
-function dedupeOfficialDaysByDate(days) {
-  const byDate = new Map();
-
-  for (const day of days || []) {
-    if (!isValidOfficialDay(day)) continue;
-
-    const ms = Number.isFinite(Number(day.ms))
-      ? Number(day.ms)
-      : isoToMs(day.date);
-
-    if (!Number.isFinite(ms)) continue;
-
-    const normalized = {
-      name: sanitizePlainText(day.name),
-      date: day.date,
-      isOffDay: day.isOffDay,
-      ms
-    };
-
-    const old = byDate.get(normalized.date);
-
-    if (!old) {
-      byDate.set(normalized.date, normalized);
-      continue;
-    }
-
-    if (normalized.isOffDay === true && old.isOffDay !== true) {
-      byDate.set(normalized.date, {
-        ...normalized,
-        name: mergeHolidayDisplayNames(old.name, normalized.name)
-      });
-    } else if (normalized.isOffDay === old.isOffDay) {
-      byDate.set(normalized.date, {
-        ...old,
-        name: mergeHolidayDisplayNames(old.name, normalized.name)
-      });
-    }
-  }
-
-  return [...byDate.values()].sort((a, b) => a.ms - b.ms);
-}
-
 function buildOfficialHolidayRanges(days) {
-  const offDays = dedupeOfficialDaysByDate(days)
+  const offDays = days
     .filter(day =>
       day &&
       day.isOffDay === true &&
       typeof day.name === "string" &&
-      sanitizePlainText(day.name) &&
+      day.name.trim() &&
       isValidISODate(day.date)
     )
     .map(day => {
@@ -1065,7 +913,7 @@ function buildOfficialHolidayRanges(days) {
         : isoToMs(day.date);
 
       return {
-        name: sanitizePlainText(day.name),
+        name: day.name.trim(),
         date: day.date,
         ms
       };
@@ -1122,28 +970,48 @@ function normalizeHolidayCnYearData(data, year) {
     throw new Error(`official holiday days missing: ${year}`);
   }
 
-  const days = dedupeOfficialDaysByDate(
-    data.days
-      .filter(day =>
-        day &&
-        typeof day.name === "string" &&
-        sanitizePlainText(day.name) &&
-        typeof day.date === "string" &&
-        typeof day.isOffDay === "boolean" &&
-        isValidISODate(day.date)
-      )
-      .map(day => ({
-        name: sanitizePlainText(day.name),
+  const days = data.days
+    .filter(day =>
+      day &&
+      typeof day.name === "string" &&
+      day.name.trim() &&
+      typeof day.date === "string" &&
+      typeof day.isOffDay === "boolean" &&
+      isValidISODate(day.date)
+    )
+    .map(day => {
+      const name = day.name.trim();
+      const ms = isoToMs(day.date);
+
+      return {
+        name,
         date: day.date,
         isOffDay: day.isOffDay,
-        ms: isoToMs(day.date)
-      }))
-      .filter(day => Number.isFinite(day.ms))
-  );
+        ms
+      };
+    })
+    .filter(day => Number.isFinite(day.ms))
+    .sort((a, b) => a.ms - b.ms);
 
   return {
     days
   };
+}
+
+function isValidOfficialDay(day) {
+  return (
+    day &&
+    typeof day === "object" &&
+    typeof day.name === "string" &&
+    day.name.trim() &&
+    typeof day.date === "string" &&
+    isValidISODate(day.date) &&
+    typeof day.isOffDay === "boolean" &&
+    (
+      day.ms === undefined ||
+      Number.isFinite(Number(day.ms))
+    )
+  );
 }
 
 function isValidOfficialYearData(yearData) {
@@ -1161,22 +1029,21 @@ function normalizeCachedOfficialYearData(yearData) {
     return null;
   }
 
-  const days = dedupeOfficialDaysByDate(
-    yearData.days
-      .map(day => {
-        const ms = Number.isFinite(Number(day.ms))
-          ? Number(day.ms)
-          : isoToMs(day.date);
+  const days = yearData.days
+    .map(day => {
+      const ms = Number.isFinite(Number(day.ms))
+        ? Number(day.ms)
+        : isoToMs(day.date);
 
-        return {
-          name: sanitizePlainText(day.name),
-          date: day.date,
-          isOffDay: day.isOffDay,
-          ms
-        };
-      })
-      .filter(day => Number.isFinite(day.ms))
-  );
+      return {
+        name: day.name.trim(),
+        date: day.date,
+        isOffDay: day.isOffDay,
+        ms
+      };
+    })
+    .filter(day => Number.isFinite(day.ms))
+    .sort((a, b) => a.ms - b.ms);
 
   return days.length > 0 ? { days } : null;
 }
@@ -1305,7 +1172,7 @@ function buildOfficialFingerprint(yearsData) {
     parts.push(year);
 
     for (const day of yearData.days) {
-      parts.push(`${day.date}:${sanitizePlainText(day.name)}:${day.isOffDay ? 1 : 0}`);
+      parts.push(`${day.date}:${day.name.trim()}:${day.isOffDay ? 1 : 0}`);
     }
   }
 
@@ -1415,16 +1282,7 @@ async function loadOfficialHolidayDaily(
 ) {
   const oldCache = readOfficialHolidayCache(ctx, storageKey);
 
-  const canUseHttp =
-    ctx.http &&
-    typeof ctx.http.get === "function";
-
-  const canUseStorage =
-    ctx.storage &&
-    typeof ctx.storage.getJSON === "function" &&
-    typeof ctx.storage.setJSON === "function";
-
-  if (!canUseHttp) {
+  if (!ctx.http || !ctx.storage) {
     return oldCache;
   }
 
@@ -1564,12 +1422,10 @@ async function loadOfficialHolidayDaily(
     years: mergedYears
   };
 
-  if (canUseStorage) {
-    try {
-      ctx.storage.setJSON(storageKey, newCache);
-    } catch (e) {
-      warnLog("[Countdown] failed to save official holiday cache:", e);
-    }
+  try {
+    ctx.storage.setJSON(storageKey, newCache);
+  } catch (e) {
+    warnLog("[Countdown] failed to save official holiday cache:", e);
   }
 
   return newCache;
@@ -1609,7 +1465,7 @@ async function safeLoadOfficialHolidayDaily(
 
 function isValidOfficialRange(range) {
   if (!range || typeof range !== "object") return false;
-  if (typeof range.name !== "string" || !sanitizePlainText(range.name)) return false;
+  if (typeof range.name !== "string" || !range.name.trim()) return false;
   if (!isValidISODate(range.start)) return false;
 
   const duration = Number(range.duration);
@@ -1742,7 +1598,7 @@ function getOfficialLegalHolidaysFromRanges(officialRanges, year) {
       const ymd = range.startYMD || msToYMD(startMs) || isoToYMD(range.start);
 
       return [
-        sanitizePlainText(range.name),
+        range.name.trim(),
         ymd,
         Number(range.duration),
         "official",
@@ -1793,7 +1649,7 @@ function mergeLegalHolidays(fallbackLegal, officialLegal) {
   const officialRows = officialLegal.filter(row =>
     Array.isArray(row) &&
     typeof row[0] === "string" &&
-    sanitizePlainText(row[0]) &&
+    row[0].trim() &&
     typeof row[1] === "string"
   );
 
@@ -1806,14 +1662,14 @@ function mergeLegalHolidays(fallbackLegal, officialLegal) {
   const coveredFallbackNames = new Set();
 
   for (const row of fallbackLegal) {
-    const fallbackName = sanitizePlainText(row?.[0]);
+    const fallbackName = String(row?.[0] ?? "").trim();
 
     if (!fallbackName) {
       merged.push(row);
       continue;
     }
 
-    if (hasHolidayNameInIterable(coveredFallbackNames.values(), fallbackName)) {
+    if (coveredFallbackNames.has(fallbackName)) {
       continue;
     }
 
@@ -1825,7 +1681,7 @@ function mergeLegalHolidays(fallbackLegal, officialLegal) {
     for (let i = 0; i < officialRows.length; i++) {
       if (usedOfficialIndexes.has(i)) continue;
 
-      const officialName = sanitizePlainText(officialRows[i]?.[0]);
+      const officialName = String(officialRows[i]?.[0] ?? "").trim();
 
       if (!officialNameMatches(officialName, fallbackName)) {
         continue;
@@ -1857,20 +1713,19 @@ function mergeLegalHolidays(fallbackLegal, officialLegal) {
     }
   }
 
-  const fallbackNames = new Set();
-
-  for (const row of fallbackLegal) {
-    for (const name of splitHolidayNames(row?.[0])) {
-      fallbackNames.add(name);
-    }
-  }
+  const fallbackNames = new Set(
+    fallbackLegal
+      .map(row => String(row?.[0] ?? "").trim())
+      .filter(Boolean)
+  );
 
   for (let i = 0; i < officialRows.length; i++) {
     if (usedOfficialIndexes.has(i)) continue;
 
-    const overlapsFallback = hasHolidayNameInIterable(
-      fallbackNames.values(),
-      officialRows[i][0]
+    const officialNameParts = splitHolidayNames(officialRows[i][0]);
+
+    const overlapsFallback = officialNameParts.some(name =>
+      fallbackNames.has(name)
     );
 
     if (!overlapsFallback) {
@@ -1952,9 +1807,7 @@ export default async function (ctx = {}) {
       children: [
         mkRow([
           mkIcon("exclamationmark.triangle.fill", C.red, 16),
-          mkText("不支持锁屏组件", 14, "heavy", C.main, {
-            maxLines: 1
-          })
+          mkText("不支持锁屏组件", 14, "heavy", C.main)
         ], 6),
 
         mkSpacer(8),
@@ -1963,11 +1816,7 @@ export default async function (ctx = {}) {
           "请使用桌面 Small / Medium / Large 小组件",
           12,
           "medium",
-          C.sub,
-          {
-            maxLines: 2,
-            minScale: 0.75
-          }
+          C.sub
         )
       ]
     };
@@ -2003,17 +1852,10 @@ export default async function (ctx = {}) {
     refreshAfter: new Date(nextRefreshMs).toISOString()
   });
 
-  const CACHE_VERSION = 11;
-
-  const CACHE_KEY = `${storageScope}:daily:v${CACHE_VERSION}:${layoutMode}`;
-  const LEGACY_CACHE_KEY = `${storageScope}:daily:${envStorageId}:${layoutMode}`;
-
-  const DAILY_CACHE_INDEX_KEY = `${storageScope}:daily:index`;
-  const DAILY_CACHE_INDEX_VERSION = 1;
-  const DAILY_CACHE_MAX_ENTRIES = 12;
-  const DAILY_CACHE_MAX_AGE_MS = 14 * DAY_MS;
-
+  const CACHE_KEY = `${storageScope}:daily:${envStorageId}:${layoutMode}`;
   const NOTIFY_KEY = `${storageScope}:notify:${envStorageId}`;
+
+  const CACHE_VERSION = 10;
 
   const timePhase = currentHour >= 15 ? "after3pm" : "before3pm";
   const todayStr = `${Y}_${M}_${D}_${timePhase}`;
@@ -2023,112 +1865,23 @@ export default async function (ctx = {}) {
       ? `official=${cache.fingerprint}`
       : "official=none";
 
-  const touchDailyCacheIndex = currentKey => {
-    if (
-      !ctx.storage ||
-      typeof ctx.storage.getJSON !== "function" ||
-      typeof ctx.storage.setJSON !== "function"
-    ) {
-      return;
-    }
+  const readDailyCache = currentEnvFingerprint => {
+    if (!ctx.storage) return null;
 
     try {
-      const now = Date.now();
+      const stored = ctx.storage.getJSON(CACHE_KEY);
 
-      const rawIndex = ctx.storage.getJSON(DAILY_CACHE_INDEX_KEY);
-
-      const entries =
-        rawIndex &&
-        rawIndex.version === DAILY_CACHE_INDEX_VERSION &&
-        rawIndex.entries &&
-        typeof rawIndex.entries === "object"
-          ? rawIndex.entries
-          : {};
-
-      entries[currentKey] = {
-        time: now,
-        date: todayStr,
-        layoutMode,
-        version: CACHE_VERSION
-      };
-
-      const validEntries = Object.entries(entries)
-        .filter(([key, meta]) => {
-          const time = Number(meta?.time);
-
-          return (
-            key &&
-            Number.isFinite(time) &&
-            now - time <= DAILY_CACHE_MAX_AGE_MS
-          );
-        })
-        .sort((a, b) => Number(b[1].time) - Number(a[1].time));
-
-      const keptEntries = validEntries.slice(0, DAILY_CACHE_MAX_ENTRIES);
-      const keptKeySet = new Set(keptEntries.map(([key]) => key));
-
-      for (const [key] of Object.entries(entries)) {
-        if (!keptKeySet.has(key) && key !== currentKey) {
-          try {
-            if (typeof ctx.storage.delete === "function") {
-              ctx.storage.delete(key);
-            }
-          } catch (e) {
-            warnLog("[Countdown] failed to delete old daily cache:", key, e);
-          }
-        }
+      if (
+        stored &&
+        stored.version === CACHE_VERSION &&
+        stored.date === todayStr &&
+        stored.envFingerprint === currentEnvFingerprint &&
+        isValidCachedPayload(stored.payload, displayMode)
+      ) {
+        return stored.payload;
       }
-
-      ctx.storage.setJSON(DAILY_CACHE_INDEX_KEY, {
-        version: DAILY_CACHE_INDEX_VERSION,
-        updatedAt: now,
-        entries: Object.fromEntries(keptEntries)
-      });
     } catch (e) {
-      warnLog("[Countdown] failed to update daily cache index:", e);
-    }
-  };
-
-  const readDailyCache = currentEnvFingerprint => {
-    if (!ctx.storage || typeof ctx.storage.getJSON !== "function") {
-      return null;
-    }
-
-    const keys = [CACHE_KEY, LEGACY_CACHE_KEY];
-
-    for (const key of keys) {
-      try {
-        const stored = ctx.storage.getJSON(key);
-
-        if (
-          stored &&
-          stored.version === CACHE_VERSION &&
-          stored.date === todayStr &&
-          stored.envFingerprint === currentEnvFingerprint &&
-          isValidCachedPayload(stored.payload, displayMode)
-        ) {
-          touchDailyCacheIndex(CACHE_KEY);
-
-          if (
-            key !== CACHE_KEY &&
-            typeof ctx.storage.setJSON === "function"
-          ) {
-            try {
-              ctx.storage.setJSON(CACHE_KEY, stored);
-
-              if (typeof ctx.storage.delete === "function") {
-                ctx.storage.delete(key);
-              }
-            } catch (migrateError) {
-              warnLog("[Countdown] failed to migrate daily cache:", migrateError);
-            }
-          }
-
-          return stored.payload;
-        }
-      } catch (e) {
-        warnLog("[Countdown] failed to read daily cache:", key, e);
-      }
+      warnLog("[Countdown] failed to read daily cache:", e);
     }
 
     return null;
@@ -2163,6 +1916,7 @@ export default async function (ctx = {}) {
   let pinnedData;
   let todayItems;
   let displayCache;
+  let gridRowsCache;
 
   if (cachedData) {
     ({
@@ -2170,7 +1924,8 @@ export default async function (ctx = {}) {
       todayNoticeText,
       pinnedData,
       todayItems,
-      displayCache
+      displayCache,
+      gridRows: gridRowsCache
     } = cachedData);
   } else {
     const officialRanges = buildOfficialHolidayRangeCache(officialHolidayCache);
@@ -2188,8 +1943,9 @@ export default async function (ctx = {}) {
 
     const pinnedHolidays = [
       ...new Set(
-        splitConfigList(getStr("PINNED_HOLIDAY"))
-          .map(normalizeHolidayName)
+        getStr("PINNED_HOLIDAY")
+          .split(",")
+          .map(s => s.trim())
           .filter(Boolean)
       )
     ];
@@ -2395,12 +2151,12 @@ export default async function (ctx = {}) {
         );
       };
 
-      const qingmingDate = term(7);
+      const qmDateStr = term(7);
 
       const fallbackLegal = [
         ["元旦", YMD(y, 1, 1), 1],
         ["春节", l2s(y, 1, 1), 3],
-        ["清明节", qingmingDate, 1],
+        ["清明节", qmDateStr, 1],
         ["劳动节", YMD(y, 5, 1), 1],
         ["端午节", l2s(y, 5, 5), 1],
         ["中秋节", l2s(y, 8, 15), 1],
@@ -2416,9 +2172,9 @@ export default async function (ctx = {}) {
 
       if (showSchoolHolidays) {
         const springDate = getCustomDate(y, springDateStr, () => {
-          if (!qingmingDate) return null;
+          if (!qmDateStr) return null;
 
-          const [qy, qm, qd] = qingmingDate.split("/").map(Number);
+          const [qy, qm, qd] = qmDateStr.split("/").map(Number);
           const s = new Date(Date.UTC(qy, qm - 1, qd - 3));
 
           return YMD(
@@ -2571,7 +2327,7 @@ export default async function (ctx = {}) {
       const priority = getPriority(name, cat, sourceKind);
 
       if (isInFestivalPeriod(diff, duration)) {
-        if (!hasHolidayNameInIterable(todayFestSet.values(), name)) {
+        if (!hasHolidayNameInSet(todayFestSet, name)) {
           todayFestSet.add(name);
 
           todayFests.push({
@@ -2695,8 +2451,8 @@ export default async function (ctx = {}) {
     Object.keys(rawResult).forEach(cat => {
       result[cat] = Array.from(rawResult[cat].values())
         .filter(i =>
-          !hasHolidayNameInIterable(pinnedMap.keys(), i.name) &&
-          !hasHolidayNameInIterable(todayFestSet.values(), i.name)
+          !hasHolidayNameInMap(pinnedMap, i.name) &&
+          !hasHolidayNameInSet(todayFestSet, i.name)
         )
         .sort((a, b) => {
           if (a.diff !== b.diff) return a.diff - b.diff;
@@ -2735,10 +2491,13 @@ export default async function (ctx = {}) {
 
     displayCache = buildDisplayCache(result, displayMode);
 
-    if (
-      ctx.storage &&
-      typeof ctx.storage.setJSON === "function"
-    ) {
+    const layoutConfigForCache = buildLayoutConfig(isLarge);
+
+    gridRowsCache = isSmall
+      ? []
+      : buildGridRows(displayCache, result, layoutConfigForCache, isLarge);
+
+    if (ctx.storage) {
       try {
         ctx.storage.setJSON(CACHE_KEY, {
           version: CACHE_VERSION,
@@ -2749,22 +2508,10 @@ export default async function (ctx = {}) {
             todayNoticeText,
             pinnedData,
             todayItems,
-            displayCache
+            displayCache,
+            gridRows: gridRowsCache
           }
         });
-
-        touchDailyCacheIndex(CACHE_KEY);
-
-        if (
-          LEGACY_CACHE_KEY !== CACHE_KEY &&
-          typeof ctx.storage.delete === "function"
-        ) {
-          try {
-            ctx.storage.delete(LEGACY_CACHE_KEY);
-          } catch (deleteError) {
-            warnLog("[Countdown] failed to delete legacy daily cache:", deleteError);
-          }
-        }
       } catch (e) {
         warnLog("[Countdown] failed to save daily cache:", e);
       }
@@ -2773,6 +2520,14 @@ export default async function (ctx = {}) {
 
   if (!displayCache || !isValidDisplayCache(displayCache, displayMode)) {
     displayCache = buildDisplayCache(result, displayMode);
+  }
+
+  if (!isValidGridRowsCache(gridRowsCache)) {
+    const layoutConfigForGrid = buildLayoutConfig(isLarge);
+
+    gridRowsCache = isSmall
+      ? []
+      : buildGridRows(displayCache, result, layoutConfigForGrid, isLarge);
   }
 
   const todayItemsByCat = groupTodayItemsByCat(todayItems);
@@ -2787,32 +2542,83 @@ export default async function (ctx = {}) {
     todayItems.length > 0
   ) {
     const notifyDate = `${Y}-${pad2(M)}-${pad2(D)}`;
+    const notifyKey = NOTIFY_KEY;
 
-    const notifyItems = todayItems
-      .filter(i => i && i.diff === 0 && i.status !== "ended")
-      .slice()
-      .sort((a, b) => {
-        if ((b.priority ?? 0) !== (a.priority ?? 0)) {
-          return (b.priority ?? 0) - (a.priority ?? 0);
+    try {
+      const notifyItems = todayItems
+        .filter(i => i.diff === 0 && i.status !== "ended")
+        .slice()
+        .sort((a, b) => {
+          if ((b.priority ?? 0) !== (a.priority ?? 0)) {
+            return (b.priority ?? 0) - (a.priority ?? 0);
+          }
+
+          return (a.diff ?? 0) - (b.diff ?? 0);
+        });
+
+      const notifyNames = [
+        ...new Set(
+          notifyItems
+            .map(i => i.name)
+            .filter(Boolean)
+        )
+      ];
+
+      if (notifyNames.length > 0) {
+        const now = Date.now();
+        const notified = ctx.storage.getJSON(notifyKey) || {};
+
+        const lockFresh =
+          notified.lockDate === notifyDate &&
+          Number.isFinite(Number(notified.lockTime)) &&
+          now - Number(notified.lockTime) < NOTIFY_LOCK_TTL_MS;
+
+        if (notified.date !== notifyDate && !lockFresh) {
+          const lockToken = `${now}:${Math.random().toString(36).slice(2)}`;
+
+          const lockedState = {
+            ...notified,
+            lockDate: notifyDate,
+            lockTime: now,
+            lockToken
+          };
+
+          ctx.storage.setJSON(notifyKey, lockedState);
+
+          const verifiedState = ctx.storage.getJSON(notifyKey) || {};
+
+          const lockOwned =
+            verifiedState.lockDate === notifyDate &&
+            verifiedState.lockToken === lockToken;
+
+          if (lockOwned) {
+            try {
+              await Promise.resolve(ctx.notify({
+                title: "✨ 今日提醒",
+                body: notifyNames.join("、"),
+                sound: true
+              }));
+
+              ctx.storage.setJSON(notifyKey, {
+                date: notifyDate,
+                names: notifyNames,
+                time: Date.now()
+              });
+            } catch (e) {
+              warnLog("[Countdown] notify failed:", e);
+
+              ctx.storage.setJSON(notifyKey, {
+                ...lockedState,
+                failedDate: notifyDate,
+                failedTime: Date.now()
+              });
+            }
+          }
         }
-
-        return (a.diff ?? 0) - (b.diff ?? 0);
-      });
-
-    const notifyNames = [
-      ...new Set(
-        notifyItems
-          .map(i => sanitizePlainText(i.name))
-          .filter(Boolean)
-      )
-    ];
-
-    await notifyOnceAtMost(
-      ctx,
-      NOTIFY_KEY,
-      notifyDate,
-      notifyNames
-    );
+      }
+    } catch (e) {
+      warnLog("[Countdown] notify process failed:", e);
+    }
   }
 
   const officialTodayInfo = enableWeekendTheme
@@ -2901,8 +2707,8 @@ export default async function (ctx = {}) {
 
   const layoutConfig = buildLayoutConfig(isLarge);
 
-  const gridRows = isSmall
-    ? []
+  const gridRows = isValidGridRowsCache(gridRowsCache)
+    ? gridRowsCache
     : buildGridRows(displayCache, result, layoutConfig, isLarge);
 
   const rightHeaderElements = [];
@@ -2910,10 +2716,7 @@ export default async function (ctx = {}) {
   if (todayNoticeText) {
     rightHeaderElements.push(
       mkIcon("sparkles", C.purple, layoutConfig.topFz),
-      mkText(todayNoticeText, layoutConfig.topFz, "bold", C.purple, {
-        maxLines: 1,
-        minScale: 0.65
-      })
+      mkText(todayNoticeText, layoutConfig.topFz, "bold", C.purple)
     );
   } else {
     rightHeaderElements.push(
@@ -2922,25 +2725,15 @@ export default async function (ctx = {}) {
         RANDOM_NOTICES[Math.floor(Math.random() * RANDOM_NOTICES.length)],
         layoutConfig.topFz,
         "medium",
-        C.green,
-        {
-          maxLines: 1,
-          minScale: 0.65
-        }
+        C.green
       )
     );
   }
 
   if (stickyText) {
     rightHeaderElements.push(
-      mkText(" ｜ ", layoutConfig.topFz, "bold", C.red, {
-        maxLines: 1,
-        minScale: 0.65
-      }),
-      mkText(stickyText, layoutConfig.topFz, "bold", C.red, {
-        maxLines: 1,
-        minScale: 0.65
-      })
+      mkText(" ｜ ", layoutConfig.topFz, "bold", C.red),
+      mkText(stickyText, layoutConfig.topFz, "bold", C.red)
     );
   }
 
@@ -2953,9 +2746,7 @@ export default async function (ctx = {}) {
         mkIcon("hourglass.circle.fill", C.main, layoutConfig.titleIcz),
         mkText("时光倒数", layoutConfig.titleFz, "heavy", C.main),
         mkSpacer(),
-        mkRow(rightHeaderElements, 4, {
-          flex: 1
-        })
+        mkRow(rightHeaderElements, 4)
       ], 6),
 
       mkSpacer(gridRows.length <= 4 ? 12 : 10),
