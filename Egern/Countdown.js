@@ -143,6 +143,17 @@ const specialPriority = {
 
 const DAY_MS = 86400000;
 const HTTP_TIMEOUT_MS = 5000;
+
+/**
+ * Widget 渲染链路中的官方假期请求超时。
+ *
+ * 目的：
+ * - 避免 GitHub Raw 网络异常导致小组件渲染最长等待 5 秒；
+ * - Widget 场景优先保证快速返回 DSL；
+ * - HTTP_TIMEOUT_MS 仍保留给未来 schedule / 非渲染阻塞场景。
+ */
+const WIDGET_OFFICIAL_HTTP_TIMEOUT_MS = 1500;
+
 const OFFICIAL_REFRESH_INTERVAL_MS = 3 * DAY_MS;
 const OFFICIAL_FAILED_RETRY_INTERVAL_MS = DAY_MS;
 const OFFICIAL_OPTIONAL_FAILED_RETRY_INTERVAL_MS = 7 * DAY_MS;
@@ -879,7 +890,16 @@ function isValidCachedPayload(payload, expectedDisplayMode) {
   });
 }
 
-const OFFICIAL_HOLIDAY_STORAGE_KEY = "countdown_official_holidays";
+/**
+ * 默认官方假期缓存 key。
+ *
+ * 注意：
+ * - 主流程中会使用基于 scriptName 的 scoped key；
+ * - 该默认 key 仅作为工具函数 fallback，避免调用方未传 storageKey 时出错；
+ * - 不代表主流程实际使用全局固定 key。
+ */
+const DEFAULT_OFFICIAL_HOLIDAY_STORAGE_KEY = "countdown_official_holidays";
+
 const OFFICIAL_HOLIDAY_STORAGE_VERSION = 2;
 
 function parseISODateParts(date) {
@@ -924,6 +944,21 @@ const isoToYMD = iso => {
     : null;
 };
 
+/**
+ * 非加密 hash。
+ *
+ * 仅用于：
+ * - 缩短本地 storage key；
+ * - 生成缓存 fingerprint；
+ * - 降低 key 长度。
+ *
+ * 不得用于：
+ * - 安全校验；
+ * - 签名；
+ * - 鉴权；
+ * - 防篡改；
+ * - 隐私保护。
+ */
 function hashString(str) {
   let h = 5381;
 
@@ -934,7 +969,7 @@ function hashString(str) {
   return (h >>> 0).toString(36);
 }
 
-const DAILY_CACHE_SCHEMA_VERSION = 11;
+const DAILY_CACHE_SCHEMA_VERSION = 12;
 
 function buildDailyCacheVersion() {
   const staticConfigFingerprint = JSON.stringify({
@@ -951,26 +986,23 @@ function buildDailyCacheVersion() {
     displayNameMap: DISPLAY_NAME_MAP,
     displayLineMaxWidth: DISPLAY_LINE_MAX_WIDTH,
 
-    officialHolidayStorageVersion: OFFICIAL_HOLIDAY_STORAGE_VERSION
+    officialHolidayStorageVersion: OFFICIAL_HOLIDAY_STORAGE_VERSION,
+
+    /**
+     * 手动缓存版本标记。
+     *
+     * 如果以下逻辑发生变化，请手动递增 DAILY_CACHE_SCHEMA_VERSION：
+     * - formatPeriodStr / formatItemStr / formatDisplayItem
+     * - formatTodayFestGroup
+     * - splitTextToLines
+     * - buildDisplayCache
+     * - buildLayoutConfig
+     * - buildGridRows
+     */
+    cacheBuild: "no-function-source-fingerprint-v1"
   });
 
-  const functionFingerprint = [
-    formatPeriodStr,
-    formatItemStr,
-    formatDisplayItem,
-    formatTodayFestGroup,
-    splitTextToLines,
-    buildDisplayText,
-    buildDisplayCache,
-    buildLayoutConfig,
-    buildGridRows
-  ]
-    .map(fn => typeof fn === "function" ? fn.toString() : "")
-    .join("|");
-
-  return `daily:${hashString(
-    `${staticConfigFingerprint}|${functionFingerprint}`
-  )}`;
+  return `daily:${hashString(staticConfigFingerprint)}`;
 }
 
 function warnLog(...args) {
@@ -1156,7 +1188,7 @@ function sanitizeOfficialYears(years) {
 
 function readOfficialHolidayCache(
   ctx,
-  storageKey = OFFICIAL_HOLIDAY_STORAGE_KEY
+  storageKey = DEFAULT_OFFICIAL_HOLIDAY_STORAGE_KEY
 ) {
   try {
     const cache = ctx.storage?.getJSON(storageKey);
@@ -1335,15 +1367,31 @@ async function parseHttpJson(resp) {
   return await resp.json();
 }
 
-async function fetchOfficialHolidayYear(ctx, year) {
+function normalizeHttpTimeoutMs(value, fallback = HTTP_TIMEOUT_MS) {
+  const n = Number(value);
+
+  if (!Number.isFinite(n)) {
+    return fallback;
+  }
+
+  return Math.max(500, Math.min(n, HTTP_TIMEOUT_MS));
+}
+
+async function fetchOfficialHolidayYear(
+  ctx,
+  year,
+  timeoutMs = HTTP_TIMEOUT_MS
+) {
   if (!ctx.http || typeof ctx.http.get !== "function") {
     throw new Error("ctx.http unavailable");
   }
 
+  const requestTimeoutMs = normalizeHttpTimeoutMs(timeoutMs);
+
   const url = `https://raw.githubusercontent.com/NateScarlet/holiday-cn/master/${year}.json`;
 
   const resp = await ctx.http.get(url, {
-    timeout: HTTP_TIMEOUT_MS,
+    timeout: requestTimeoutMs,
     credentials: "omit",
     redirect: "follow",
     headers: {
@@ -1366,8 +1414,15 @@ async function loadOfficialHolidayDaily(
   ctx,
   currentYear,
   todayIso,
-  storageKey = OFFICIAL_HOLIDAY_STORAGE_KEY
+  storageKey = DEFAULT_OFFICIAL_HOLIDAY_STORAGE_KEY,
+  options = {}
 ) {
+  const {
+    httpTimeoutMs = HTTP_TIMEOUT_MS
+  } = options || {};
+
+  const requestTimeoutMs = normalizeHttpTimeoutMs(httpTimeoutMs);
+
   const oldCache = readOfficialHolidayCache(ctx, storageKey);
 
   if (!ctx.http || !ctx.storage) {
@@ -1462,7 +1517,9 @@ async function loadOfficialHolidayDaily(
   }
 
   const results = await Promise.allSettled(
-    yearsToFetch.map(year => fetchOfficialHolidayYear(ctx, year))
+    yearsToFetch.map(year =>
+      fetchOfficialHolidayYear(ctx, year, requestTimeoutMs)
+    )
   );
 
   const successfulFetchYearSet = new Set();
@@ -1534,14 +1591,16 @@ async function safeLoadOfficialHolidayDaily(
   ctx,
   currentYear,
   todayIso,
-  storageKey = OFFICIAL_HOLIDAY_STORAGE_KEY
+  storageKey = DEFAULT_OFFICIAL_HOLIDAY_STORAGE_KEY,
+  options = {}
 ) {
   try {
     return await loadOfficialHolidayDaily(
       ctx,
       currentYear,
       todayIso,
-      storageKey
+      storageKey,
+      options
     );
   } catch (e) {
     warnLog(
@@ -2067,7 +2126,10 @@ export default async function (ctx = {}) {
       ctx,
       Y,
       todayIso,
-      officialHolidayStorageKey
+      officialHolidayStorageKey,
+      {
+        httpTimeoutMs: WIDGET_OFFICIAL_HTTP_TIMEOUT_MS
+      }
     );
   }
 
@@ -2089,10 +2151,9 @@ export default async function (ctx = {}) {
       todayNoticeText,
       pinnedData,
       todayItems,
-      displayCache
+      displayCache,
+      gridRows: gridRowsCache
     } = cachedData);
-
-    gridRowsCache = undefined;
   } else {
     const officialRanges = buildOfficialHolidayRangeCache(officialHolidayCache);
 
@@ -2649,17 +2710,23 @@ export default async function (ctx = {}) {
 
     if (ctx.storage) {
       try {
+        const dailyPayload = {
+          result,
+          todayNoticeText,
+          pinnedData,
+          todayItems,
+          displayCache
+        };
+
+        if (isValidGridRowsCache(gridRowsCache)) {
+          dailyPayload.gridRows = gridRowsCache;
+        }
+
         ctx.storage.setJSON(CACHE_KEY, {
           version: CACHE_VERSION,
           date: todayStr,
           envFingerprint,
-          payload: {
-            result,
-            todayNoticeText,
-            pinnedData,
-            todayItems,
-            displayCache
-          }
+          payload: dailyPayload
         });
       } catch (e) {
         warnLog("[Countdown] failed to save daily cache:", e);
