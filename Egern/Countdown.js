@@ -3,11 +3,11 @@
  * 📌 时光倒数 (Countdown) 小组件
  *
  * ✨ 主要功能：
- * • 尺寸适配：支持 Small、Medium、Large 三种组件尺寸，区分紧凑列表与定宽多行列表排版。
+ * • 尺寸适配：仅支持桌面 Small、Medium、Large 三种组件尺寸，不支持锁屏组件。
  * • 节日计算：内置农历算法数组，支持计算法定节假日、民俗节日、国际节日、金融交割/行权日的倒计时。
  * • 官方假期：法定分类优先拉取 NateScarlet/holiday-cn 上一年与当前年数据；每年 7 月后尝试预取下一年数据，按实际放假安排展示。
  * • 时区基准：采用 UTC+8 固定时区进行绝对时间计算。
- * • 自定义配置：支持通过环境变量设置最多 6 个专属纪念日，支持修改清明节及春/秋假的起始日期。
+ * • 自定义配置：支持通过环境变量设置最多 6 个专属纪念日，支持修改春/秋假的起始日期。
  * • 排序与显示：支持按倒数天数及分类优先级进行排序，支持指定节日跨分类置顶。
  * • 状态响应：根据工作日、周末、节假日当天状态切换背景渐变色；当天节日提示于中大号标题栏显示，小号于分类行内显示。
  * • 当天提醒：节日 / 专属日期 / 金融日期当天弹窗提醒，每天只弹一次。
@@ -52,14 +52,12 @@ const BACKGROUND_GRADIENTS = Object.freeze({
     startPoint: { x: 0, y: 0 },
     endPoint: { x: 1, y: 1 }
   }),
-
   weekend: Object.freeze({
     type: "linear",
     colors: C.bgWeekend,
     startPoint: { x: 0, y: 0 },
     endPoint: { x: 1, y: 1 }
   }),
-
   fest: Object.freeze({
     type: "linear",
     colors: C.bgFest,
@@ -587,8 +585,7 @@ function getEnvValueMaxLength(key) {
 
   if (
     key === "SPRING_BREAK_DATE" ||
-    key === "AUTUMN_BREAK_DATE" ||
-    key === "QINGMING_DATE"
+    key === "AUTUMN_BREAK_DATE"
   ) {
     return MAX_EXCLUSIVE_DATE_LENGTH;
   }
@@ -629,7 +626,6 @@ const CACHE_ENV_KEYS = Object.freeze([
 
   "SPRING_BREAK_DATE",
   "AUTUMN_BREAK_DATE",
-  "QINGMING_DATE",
   "PINNED_HOLIDAY",
 
   "EXCLUSIVE_NAME",
@@ -1940,7 +1936,43 @@ export default async function (ctx = {}) {
 
   const enableWeekendTheme = getBool("ENABLE_WEEKEND_THEME", true);
 
-  const family = (ctx.widgetFamily || "systemMedium").toLowerCase();
+  const family = String(ctx.widgetFamily || "systemMedium").toLowerCase();
+
+  const isLockScreenFamily =
+    family.includes("accessory") ||
+    family.includes("lockscreen") ||
+    family.includes("lock_screen") ||
+    family.includes("lock-screen");
+
+  if (isLockScreenFamily) {
+    return {
+      type: "widget",
+      padding: 12,
+      backgroundGradient: getBackgroundGradient("workday"),
+      children: [
+        mkRow([
+          mkIcon("exclamationmark.triangle.fill", C.red, 16),
+          mkText("不支持锁屏组件", 14, "heavy", C.main, {
+            maxLines: 1
+          })
+        ], 6),
+
+        mkSpacer(8),
+
+        mkText(
+          "请使用桌面 Small / Medium / Large 小组件",
+          12,
+          "medium",
+          C.sub,
+          {
+            maxLines: 2,
+            minScale: 0.75
+          }
+        )
+      ]
+    };
+  }
+
   const isSmall = family.includes("small");
   const isLarge = family.includes("large");
 
@@ -1971,7 +2003,7 @@ export default async function (ctx = {}) {
     refreshAfter: new Date(nextRefreshMs).toISOString()
   });
 
-  const CACHE_VERSION = 10;
+  const CACHE_VERSION = 11;
 
   const CACHE_KEY = `${storageScope}:daily:v${CACHE_VERSION}:${layoutMode}`;
   const LEGACY_CACHE_KEY = `${storageScope}:daily:${envStorageId}:${layoutMode}`;
@@ -2153,7 +2185,6 @@ export default async function (ctx = {}) {
 
     const springDateStr = getStr("SPRING_BREAK_DATE");
     const autumnDateStr = getStr("AUTUMN_BREAK_DATE");
-    const qingmingDateStr = getStr("QINGMING_DATE", "");
 
     const pinnedHolidays = [
       ...new Set(
@@ -2364,12 +2395,12 @@ export default async function (ctx = {}) {
         );
       };
 
-      const qmDateStr = getCustomDate(y, qingmingDateStr, () => term(7));
+      const qingmingDate = term(7);
 
       const fallbackLegal = [
         ["元旦", YMD(y, 1, 1), 1],
         ["春节", l2s(y, 1, 1), 3],
-        ["清明节", qmDateStr, 1],
+        ["清明节", qingmingDate, 1],
         ["劳动节", YMD(y, 5, 1), 1],
         ["端午节", l2s(y, 5, 5), 1],
         ["中秋节", l2s(y, 8, 15), 1],
@@ -2385,9 +2416,9 @@ export default async function (ctx = {}) {
 
       if (showSchoolHolidays) {
         const springDate = getCustomDate(y, springDateStr, () => {
-          if (!qmDateStr) return null;
+          if (!qingmingDate) return null;
 
-          const [qy, qm, qd] = qmDateStr.split("/").map(Number);
+          const [qy, qm, qd] = qingmingDate.split("/").map(Number);
           const s = new Date(Date.UTC(qy, qm - 1, qd - 3));
 
           return YMD(
