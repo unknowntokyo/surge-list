@@ -17,6 +17,48 @@
  * =========================================
  */
 
+/**
+ * =========================================
+ * ⚙️ 环境变量说明
+ *
+ * SHOW_SCHOOL_HOLIDAYS:
+ *   是否显示春假 / 秋假，默认 true。
+ *
+ * SHOW_FINANCE_DATES:
+ *   是否显示金融交割 / 行权日，默认 true。
+ *
+ * ENABLE_PRIORITY_SORT:
+ *   是否启用节日优先级排序，默认 true。
+ *
+ * ENABLE_EXCLUSIVE_WEIGHT:
+ *   是否提高专属纪念日权重，默认 true。
+ *
+ * ENABLE_WEEKEND_THEME:
+ *   是否根据周末 / 调休 / 官方节假日切换背景主题，默认 true。
+ *
+ * SPRING_BREAK_DATE:
+ *   自定义春假开始日期，格式 MM/DD，例如 04/03。
+ *
+ * AUTUMN_BREAK_DATE:
+ *   自定义秋假开始日期，格式 MM/DD，例如 11/08。
+ *
+ * PINNED_HOLIDAY:
+ *   置顶节日名称，多个名称使用英文逗号分隔，例如 春节,国庆节。
+ *
+ * EXCLUSIVE_NAME / EXCLUSIVE_DATE:
+ *   兼容旧版第 1 个专属纪念日配置。
+ *
+ * EXCLUSIVE_NAME_1 ~ EXCLUSIVE_NAME_6:
+ *   专属纪念日名称，最多 6 个。
+ *
+ * EXCLUSIVE_DATE_1 ~ EXCLUSIVE_DATE_6:
+ *   专属纪念日日期。
+ *   支持：
+ *   - MM/DD：每年重复，例如 08/08
+ *   - YYYY/MM/DD：一次性日期，例如 2026/08/08
+ * =========================================
+ */
+
 const RANDOM_NOTICES = [
   " 距离放假，还要摸鱼多少天？", " 坚持住，就快放假啦！", " 上班好累呀，下顿吃啥？",
   " 努力，我还能加班24小时！", " 躺平中，等放假", " 施主请回，此饼不吃",
@@ -105,12 +147,17 @@ const OFFICIAL_REFRESH_INTERVAL_MS = 3 * DAY_MS;
 const OFFICIAL_FAILED_RETRY_INTERVAL_MS = DAY_MS;
 const OFFICIAL_OPTIONAL_FAILED_RETRY_INTERVAL_MS = 7 * DAY_MS;
 
-const NOTIFY_LOCK_TTL_MS = 2 * 60 * 1000;
+const NOTIFY_CLAIM_SETTLE_MS = 250;
 
 const DISPLAY_LINE_MAX_WIDTH = {
   medium: 45,
   large: 36
 };
+
+const delay = ms =>
+  typeof setTimeout === "function"
+    ? new Promise(resolve => setTimeout(resolve, ms))
+    : Promise.resolve();
 
 const mkText = (text, size, weight, color, opts = {}) => ({
   type: "text",
@@ -185,10 +232,6 @@ function holidayNameIntersects(a, b) {
   }
 
   return aParts.some(x => bParts.includes(x));
-}
-
-function officialNameMatches(officialName, fallbackName) {
-  return holidayNameIntersects(officialName, fallbackName);
 }
 
 function getSpecialHolidayPriority(name) {
@@ -803,7 +846,13 @@ function isValidCachedPayload(payload, expectedDisplayMode) {
   if (!Array.isArray(payload.todayItems)) return false;
   if (!Array.isArray(payload.pinnedData)) return false;
   if (!isValidDisplayCache(payload.displayCache, expectedDisplayMode)) return false;
-  if (!isValidGridRowsCache(payload.gridRows)) return false;
+
+  if (
+    payload.gridRows !== undefined &&
+    !isValidGridRowsCache(payload.gridRows)
+  ) {
+    return false;
+  }
 
   if (
     payload.todayNoticeText !== undefined &&
@@ -883,6 +932,45 @@ function hashString(str) {
   }
 
   return (h >>> 0).toString(36);
+}
+
+const DAILY_CACHE_SCHEMA_VERSION = 11;
+
+function buildDailyCacheVersion() {
+  const staticConfigFingerprint = JSON.stringify({
+    schema: DAILY_CACHE_SCHEMA_VERSION,
+
+    categoryConfig: CATEGORY_CONFIG.map(cfg => ({
+      key: cfg.key,
+      label: cfg.label,
+      icon: cfg.icon
+    })),
+
+    basePriority,
+    specialPriority,
+    displayNameMap: DISPLAY_NAME_MAP,
+    displayLineMaxWidth: DISPLAY_LINE_MAX_WIDTH,
+
+    officialHolidayStorageVersion: OFFICIAL_HOLIDAY_STORAGE_VERSION
+  });
+
+  const functionFingerprint = [
+    formatPeriodStr,
+    formatItemStr,
+    formatDisplayItem,
+    formatTodayFestGroup,
+    splitTextToLines,
+    buildDisplayText,
+    buildDisplayCache,
+    buildLayoutConfig,
+    buildGridRows
+  ]
+    .map(fn => typeof fn === "function" ? fn.toString() : "")
+    .join("|");
+
+  return `daily:${hashString(
+    `${staticConfigFingerprint}|${functionFingerprint}`
+  )}`;
 }
 
 function warnLog(...args) {
@@ -1354,12 +1442,23 @@ async function loadOfficialHolidayDaily(
     );
 
   if (yearsToFetch.length === 0) {
-    return normalizeOfficialCachePayload(
+    const normalizedCache = normalizeOfficialCachePayload(
       oldCache,
       mergedYears,
       currentYear,
       todayIso
     );
+
+    try {
+      ctx.storage.setJSON(storageKey, normalizedCache);
+    } catch (e) {
+      warnLog(
+        "[Countdown] failed to save normalized official holiday cache:",
+        e
+      );
+    }
+
+    return normalizedCache;
   }
 
   const results = await Promise.allSettled(
@@ -1508,6 +1607,33 @@ function isValidOfficialRange(range) {
   }
 
   return true;
+}
+
+function parseSlashDateSpec(raw) {
+  const s = String(raw ?? "").trim();
+
+  let match = s.match(/^(\d{1,2})\/(\d{1,2})$/);
+
+  if (match) {
+    return {
+      type: "annual",
+      month: Number(match[1]),
+      day: Number(match[2])
+    };
+  }
+
+  match = s.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/);
+
+  if (match) {
+    return {
+      type: "once",
+      year: Number(match[1]),
+      month: Number(match[2]),
+      day: Number(match[3])
+    };
+  }
+
+  return null;
 }
 
 function slashYMDToMs(dateStr) {
@@ -1683,7 +1809,7 @@ function mergeLegalHolidays(fallbackLegal, officialLegal) {
 
       const officialName = String(officialRows[i]?.[0] ?? "").trim();
 
-      if (!officialNameMatches(officialName, fallbackName)) {
+      if (!holidayNameIntersects(officialName, fallbackName)) {
         continue;
       }
 
@@ -1784,7 +1910,6 @@ export default async function (ctx = {}) {
     `${storageScope}:official_holidays:v${OFFICIAL_HOLIDAY_STORAGE_VERSION}`;
 
   const envStorageFingerprint = buildEnvFingerprint(env);
-  const envStorageId = hashString(envStorageFingerprint);
 
   const getBool = (key, defaultVal = true) =>
     parseBoolValue(env[key], defaultVal);
@@ -1822,8 +1947,37 @@ export default async function (ctx = {}) {
     };
   }
 
-  const isSmall = family.includes("small");
-  const isLarge = family.includes("large");
+  const isExtraLarge =
+    family.includes("extralarge") ||
+    family.includes("extra_large") ||
+    family.includes("extra-large");
+
+  if (isExtraLarge) {
+    return {
+      type: "widget",
+      padding: 12,
+      backgroundGradient: getBackgroundGradient("workday"),
+      children: [
+        mkRow([
+          mkIcon("exclamationmark.triangle.fill", C.red, 16),
+          mkText("暂不支持 Extra Large", 14, "heavy", C.main)
+        ], 6),
+
+        mkSpacer(8),
+
+        mkText(
+          "请使用桌面 Small / Medium / Large 小组件",
+          12,
+          "medium",
+          C.sub,
+          { maxLines: 2 }
+        )
+      ]
+    };
+  }
+
+  const isSmall = family === "systemsmall";
+  const isLarge = family === "systemlarge";
 
   const layoutMode = isSmall
     ? "small"
@@ -1852,10 +2006,10 @@ export default async function (ctx = {}) {
     refreshAfter: new Date(nextRefreshMs).toISOString()
   });
 
-  const CACHE_KEY = `${storageScope}:daily:${envStorageId}:${layoutMode}`;
-  const NOTIFY_KEY = `${storageScope}:notify:${envStorageId}`;
+  const CACHE_KEY = `${storageScope}:daily:${layoutMode}`;
+  const NOTIFY_KEY = `${storageScope}:notify:${hashString(envStorageFingerprint)}`;
 
-  const CACHE_VERSION = 10;
+  const CACHE_VERSION = buildDailyCacheVersion();
 
   const timePhase = currentHour >= 15 ? "after3pm" : "before3pm";
   const todayStr = `${Y}_${M}_${D}_${timePhase}`;
@@ -1892,24 +2046,35 @@ export default async function (ctx = {}) {
     officialHolidayStorageKey
   );
 
-  let officialFingerprint = getOfficialFingerprintText(officialHolidayCache);
-  let envFingerprint = `${envStorageFingerprint}|${officialFingerprint}`;
+  const optionalOfficialMissing =
+    M >= 7 &&
+    getMissingOfficialYears(
+      officialHolidayCache?.years,
+      officialOptionalYears(Y)
+    ).length > 0;
 
-  let cachedData = readDailyCache(envFingerprint);
+  const shouldRefreshOfficialHoliday =
+    Boolean(ctx.http && ctx.storage) &&
+    (
+      !officialHolidayCache ||
+      !isOfficialRequiredReady(officialHolidayCache.years, Y) ||
+      !isOfficialCacheFresh(officialHolidayCache, todayIso, Y) ||
+      optionalOfficialMissing
+    );
 
-  if (!cachedData) {
+  if (shouldRefreshOfficialHoliday) {
     officialHolidayCache = await safeLoadOfficialHolidayDaily(
       ctx,
       Y,
       todayIso,
       officialHolidayStorageKey
     );
-
-    officialFingerprint = getOfficialFingerprintText(officialHolidayCache);
-    envFingerprint = `${envStorageFingerprint}|${officialFingerprint}`;
-
-    cachedData = readDailyCache(envFingerprint);
   }
+
+  let officialFingerprint = getOfficialFingerprintText(officialHolidayCache);
+  let envFingerprint = `${envStorageFingerprint}|${officialFingerprint}`;
+
+  let cachedData = readDailyCache(envFingerprint);
 
   let result;
   let todayNoticeText;
@@ -1924,9 +2089,10 @@ export default async function (ctx = {}) {
       todayNoticeText,
       pinnedData,
       todayItems,
-      displayCache,
-      gridRows: gridRowsCache
+      displayCache
     } = cachedData);
+
+    gridRowsCache = undefined;
   } else {
     const officialRanges = buildOfficialHolidayRangeCache(officialHolidayCache);
 
@@ -1961,46 +2127,30 @@ export default async function (ctx = {}) {
     };
 
     const parseExclusiveDateSpec = raw => {
-      const s = String(raw ?? "").trim();
+      const spec = parseSlashDateSpec(raw);
 
-      let m = s.match(/^(\d{1,2})\/(\d{1,2})$/);
-
-      if (m) {
-        const month = Number(m[1]);
-        const day = Number(m[2]);
-
-        if (!isValidMonthDay(2000, month, day)) {
-          return null;
-        }
-
-        return {
-          type: "annual",
-          month,
-          day
-        };
+      if (!spec) {
+        return null;
       }
 
-      m = s.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/);
-
-      if (m) {
-        const year = Number(m[1]);
-        const month = Number(m[2]);
-        const day = Number(m[3]);
-
-        if (year < 1900 || year > 9999) {
+      if (spec.type === "annual") {
+        if (!isValidMonthDay(2000, spec.month, spec.day)) {
           return null;
         }
 
-        if (!isValidMonthDay(year, month, day)) {
+        return spec;
+      }
+
+      if (spec.type === "once") {
+        if (spec.year < 1900 || spec.year > 9999) {
           return null;
         }
 
-        return {
-          type: "once",
-          year,
-          month,
-          day
-        };
+        if (!isValidMonthDay(spec.year, spec.month, spec.day)) {
+          return null;
+        }
+
+        return spec;
       }
 
       return null;
@@ -2011,19 +2161,19 @@ export default async function (ctx = {}) {
         return fallbackFn ? fallbackFn() : null;
       }
 
-      const parts = dateStr.split("/").map(Number);
+      const spec = parseSlashDateSpec(dateStr);
 
-      if (parts.length !== 2) {
+      if (!spec || spec.type !== "annual") {
         return fallbackFn ? fallbackFn() : null;
       }
 
-      const [m, d] = parts;
+      const { month, day } = spec;
 
-      if (!isValidMonthDay(y, m, d)) {
+      if (!isValidMonthDay(y, month, day)) {
         return fallbackFn ? fallbackFn() : null;
       }
 
-      return YMD(y, m, d);
+      return YMD(y, month, day);
     };
 
     const customDays = [1, 2, 3, 4, 5, 6]
@@ -2508,8 +2658,7 @@ export default async function (ctx = {}) {
             todayNoticeText,
             pinnedData,
             todayItems,
-            displayCache,
-            gridRows: gridRowsCache
+            displayCache
           }
         });
       } catch (e) {
@@ -2566,32 +2715,32 @@ export default async function (ctx = {}) {
 
       if (notifyNames.length > 0) {
         const now = Date.now();
-        const notified = ctx.storage.getJSON(notifyKey) || {};
+        const currentNotifyState = ctx.storage.getJSON(notifyKey) || {};
 
-        const lockFresh =
-          notified.lockDate === notifyDate &&
-          Number.isFinite(Number(notified.lockTime)) &&
-          now - Number(notified.lockTime) < NOTIFY_LOCK_TTL_MS;
+        if (currentNotifyState.date !== notifyDate) {
+          const claimToken = `${now}:${Math.random().toString(36).slice(2)}`;
 
-        if (notified.date !== notifyDate && !lockFresh) {
-          const lockToken = `${now}:${Math.random().toString(36).slice(2)}`;
-
-          const lockedState = {
-            ...notified,
-            lockDate: notifyDate,
-            lockTime: now,
-            lockToken
+          const claimState = {
+            date: notifyDate,
+            names: notifyNames,
+            time: now,
+            pending: true,
+            claimToken,
+            claimTime: now
           };
 
-          ctx.storage.setJSON(notifyKey, lockedState);
+          ctx.storage.setJSON(notifyKey, claimState);
+
+          await delay(NOTIFY_CLAIM_SETTLE_MS);
 
           const verifiedState = ctx.storage.getJSON(notifyKey) || {};
 
-          const lockOwned =
-            verifiedState.lockDate === notifyDate &&
-            verifiedState.lockToken === lockToken;
+          const claimOwned =
+            verifiedState.date === notifyDate &&
+            verifiedState.pending === true &&
+            verifiedState.claimToken === claimToken;
 
-          if (lockOwned) {
+          if (claimOwned) {
             try {
               await Promise.resolve(ctx.notify({
                 title: "✨ 今日提醒",
@@ -2602,14 +2751,18 @@ export default async function (ctx = {}) {
               ctx.storage.setJSON(notifyKey, {
                 date: notifyDate,
                 names: notifyNames,
-                time: Date.now()
+                time: Date.now(),
+                pending: false
               });
             } catch (e) {
               warnLog("[Countdown] notify failed:", e);
 
               ctx.storage.setJSON(notifyKey, {
-                ...lockedState,
-                failedDate: notifyDate,
+                date: notifyDate,
+                names: notifyNames,
+                time: Date.now(),
+                pending: false,
+                failed: true,
                 failedTime: Date.now()
               });
             }
