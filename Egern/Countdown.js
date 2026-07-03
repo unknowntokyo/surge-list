@@ -837,7 +837,7 @@ function hashString(str) {
 }
 
 const DAILY_CACHE_SCHEMA_VERSION = 16;
-const DAILY_CACHE_VERSION_TEXT = `daily:v${DAILY_CACHE_SCHEMA_VERSION}:medium-only-no-school-finance`;
+const DAILY_CACHE_VERSION_TEXT = `daily:v${DAILY_CACHE_SCHEMA_VERSION}:medium`;
 
 function warnLog(...args) {
   try {
@@ -1444,27 +1444,17 @@ async function loadOfficialHolidayDaily(
     .filter(year => requiredYears.includes(year))
     .map(String);
 
-  const fetchedRequiredYearSet = new Set(fetchedRequiredYears);
-
-  const allFetchedRequiredYearsSucceeded =
-    requiredYears.every(year => {
-      const key = String(year);
-
-      return (
-        fetchedRequiredYearSet.has(key) &&
-        successfulFetchYearSet.has(key)
-      );
-    });
-
   const previousCheckedDate = isValidISODate(oldCache?.checkedDate)
     ? oldCache.checkedDate
     : undefined;
 
-  const checkedDate = allFetchedRequiredYearsSucceeded ||
+  const checkedDate = (
+    isOfficialRequiredReady(mergedYears, currentYear) &&
     (
-      fetchedRequiredYears.length === 0 &&
-      isOfficialRequiredReady(mergedYears, currentYear)
+      fetchedRequiredYears.length === 0 ||
+      fetchedRequiredYears.every(year => successfulFetchYearSet.has(year))
     )
+  )
     ? todayIso
     : previousCheckedDate;
 
