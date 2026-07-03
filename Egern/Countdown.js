@@ -1,13 +1,17 @@
 /**
  * 📌 时光倒数 Countdown Widget
  *
- * 已合并性能优化：
- * 1. 官方假期后台刷新增加 storage lock，避免多个 Widget 重复请求。
- * 2. 多尺寸共用 base daily cache，Small / Medium / Large 不再重复计算核心倒计时数据。
- * 3. displayCache 与 base cache 分离，Small 不构建 displayCache。
- * 4. pinned / today 名称使用 token set，减少重复 split 和交叉匹配。
- * 5. Widget 冷启动阻塞路径只请求必需年份，不请求 optional 下一年。
- * 6. 通知 fire-and-forget，不阻塞 Widget 渲染。
+ * 已处理：
+ * 1. 冷启动官方假期刷新增加 storage lock，避免多个 Widget 重复请求。
+ * 2. storage lock 增加 owner 确认，降低并发竞争和误释放风险。
+ * 3. loadOfficialHolidayDaily 支持 forceYearsToFetch，避免重复计算候选年份。
+ * 4. 修复 loadOfficialHolidayDaily 某些场景重复请求 currentYear。
+ * 5. 官方缓存保存条件补充 retryAfterByYear 比较。
+ * 6. 通知成功前不写成已通知，失败后允许重试。
+ * 7. 删除 todayFestSet 无效变量。
+ * 8. EMPTY_HOLIDAY_NAME_PART_SET 改为 null，避免共享可变 Set。
+ * 9. 删除 buildDailyCacheVersion 运行时 JSON.stringify，改为静态缓存版本号。
+ * 10. 删除 DEFAULT_OFFICIAL_HOLIDAY_STORAGE_KEY 冗余默认 key，所有官方缓存读写必须显式传入 storageKey。
  */
 
 const RANDOM_NOTICES = [
@@ -99,6 +103,9 @@ const OFFICIAL_FAILED_RETRY_INTERVAL_MS = DAY_MS;
 const OFFICIAL_OPTIONAL_FAILED_RETRY_INTERVAL_MS = 7 * DAY_MS;
 const OFFICIAL_BACKGROUND_REFRESH_LOCK_TTL_MS = 10 * 60 * 1000;
 
+const NOTIFY_PENDING_TTL_MS = 2 * 60 * 1000;
+const NOTIFY_FAILED_RETRY_INTERVAL_MS = 10 * 60 * 1000;
+
 const DISPLAY_LINE_MAX_WIDTH = {
   medium: 45,
   large: 36
@@ -153,7 +160,6 @@ const displayName = name => DISPLAY_NAME_MAP[name] ?? name;
 const holidayNamePartsCache = new Map();
 const holidayNamePartSetCache = new Map();
 const EMPTY_HOLIDAY_NAME_PARTS = Object.freeze([]);
-const EMPTY_HOLIDAY_NAME_PART_SET = new Set();
 
 function clearHolidayNameCachesIfNeeded() {
   if (holidayNamePartsCache.size > 256) {
@@ -186,13 +192,16 @@ function splitHolidayNames(name) {
 
 function getHolidayNamePartSet(name) {
   const raw = String(name ?? "").trim();
-  if (!raw) return EMPTY_HOLIDAY_NAME_PART_SET;
+
+  if (!raw) {
+    return null;
+  }
 
   const cached = holidayNamePartSetCache.get(raw);
   if (cached) return cached;
 
   splitHolidayNames(raw);
-  return holidayNamePartSetCache.get(raw) || EMPTY_HOLIDAY_NAME_PART_SET;
+  return holidayNamePartSetCache.get(raw) || null;
 }
 
 function partsIntersect(parts, partSet) {
@@ -813,7 +822,6 @@ function isValidBaseCachedPayload(payload) {
   });
 }
 
-const DEFAULT_OFFICIAL_HOLIDAY_STORAGE_KEY = "countdown_official_holidays";
 const OFFICIAL_HOLIDAY_STORAGE_VERSION = 2;
 
 function parseISODateParts(date) {
@@ -862,32 +870,8 @@ function hashString(str) {
   return (h >>> 0).toString(36);
 }
 
-const DAILY_CACHE_SCHEMA_VERSION = 14;
-
-function buildDailyCacheVersion() {
-  const staticConfigFingerprint = JSON.stringify({
-    schema: DAILY_CACHE_SCHEMA_VERSION,
-
-    categoryConfig: CATEGORY_CONFIG.map(cfg => ({
-      key: cfg.key,
-      label: cfg.label,
-      icon: cfg.icon
-    })),
-
-    basePriority,
-    specialPriority,
-    displayNameMap: DISPLAY_NAME_MAP,
-    displayLineMaxWidth: DISPLAY_LINE_MAX_WIDTH,
-
-    officialHolidayStorageVersion: OFFICIAL_HOLIDAY_STORAGE_VERSION,
-
-    cacheBuild: "performance-optimized-v4-base-display-cache"
-  });
-
-  return `daily:${hashString(staticConfigFingerprint)}`;
-}
-
-const DAILY_CACHE_VERSION_TEXT = buildDailyCacheVersion();
+const DAILY_CACHE_SCHEMA_VERSION = 15;
+const DAILY_CACHE_VERSION_TEXT = `daily:v${DAILY_CACHE_SCHEMA_VERSION}:performance-optimized-v5`;
 
 function warnLog(...args) {
   try {
@@ -900,6 +884,31 @@ function warnLog(...args) {
     }
   } catch (_) {
   }
+}
+
+function shallowObjectEqual(a = {}, b = {}) {
+  const ak = Object.keys(a || {});
+  const bk = Object.keys(b || {});
+
+  if (ak.length !== bk.length) {
+    return false;
+  }
+
+  return ak.every(key => a[key] === b[key]);
+}
+
+function shouldSaveOfficialCache(oldCache, newCache) {
+  if (!oldCache) return true;
+
+  return (
+    oldCache.version !== newCache.version ||
+    oldCache.fingerprint !== newCache.fingerprint ||
+    oldCache.checkedDate !== newCache.checkedDate ||
+    !shallowObjectEqual(
+      oldCache.retryAfterByYear || {},
+      newCache.retryAfterByYear || {}
+    )
+  );
 }
 
 function uniqueFiniteNumbers(arr) {
@@ -1075,9 +1084,13 @@ function sanitizeOfficialYears(years) {
 
 function readOfficialHolidayCache(
   ctx,
-  storageKey = DEFAULT_OFFICIAL_HOLIDAY_STORAGE_KEY,
+  storageKey,
   options = {}
 ) {
+  if (!storageKey) {
+    return null;
+  }
+
   const { sanitize = true } = options || {};
 
   try {
@@ -1225,7 +1238,13 @@ function isOfficialYearRetryBlocked(cache, year, now = Date.now()) {
   return Number.isFinite(retryAt) && retryAt > now;
 }
 
-function normalizeOfficialCachePayload(oldCache, years, currentYear, todayIso) {
+function normalizeOfficialCachePayload(
+  oldCache,
+  years,
+  currentYear,
+  todayIso,
+  retryAfterByYearOverride
+) {
   const requiredReady = isOfficialRequiredReady(years, currentYear);
 
   const checkedDate = isValidISODate(oldCache?.checkedDate)
@@ -1239,7 +1258,7 @@ function normalizeOfficialCachePayload(oldCache, years, currentYear, todayIso) {
     ...(checkedDate ? { checkedDate } : {}),
     fingerprint: buildOfficialFingerprint(years),
     retryAfterByYear: pruneRetryAfterByYear(
-      oldCache?.retryAfterByYear,
+      retryAfterByYearOverride ?? oldCache?.retryAfterByYear,
       currentYear
     ),
     years
@@ -1300,12 +1319,17 @@ async function loadOfficialHolidayDaily(
   ctx,
   currentYear,
   todayIso,
-  storageKey = DEFAULT_OFFICIAL_HOLIDAY_STORAGE_KEY,
+  storageKey,
   options = {}
 ) {
+  if (!storageKey) {
+    throw new Error("official holiday storageKey required");
+  }
+
   const {
     httpTimeoutMs = HTTP_TIMEOUT_MS,
-    includeOptional = true
+    includeOptional = true,
+    forceYearsToFetch = null
   } = options || {};
 
   const requestTimeoutMs = normalizeHttpTimeoutMs(httpTimeoutMs);
@@ -1318,6 +1342,7 @@ async function loadOfficialHolidayDaily(
   const requiredYears = officialRequiredYears(currentYear);
   const optionalYears = officialOptionalYears(currentYear);
   const mergedYears = pruneOfficialYears(oldCache?.years || {}, currentYear);
+
   const retryAfterByYear = pruneRetryAfterByYear(
     oldCache?.retryAfterByYear,
     currentYear
@@ -1327,7 +1352,8 @@ async function loadOfficialHolidayDaily(
 
   const cacheForFreshCheck = {
     ...oldCache,
-    years: mergedYears
+    years: mergedYears,
+    retryAfterByYear
   };
 
   const requiredFresh = isOfficialCacheFresh(
@@ -1351,26 +1377,49 @@ async function loadOfficialHolidayDaily(
 
   const allowOptionalFetch = includeOptional && currentMonth >= 7;
 
-  let fetchCandidates = [];
+  const buildFetchCandidates = () => {
+    if (requiredFresh) {
+      return allowOptionalFetch
+        ? missingOptionalYears
+        : [];
+    }
 
-  if (requiredFresh) {
-    fetchCandidates = allowOptionalFetch
-      ? missingOptionalYears
-      : [];
-  } else if (missingRequiredYears.length > 0) {
-    fetchCandidates = [
-      ...missingRequiredYears,
-      ...(includeOptional ? [currentYear] : []),
-      ...(allowOptionalFetch ? missingOptionalYears : [])
-    ];
-  } else {
-    fetchCandidates = [
+    if (missingRequiredYears.length > 0) {
+      const currentYearMissing = !hasOfficialYearData(
+        mergedYears,
+        currentYear
+      );
+
+      return [
+        ...missingRequiredYears,
+        ...(
+          includeOptional && currentYearMissing
+            ? [currentYear]
+            : []
+        ),
+        ...(
+          allowOptionalFetch
+            ? missingOptionalYears
+            : []
+        )
+      ];
+    }
+
+    return [
       currentYear,
-      ...(allowOptionalFetch ? missingOptionalYears : [])
+      ...(
+        allowOptionalFetch
+          ? missingOptionalYears
+          : []
+      )
     ];
-  }
+  };
 
-  const yearsToFetch = uniqueFiniteNumbers(fetchCandidates)
+  const rawFetchCandidates = Array.isArray(forceYearsToFetch)
+    ? forceYearsToFetch
+    : buildFetchCandidates();
+
+  const yearsToFetch = uniqueFiniteNumbers(rawFetchCandidates)
     .filter(year =>
       !isOfficialYearRetryBlocked({ retryAfterByYear }, year, now)
     );
@@ -1380,15 +1429,12 @@ async function loadOfficialHolidayDaily(
       oldCache,
       mergedYears,
       currentYear,
-      todayIso
+      todayIso,
+      retryAfterByYear
     );
 
     try {
-      const shouldSave =
-        oldCache?.fingerprint !== normalizedCache.fingerprint ||
-        oldCache?.checkedDate !== normalizedCache.checkedDate;
-
-      if (shouldSave) {
+      if (shouldSaveOfficialCache(oldCache, normalizedCache)) {
         ctx.storage.setJSON(storageKey, normalizedCache);
       }
     } catch (e) {
@@ -1461,7 +1507,9 @@ async function loadOfficialHolidayDaily(
   };
 
   try {
-    ctx.storage.setJSON(storageKey, newCache);
+    if (shouldSaveOfficialCache(oldCache, newCache)) {
+      ctx.storage.setJSON(storageKey, newCache);
+    }
   } catch (e) {
     warnLog("[Countdown] failed to save official holiday cache:", e);
   }
@@ -1473,9 +1521,13 @@ async function safeLoadOfficialHolidayDaily(
   ctx,
   currentYear,
   todayIso,
-  storageKey = DEFAULT_OFFICIAL_HOLIDAY_STORAGE_KEY,
+  storageKey,
   options = {}
 ) {
+  if (!storageKey) {
+    return null;
+  }
+
   try {
     return await loadOfficialHolidayDaily(
       ctx,
@@ -1548,7 +1600,9 @@ function getOfficialRefreshLockKey(storageKey) {
 }
 
 function tryAcquireOfficialRefreshLock(ctx, lockKey, now = Date.now()) {
-  if (!ctx.storage) return false;
+  if (!ctx.storage || !lockKey) return null;
+
+  const owner = `${now}:${Math.random().toString(36).slice(2)}`;
 
   try {
     const lock = ctx.storage.getJSON(lockKey);
@@ -1558,32 +1612,41 @@ function tryAcquireOfficialRefreshLock(ctx, lockKey, now = Date.now()) {
       Number.isFinite(Number(lock.expiresAt)) &&
       Number(lock.expiresAt) > now
     ) {
-      return false;
+      return null;
     }
 
     ctx.storage.setJSON(lockKey, {
+      owner,
       startedAt: now,
       expiresAt: now + OFFICIAL_BACKGROUND_REFRESH_LOCK_TTL_MS
     });
 
-    return true;
+    const confirmed = ctx.storage.getJSON(lockKey);
+
+    return confirmed?.owner === owner
+      ? owner
+      : null;
   } catch (e) {
     warnLog("[Countdown] failed to acquire official refresh lock:", e);
-    return false;
+    return null;
   }
 }
 
-function releaseOfficialRefreshLock(ctx, lockKey) {
-  if (!ctx.storage) return;
+function releaseOfficialRefreshLock(ctx, lockKey, owner) {
+  if (!ctx.storage || !lockKey || !owner) return;
 
   try {
-    if (typeof ctx.storage.delete === "function") {
-      ctx.storage.delete(lockKey);
-    } else {
-      ctx.storage.setJSON(lockKey, {
-        releasedAt: Date.now(),
-        expiresAt: 0
-      });
+    const lock = ctx.storage.getJSON(lockKey);
+
+    if (lock?.owner === owner) {
+      if (typeof ctx.storage.delete === "function") {
+        ctx.storage.delete(lockKey);
+      } else {
+        ctx.storage.setJSON(lockKey, {
+          releasedAt: Date.now(),
+          expiresAt: 0
+        });
+      }
     }
   } catch (e) {
     warnLog("[Countdown] failed to release official refresh lock:", e);
@@ -1612,8 +1675,9 @@ function refreshOfficialHolidayInBackground(
   }
 
   const lockKey = getOfficialRefreshLockKey(storageKey);
+  const lockOwner = tryAcquireOfficialRefreshLock(ctx, lockKey);
 
-  if (!tryAcquireOfficialRefreshLock(ctx, lockKey)) {
+  if (!lockOwner) {
     return false;
   }
 
@@ -1625,7 +1689,8 @@ function refreshOfficialHolidayInBackground(
       storageKey,
       {
         httpTimeoutMs: HTTP_TIMEOUT_MS,
-        includeOptional: true
+        includeOptional: true,
+        forceYearsToFetch: candidates
       }
     );
 
@@ -1635,15 +1700,15 @@ function refreshOfficialHolidayInBackground(
           warnLog("[Countdown] background official holiday refresh failed:", e);
         })
         .finally(() => {
-          releaseOfficialRefreshLock(ctx, lockKey);
+          releaseOfficialRefreshLock(ctx, lockKey, lockOwner);
         });
     } else {
-      releaseOfficialRefreshLock(ctx, lockKey);
+      releaseOfficialRefreshLock(ctx, lockKey, lockOwner);
     }
 
     return true;
   } catch (e) {
-    releaseOfficialRefreshLock(ctx, lockKey);
+    releaseOfficialRefreshLock(ctx, lockKey, lockOwner);
     warnLog("[Countdown] failed to start background official holiday refresh:", e);
     return false;
   }
@@ -1980,10 +2045,26 @@ function notifyTodayIfNeeded(ctx, notifyKey, notifyDate, todayItems) {
   }
 
   try {
+    const now = Date.now();
     const currentNotifyState = ctx.storage.getJSON(notifyKey) || {};
 
     if (currentNotifyState.date === notifyDate) {
-      return;
+      const pending = currentNotifyState.pending === true;
+      const failed = currentNotifyState.failed === true;
+      const lastTime = Number(currentNotifyState.time) || 0;
+      const retryAfter = Number(currentNotifyState.retryAfter) || 0;
+
+      if (!pending && !failed) {
+        return;
+      }
+
+      if (pending && now - lastTime < NOTIFY_PENDING_TTL_MS) {
+        return;
+      }
+
+      if (failed && retryAfter > now) {
+        return;
+      }
     }
 
     const notifyItems = todayItems
@@ -2011,12 +2092,44 @@ function notifyTodayIfNeeded(ctx, notifyKey, notifyDate, todayItems) {
       return;
     }
 
-    ctx.storage.setJSON(notifyKey, {
-      date: notifyDate,
-      names: notifyNames,
-      time: Date.now(),
-      pending: false
-    });
+    const markPending = () => {
+      ctx.storage.setJSON(notifyKey, {
+        date: notifyDate,
+        names: notifyNames,
+        time: Date.now(),
+        pending: true,
+        failed: false
+      });
+    };
+
+    const markSuccess = () => {
+      ctx.storage.setJSON(notifyKey, {
+        date: notifyDate,
+        names: notifyNames,
+        time: Date.now(),
+        pending: false,
+        failed: false
+      });
+    };
+
+    const markFailed = e => {
+      warnLog("[Countdown] notify failed:", e);
+
+      try {
+        ctx.storage.setJSON(notifyKey, {
+          date: notifyDate,
+          names: notifyNames,
+          time: Date.now(),
+          pending: false,
+          failed: true,
+          retryAfter: Date.now() + NOTIFY_FAILED_RETRY_INTERVAL_MS,
+          error: String(e?.message || e || "notify failed").slice(0, 120)
+        });
+      } catch (_) {
+      }
+    };
+
+    markPending();
 
     try {
       const maybePromise = ctx.notify({
@@ -2025,13 +2138,17 @@ function notifyTodayIfNeeded(ctx, notifyKey, notifyDate, todayItems) {
         sound: true
       });
 
-      if (maybePromise && typeof maybePromise.catch === "function") {
-        maybePromise.catch(e => {
-          warnLog("[Countdown] notify failed:", e);
-        });
+      if (maybePromise && typeof maybePromise.then === "function") {
+        maybePromise
+          .then(() => {
+            markSuccess();
+          })
+          .catch(markFailed);
+      } else {
+        markSuccess();
       }
     } catch (e) {
-      warnLog("[Countdown] notify failed:", e);
+      markFailed(e);
     }
   } catch (e) {
     warnLog("[Countdown] notify process failed:", e);
@@ -2224,21 +2341,47 @@ export default async function (ctx = {}) {
       !isOfficialRequiredReady(officialHolidayCache?.years, Y);
 
     if (shouldBlockingRefreshOfficialHoliday) {
-      officialHolidayCache = await safeLoadOfficialHolidayDaily(
-        ctx,
-        Y,
-        todayIso,
-        officialHolidayStorageKey,
-        {
-          httpTimeoutMs: WIDGET_OFFICIAL_HTTP_TIMEOUT_MS,
-          includeOptional: false
+      const lockKey = getOfficialRefreshLockKey(officialHolidayStorageKey);
+      const lockOwner = tryAcquireOfficialRefreshLock(ctx, lockKey);
+
+      if (lockOwner) {
+        try {
+          officialHolidayCache = await safeLoadOfficialHolidayDaily(
+            ctx,
+            Y,
+            todayIso,
+            officialHolidayStorageKey,
+            {
+              httpTimeoutMs: WIDGET_OFFICIAL_HTTP_TIMEOUT_MS,
+              includeOptional: false,
+              forceYearsToFetch: getMissingOfficialYears(
+                officialHolidayCache?.years,
+                officialRequiredYears(Y)
+              ).map(Number)
+            }
+          );
+
+          officialFingerprint = getOfficialFingerprintText(officialHolidayCache);
+          envFingerprint = `${envStorageFingerprint}|${officialFingerprint}`;
+
+          cachedBaseData = readBaseDailyCache(envFingerprint);
+        } finally {
+          releaseOfficialRefreshLock(ctx, lockKey, lockOwner);
         }
-      );
+      } else {
+        officialHolidayCache = readOfficialHolidayCache(
+          ctx,
+          officialHolidayStorageKey,
+          {
+            sanitize: false
+          }
+        );
 
-      officialFingerprint = getOfficialFingerprintText(officialHolidayCache);
-      envFingerprint = `${envStorageFingerprint}|${officialFingerprint}`;
+        officialFingerprint = getOfficialFingerprintText(officialHolidayCache);
+        envFingerprint = `${envStorageFingerprint}|${officialFingerprint}`;
 
-      cachedBaseData = readBaseDailyCache(envFingerprint);
+        cachedBaseData = readBaseDailyCache(envFingerprint);
+      }
     }
   }
 
@@ -2606,7 +2749,6 @@ export default async function (ctx = {}) {
     const todayFests = [];
     const todayFinance = [];
     const todayFinanceEnded = [];
-    const todayFestSet = new Set();
     const todayFestTokenSet = new Set();
     const todayItemKeySet = new Set();
     const pinnedMap = new Map();
@@ -2665,7 +2807,6 @@ export default async function (ctx = {}) {
 
       if (isInFestivalPeriod(diff, duration)) {
         if (!holidayNameMatchesTokenSet(name, todayFestTokenSet)) {
-          todayFestSet.add(name);
           addHolidayNameTokens(todayFestTokenSet, name);
 
           todayFests.push({
