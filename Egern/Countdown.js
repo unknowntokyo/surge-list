@@ -855,6 +855,7 @@ function shouldSaveOfficialCache(oldCache, newCache) {
     oldCache.version !== newCache.version ||
     oldCache.fingerprint !== newCache.fingerprint ||
     oldCache.checkedDate !== newCache.checkedDate ||
+    JSON.stringify(oldCache.years || {}) !== JSON.stringify(newCache.years || {}) ||
     !shallowObjectEqual(
       oldCache.retryAfterByYear || {},
       newCache.retryAfterByYear || {}
@@ -1424,15 +1425,21 @@ async function loadOfficialHolidayDaily(
     }
   }
 
-  const fetchedRequiredYears = yearsToFetch
+   const fetchedRequiredYears = yearsToFetch
     .filter(year => requiredYears.includes(year))
     .map(String);
 
+  const fetchedRequiredYearSet = new Set(fetchedRequiredYears);
+
   const allFetchedRequiredYearsSucceeded =
-    fetchedRequiredYears.length > 0 &&
-    fetchedRequiredYears.every(year =>
-      successfulFetchYearSet.has(year)
-    );
+    requiredYears.every(year => {
+      const key = String(year);
+
+      return (
+        fetchedRequiredYearSet.has(key) &&
+        successfulFetchYearSet.has(key)
+      );
+    });
 
   const previousCheckedDate = isValidISODate(oldCache?.checkedDate)
     ? oldCache.checkedDate
