@@ -1,17 +1,11 @@
 /**
  * 📌 时光倒数 Countdown Widget
  *
- * 已处理：
- * 1. 冷启动官方假期刷新增加 storage lock，避免多个 Widget 重复请求。
- * 2. storage lock 增加 owner 确认，降低并发竞争和误释放风险。
- * 3. loadOfficialHolidayDaily 支持 forceYearsToFetch，避免重复计算候选年份。
- * 4. 修复 loadOfficialHolidayDaily 某些场景重复请求 currentYear。
- * 5. 官方缓存保存条件补充 retryAfterByYear 比较。
- * 6. 通知成功前不写成已通知，失败后允许重试。
- * 7. 删除 todayFestSet 无效变量。
- * 8. EMPTY_HOLIDAY_NAME_PART_SET 改为 null，避免共享可变 Set。
- * 9. 删除 buildDailyCacheVersion 运行时 JSON.stringify，改为静态缓存版本号。
- * 10. 删除 DEFAULT_OFFICIAL_HOLIDAY_STORAGE_KEY 冗余默认 key，所有官方缓存读写必须显式传入 storageKey。
+ * 精简内容：
+ * 1. 仅保留桌面 Medium 小组件。
+ * 2. 删除 Small / Large 展示逻辑。
+ * 3. 删除学校假期：春假、秋假及相关配置。
+ * 4. 删除金融日期：交割、行权及相关配置。
  */
 
 const RANDOM_NOTICES = [
@@ -83,14 +77,10 @@ const basePriority = {
 const specialPriority = {
   春节: 10,
   国庆节: 9,
-  交割: 8,
-  行权: 8,
   元旦: 7,
   清明节: 7,
   端午节: 7,
   中秋节: 7,
-  春假: 6,
-  秋假: 6,
   除夕: 6
 };
 
@@ -107,8 +97,7 @@ const NOTIFY_PENDING_TTL_MS = 2 * 60 * 1000;
 const NOTIFY_FAILED_RETRY_INTERVAL_MS = 10 * 60 * 1000;
 
 const DISPLAY_LINE_MAX_WIDTH = {
-  medium: 45,
-  large: 36
+  medium: 45
 };
 
 const mkText = (text, size, weight, color, opts = {}) => ({
@@ -354,11 +343,8 @@ function buildDisplayText(result, cat, limit) {
 }
 
 function buildDisplayCache(result, displayMode = "medium") {
-  const isLargeMode = displayMode === "large";
-  const limit = isLargeMode ? 7 : 3;
-  const maxWidth = isLargeMode
-    ? DISPLAY_LINE_MAX_WIDTH.large
-    : DISPLAY_LINE_MAX_WIDTH.medium;
+  const limit = 3;
+  const maxWidth = DISPLAY_LINE_MAX_WIDTH.medium;
 
   const cache = { mode: displayMode };
 
@@ -374,24 +360,24 @@ function buildDisplayCache(result, displayMode = "medium") {
   return cache;
 }
 
-function buildLayoutConfig(isLarge) {
+function buildLayoutConfig() {
   return {
-    fz: isLarge ? 14 : 13.5,
-    icz: isLarge ? 15 : 13.5,
-    lw: isLarge ? 60 : 52,
-    maxW: isLarge ? DISPLAY_LINE_MAX_WIDTH.large : DISPLAY_LINE_MAX_WIDTH.medium,
-    rowGap: isLarge ? 6 : 4,
-    titleFz: isLarge ? 17 : 15,
-    titleIcz: isLarge ? 18 : 16,
-    topFz: isLarge ? 13 : 12.5
+    fz: 13.5,
+    icz: 13.5,
+    lw: 52,
+    maxW: DISPLAY_LINE_MAX_WIDTH.medium,
+    rowGap: 4,
+    titleFz: 15,
+    titleIcz: 16,
+    topFz: 12.5
   };
 }
 
-function buildGridRows(displayCache, result, layoutConfig, isLarge) {
+function buildGridRows(displayCache, result, layoutConfig) {
   return CATEGORY_CONFIG.flatMap(cfg => {
     const cachedLines = displayCache?.[cfg.key]?.lines;
     const rawText = displayCache?.[cfg.key]?.text ??
-      buildDisplayText(result, cfg.key, isLarge ? 7 : 3);
+      buildDisplayText(result, cfg.key, 3);
 
     if (!rawText) return [];
 
@@ -430,9 +416,7 @@ function buildGridRows(displayCache, result, layoutConfig, isLarge) {
           lineStr,
           layoutConfig.fz,
           "medium",
-          cfg.key === "exclusive" && /(交割|行权)/.test(lineStr)
-            ? C.red
-            : C.sub,
+          C.sub,
           {
             flex: 1,
             maxLines: 1
@@ -441,26 +425,6 @@ function buildGridRows(displayCache, result, layoutConfig, isLarge) {
       ]
     }));
   });
-}
-
-function groupTodayItemsByCat(items) {
-  const grouped = {};
-
-  for (const cfg of CATEGORY_CONFIG) {
-    grouped[cfg.key] = [];
-  }
-
-  for (const item of items || []) {
-    if (!item || typeof item.cat !== "string") continue;
-
-    if (!grouped[item.cat]) {
-      grouped[item.cat] = [];
-    }
-
-    grouped[item.cat].push(item);
-  }
-
-  return grouped;
 }
 
 const Lunar = {
@@ -569,13 +533,6 @@ function getEnvValueMaxLength(key) {
     return MAX_EXCLUSIVE_DATE_LENGTH;
   }
 
-  if (
-    key === "SPRING_BREAK_DATE" ||
-    key === "AUTUMN_BREAK_DATE"
-  ) {
-    return MAX_EXCLUSIVE_DATE_LENGTH;
-  }
-
   if (key === "PINNED_HOLIDAY") {
     return MAX_PINNED_HOLIDAY_TOTAL_LENGTH;
   }
@@ -603,14 +560,10 @@ function sanitizeEnvStringValue(key, value) {
 }
 
 const CACHE_ENV_KEYS = Object.freeze([
-  "SHOW_SCHOOL_HOLIDAYS",
-  "SHOW_FINANCE_DATES",
   "ENABLE_PRIORITY_SORT",
   "ENABLE_EXCLUSIVE_WEIGHT",
   "ENABLE_WEEKEND_THEME",
 
-  "SPRING_BREAK_DATE",
-  "AUTUMN_BREAK_DATE",
   "PINNED_HOLIDAY",
 
   "EXCLUSIVE_NAME",
@@ -631,8 +584,6 @@ const CACHE_ENV_KEYS = Object.freeze([
 ]);
 
 const CACHE_BOOL_ENV_KEYS = new Set([
-  "SHOW_SCHOOL_HOLIDAYS",
-  "SHOW_FINANCE_DATES",
   "ENABLE_PRIORITY_SORT",
   "ENABLE_EXCLUSIVE_WEIGHT",
   "ENABLE_WEEKEND_THEME"
@@ -870,8 +821,8 @@ function hashString(str) {
   return (h >>> 0).toString(36);
 }
 
-const DAILY_CACHE_SCHEMA_VERSION = 15;
-const DAILY_CACHE_VERSION_TEXT = `daily:v${DAILY_CACHE_SCHEMA_VERSION}:performance-optimized-v5`;
+const DAILY_CACHE_SCHEMA_VERSION = 16;
+const DAILY_CACHE_VERSION_TEXT = `daily:v${DAILY_CACHE_SCHEMA_VERSION}:medium-only-no-school-finance`;
 
 function warnLog(...args) {
   try {
@@ -2204,10 +2155,37 @@ export default async function (ctx = {}) {
         mkSpacer(8),
 
         mkText(
-          "请使用桌面 Small / Medium / Large 小组件",
+          "请使用桌面 Medium 小组件",
           12,
           "medium",
           C.sub
+        )
+      ]
+    };
+  }
+
+  const isSmall = family === "systemsmall";
+  const isLarge = family === "systemlarge";
+
+  if (isSmall || isLarge) {
+    return {
+      type: "widget",
+      padding: 12,
+      backgroundGradient: getBackgroundGradient("workday"),
+      children: [
+        mkRow([
+          mkIcon("exclamationmark.triangle.fill", C.red, 16),
+          mkText("仅支持 Medium 组件", 14, "heavy", C.main)
+        ], 6),
+
+        mkSpacer(8),
+
+        mkText(
+          "请使用桌面 Medium 小组件",
+          12,
+          "medium",
+          C.sub,
+          { maxLines: 2 }
         )
       ]
     };
@@ -2232,7 +2210,7 @@ export default async function (ctx = {}) {
         mkSpacer(8),
 
         mkText(
-          "请使用桌面 Small / Medium / Large 小组件",
+          "请使用桌面 Medium 小组件",
           12,
           "medium",
           C.sub,
@@ -2242,9 +2220,7 @@ export default async function (ctx = {}) {
     };
   }
 
-  const isSmall = family === "systemsmall";
-  const isLarge = family === "systemlarge";
-  const displayMode = isLarge ? "large" : "medium";
+  const displayMode = "medium";
 
   const bjDate = new Date(Date.now() + 8 * 3600000);
   const Y = bjDate.getUTCFullYear();
@@ -2301,7 +2277,7 @@ export default async function (ctx = {}) {
   };
 
   const readDisplayDailyCache = currentEnvFingerprint => {
-    if (!ctx.storage || isSmall) return null;
+    if (!ctx.storage) return null;
 
     try {
       const stored = ctx.storage.getJSON(DISPLAY_CACHE_KEY);
@@ -2426,13 +2402,8 @@ export default async function (ctx = {}) {
       return value;
     };
 
-    const showSchoolHolidays = getBool("SHOW_SCHOOL_HOLIDAYS", true);
-    const showFinanceDates = getBool("SHOW_FINANCE_DATES", true);
     const enablePrioritySort = getBool("ENABLE_PRIORITY_SORT", true);
     const enableExclusiveWeight = getBool("ENABLE_EXCLUSIVE_WEIGHT", true);
-
-    const springDateStr = getStr("SPRING_BREAK_DATE");
-    const autumnDateStr = getStr("AUTUMN_BREAK_DATE");
 
     const pinnedHolidays = [
       ...new Set(
@@ -2483,26 +2454,6 @@ export default async function (ctx = {}) {
       return null;
     };
 
-    const getCustomDate = (y, dateStr, fallbackFn) => {
-      if (!dateStr || typeof dateStr !== "string") {
-        return fallbackFn ? fallbackFn() : null;
-      }
-
-      const spec = parseSlashDateSpec(dateStr);
-
-      if (!spec || spec.type !== "annual") {
-        return fallbackFn ? fallbackFn() : null;
-      }
-
-      const { month, day } = spec;
-
-      if (!isValidMonthDay(y, month, day)) {
-        return fallbackFn ? fallbackFn() : null;
-      }
-
-      return YMD(y, month, day);
-    };
-
     const customDays = [1, 2, 3, 4, 5, 6]
       .map(i => {
         const legacyName = i === 1 ? getStr("EXCLUSIVE_NAME") : "";
@@ -2517,39 +2468,6 @@ export default async function (ctx = {}) {
         };
       })
       .filter(item => item.name && item.spec);
-
-    const getFinanceDate = (y, monthIndex, nth, targetDow) => {
-      if (
-        !Number.isInteger(y) ||
-        !Number.isInteger(monthIndex) ||
-        !Number.isInteger(nth) ||
-        !Number.isInteger(targetDow) ||
-        monthIndex < 0 ||
-        monthIndex > 11 ||
-        nth < 1 ||
-        nth > 5 ||
-        targetDow < 0 ||
-        targetDow > 6
-      ) {
-        return NaN;
-      }
-
-      const firstDow = new Date(Date.UTC(y, monthIndex, 1)).getUTCDay();
-
-      const day =
-        1 + ((targetDow - firstDow + 7) % 7) + (nth - 1) * 7;
-
-      const dt = new Date(Date.UTC(y, monthIndex, day));
-
-      if (
-        dt.getUTCFullYear() !== y ||
-        dt.getUTCMonth() !== monthIndex
-      ) {
-        return NaN;
-      }
-
-      return dt.getTime();
-    };
 
     const lunarToSolarCache = new Map();
 
@@ -2647,39 +2565,6 @@ export default async function (ctx = {}) {
 
       const legal = mergeLegalHolidays(fallbackLegal, officialLegal);
 
-      if (showSchoolHolidays) {
-        const springDate = getCustomDate(y, springDateStr, () => {
-          if (!qmDateStr) return null;
-
-          const [qy, qm, qd] = qmDateStr.split("/").map(Number);
-          const s = new Date(Date.UTC(qy, qm - 1, qd - 3));
-
-          return YMD(
-            s.getUTCFullYear(),
-            s.getUTCMonth() + 1,
-            s.getUTCDate()
-          );
-        });
-
-        if (springDate) {
-          legal.push(["春假", springDate, 3]);
-        }
-
-        const autumnDate = getCustomDate(y, autumnDateStr, () => {
-          const nov1 = new Date(Date.UTC(y, 10, 1));
-
-          return YMD(
-            y,
-            11,
-            1 + ((3 - nov1.getUTCDay() + 7) % 7) + 7
-          );
-        });
-
-        if (autumnDate) {
-          legal.push(["秋假", autumnDate, 3]);
-        }
-      }
-
       return {
         legal,
 
@@ -2747,8 +2632,6 @@ export default async function (ctx = {}) {
     };
 
     const todayFests = [];
-    const todayFinance = [];
-    const todayFinanceEnded = [];
     const todayFestTokenSet = new Set();
     const todayItemKeySet = new Set();
     const pinnedMap = new Map();
@@ -2863,68 +2746,6 @@ export default async function (ctx = {}) {
       );
     }
 
-    if (showFinanceDates) {
-      const processFinance = (name, nth, dow) => {
-        const priority = getPriority(name, "exclusive");
-        const thisMonthDate = getFinanceDate(Y, M - 1, nth, dow);
-
-        if (!Number.isFinite(thisMonthDate)) {
-          return;
-        }
-
-        const getNextMonthDate = () =>
-          getFinanceDate(
-            M === 12 ? Y + 1 : Y,
-            M === 12 ? 0 : M,
-            nth,
-            dow
-          );
-
-        const addFutureFinanceDate = targetDate => {
-          if (!Number.isFinite(targetDate)) {
-            return;
-          }
-
-          const diff = (targetDate - todayMs) / DAY_MS;
-
-          if (diff > 0) {
-            updatePinned(name, diff);
-
-            rawResult.exclusive.set(name, {
-              name,
-              diff,
-              duration: 1,
-              priority,
-              cat: "exclusive"
-            });
-          }
-        };
-
-        if (todayMs === thisMonthDate) {
-          if (currentHour < 15) {
-            todayFinance.push(name);
-            addTodayItem(name, 0, priority, "exclusive", 1);
-            return;
-          }
-
-          todayFinanceEnded.push(name);
-          addTodayItem(name, 0, priority, "exclusive", 1, "ended");
-
-          addFutureFinanceDate(getNextMonthDate());
-          return;
-        }
-
-        const targetDate = todayMs > thisMonthDate
-          ? getNextMonthDate()
-          : thisMonthDate;
-
-        addFutureFinanceDate(targetDate);
-      };
-
-      processFinance("交割", 3, 5);
-      processFinance("行权", 4, 3);
-    }
-
     result = {};
 
     Object.keys(rawResult).forEach(cat => {
@@ -2944,18 +2765,6 @@ export default async function (ctx = {}) {
 
     if (todayFests.length > 0) {
       todayNoticeParts.push(formatTodayFestGroup(todayFests));
-    }
-
-    if (todayFinance.length > 0) {
-      todayNoticeParts.push(`今日 ${todayFinance.join("·")}`);
-    }
-
-    if (todayFinanceEnded.length > 0) {
-      todayNoticeParts.push(
-        todayFinanceEnded
-          .map(name => `${name}已结束`)
-          .join("·")
-      );
     }
 
     todayNoticeText = todayNoticeParts.join(" ｜ ");
@@ -2987,28 +2796,24 @@ export default async function (ctx = {}) {
     }
   }
 
-  if (!isSmall) {
-    displayCache = readDisplayDailyCache(envFingerprint);
+  displayCache = readDisplayDailyCache(envFingerprint);
 
-    if (!displayCache || !isValidDisplayCache(displayCache, displayMode)) {
-      displayCache = buildDisplayCache(result, displayMode);
+  if (!displayCache || !isValidDisplayCache(displayCache, displayMode)) {
+    displayCache = buildDisplayCache(result, displayMode);
 
-      if (ctx.storage) {
-        try {
-          ctx.storage.setJSON(DISPLAY_CACHE_KEY, {
-            version: CACHE_VERSION,
-            date: todayStr,
-            envFingerprint,
-            displayCache
-          });
-        } catch (e) {
-          warnLog("[Countdown] failed to save display daily cache:", e);
-        }
+    if (ctx.storage) {
+      try {
+        ctx.storage.setJSON(DISPLAY_CACHE_KEY, {
+          version: CACHE_VERSION,
+          date: todayStr,
+          envFingerprint,
+          displayCache
+        });
+      } catch (e) {
+        warnLog("[Countdown] failed to save display daily cache:", e);
       }
     }
   }
-
-  const todayItemsByCat = groupTodayItemsByCat(todayItems);
 
   const stickyParts = (pinnedData || []).map(p => `${p.name} ${p.diff}天`);
   const stickyText = stickyParts.join("·");
@@ -3044,69 +2849,9 @@ export default async function (ctx = {}) {
 
   const backgroundGradient = getBackgroundGradient(themeKey);
 
-  if (isSmall) {
-    const smallRows = CATEGORY_CONFIG
-      .map(cfg => {
-        const catTodayItems = todayItemsByCat[cfg.key] || [];
-        const fests = [...catTodayItems, ...(result[cfg.key] || [])].slice(0, 2);
+  const layoutConfig = buildLayoutConfig();
 
-        if (fests.length === 0) return null;
-
-        return mkRow([
-          mkRow([
-            mkSpacer(),
-            mkIcon(cfg.icon, cfg.color, 13),
-            mkSpacer()
-          ], 0, { width: 16 }),
-
-          mkText(
-            fests.map(i => formatDisplayItem(i)).join("，"),
-            12,
-            "medium",
-            cfg.color,
-            {
-              flex: 1,
-              maxLines: 1
-            }
-          )
-        ], 6);
-      })
-      .filter(Boolean);
-
-    return withRefresh({
-      type: "widget",
-      padding: 10,
-      backgroundGradient,
-      children: [
-        mkRow([
-          mkIcon("hourglass.circle.fill", C.main, 16),
-          mkText("时光\n倒数", 14, "heavy", C.main, { maxLines: 2 }),
-          mkSpacer(),
-          ...(
-            stickyParts.length > 0
-              ? [mkText(stickyParts[0], 11, "bold", C.red, { maxLines: 1 })]
-              : []
-          )
-        ], 6),
-
-        mkSpacer(10),
-
-        {
-          type: "stack",
-          direction: "column",
-          gap: 8,
-          flex: 1,
-          children: smallRows.length > 0
-            ? smallRows
-            : [mkText("近期暂无倒计时", 12, "medium", C.muted)]
-        }
-      ]
-    });
-  }
-
-  const layoutConfig = buildLayoutConfig(isLarge);
-
-  const gridRows = buildGridRows(displayCache, result, layoutConfig, isLarge);
+  const gridRows = buildGridRows(displayCache, result, layoutConfig);
 
   const rightHeaderElements = [];
 
@@ -3136,7 +2881,7 @@ export default async function (ctx = {}) {
 
   return withRefresh({
     type: "widget",
-    padding: isLarge ? 14 : 12,
+    padding: 12,
     backgroundGradient,
     children: [
       mkRow([
@@ -3154,9 +2899,7 @@ export default async function (ctx = {}) {
               type: "stack",
               direction: "column",
               alignItems: "start",
-              gap: gridRows.length <= 4
-                ? isLarge ? 14 : 11
-                : isLarge ? 10 : 8,
+              gap: gridRows.length <= 4 ? 11 : 8,
               children: gridRows
             }]
           : [
