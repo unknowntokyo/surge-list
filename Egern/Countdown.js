@@ -1,70 +1,13 @@
 /**
- * =========================================
- * 📌 时光倒数 (Countdown) 小组件
+ * 📌 时光倒数 Countdown Widget
  *
- * ✨ 主要功能：
- * • 尺寸适配：支持桌面 Small、Medium、Large 三种组件尺寸，不支持锁屏组件，区分紧凑列表与定宽多行列表排版。
- * • 节日计算：内置农历算法数组，支持计算法定节假日、民俗节日、国际节日、金融交割/行权日的倒计时。
- * • 官方假期：法定分类优先拉取 NateScarlet/holiday-cn 上一年与当前年数据；每年 7 月后尝试预取下一年数据，按实际放假安排展示。
- * • 时区基准：采用 UTC+8 固定时区进行绝对时间计算。
- * • 自定义配置：支持通过环境变量设置最多 6 个专属纪念日，支持修改春/秋假的起始日期。
- * • 排序与显示：支持按倒数天数及分类优先级进行排序，支持指定节日跨分类置顶。
- * • 状态响应：根据工作日、周末、节假日当天状态切换背景渐变色；当天节日提示于中大号标题栏显示，小号于分类行内显示。
- * • 当天提醒：节日 / 专属日期 / 金融日期当天弹窗提醒，每天只弹一次。
- *
- * 🛠️ 本版本性能优化：
- * • 移除通知抢占锁 250ms 固定等待，避免阻塞 Widget 渲染。
- * • Widget 渲染链路只在必需官方年份缺失时阻塞网络；stale / optional 刷新不再阻塞。
- * • daily cache 从 layoutMode 改为 displayMode，Small / Medium 共享缓存。
- * • 官方假期缓存支持 lazy sanitize，daily cache 命中时不再完整 sanitize。
- * • getOfficialDayInfo 只查询当天所属年份。
- * • 节日名称 split 结果增加 memo cache。
- * • 删除未使用变量 requestYears。
- * • daily cache version 改为模块级静态计算。
- * • 环境变量 normalize 后复用，减少重复 sanitize / parse。
- * =========================================
- */
-
-/**
- * =========================================
- * ⚙️ 环境变量说明
- *
- * SHOW_SCHOOL_HOLIDAYS:
- *   是否显示春假 / 秋假，默认 true。
- *
- * SHOW_FINANCE_DATES:
- *   是否显示金融交割 / 行权日，默认 true。
- *
- * ENABLE_PRIORITY_SORT:
- *   是否启用节日优先级排序，默认 true。
- *
- * ENABLE_EXCLUSIVE_WEIGHT:
- *   是否提高专属纪念日权重，默认 true。
- *
- * ENABLE_WEEKEND_THEME:
- *   是否根据周末 / 调休 / 官方节假日切换背景主题，默认 true。
- *
- * SPRING_BREAK_DATE:
- *   自定义春假开始日期，格式 MM/DD，例如 04/03。
- *
- * AUTUMN_BREAK_DATE:
- *   自定义秋假开始日期，格式 MM/DD，例如 11/08。
- *
- * PINNED_HOLIDAY:
- *   置顶节日名称，多个名称使用英文逗号分隔，例如 春节,国庆节。
- *
- * EXCLUSIVE_NAME / EXCLUSIVE_DATE:
- *   兼容旧版第 1 个专属纪念日配置。
- *
- * EXCLUSIVE_NAME_1 ~ EXCLUSIVE_NAME_6:
- *   专属纪念日名称，最多 6 个。
- *
- * EXCLUSIVE_DATE_1 ~ EXCLUSIVE_DATE_6:
- *   专属纪念日日期。
- *   支持：
- *   - MM/DD：每年重复，例如 08/08
- *   - YYYY/MM/DD：一次性日期，例如 2026/08/08
- * =========================================
+ * 已合并性能优化：
+ * 1. 官方假期后台刷新增加 storage lock，避免多个 Widget 重复请求。
+ * 2. 多尺寸共用 base daily cache，Small / Medium / Large 不再重复计算核心倒计时数据。
+ * 3. displayCache 与 base cache 分离，Small 不构建 displayCache。
+ * 4. pinned / today 名称使用 token set，减少重复 split 和交叉匹配。
+ * 5. Widget 冷启动阻塞路径只请求必需年份，不请求 optional 下一年。
+ * 6. 通知 fire-and-forget，不阻塞 Widget 渲染。
  */
 
 const RANDOM_NOTICES = [
@@ -102,14 +45,12 @@ const BACKGROUND_GRADIENTS = Object.freeze({
     startPoint: { x: 0, y: 0 },
     endPoint: { x: 1, y: 1 }
   }),
-
   weekend: Object.freeze({
     type: "linear",
     colors: C.bgWeekend,
     startPoint: { x: 0, y: 0 },
     endPoint: { x: 1, y: 1 }
   }),
-
   fest: Object.freeze({
     type: "linear",
     colors: C.bgFest,
@@ -151,16 +92,12 @@ const specialPriority = {
 
 const DAY_MS = 86400000;
 const HTTP_TIMEOUT_MS = 5000;
-
-/**
- * Widget 渲染链路中的官方假期请求超时。
- * 仅在必需年份缺失时使用，stale / optional 刷新不再阻塞 Widget 渲染。
- */
 const WIDGET_OFFICIAL_HTTP_TIMEOUT_MS = 1500;
 
 const OFFICIAL_REFRESH_INTERVAL_MS = 3 * DAY_MS;
 const OFFICIAL_FAILED_RETRY_INTERVAL_MS = DAY_MS;
 const OFFICIAL_OPTIONAL_FAILED_RETRY_INTERVAL_MS = 7 * DAY_MS;
+const OFFICIAL_BACKGROUND_REFRESH_LOCK_TTL_MS = 10 * 60 * 1000;
 
 const DISPLAY_LINE_MAX_WIDTH = {
   medium: 45,
@@ -197,19 +134,12 @@ const mkSpacer = length =>
 
 const pad2 = n => String(n).padStart(2, "0");
 
-const YMD = (y, m, d) =>
-  `${y}/${pad2(m)}/${pad2(d)}`;
+const YMD = (y, m, d) => `${y}/${pad2(m)}/${pad2(d)}`;
 
 const msToYMD = ms => {
   if (!Number.isFinite(ms)) return null;
-
   const date = new Date(ms);
-
-  return YMD(
-    date.getUTCFullYear(),
-    date.getUTCMonth() + 1,
-    date.getUTCDate()
-  );
+  return YMD(date.getUTCFullYear(), date.getUTCMonth() + 1, date.getUTCDate());
 };
 
 const DISPLAY_NAME_MAP = {
@@ -221,41 +151,74 @@ const DISPLAY_NAME_MAP = {
 const displayName = name => DISPLAY_NAME_MAP[name] ?? name;
 
 const holidayNamePartsCache = new Map();
+const holidayNamePartSetCache = new Map();
+const EMPTY_HOLIDAY_NAME_PARTS = Object.freeze([]);
+const EMPTY_HOLIDAY_NAME_PART_SET = new Set();
+
+function clearHolidayNameCachesIfNeeded() {
+  if (holidayNamePartsCache.size > 256) {
+    holidayNamePartsCache.clear();
+    holidayNamePartSetCache.clear();
+  }
+}
 
 function splitHolidayNames(name) {
   const raw = String(name ?? "").trim();
-
-  if (!raw) return [];
+  if (!raw) return EMPTY_HOLIDAY_NAME_PARTS;
 
   const cached = holidayNamePartsCache.get(raw);
+  if (cached) return cached;
 
-  if (cached) {
-    return cached;
-  }
+  clearHolidayNameCachesIfNeeded();
 
-  const parts = raw
-    .split(/[、，,\/]+/)
-    .map(s => s.trim())
-    .filter(Boolean);
-
-  if (holidayNamePartsCache.size > 256) {
-    holidayNamePartsCache.clear();
-  }
+  const parts = Object.freeze(
+    raw
+      .split(/[、，,\/]+/)
+      .map(s => s.trim())
+      .filter(Boolean)
+  );
 
   holidayNamePartsCache.set(raw, parts);
+  holidayNamePartSetCache.set(raw, new Set(parts));
 
   return parts;
 }
 
-function holidayNameIntersects(a, b) {
-  const aParts = splitHolidayNames(a);
-  const bParts = splitHolidayNames(b);
+function getHolidayNamePartSet(name) {
+  const raw = String(name ?? "").trim();
+  if (!raw) return EMPTY_HOLIDAY_NAME_PART_SET;
 
-  if (aParts.length === 0 || bParts.length === 0) {
+  const cached = holidayNamePartSetCache.get(raw);
+  if (cached) return cached;
+
+  splitHolidayNames(raw);
+  return holidayNamePartSetCache.get(raw) || EMPTY_HOLIDAY_NAME_PART_SET;
+}
+
+function partsIntersect(parts, partSet) {
+  if (
+    !Array.isArray(parts) ||
+    parts.length === 0 ||
+    !(partSet instanceof Set) ||
+    partSet.size === 0
+  ) {
     return false;
   }
 
-  return aParts.some(x => bParts.includes(x));
+  return parts.some(part => partSet.has(part));
+}
+
+function addHolidayNameTokens(targetSet, name) {
+  if (!(targetSet instanceof Set)) return;
+
+  for (const part of splitHolidayNames(name)) {
+    targetSet.add(part);
+  }
+}
+
+function holidayNameMatchesTokenSet(name, tokenSet) {
+  if (!(tokenSet instanceof Set) || tokenSet.size === 0) return false;
+  return splitHolidayNames(name).some(part => tokenSet.has(part));
 }
 
 function getSpecialHolidayPriority(name) {
@@ -279,14 +242,15 @@ function getSpecialHolidayPriority(name) {
 }
 
 function getMatchedHolidayNames(name, targetNameSet) {
-  if (!(targetNameSet instanceof Set)) {
-    return [];
-  }
+  if (!(targetNameSet instanceof Set)) return [];
+
+  const nameParts = splitHolidayNames(name);
+  if (nameParts.length === 0) return [];
 
   const matched = [];
 
   for (const targetName of targetNameSet) {
-    if (holidayNameIntersects(name, targetName)) {
+    if (partsIntersect(nameParts, getHolidayNamePartSet(targetName))) {
       matched.push(targetName);
     }
   }
@@ -294,52 +258,13 @@ function getMatchedHolidayNames(name, targetNameSet) {
   return matched;
 }
 
-function hasHolidayNameInSet(nameSet, name) {
-  if (!(nameSet instanceof Set)) {
-    return false;
-  }
-
-  if (nameSet.has(name)) {
-    return true;
-  }
-
-  for (const existingName of nameSet) {
-    if (holidayNameIntersects(existingName, name)) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-function hasHolidayNameInMap(nameMap, name) {
-  if (!(nameMap instanceof Map)) {
-    return false;
-  }
-
-  if (nameMap.has(name)) {
-    return true;
-  }
-
-  for (const existingName of nameMap.keys()) {
-    if (holidayNameIntersects(existingName, name)) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
 const formatPeriodStr = (label, diff, duration = 1) => {
-  if (diff === 0) {
-    return `今日 ${label}`;
-  }
+  if (diff === 0) return `今日 ${label}`;
 
   const total = Math.max(1, Number(duration) || 1);
 
   if (diff < 0 && total > 1) {
     const dayIndex = Math.floor(Math.abs(diff)) + 1;
-
     return dayIndex >= total
       ? `${label}最后一天`
       : `${label}第${dayIndex}天`;
@@ -426,9 +351,7 @@ function buildDisplayCache(result, displayMode = "medium") {
     ? DISPLAY_LINE_MAX_WIDTH.large
     : DISPLAY_LINE_MAX_WIDTH.medium;
 
-  const cache = {
-    mode: displayMode
-  };
+  const cache = { mode: displayMode };
 
   for (const cfg of CATEGORY_CONFIG) {
     const text = buildDisplayText(result, cfg.key, limit);
@@ -447,9 +370,7 @@ function buildLayoutConfig(isLarge) {
     fz: isLarge ? 14 : 13.5,
     icz: isLarge ? 15 : 13.5,
     lw: isLarge ? 60 : 52,
-    maxW: isLarge
-      ? DISPLAY_LINE_MAX_WIDTH.large
-      : DISPLAY_LINE_MAX_WIDTH.medium,
+    maxW: isLarge ? DISPLAY_LINE_MAX_WIDTH.large : DISPLAY_LINE_MAX_WIDTH.medium,
     rowGap: isLarge ? 6 : 4,
     titleFz: isLarge ? 17 : 15,
     titleIcz: isLarge ? 18 : 16,
@@ -771,10 +692,6 @@ function buildEnvFingerprintFromNormalized(normalizedEnv) {
     .join("|");
 }
 
-function buildEnvFingerprint(env) {
-  return buildEnvFingerprintFromNormalized(buildNormalizedEnv(env));
-}
-
 const VALID_CATEGORY_KEYS = new Set(CATEGORY_CONFIG.map(cfg => cfg.key));
 
 function isValidCountdownItem(item) {
@@ -865,12 +782,11 @@ function isValidDisplayCache(displayCache, expectedMode) {
   });
 }
 
-function isValidCachedPayload(payload, expectedDisplayMode) {
+function isValidBaseCachedPayload(payload) {
   if (!payload || typeof payload !== "object") return false;
   if (!payload.result || typeof payload.result !== "object") return false;
   if (!Array.isArray(payload.todayItems)) return false;
   if (!Array.isArray(payload.pinnedData)) return false;
-  if (!isValidDisplayCache(payload.displayCache, expectedDisplayMode)) return false;
 
   if (
     payload.todayNoticeText !== undefined &&
@@ -928,18 +844,12 @@ const isValidISODate = date => parseISODateParts(date) !== null;
 
 const isoToMs = iso => {
   const parts = parseISODateParts(iso);
-
-  return parts
-    ? Date.UTC(parts.y, parts.m - 1, parts.d)
-    : NaN;
+  return parts ? Date.UTC(parts.y, parts.m - 1, parts.d) : NaN;
 };
 
 const isoToYMD = iso => {
   const parts = parseISODateParts(iso);
-
-  return parts
-    ? YMD(parts.y, parts.m, parts.d)
-    : null;
+  return parts ? YMD(parts.y, parts.m, parts.d) : null;
 };
 
 function hashString(str) {
@@ -952,7 +862,7 @@ function hashString(str) {
   return (h >>> 0).toString(36);
 }
 
-const DAILY_CACHE_SCHEMA_VERSION = 12;
+const DAILY_CACHE_SCHEMA_VERSION = 14;
 
 function buildDailyCacheVersion() {
   const staticConfigFingerprint = JSON.stringify({
@@ -971,7 +881,7 @@ function buildDailyCacheVersion() {
 
     officialHolidayStorageVersion: OFFICIAL_HOLIDAY_STORAGE_VERSION,
 
-    cacheBuild: "performance-optimized-v2"
+    cacheBuild: "performance-optimized-v4-base-display-cache"
   });
 
   return `daily:${hashString(staticConfigFingerprint)}`;
@@ -990,6 +900,11 @@ function warnLog(...args) {
     }
   } catch (_) {
   }
+}
+
+function uniqueFiniteNumbers(arr) {
+  return [...new Set((arr || []).map(Number))]
+    .filter(Number.isFinite);
 }
 
 function buildOfficialHolidayRanges(days) {
@@ -1087,9 +1002,7 @@ function normalizeHolidayCnYearData(data, year) {
     .filter(day => Number.isFinite(day.ms))
     .sort((a, b) => a.ms - b.ms);
 
-  return {
-    days
-  };
+  return { days };
 }
 
 function isValidOfficialDay(day) {
@@ -1165,9 +1078,7 @@ function readOfficialHolidayCache(
   storageKey = DEFAULT_OFFICIAL_HOLIDAY_STORAGE_KEY,
   options = {}
 ) {
-  const {
-    sanitize = true
-  } = options || {};
+  const { sanitize = true } = options || {};
 
   try {
     const cache = ctx.storage?.getJSON(storageKey);
@@ -1311,7 +1222,6 @@ function isOfficialCacheFresh(cache, todayIso, currentYear) {
 
 function isOfficialYearRetryBlocked(cache, year, now = Date.now()) {
   const retryAt = Number(cache?.retryAfterByYear?.[String(year)]);
-
   return Number.isFinite(retryAt) && retryAt > now;
 }
 
@@ -1326,16 +1236,12 @@ function normalizeOfficialCachePayload(oldCache, years, currentYear, todayIso) {
 
   return {
     version: OFFICIAL_HOLIDAY_STORAGE_VERSION,
-
     ...(checkedDate ? { checkedDate } : {}),
-
     fingerprint: buildOfficialFingerprint(years),
-
     retryAfterByYear: pruneRetryAfterByYear(
       oldCache?.retryAfterByYear,
       currentYear
     ),
-
     years
   };
 }
@@ -1368,7 +1274,6 @@ async function fetchOfficialHolidayYear(
   }
 
   const requestTimeoutMs = normalizeHttpTimeoutMs(timeoutMs);
-
   const url = `https://raw.githubusercontent.com/NateScarlet/holiday-cn/master/${year}.json`;
 
   const resp = await ctx.http.get(url, {
@@ -1399,11 +1304,11 @@ async function loadOfficialHolidayDaily(
   options = {}
 ) {
   const {
-    httpTimeoutMs = HTTP_TIMEOUT_MS
+    httpTimeoutMs = HTTP_TIMEOUT_MS,
+    includeOptional = true
   } = options || {};
 
   const requestTimeoutMs = normalizeHttpTimeoutMs(httpTimeoutMs);
-
   const oldCache = readOfficialHolidayCache(ctx, storageKey);
 
   if (!ctx.http || !ctx.storage) {
@@ -1411,9 +1316,8 @@ async function loadOfficialHolidayDaily(
   }
 
   const requiredYears = officialRequiredYears(currentYear);
-
+  const optionalYears = officialOptionalYears(currentYear);
   const mergedYears = pruneOfficialYears(oldCache?.years || {}, currentYear);
-
   const retryAfterByYear = pruneRetryAfterByYear(
     oldCache?.retryAfterByYear,
     currentYear
@@ -1440,17 +1344,12 @@ async function loadOfficialHolidayDaily(
     requiredYears
   ).map(Number);
 
-  const optionalYears = officialOptionalYears(currentYear);
   const missingOptionalYears = getMissingOfficialYears(
     mergedYears,
     optionalYears
   ).map(Number);
 
-  const allowOptionalFetch = currentMonth >= 7;
-
-  const uniqueNumbers = arr =>
-    [...new Set(arr.map(Number))]
-      .filter(Number.isFinite);
+  const allowOptionalFetch = includeOptional && currentMonth >= 7;
 
   let fetchCandidates = [];
 
@@ -1461,7 +1360,7 @@ async function loadOfficialHolidayDaily(
   } else if (missingRequiredYears.length > 0) {
     fetchCandidates = [
       ...missingRequiredYears,
-      currentYear,
+      ...(includeOptional ? [currentYear] : []),
       ...(allowOptionalFetch ? missingOptionalYears : [])
     ];
   } else {
@@ -1471,7 +1370,7 @@ async function loadOfficialHolidayDaily(
     ];
   }
 
-  const yearsToFetch = uniqueNumbers(fetchCandidates)
+  const yearsToFetch = uniqueFiniteNumbers(fetchCandidates)
     .filter(year =>
       !isOfficialYearRetryBlocked({ retryAfterByYear }, year, now)
     );
@@ -1485,12 +1384,15 @@ async function loadOfficialHolidayDaily(
     );
 
     try {
-      ctx.storage.setJSON(storageKey, normalizedCache);
+      const shouldSave =
+        oldCache?.fingerprint !== normalizedCache.fingerprint ||
+        oldCache?.checkedDate !== normalizedCache.checkedDate;
+
+      if (shouldSave) {
+        ctx.storage.setJSON(storageKey, normalizedCache);
+      }
     } catch (e) {
-      warnLog(
-        "[Countdown] failed to save normalized official holiday cache:",
-        e
-      );
+      warnLog("[Countdown] failed to save normalized official holiday cache:", e);
     }
 
     return normalizedCache;
@@ -1539,22 +1441,22 @@ async function loadOfficialHolidayDaily(
     ? oldCache.checkedDate
     : undefined;
 
-  const checkedDate = allFetchedRequiredYearsSucceeded
+  const checkedDate = allFetchedRequiredYearsSucceeded ||
+    (
+      fetchedRequiredYears.length === 0 &&
+      isOfficialRequiredReady(mergedYears, currentYear)
+    )
     ? todayIso
     : previousCheckedDate;
 
   const newCache = {
     version: OFFICIAL_HOLIDAY_STORAGE_VERSION,
-
     ...(checkedDate ? { checkedDate } : {}),
-
     fingerprint: buildOfficialFingerprint(mergedYears),
-
     retryAfterByYear: pruneRetryAfterByYear(
       retryAfterByYear,
       currentYear
     ),
-
     years: mergedYears
   };
 
@@ -1598,6 +1500,152 @@ async function safeLoadOfficialHolidayDaily(
 
       return null;
     }
+  }
+}
+
+function getOfficialBackgroundRefreshCandidates(
+  officialHolidayCache,
+  currentYear,
+  todayIso,
+  now = Date.now()
+) {
+  const yearsData = officialHolidayCache?.years;
+  const todayParts = parseISODateParts(todayIso);
+  const currentMonth = todayParts?.m ?? 1;
+
+  const missingRequiredYears = getMissingOfficialYears(
+    yearsData,
+    officialRequiredYears(currentYear)
+  ).map(Number);
+
+  const missingOptionalYears = currentMonth >= 7
+    ? getMissingOfficialYears(
+        yearsData,
+        officialOptionalYears(currentYear)
+      ).map(Number)
+    : [];
+
+  let candidates = [];
+
+  if (missingRequiredYears.length > 0) {
+    candidates = missingRequiredYears;
+  } else {
+    if (!isOfficialCacheFresh(officialHolidayCache, todayIso, currentYear)) {
+      candidates.push(currentYear);
+    }
+
+    candidates.push(...missingOptionalYears);
+  }
+
+  return uniqueFiniteNumbers(candidates)
+    .filter(year =>
+      !isOfficialYearRetryBlocked(officialHolidayCache, year, now)
+    );
+}
+
+function getOfficialRefreshLockKey(storageKey) {
+  return `${storageKey}:refresh_lock`;
+}
+
+function tryAcquireOfficialRefreshLock(ctx, lockKey, now = Date.now()) {
+  if (!ctx.storage) return false;
+
+  try {
+    const lock = ctx.storage.getJSON(lockKey);
+
+    if (
+      lock &&
+      Number.isFinite(Number(lock.expiresAt)) &&
+      Number(lock.expiresAt) > now
+    ) {
+      return false;
+    }
+
+    ctx.storage.setJSON(lockKey, {
+      startedAt: now,
+      expiresAt: now + OFFICIAL_BACKGROUND_REFRESH_LOCK_TTL_MS
+    });
+
+    return true;
+  } catch (e) {
+    warnLog("[Countdown] failed to acquire official refresh lock:", e);
+    return false;
+  }
+}
+
+function releaseOfficialRefreshLock(ctx, lockKey) {
+  if (!ctx.storage) return;
+
+  try {
+    if (typeof ctx.storage.delete === "function") {
+      ctx.storage.delete(lockKey);
+    } else {
+      ctx.storage.setJSON(lockKey, {
+        releasedAt: Date.now(),
+        expiresAt: 0
+      });
+    }
+  } catch (e) {
+    warnLog("[Countdown] failed to release official refresh lock:", e);
+  }
+}
+
+function refreshOfficialHolidayInBackground(
+  ctx,
+  currentYear,
+  todayIso,
+  storageKey,
+  officialHolidayCache
+) {
+  if (!ctx.http || !ctx.storage) {
+    return false;
+  }
+
+  const candidates = getOfficialBackgroundRefreshCandidates(
+    officialHolidayCache,
+    currentYear,
+    todayIso
+  );
+
+  if (candidates.length === 0) {
+    return false;
+  }
+
+  const lockKey = getOfficialRefreshLockKey(storageKey);
+
+  if (!tryAcquireOfficialRefreshLock(ctx, lockKey)) {
+    return false;
+  }
+
+  try {
+    const promise = safeLoadOfficialHolidayDaily(
+      ctx,
+      currentYear,
+      todayIso,
+      storageKey,
+      {
+        httpTimeoutMs: HTTP_TIMEOUT_MS,
+        includeOptional: true
+      }
+    );
+
+    if (promise && typeof promise.then === "function") {
+      promise
+        .catch(e => {
+          warnLog("[Countdown] background official holiday refresh failed:", e);
+        })
+        .finally(() => {
+          releaseOfficialRefreshLock(ctx, lockKey);
+        });
+    } else {
+      releaseOfficialRefreshLock(ctx, lockKey);
+    }
+
+    return true;
+  } catch (e) {
+    releaseOfficialRefreshLock(ctx, lockKey);
+    warnLog("[Countdown] failed to start background official holiday refresh:", e);
+    return false;
   }
 }
 
@@ -1839,16 +1887,16 @@ function mergeLegalHolidays(fallbackLegal, officialLegal) {
     }
 
     const fallbackMs = slashYMDToMs(row?.[1]);
-
     let bestIndex = -1;
     let bestDistance = Infinity;
+    const fallbackPartSet = getHolidayNamePartSet(fallbackName);
 
     for (let i = 0; i < officialRows.length; i++) {
       if (usedOfficialIndexes.has(i)) continue;
 
       const officialName = String(officialRows[i]?.[0] ?? "").trim();
 
-      if (!holidayNameIntersects(officialName, fallbackName)) {
+      if (!partsIntersect(splitHolidayNames(officialName), fallbackPartSet)) {
         continue;
       }
 
@@ -1921,7 +1969,7 @@ function getOfficialDayInfo(officialHolidayCache, todayIso) {
   ) || null;
 }
 
-async function notifyTodayIfNeeded(ctx, notifyKey, notifyDate, todayItems) {
+function notifyTodayIfNeeded(ctx, notifyKey, notifyDate, todayItems) {
   if (
     typeof ctx.notify !== "function" ||
     !ctx.storage ||
@@ -1963,36 +2011,27 @@ async function notifyTodayIfNeeded(ctx, notifyKey, notifyDate, todayItems) {
       return;
     }
 
-    const now = Date.now();
-
     ctx.storage.setJSON(notifyKey, {
       date: notifyDate,
       names: notifyNames,
-      time: now,
+      time: Date.now(),
       pending: false
     });
 
     try {
-      await Promise.resolve(ctx.notify({
+      const maybePromise = ctx.notify({
         title: "✨ 今日提醒",
         body: notifyNames.join("、"),
         sound: true
-      }));
+      });
+
+      if (maybePromise && typeof maybePromise.catch === "function") {
+        maybePromise.catch(e => {
+          warnLog("[Countdown] notify failed:", e);
+        });
+      }
     } catch (e) {
       warnLog("[Countdown] notify failed:", e);
-
-      try {
-        ctx.storage.setJSON(notifyKey, {
-          date: notifyDate,
-          names: notifyNames,
-          time: Date.now(),
-          pending: false,
-          failed: true,
-          failedTime: Date.now()
-        });
-      } catch (saveError) {
-        warnLog("[Countdown] failed to save notify failure state:", saveError);
-      }
     }
   } catch (e) {
     warnLog("[Countdown] notify process failed:", e);
@@ -2109,11 +2148,11 @@ export default async function (ctx = {}) {
     refreshAfter: new Date(nextRefreshMs).toISOString()
   });
 
-  const CACHE_KEY = `${storageScope}:daily:${displayMode}`;
+  const BASE_CACHE_KEY = `${storageScope}:daily:base`;
+  const DISPLAY_CACHE_KEY = `${storageScope}:daily:display:${displayMode}`;
   const NOTIFY_KEY = `${storageScope}:notify:${hashString(envStorageFingerprint)}`;
 
   const CACHE_VERSION = DAILY_CACHE_VERSION_TEXT;
-
   const timePhase = currentHour >= 15 ? "after3pm" : "before3pm";
   const todayStr = `${Y}_${M}_${D}_${timePhase}`;
 
@@ -2122,23 +2161,45 @@ export default async function (ctx = {}) {
       ? `official=${cache.fingerprint}`
       : "official=none";
 
-  const readDailyCache = currentEnvFingerprint => {
+  const readBaseDailyCache = currentEnvFingerprint => {
     if (!ctx.storage) return null;
 
     try {
-      const stored = ctx.storage.getJSON(CACHE_KEY);
+      const stored = ctx.storage.getJSON(BASE_CACHE_KEY);
 
       if (
         stored &&
         stored.version === CACHE_VERSION &&
         stored.date === todayStr &&
         stored.envFingerprint === currentEnvFingerprint &&
-        isValidCachedPayload(stored.payload, displayMode)
+        isValidBaseCachedPayload(stored.payload)
       ) {
         return stored.payload;
       }
     } catch (e) {
-      warnLog("[Countdown] failed to read daily cache:", e);
+      warnLog("[Countdown] failed to read base daily cache:", e);
+    }
+
+    return null;
+  };
+
+  const readDisplayDailyCache = currentEnvFingerprint => {
+    if (!ctx.storage || isSmall) return null;
+
+    try {
+      const stored = ctx.storage.getJSON(DISPLAY_CACHE_KEY);
+
+      if (
+        stored &&
+        stored.version === CACHE_VERSION &&
+        stored.date === todayStr &&
+        stored.envFingerprint === currentEnvFingerprint &&
+        isValidDisplayCache(stored.displayCache, displayMode)
+      ) {
+        return stored.displayCache;
+      }
+    } catch (e) {
+      warnLog("[Countdown] failed to read display daily cache:", e);
     }
 
     return null;
@@ -2155,9 +2216,9 @@ export default async function (ctx = {}) {
   let officialFingerprint = getOfficialFingerprintText(officialHolidayCache);
   let envFingerprint = `${envStorageFingerprint}|${officialFingerprint}`;
 
-  let cachedData = readDailyCache(envFingerprint);
+  let cachedBaseData = readBaseDailyCache(envFingerprint);
 
-  if (!cachedData) {
+  if (!cachedBaseData) {
     const shouldBlockingRefreshOfficialHoliday =
       Boolean(ctx.http && ctx.storage) &&
       !isOfficialRequiredReady(officialHolidayCache?.years, Y);
@@ -2169,18 +2230,27 @@ export default async function (ctx = {}) {
         todayIso,
         officialHolidayStorageKey,
         {
-          httpTimeoutMs: WIDGET_OFFICIAL_HTTP_TIMEOUT_MS
+          httpTimeoutMs: WIDGET_OFFICIAL_HTTP_TIMEOUT_MS,
+          includeOptional: false
         }
       );
 
       officialFingerprint = getOfficialFingerprintText(officialHolidayCache);
       envFingerprint = `${envStorageFingerprint}|${officialFingerprint}`;
 
-      cachedData = readDailyCache(envFingerprint);
+      cachedBaseData = readBaseDailyCache(envFingerprint);
     }
   }
 
-  if (!cachedData && officialHolidayCache?.years) {
+  refreshOfficialHolidayInBackground(
+    ctx,
+    Y,
+    todayIso,
+    officialHolidayStorageKey,
+    officialHolidayCache
+  );
+
+  if (!cachedBaseData && officialHolidayCache?.years) {
     officialHolidayCache = {
       ...officialHolidayCache,
       years: sanitizeOfficialYears(officialHolidayCache.years)
@@ -2193,14 +2263,13 @@ export default async function (ctx = {}) {
   let todayItems;
   let displayCache;
 
-  if (cachedData) {
+  if (cachedBaseData) {
     ({
       result,
       todayNoticeText,
       pinnedData,
-      todayItems,
-      displayCache
-    } = cachedData);
+      todayItems
+    } = cachedBaseData);
   } else {
     const officialRanges = buildOfficialHolidayRangeCache(officialHolidayCache);
 
@@ -2538,8 +2607,10 @@ export default async function (ctx = {}) {
     const todayFinance = [];
     const todayFinanceEnded = [];
     const todayFestSet = new Set();
+    const todayFestTokenSet = new Set();
     const todayItemKeySet = new Set();
     const pinnedMap = new Map();
+    const pinnedTokenSet = new Set();
 
     todayItems = [];
 
@@ -2558,6 +2629,7 @@ export default async function (ctx = {}) {
 
         if (oldPinnedDiff === undefined || diff < oldPinnedDiff) {
           pinnedMap.set(pinnedName, diff);
+          addHolidayNameTokens(pinnedTokenSet, pinnedName);
         }
       }
     };
@@ -2592,8 +2664,9 @@ export default async function (ctx = {}) {
       const priority = getPriority(name, cat, sourceKind);
 
       if (isInFestivalPeriod(diff, duration)) {
-        if (!hasHolidayNameInSet(todayFestSet, name)) {
+        if (!holidayNameMatchesTokenSet(name, todayFestTokenSet)) {
           todayFestSet.add(name);
+          addHolidayNameTokens(todayFestTokenSet, name);
 
           todayFests.push({
             name,
@@ -2716,8 +2789,8 @@ export default async function (ctx = {}) {
     Object.keys(rawResult).forEach(cat => {
       result[cat] = Array.from(rawResult[cat].values())
         .filter(i =>
-          !hasHolidayNameInMap(pinnedMap, i.name) &&
-          !hasHolidayNameInSet(todayFestSet, i.name)
+          !holidayNameMatchesTokenSet(i.name, pinnedTokenSet) &&
+          !holidayNameMatchesTokenSet(i.name, todayFestTokenSet)
         )
         .sort((a, b) => {
           if (a.diff !== b.diff) return a.diff - b.diff;
@@ -2754,32 +2827,44 @@ export default async function (ctx = {}) {
       }))
       .sort((a, b) => a.diff - b.diff);
 
-    displayCache = buildDisplayCache(result, displayMode);
-
     if (ctx.storage) {
       try {
-        const dailyPayload = {
-          result,
-          todayNoticeText,
-          pinnedData,
-          todayItems,
-          displayCache
-        };
-
-        ctx.storage.setJSON(CACHE_KEY, {
+        ctx.storage.setJSON(BASE_CACHE_KEY, {
           version: CACHE_VERSION,
           date: todayStr,
           envFingerprint,
-          payload: dailyPayload
+          payload: {
+            result,
+            todayNoticeText,
+            pinnedData,
+            todayItems
+          }
         });
       } catch (e) {
-        warnLog("[Countdown] failed to save daily cache:", e);
+        warnLog("[Countdown] failed to save base daily cache:", e);
       }
     }
   }
 
-  if (!displayCache || !isValidDisplayCache(displayCache, displayMode)) {
-    displayCache = buildDisplayCache(result, displayMode);
+  if (!isSmall) {
+    displayCache = readDisplayDailyCache(envFingerprint);
+
+    if (!displayCache || !isValidDisplayCache(displayCache, displayMode)) {
+      displayCache = buildDisplayCache(result, displayMode);
+
+      if (ctx.storage) {
+        try {
+          ctx.storage.setJSON(DISPLAY_CACHE_KEY, {
+            version: CACHE_VERSION,
+            date: todayStr,
+            envFingerprint,
+            displayCache
+          });
+        } catch (e) {
+          warnLog("[Countdown] failed to save display daily cache:", e);
+        }
+      }
+    }
   }
 
   const todayItemsByCat = groupTodayItemsByCat(todayItems);
@@ -2787,7 +2872,7 @@ export default async function (ctx = {}) {
   const stickyParts = (pinnedData || []).map(p => `${p.name} ${p.diff}天`);
   const stickyText = stickyParts.join("·");
 
-  await notifyTodayIfNeeded(
+  notifyTodayIfNeeded(
     ctx,
     NOTIFY_KEY,
     `${Y}-${pad2(M)}-${pad2(D)}`,
