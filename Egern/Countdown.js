@@ -348,9 +348,9 @@ function buildDisplayText(result, cat, limit) {
     .join("，");
 }
 
-function buildDisplayCache(result, displayMode = "medium") {
+function buildDisplayCache(result) {
   const limit = 3;
-  const cache = { mode: displayMode };
+  const cache = { mode: "medium" };
 
   for (const cfg of CATEGORY_CONFIG) {
     const text = buildDisplayText(result, cfg.key, limit);
@@ -574,10 +574,9 @@ function sanitizeEnvStringValue(key, value) {
   return raw;
 }
 
-const CACHE_ENV_KEYS = Object.freeze([
+const DATA_ENV_KEYS = Object.freeze([
   "ENABLE_PRIORITY_SORT",
   "ENABLE_EXCLUSIVE_WEIGHT",
-  "ENABLE_WEEKEND_THEME",
 
   "PINNED_HOLIDAY",
 
@@ -596,6 +595,15 @@ const CACHE_ENV_KEYS = Object.freeze([
   "EXCLUSIVE_DATE_5",
   "EXCLUSIVE_NAME_6",
   "EXCLUSIVE_DATE_6"
+]);
+
+const RENDER_ENV_KEYS = Object.freeze([
+  "ENABLE_WEEKEND_THEME"
+]);
+
+const CACHE_ENV_KEYS = Object.freeze([
+  ...DATA_ENV_KEYS,
+  ...RENDER_ENV_KEYS
 ]);
 
 const CACHE_BOOL_ENV_KEYS = new Set([
@@ -661,8 +669,11 @@ function buildNormalizedEnv(env) {
   return normalized;
 }
 
-function buildEnvFingerprintFromNormalized(normalizedEnv) {
-  return CACHE_ENV_KEYS
+function buildEnvFingerprintFromNormalized(
+  normalizedEnv,
+  keys = CACHE_ENV_KEYS
+) {
+  return keys
     .map(key => `${key}=${normalizedEnv?.[key] ?? ""}`)
     .join("|");
 }
@@ -733,15 +744,12 @@ function isValidStringArray(arr) {
   return Array.isArray(arr) && arr.every(v => typeof v === "string");
 }
 
-function isValidDisplayCache(displayCache, expectedMode) {
+function isValidDisplayCache(displayCache) {
   if (!displayCache || typeof displayCache !== "object") {
     return false;
   }
 
-  if (
-    expectedMode &&
-    displayCache.mode !== expectedMode
-  ) {
+  if (displayCache.mode !== "medium") {
     return false;
   }
 
@@ -775,6 +783,10 @@ function isValidBaseCachedPayload(payload) {
   }
 
   if (!payload.pinnedData.every(isValidPinnedItem)) {
+    return false;
+  }
+
+  if (!isValidDisplayCache(payload.displayCache)) {
     return false;
   }
 
@@ -836,7 +848,7 @@ function hashString(str) {
   return (h >>> 0).toString(36);
 }
 
-const DAILY_CACHE_SCHEMA_VERSION = 16;
+const DAILY_CACHE_SCHEMA_VERSION = 17;
 const DAILY_CACHE_VERSION_TEXT = `daily:v${DAILY_CACHE_SCHEMA_VERSION}:medium`;
 
 function warnLog(...args) {
@@ -1014,9 +1026,7 @@ function normalizeCachedOfficialYearData(yearData) {
 
   const days = yearData.days
     .map(day => {
-      const ms = Number.isFinite(Number(day.ms))
-        ? Number(day.ms)
-        : isoToMs(day.date);
+      const ms = isoToMs(day.date);
 
       return {
         name: day.name.trim(),
@@ -1518,46 +1528,6 @@ async function safeLoadOfficialHolidayDaily(
   }
 }
 
-function getOfficialBackgroundRefreshCandidates(
-  officialHolidayCache,
-  currentYear,
-  todayIso,
-  now = Date.now()
-) {
-  const yearsData = officialHolidayCache?.years;
-  const todayParts = parseISODateParts(todayIso);
-  const currentMonth = todayParts?.m ?? 1;
-
-  const missingRequiredYears = getMissingOfficialYears(
-    yearsData,
-    officialRequiredYears(currentYear)
-  ).map(Number);
-
-  const missingOptionalYears = currentMonth >= 7
-    ? getMissingOfficialYears(
-        yearsData,
-        officialOptionalYears(currentYear)
-      ).map(Number)
-    : [];
-
-  let candidates = [];
-
-  if (missingRequiredYears.length > 0) {
-    candidates = missingRequiredYears;
-  } else {
-    if (!isOfficialCacheFresh(officialHolidayCache, todayIso, currentYear)) {
-      candidates.push(currentYear);
-    }
-
-    candidates.push(...missingOptionalYears);
-  }
-
-  return uniqueFiniteNumbers(candidates)
-    .filter(year =>
-      !isOfficialYearRetryBlocked(officialHolidayCache, year, now)
-    );
-}
-
 function getOfficialRefreshLockKey(storageKey) {
   return `${storageKey}:refresh_lock`;
 }
@@ -1613,67 +1583,6 @@ function releaseOfficialRefreshLock(ctx, lockKey, owner) {
     }
   } catch (e) {
     warnLog("[Countdown] failed to release official refresh lock:", e);
-  }
-}
-
-function refreshOfficialHolidayInBackground(
-  ctx,
-  currentYear,
-  todayIso,
-  storageKey,
-  officialHolidayCache
-) {
-  if (!ctx.http || !ctx.storage) {
-    return false;
-  }
-
-  const candidates = getOfficialBackgroundRefreshCandidates(
-    officialHolidayCache,
-    currentYear,
-    todayIso
-  );
-
-  if (candidates.length === 0) {
-    return false;
-  }
-
-  const lockKey = getOfficialRefreshLockKey(storageKey);
-  const lockOwner = tryAcquireOfficialRefreshLock(ctx, lockKey);
-
-  if (!lockOwner) {
-    return false;
-  }
-
-  try {
-    const promise = safeLoadOfficialHolidayDaily(
-      ctx,
-      currentYear,
-      todayIso,
-      storageKey,
-      {
-        httpTimeoutMs: HTTP_TIMEOUT_MS,
-        includeOptional: true,
-        forceYearsToFetch: candidates
-      }
-    );
-
-    if (promise && typeof promise.then === "function") {
-      promise
-        .catch(e => {
-          warnLog("[Countdown] background official holiday refresh failed:", e);
-        })
-        .finally(() => {
-          releaseOfficialRefreshLock(ctx, lockKey, lockOwner);
-        });
-    } else {
-      releaseOfficialRefreshLock(ctx, lockKey, lockOwner);
-    }
-
-    return true;
-  } catch (e) {
-    releaseOfficialRefreshLock(ctx, lockKey, lockOwner);
-    warnLog("[Countdown] failed to start background official holiday refresh:", e);
-    return false;
   }
 }
 
@@ -2008,28 +1917,6 @@ function notifyTodayIfNeeded(ctx, notifyKey, notifyDate, todayItems) {
   }
 
   try {
-    const now = Date.now();
-    const currentNotifyState = ctx.storage.getJSON(notifyKey) || {};
-
-    if (currentNotifyState.date === notifyDate) {
-      const pending = currentNotifyState.pending === true;
-      const failed = currentNotifyState.failed === true;
-      const lastTime = Number(currentNotifyState.time) || 0;
-      const retryAfter = Number(currentNotifyState.retryAfter) || 0;
-
-      if (!pending && !failed) {
-        return;
-      }
-
-      if (pending && now - lastTime < NOTIFY_PENDING_TTL_MS) {
-        return;
-      }
-
-      if (failed && retryAfter > now) {
-        return;
-      }
-    }
-
     const notifyItems = todayItems
       .filter(i => i && i.diff === 0 && i.status !== "ended")
       .sort((a, b) => {
@@ -2053,6 +1940,37 @@ function notifyTodayIfNeeded(ctx, notifyKey, notifyDate, todayItems) {
 
     if (notifyNames.length === 0) {
       return;
+    }
+
+    const sameStringArray = (a, b) =>
+      Array.isArray(a) &&
+      Array.isArray(b) &&
+      a.length === b.length &&
+      a.every((v, i) => v === b[i]);
+
+    const now = Date.now();
+    const currentNotifyState = ctx.storage.getJSON(notifyKey) || {};
+
+    if (
+      currentNotifyState.date === notifyDate &&
+      sameStringArray(currentNotifyState.names, notifyNames)
+    ) {
+      const pending = currentNotifyState.pending === true;
+      const failed = currentNotifyState.failed === true;
+      const lastTime = Number(currentNotifyState.time) || 0;
+      const retryAfter = Number(currentNotifyState.retryAfter) || 0;
+
+      if (!pending && !failed) {
+        return;
+      }
+
+      if (pending && now - lastTime < NOTIFY_PENDING_TTL_MS) {
+        return;
+      }
+
+      if (failed && retryAfter > now) {
+        return;
+      }
     }
 
     const markPending = () => {
@@ -2103,9 +2021,7 @@ function notifyTodayIfNeeded(ctx, notifyKey, notifyDate, todayItems) {
 
       if (maybePromise && typeof maybePromise.then === "function") {
         maybePromise
-          .then(() => {
-            markSuccess();
-          })
+          .then(markSuccess)
           .catch(markFailed);
       } else {
         markSuccess();
@@ -2127,8 +2043,8 @@ export default async function (ctx = {}) {
   const officialHolidayStorageKey =
     `${storageScope}:official_holidays:v${OFFICIAL_HOLIDAY_STORAGE_VERSION}`;
 
-  const envStorageFingerprint =
-    buildEnvFingerprintFromNormalized(normalizedEnv);
+  const dataEnvStorageFingerprint =
+    buildEnvFingerprintFromNormalized(normalizedEnv, DATA_ENV_KEYS);
 
   const getBool = (key, defaultVal = true) => {
     const value = normalizedEnv[key];
@@ -2170,21 +2086,15 @@ export default async function (ctx = {}) {
     return mkUnsupportedWidget("暂不支持 Extra Large", { maxLines: 2 });
   }
 
-  const displayMode = "medium";
-
   const bjDate = new Date(Date.now() + 8 * 3600000);
   const Y = bjDate.getUTCFullYear();
   const M = bjDate.getUTCMonth() + 1;
   const D = bjDate.getUTCDate();
-  const currentHour = bjDate.getUTCHours();
   const currentDay = bjDate.getUTCDay();
   const todayMs = Date.UTC(Y, M - 1, D);
   const todayIso = `${Y}-${pad2(M)}-${pad2(D)}`;
 
-  const nextRefreshMs =
-    currentHour < 15
-      ? Date.UTC(Y, M - 1, D, 15, 1) - 8 * 3600000
-      : Date.UTC(Y, M - 1, D + 1, 0, 1) - 8 * 3600000;
+  const nextRefreshMs = Date.UTC(Y, M - 1, D + 1, 0, 1) - 8 * 3600000;
 
   const withRefresh = widget => ({
     ...widget,
@@ -2192,12 +2102,10 @@ export default async function (ctx = {}) {
   });
 
   const BASE_CACHE_KEY = `${storageScope}:daily:base`;
-  const DISPLAY_CACHE_KEY = `${storageScope}:daily:display:${displayMode}`;
-  const NOTIFY_KEY = `${storageScope}:notify:${hashString(envStorageFingerprint)}`;
+  const NOTIFY_KEY = `${storageScope}:notify`;
 
   const CACHE_VERSION = DAILY_CACHE_VERSION_TEXT;
-  const timePhase = currentHour >= 15 ? "after3pm" : "before3pm";
-  const todayStr = `${Y}_${M}_${D}_${timePhase}`;
+  const todayStr = `${Y}_${M}_${D}`;
 
   const getOfficialFingerprintText = cache =>
     cache?.fingerprint
@@ -2226,28 +2134,6 @@ export default async function (ctx = {}) {
     return null;
   };
 
-  const readDisplayDailyCache = currentEnvFingerprint => {
-    if (!ctx.storage) return null;
-
-    try {
-      const stored = ctx.storage.getJSON(DISPLAY_CACHE_KEY);
-
-      if (
-        stored &&
-        stored.version === CACHE_VERSION &&
-        stored.date === todayStr &&
-        stored.envFingerprint === currentEnvFingerprint &&
-        isValidDisplayCache(stored.displayCache, displayMode)
-      ) {
-        return stored.displayCache;
-      }
-    } catch (e) {
-      warnLog("[Countdown] failed to read display daily cache:", e);
-    }
-
-    return null;
-  };
-
   let officialHolidayCache = readOfficialHolidayCache(
     ctx,
     officialHolidayStorageKey,
@@ -2257,7 +2143,7 @@ export default async function (ctx = {}) {
   );
 
   let officialFingerprint = getOfficialFingerprintText(officialHolidayCache);
-  let envFingerprint = `${envStorageFingerprint}|${officialFingerprint}`;
+  let envFingerprint = `${dataEnvStorageFingerprint}|${officialFingerprint}`;
 
   let cachedBaseData = readBaseDailyCache(envFingerprint);
 
@@ -2288,7 +2174,7 @@ export default async function (ctx = {}) {
           );
 
           officialFingerprint = getOfficialFingerprintText(officialHolidayCache);
-          envFingerprint = `${envStorageFingerprint}|${officialFingerprint}`;
+          envFingerprint = `${dataEnvStorageFingerprint}|${officialFingerprint}`;
 
           cachedBaseData = readBaseDailyCache(envFingerprint);
         } finally {
@@ -2304,20 +2190,12 @@ export default async function (ctx = {}) {
         );
 
         officialFingerprint = getOfficialFingerprintText(officialHolidayCache);
-        envFingerprint = `${envStorageFingerprint}|${officialFingerprint}`;
+        envFingerprint = `${dataEnvStorageFingerprint}|${officialFingerprint}`;
 
         cachedBaseData = readBaseDailyCache(envFingerprint);
       }
     }
   }
-
-  refreshOfficialHolidayInBackground(
-    ctx,
-    Y,
-    todayIso,
-    officialHolidayStorageKey,
-    officialHolidayCache
-  );
 
   if (!cachedBaseData && officialHolidayCache?.years) {
     officialHolidayCache = {
@@ -2337,7 +2215,8 @@ export default async function (ctx = {}) {
       result,
       todayNoticeText,
       pinnedData,
-      todayItems
+      todayItems,
+      displayCache
     } = cachedBaseData);
   } else {
     const officialRanges = buildOfficialHolidayRangeCache(officialHolidayCache);
@@ -2727,6 +2606,8 @@ export default async function (ctx = {}) {
       }))
       .sort((a, b) => a.diff - b.diff);
 
+    displayCache = buildDisplayCache(result);
+
     if (ctx.storage) {
       try {
         ctx.storage.setJSON(BASE_CACHE_KEY, {
@@ -2737,7 +2618,8 @@ export default async function (ctx = {}) {
             result,
             todayNoticeText,
             pinnedData,
-            todayItems
+            todayItems,
+            displayCache
           }
         });
       } catch (e) {
@@ -2746,23 +2628,8 @@ export default async function (ctx = {}) {
     }
   }
 
-  displayCache = readDisplayDailyCache(envFingerprint);
-
-  if (!displayCache || !isValidDisplayCache(displayCache, displayMode)) {
-    displayCache = buildDisplayCache(result, displayMode);
-
-    if (ctx.storage) {
-      try {
-        ctx.storage.setJSON(DISPLAY_CACHE_KEY, {
-          version: CACHE_VERSION,
-          date: todayStr,
-          envFingerprint,
-          displayCache
-        });
-      } catch (e) {
-        warnLog("[Countdown] failed to save display daily cache:", e);
-      }
-    }
+  if (!displayCache || !isValidDisplayCache(displayCache)) {
+    displayCache = buildDisplayCache(result);
   }
 
   const stickyParts = (pinnedData || []).map(p => `${p.name} ${p.diff}天`);
