@@ -14,6 +14,10 @@
  *
  * 🔗 作者: https://github.com/jnlaoshu/MySelf/tree/1c35eedff4e052e7dc4e9d87105e32f2490617cf/Egern/Widget
  * ⏱️ 更新时间: 2026.04.01 01:40
+ *
+ * 🛠️ 本版本调整：
+ * • 优化官方节假日刷新流程：优先读取 daily cache，命中后不再等待网络刷新，降低 Widget 渲染阻塞。
+ * • 优化 gridRowsCache：不再缓存 Widget DSL 派生结构 gridRows，改为每次渲染时即时生成，降低缓存污染与兼容风险。
  * =========================================
  */
 
@@ -500,19 +504,6 @@ function buildGridRows(displayCache, result, layoutConfig, isLarge) {
   });
 }
 
-function isValidGridRowsCache(rows) {
-  return (
-    Array.isArray(rows) &&
-    rows.length <= 32 &&
-    rows.every(row =>
-      row &&
-      typeof row === "object" &&
-      row.type === "stack" &&
-      Array.isArray(row.children)
-    )
-  );
-}
-
 function groupTodayItemsByCat(items) {
   const grouped = {};
 
@@ -857,13 +848,6 @@ function isValidCachedPayload(payload, expectedDisplayMode) {
   if (!Array.isArray(payload.todayItems)) return false;
   if (!Array.isArray(payload.pinnedData)) return false;
   if (!isValidDisplayCache(payload.displayCache, expectedDisplayMode)) return false;
-
-  if (
-    payload.gridRows !== undefined &&
-    !isValidGridRowsCache(payload.gridRows)
-  ) {
-    return false;
-  }
 
   if (
     payload.todayNoticeText !== undefined &&
@@ -2100,50 +2084,63 @@ export default async function (ctx = {}) {
     return null;
   };
 
+  /**
+   * 优化：
+   * - 先读取本地官方节假日缓存；
+   * - 基于当前官方缓存 fingerprint 先尝试读取 daily cache；
+   * - 如果 daily cache 命中，直接渲染，不再等待 GitHub Raw 网络请求；
+   * - 只有 daily cache 未命中时，才尝试刷新官方节假日数据。
+   */
   let officialHolidayCache = readOfficialHolidayCache(
     ctx,
     officialHolidayStorageKey
   );
-
-  const optionalOfficialMissing =
-    M >= 7 &&
-    getMissingOfficialYears(
-      officialHolidayCache?.years,
-      officialOptionalYears(Y)
-    ).length > 0;
-
-  const shouldRefreshOfficialHoliday =
-    Boolean(ctx.http && ctx.storage) &&
-    (
-      !officialHolidayCache ||
-      !isOfficialRequiredReady(officialHolidayCache.years, Y) ||
-      !isOfficialCacheFresh(officialHolidayCache, todayIso, Y) ||
-      optionalOfficialMissing
-    );
-
-  if (shouldRefreshOfficialHoliday) {
-    officialHolidayCache = await safeLoadOfficialHolidayDaily(
-      ctx,
-      Y,
-      todayIso,
-      officialHolidayStorageKey,
-      {
-        httpTimeoutMs: WIDGET_OFFICIAL_HTTP_TIMEOUT_MS
-      }
-    );
-  }
 
   let officialFingerprint = getOfficialFingerprintText(officialHolidayCache);
   let envFingerprint = `${envStorageFingerprint}|${officialFingerprint}`;
 
   let cachedData = readDailyCache(envFingerprint);
 
+  if (!cachedData) {
+    const optionalOfficialMissing =
+      M >= 7 &&
+      getMissingOfficialYears(
+        officialHolidayCache?.years,
+        officialOptionalYears(Y)
+      ).length > 0;
+
+    const shouldRefreshOfficialHoliday =
+      Boolean(ctx.http && ctx.storage) &&
+      (
+        !officialHolidayCache ||
+        !isOfficialRequiredReady(officialHolidayCache.years, Y) ||
+        !isOfficialCacheFresh(officialHolidayCache, todayIso, Y) ||
+        optionalOfficialMissing
+      );
+
+    if (shouldRefreshOfficialHoliday) {
+      officialHolidayCache = await safeLoadOfficialHolidayDaily(
+        ctx,
+        Y,
+        todayIso,
+        officialHolidayStorageKey,
+        {
+          httpTimeoutMs: WIDGET_OFFICIAL_HTTP_TIMEOUT_MS
+        }
+      );
+
+      officialFingerprint = getOfficialFingerprintText(officialHolidayCache);
+      envFingerprint = `${envStorageFingerprint}|${officialFingerprint}`;
+
+      cachedData = readDailyCache(envFingerprint);
+    }
+  }
+
   let result;
   let todayNoticeText;
   let pinnedData;
   let todayItems;
   let displayCache;
-  let gridRowsCache;
 
   if (cachedData) {
     ({
@@ -2151,8 +2148,7 @@ export default async function (ctx = {}) {
       todayNoticeText,
       pinnedData,
       todayItems,
-      displayCache,
-      gridRows: gridRowsCache
+      displayCache
     } = cachedData);
   } else {
     const officialRanges = buildOfficialHolidayRangeCache(officialHolidayCache);
@@ -2702,12 +2698,15 @@ export default async function (ctx = {}) {
 
     displayCache = buildDisplayCache(result, displayMode);
 
-    const layoutConfigForCache = buildLayoutConfig(isLarge);
-
-    gridRowsCache = isSmall
-      ? []
-      : buildGridRows(displayCache, result, layoutConfigForCache, isLarge);
-
+    /**
+     * 优化：
+     * daily cache 不再缓存 gridRows。
+     *
+     * gridRows 是 Widget DSL 派生结构：
+     * - 可由 result + displayCache 快速生成；
+     * - 缓存 DSL 会增加 storage 体积；
+     * - 缓存 DSL 还可能造成 Egern DSL 版本兼容风险。
+     */
     if (ctx.storage) {
       try {
         const dailyPayload = {
@@ -2717,10 +2716,6 @@ export default async function (ctx = {}) {
           todayItems,
           displayCache
         };
-
-        if (isValidGridRowsCache(gridRowsCache)) {
-          dailyPayload.gridRows = gridRowsCache;
-        }
 
         ctx.storage.setJSON(CACHE_KEY, {
           version: CACHE_VERSION,
@@ -2736,14 +2731,6 @@ export default async function (ctx = {}) {
 
   if (!displayCache || !isValidDisplayCache(displayCache, displayMode)) {
     displayCache = buildDisplayCache(result, displayMode);
-  }
-
-  if (!isValidGridRowsCache(gridRowsCache)) {
-    const layoutConfigForGrid = buildLayoutConfig(isLarge);
-
-    gridRowsCache = isSmall
-      ? []
-      : buildGridRows(displayCache, result, layoutConfigForGrid, isLarge);
   }
 
   const todayItemsByCat = groupTodayItemsByCat(todayItems);
@@ -2927,9 +2914,11 @@ export default async function (ctx = {}) {
 
   const layoutConfig = buildLayoutConfig(isLarge);
 
-  const gridRows = isValidGridRowsCache(gridRowsCache)
-    ? gridRowsCache
-    : buildGridRows(displayCache, result, layoutConfig, isLarge);
+  /**
+   * gridRows 不再从 daily cache 中读取。
+   * 每次渲染时由 displayCache + result 即时构建。
+   */
+  const gridRows = buildGridRows(displayCache, result, layoutConfig, isLarge);
 
   const rightHeaderElements = [];
 
