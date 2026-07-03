@@ -96,9 +96,18 @@ const OFFICIAL_BACKGROUND_REFRESH_LOCK_TTL_MS = 10 * 60 * 1000;
 const NOTIFY_PENDING_TTL_MS = 2 * 60 * 1000;
 const NOTIFY_FAILED_RETRY_INTERVAL_MS = 10 * 60 * 1000;
 
-const DISPLAY_LINE_MAX_WIDTH = {
-  medium: 45
-};
+const DISPLAY_MAX_WIDTH = 45;
+
+const LAYOUT_CONFIG = Object.freeze({
+  fz: 13.5,
+  icz: 13.5,
+  lw: 52,
+  maxW: DISPLAY_MAX_WIDTH,
+  rowGap: 4,
+  titleFz: 15,
+  titleIcz: 16,
+  topFz: 12.5
+});
 
 const mkText = (text, size, weight, color, opts = {}) => ({
   type: "text",
@@ -271,15 +280,12 @@ const formatPeriodStr = (label, diff, duration = 1) => {
   return `${label} ${diff}天`;
 };
 
-const formatItemStr = (name, diff, duration = 1) =>
-  formatPeriodStr(displayName(name), diff, duration);
-
 const formatDisplayItem = item => {
   if (item?.status === "ended") {
     return `${displayName(item.name)}已结束`;
   }
 
-  return formatItemStr(item.name, item.diff, item.duration);
+  return formatPeriodStr(displayName(item.name), item.diff, item.duration);
 };
 
 const formatTodayFestGroup = items => {
@@ -344,8 +350,6 @@ function buildDisplayText(result, cat, limit) {
 
 function buildDisplayCache(result, displayMode = "medium") {
   const limit = 3;
-  const maxWidth = DISPLAY_LINE_MAX_WIDTH.medium;
-
   const cache = { mode: displayMode };
 
   for (const cfg of CATEGORY_CONFIG) {
@@ -353,24 +357,11 @@ function buildDisplayCache(result, displayMode = "medium") {
 
     cache[cfg.key] = {
       text,
-      lines: splitTextToLines(text, maxWidth)
+      lines: splitTextToLines(text, DISPLAY_MAX_WIDTH)
     };
   }
 
   return cache;
-}
-
-function buildLayoutConfig() {
-  return {
-    fz: 13.5,
-    icz: 13.5,
-    lw: 52,
-    maxW: DISPLAY_LINE_MAX_WIDTH.medium,
-    rowGap: 4,
-    titleFz: 15,
-    titleIcz: 16,
-    topFz: 12.5
-  };
 }
 
 function buildGridRows(displayCache, result, layoutConfig) {
@@ -425,6 +416,30 @@ function buildGridRows(displayCache, result, layoutConfig) {
       ]
     }));
   });
+}
+
+function mkUnsupportedWidget(title, textOpts = {}) {
+  return {
+    type: "widget",
+    padding: 12,
+    backgroundGradient: getBackgroundGradient("workday"),
+    children: [
+      mkRow([
+        mkIcon("exclamationmark.triangle.fill", C.red, 16),
+        mkText(title, 14, "heavy", C.main)
+      ], 6),
+
+      mkSpacer(8),
+
+      mkText(
+        "请使用桌面 Medium 小组件",
+        12,
+        "medium",
+        C.sub,
+        textOpts
+      )
+    ]
+  };
 }
 
 const Lunar = {
@@ -1425,7 +1440,7 @@ async function loadOfficialHolidayDaily(
     }
   }
 
-   const fetchedRequiredYears = yearsToFetch
+  const fetchedRequiredYears = yearsToFetch
     .filter(year => requiredYears.includes(year))
     .map(String);
 
@@ -2149,53 +2164,11 @@ export default async function (ctx = {}) {
     family.includes("lock-screen");
 
   if (isLockScreenFamily) {
-    return {
-      type: "widget",
-      padding: 12,
-      backgroundGradient: getBackgroundGradient("workday"),
-      children: [
-        mkRow([
-          mkIcon("exclamationmark.triangle.fill", C.red, 16),
-          mkText("不支持锁屏组件", 14, "heavy", C.main)
-        ], 6),
-
-        mkSpacer(8),
-
-        mkText(
-          "请使用桌面 Medium 小组件",
-          12,
-          "medium",
-          C.sub
-        )
-      ]
-    };
+    return mkUnsupportedWidget("不支持锁屏组件");
   }
 
-  const isSmall = family === "systemsmall";
-  const isLarge = family === "systemlarge";
-
-  if (isSmall || isLarge) {
-    return {
-      type: "widget",
-      padding: 12,
-      backgroundGradient: getBackgroundGradient("workday"),
-      children: [
-        mkRow([
-          mkIcon("exclamationmark.triangle.fill", C.red, 16),
-          mkText("仅支持 Medium 组件", 14, "heavy", C.main)
-        ], 6),
-
-        mkSpacer(8),
-
-        mkText(
-          "请使用桌面 Medium 小组件",
-          12,
-          "medium",
-          C.sub,
-          { maxLines: 2 }
-        )
-      ]
-    };
+  if (family === "systemsmall" || family === "systemlarge") {
+    return mkUnsupportedWidget("仅支持 Medium 组件", { maxLines: 2 });
   }
 
   const isExtraLarge =
@@ -2204,27 +2177,7 @@ export default async function (ctx = {}) {
     family.includes("extra-large");
 
   if (isExtraLarge) {
-    return {
-      type: "widget",
-      padding: 12,
-      backgroundGradient: getBackgroundGradient("workday"),
-      children: [
-        mkRow([
-          mkIcon("exclamationmark.triangle.fill", C.red, 16),
-          mkText("暂不支持 Extra Large", 14, "heavy", C.main)
-        ], 6),
-
-        mkSpacer(8),
-
-        mkText(
-          "请使用桌面 Medium 小组件",
-          12,
-          "medium",
-          C.sub,
-          { maxLines: 2 }
-        )
-      ]
-    };
+    return mkUnsupportedWidget("暂不支持 Extra Large", { maxLines: 2 });
   }
 
   const displayMode = "medium";
@@ -2476,6 +2429,14 @@ export default async function (ctx = {}) {
       })
       .filter(item => item.name && item.spec);
 
+    const annualCustomDays = customDays.filter(
+      item => item.spec.type === "annual"
+    );
+
+    const onceCustomDays = customDays.filter(
+      item => item.spec.type === "once"
+    );
+
     const lunarToSolarCache = new Map();
 
     const l2s = (y, m, d) => {
@@ -2575,18 +2536,16 @@ export default async function (ctx = {}) {
       return {
         legal,
 
-        exclusive: customDays
-          .filter(item => item.spec.type === "annual")
-          .map(item => {
-            const { month, day } = item.spec;
+        exclusive: annualCustomDays.map(item => {
+          const { month, day } = item.spec;
 
-            return [
-              item.name,
-              isValidMonthDay(y, month, day) ? YMD(y, month, day) : null,
-              1,
-              "custom"
-            ];
-          }),
+          return [
+            item.name,
+            isValidMonthDay(y, month, day) ? YMD(y, month, day) : null,
+            1,
+            "custom"
+          ];
+        }),
 
         folk: [
           ["元宵节", l2s(y, 1, 15), 1],
@@ -2739,9 +2698,7 @@ export default async function (ctx = {}) {
       }
     }
 
-    for (const item of customDays) {
-      if (item.spec.type !== "once") continue;
-
+    for (const item of onceCustomDays) {
       const { year, month, day } = item.spec;
 
       addFestival(
@@ -2768,13 +2725,9 @@ export default async function (ctx = {}) {
         .slice(0, 7);
     });
 
-    const todayNoticeParts = [];
-
-    if (todayFests.length > 0) {
-      todayNoticeParts.push(formatTodayFestGroup(todayFests));
-    }
-
-    todayNoticeText = todayNoticeParts.join(" ｜ ");
+    todayNoticeText = todayFests.length > 0
+      ? formatTodayFestGroup(todayFests)
+      : "";
 
     pinnedData = pinnedHolidays
       .filter(n => pinnedMap.has(n))
@@ -2856,7 +2809,7 @@ export default async function (ctx = {}) {
 
   const backgroundGradient = getBackgroundGradient(themeKey);
 
-  const layoutConfig = buildLayoutConfig();
+  const layoutConfig = LAYOUT_CONFIG;
 
   const gridRows = buildGridRows(displayCache, result, layoutConfig);
 
