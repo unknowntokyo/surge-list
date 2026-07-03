@@ -12,12 +12,16 @@
  * • 状态响应：根据工作日、周末、节假日当天状态切换背景渐变色；当天节日提示于中大号标题栏显示，小号于分类行内显示。
  * • 当天提醒：节日 / 专属日期 / 金融日期当天弹窗提醒，每天只弹一次。
  *
- * 🔗 作者: https://github.com/jnlaoshu/MySelf/tree/1c35eedff4e052e7dc4e9d87105e32f2490617cf/Egern/Widget
- * ⏱️ 更新时间: 2026.04.01 01:40
- *
- * 🛠️ 本版本调整：
- * • 优化官方节假日刷新流程：优先读取 daily cache，命中后不再等待网络刷新，降低 Widget 渲染阻塞。
- * • 优化 gridRowsCache：不再缓存 Widget DSL 派生结构 gridRows，改为每次渲染时即时生成，降低缓存污染与兼容风险。
+ * 🛠️ 本版本性能优化：
+ * • 移除通知抢占锁 250ms 固定等待，避免阻塞 Widget 渲染。
+ * • Widget 渲染链路只在必需官方年份缺失时阻塞网络；stale / optional 刷新不再阻塞。
+ * • daily cache 从 layoutMode 改为 displayMode，Small / Medium 共享缓存。
+ * • 官方假期缓存支持 lazy sanitize，daily cache 命中时不再完整 sanitize。
+ * • getOfficialDayInfo 只查询当天所属年份。
+ * • 节日名称 split 结果增加 memo cache。
+ * • 删除未使用变量 requestYears。
+ * • daily cache version 改为模块级静态计算。
+ * • 环境变量 normalize 后复用，减少重复 sanitize / parse。
  * =========================================
  */
 
@@ -150,11 +154,7 @@ const HTTP_TIMEOUT_MS = 5000;
 
 /**
  * Widget 渲染链路中的官方假期请求超时。
- *
- * 目的：
- * - 避免 GitHub Raw 网络异常导致小组件渲染最长等待 5 秒；
- * - Widget 场景优先保证快速返回 DSL；
- * - HTTP_TIMEOUT_MS 仍保留给未来 schedule / 非渲染阻塞场景。
+ * 仅在必需年份缺失时使用，stale / optional 刷新不再阻塞 Widget 渲染。
  */
 const WIDGET_OFFICIAL_HTTP_TIMEOUT_MS = 1500;
 
@@ -162,17 +162,10 @@ const OFFICIAL_REFRESH_INTERVAL_MS = 3 * DAY_MS;
 const OFFICIAL_FAILED_RETRY_INTERVAL_MS = DAY_MS;
 const OFFICIAL_OPTIONAL_FAILED_RETRY_INTERVAL_MS = 7 * DAY_MS;
 
-const NOTIFY_CLAIM_SETTLE_MS = 250;
-
 const DISPLAY_LINE_MAX_WIDTH = {
   medium: 45,
   large: 36
 };
-
-const delay = ms =>
-  typeof setTimeout === "function"
-    ? new Promise(resolve => setTimeout(resolve, ms))
-    : Promise.resolve();
 
 const mkText = (text, size, weight, color, opts = {}) => ({
   type: "text",
@@ -227,15 +220,31 @@ const DISPLAY_NAME_MAP = {
 
 const displayName = name => DISPLAY_NAME_MAP[name] ?? name;
 
+const holidayNamePartsCache = new Map();
+
 function splitHolidayNames(name) {
   const raw = String(name ?? "").trim();
 
   if (!raw) return [];
 
-  return raw
+  const cached = holidayNamePartsCache.get(raw);
+
+  if (cached) {
+    return cached;
+  }
+
+  const parts = raw
     .split(/[、，,\/]+/)
     .map(s => s.trim())
     .filter(Boolean);
+
+  if (holidayNamePartsCache.size > 256) {
+    holidayNamePartsCache.clear();
+  }
+
+  holidayNamePartsCache.set(raw, parts);
+
+  return parts;
 }
 
 function holidayNameIntersects(a, b) {
@@ -746,10 +755,24 @@ function normalizeCacheEnvValue(key, value) {
   return s;
 }
 
-function buildEnvFingerprint(env) {
+function buildNormalizedEnv(env) {
+  const normalized = {};
+
+  for (const key of CACHE_ENV_KEYS) {
+    normalized[key] = normalizeCacheEnvValue(key, env?.[key]);
+  }
+
+  return normalized;
+}
+
+function buildEnvFingerprintFromNormalized(normalizedEnv) {
   return CACHE_ENV_KEYS
-    .map(key => `${key}=${normalizeCacheEnvValue(key, env?.[key])}`)
+    .map(key => `${key}=${normalizedEnv?.[key] ?? ""}`)
     .join("|");
+}
+
+function buildEnvFingerprint(env) {
+  return buildEnvFingerprintFromNormalized(buildNormalizedEnv(env));
 }
 
 const VALID_CATEGORY_KEYS = new Set(CATEGORY_CONFIG.map(cfg => cfg.key));
@@ -874,16 +897,7 @@ function isValidCachedPayload(payload, expectedDisplayMode) {
   });
 }
 
-/**
- * 默认官方假期缓存 key。
- *
- * 注意：
- * - 主流程中会使用基于 scriptName 的 scoped key；
- * - 该默认 key 仅作为工具函数 fallback，避免调用方未传 storageKey 时出错；
- * - 不代表主流程实际使用全局固定 key。
- */
 const DEFAULT_OFFICIAL_HOLIDAY_STORAGE_KEY = "countdown_official_holidays";
-
 const OFFICIAL_HOLIDAY_STORAGE_VERSION = 2;
 
 function parseISODateParts(date) {
@@ -928,21 +942,6 @@ const isoToYMD = iso => {
     : null;
 };
 
-/**
- * 非加密 hash。
- *
- * 仅用于：
- * - 缩短本地 storage key；
- * - 生成缓存 fingerprint；
- * - 降低 key 长度。
- *
- * 不得用于：
- * - 安全校验；
- * - 签名；
- * - 鉴权；
- * - 防篡改；
- * - 隐私保护。
- */
 function hashString(str) {
   let h = 5381;
 
@@ -972,22 +971,13 @@ function buildDailyCacheVersion() {
 
     officialHolidayStorageVersion: OFFICIAL_HOLIDAY_STORAGE_VERSION,
 
-    /**
-     * 手动缓存版本标记。
-     *
-     * 如果以下逻辑发生变化，请手动递增 DAILY_CACHE_SCHEMA_VERSION：
-     * - formatPeriodStr / formatItemStr / formatDisplayItem
-     * - formatTodayFestGroup
-     * - splitTextToLines
-     * - buildDisplayCache
-     * - buildLayoutConfig
-     * - buildGridRows
-     */
-    cacheBuild: "no-function-source-fingerprint-v1"
+    cacheBuild: "performance-optimized-v2"
   });
 
   return `daily:${hashString(staticConfigFingerprint)}`;
 }
+
+const DAILY_CACHE_VERSION_TEXT = buildDailyCacheVersion();
 
 function warnLog(...args) {
   try {
@@ -1172,8 +1162,13 @@ function sanitizeOfficialYears(years) {
 
 function readOfficialHolidayCache(
   ctx,
-  storageKey = DEFAULT_OFFICIAL_HOLIDAY_STORAGE_KEY
+  storageKey = DEFAULT_OFFICIAL_HOLIDAY_STORAGE_KEY,
+  options = {}
 ) {
+  const {
+    sanitize = true
+  } = options || {};
+
   try {
     const cache = ctx.storage?.getJSON(storageKey);
 
@@ -1185,7 +1180,9 @@ function readOfficialHolidayCache(
     ) {
       return {
         ...cache,
-        years: sanitizeOfficialYears(cache.years)
+        years: sanitize
+          ? sanitizeOfficialYears(cache.years)
+          : cache.years
       };
     }
   } catch (e) {
@@ -1413,7 +1410,6 @@ async function loadOfficialHolidayDaily(
     return oldCache;
   }
 
-  const requestYears = officialRequestYears(currentYear);
   const requiredYears = officialRequiredYears(currentYear);
 
   const mergedYears = pruneOfficialYears(oldCache?.years || {}, currentYear);
@@ -1906,56 +1902,127 @@ function mergeLegalHolidays(fallbackLegal, officialLegal) {
 }
 
 function getOfficialDayInfo(officialHolidayCache, todayIso) {
-  if (!isValidISODate(todayIso)) {
+  const parts = parseISODateParts(todayIso);
+
+  if (!parts) {
     return null;
   }
 
-  const years = officialHolidayCache?.years;
+  const days = officialHolidayCache?.years?.[String(parts.y)]?.days;
 
-  if (!years || typeof years !== "object") {
+  if (!Array.isArray(days)) {
     return null;
   }
 
-  const targetYear = String(parseISODateParts(todayIso)?.y ?? "");
+  return days.find(day =>
+    day &&
+    day.date === todayIso &&
+    typeof day.isOffDay === "boolean"
+  ) || null;
+}
 
-  const yearCandidates = [
-    years[targetYear],
-    ...Object.entries(years)
-      .filter(([year]) => year !== targetYear)
-      .map(([, data]) => data)
-  ];
+async function notifyTodayIfNeeded(ctx, notifyKey, notifyDate, todayItems) {
+  if (
+    typeof ctx.notify !== "function" ||
+    !ctx.storage ||
+    !Array.isArray(todayItems) ||
+    todayItems.length === 0
+  ) {
+    return;
+  }
 
-  for (const yearData of yearCandidates) {
-    const days = yearData?.days;
+  try {
+    const currentNotifyState = ctx.storage.getJSON(notifyKey) || {};
 
-    if (!Array.isArray(days)) continue;
-
-    const matched = days.find(day =>
-      day &&
-      day.date === todayIso &&
-      typeof day.isOffDay === "boolean"
-    );
-
-    if (matched) {
-      return matched;
+    if (currentNotifyState.date === notifyDate) {
+      return;
     }
-  }
 
-  return null;
+    const notifyItems = todayItems
+      .filter(i => i && i.diff === 0 && i.status !== "ended")
+      .sort((a, b) => {
+        const pa = a.priority ?? 0;
+        const pb = b.priority ?? 0;
+
+        if (pb !== pa) {
+          return pb - pa;
+        }
+
+        return (a.diff ?? 0) - (b.diff ?? 0);
+      });
+
+    const notifyNames = [
+      ...new Set(
+        notifyItems
+          .map(i => i.name)
+          .filter(Boolean)
+      )
+    ];
+
+    if (notifyNames.length === 0) {
+      return;
+    }
+
+    const now = Date.now();
+
+    ctx.storage.setJSON(notifyKey, {
+      date: notifyDate,
+      names: notifyNames,
+      time: now,
+      pending: false
+    });
+
+    try {
+      await Promise.resolve(ctx.notify({
+        title: "✨ 今日提醒",
+        body: notifyNames.join("、"),
+        sound: true
+      }));
+    } catch (e) {
+      warnLog("[Countdown] notify failed:", e);
+
+      try {
+        ctx.storage.setJSON(notifyKey, {
+          date: notifyDate,
+          names: notifyNames,
+          time: Date.now(),
+          pending: false,
+          failed: true,
+          failedTime: Date.now()
+        });
+      } catch (saveError) {
+        warnLog("[Countdown] failed to save notify failure state:", saveError);
+      }
+    }
+  } catch (e) {
+    warnLog("[Countdown] notify process failed:", e);
+  }
 }
 
 export default async function (ctx = {}) {
   const env = ctx.env ?? {};
+  const normalizedEnv = buildNormalizedEnv(env);
 
   const scriptName = String(ctx.script?.name || "countdown");
   const storageScope = `countdown:${hashString(scriptName)}`;
   const officialHolidayStorageKey =
     `${storageScope}:official_holidays:v${OFFICIAL_HOLIDAY_STORAGE_VERSION}`;
 
-  const envStorageFingerprint = buildEnvFingerprint(env);
+  const envStorageFingerprint =
+    buildEnvFingerprintFromNormalized(normalizedEnv);
 
-  const getBool = (key, defaultVal = true) =>
-    parseBoolValue(env[key], defaultVal);
+  const getBool = (key, defaultVal = true) => {
+    const value = normalizedEnv[key];
+
+    if (value === undefined || value === "") {
+      return defaultVal;
+    }
+
+    if (value === "1") return true;
+    if (value === "0") return false;
+
+    return parseBoolValue(value, defaultVal);
+  };
 
   const enableWeekendTheme = getBool("ENABLE_WEEKEND_THEME", true);
 
@@ -2021,13 +2088,6 @@ export default async function (ctx = {}) {
 
   const isSmall = family === "systemsmall";
   const isLarge = family === "systemlarge";
-
-  const layoutMode = isSmall
-    ? "small"
-    : isLarge
-      ? "large"
-      : "medium";
-
   const displayMode = isLarge ? "large" : "medium";
 
   const bjDate = new Date(Date.now() + 8 * 3600000);
@@ -2049,10 +2109,10 @@ export default async function (ctx = {}) {
     refreshAfter: new Date(nextRefreshMs).toISOString()
   });
 
-  const CACHE_KEY = `${storageScope}:daily:${layoutMode}`;
+  const CACHE_KEY = `${storageScope}:daily:${displayMode}`;
   const NOTIFY_KEY = `${storageScope}:notify:${hashString(envStorageFingerprint)}`;
 
-  const CACHE_VERSION = buildDailyCacheVersion();
+  const CACHE_VERSION = DAILY_CACHE_VERSION_TEXT;
 
   const timePhase = currentHour >= 15 ? "after3pm" : "before3pm";
   const todayStr = `${Y}_${M}_${D}_${timePhase}`;
@@ -2084,16 +2144,12 @@ export default async function (ctx = {}) {
     return null;
   };
 
-  /**
-   * 优化：
-   * - 先读取本地官方节假日缓存；
-   * - 基于当前官方缓存 fingerprint 先尝试读取 daily cache；
-   * - 如果 daily cache 命中，直接渲染，不再等待 GitHub Raw 网络请求；
-   * - 只有 daily cache 未命中时，才尝试刷新官方节假日数据。
-   */
   let officialHolidayCache = readOfficialHolidayCache(
     ctx,
-    officialHolidayStorageKey
+    officialHolidayStorageKey,
+    {
+      sanitize: false
+    }
   );
 
   let officialFingerprint = getOfficialFingerprintText(officialHolidayCache);
@@ -2102,23 +2158,11 @@ export default async function (ctx = {}) {
   let cachedData = readDailyCache(envFingerprint);
 
   if (!cachedData) {
-    const optionalOfficialMissing =
-      M >= 7 &&
-      getMissingOfficialYears(
-        officialHolidayCache?.years,
-        officialOptionalYears(Y)
-      ).length > 0;
-
-    const shouldRefreshOfficialHoliday =
+    const shouldBlockingRefreshOfficialHoliday =
       Boolean(ctx.http && ctx.storage) &&
-      (
-        !officialHolidayCache ||
-        !isOfficialRequiredReady(officialHolidayCache.years, Y) ||
-        !isOfficialCacheFresh(officialHolidayCache, todayIso, Y) ||
-        optionalOfficialMissing
-      );
+      !isOfficialRequiredReady(officialHolidayCache?.years, Y);
 
-    if (shouldRefreshOfficialHoliday) {
+    if (shouldBlockingRefreshOfficialHoliday) {
       officialHolidayCache = await safeLoadOfficialHolidayDaily(
         ctx,
         Y,
@@ -2134,6 +2178,13 @@ export default async function (ctx = {}) {
 
       cachedData = readDailyCache(envFingerprint);
     }
+  }
+
+  if (!cachedData && officialHolidayCache?.years) {
+    officialHolidayCache = {
+      ...officialHolidayCache,
+      years: sanitizeOfficialYears(officialHolidayCache.years)
+    };
   }
 
   let result;
@@ -2153,8 +2204,15 @@ export default async function (ctx = {}) {
   } else {
     const officialRanges = buildOfficialHolidayRangeCache(officialHolidayCache);
 
-    const getStr = (key, defaultVal = "") =>
-      sanitizeEnvStringValue(key, env[key] ?? defaultVal);
+    const getStr = (key, defaultVal = "") => {
+      const value = normalizedEnv[key];
+
+      if (value === undefined || value === "") {
+        return sanitizeEnvStringValue(key, defaultVal);
+      }
+
+      return value;
+    };
 
     const showSchoolHolidays = getBool("SHOW_SCHOOL_HOLIDAYS", true);
     const showFinanceDates = getBool("SHOW_FINANCE_DATES", true);
@@ -2698,15 +2756,6 @@ export default async function (ctx = {}) {
 
     displayCache = buildDisplayCache(result, displayMode);
 
-    /**
-     * 优化：
-     * daily cache 不再缓存 gridRows。
-     *
-     * gridRows 是 Widget DSL 派生结构：
-     * - 可由 result + displayCache 快速生成；
-     * - 缓存 DSL 会增加 storage 体积；
-     * - 缓存 DSL 还可能造成 Egern DSL 版本兼容风险。
-     */
     if (ctx.storage) {
       try {
         const dailyPayload = {
@@ -2738,95 +2787,12 @@ export default async function (ctx = {}) {
   const stickyParts = (pinnedData || []).map(p => `${p.name} ${p.diff}天`);
   const stickyText = stickyParts.join("·");
 
-  if (
-    typeof ctx.notify === "function" &&
-    ctx.storage &&
-    Array.isArray(todayItems) &&
-    todayItems.length > 0
-  ) {
-    const notifyDate = `${Y}-${pad2(M)}-${pad2(D)}`;
-    const notifyKey = NOTIFY_KEY;
-
-    try {
-      const notifyItems = todayItems
-        .filter(i => i.diff === 0 && i.status !== "ended")
-        .slice()
-        .sort((a, b) => {
-          if ((b.priority ?? 0) !== (a.priority ?? 0)) {
-            return (b.priority ?? 0) - (a.priority ?? 0);
-          }
-
-          return (a.diff ?? 0) - (b.diff ?? 0);
-        });
-
-      const notifyNames = [
-        ...new Set(
-          notifyItems
-            .map(i => i.name)
-            .filter(Boolean)
-        )
-      ];
-
-      if (notifyNames.length > 0) {
-        const now = Date.now();
-        const currentNotifyState = ctx.storage.getJSON(notifyKey) || {};
-
-        if (currentNotifyState.date !== notifyDate) {
-          const claimToken = `${now}:${Math.random().toString(36).slice(2)}`;
-
-          const claimState = {
-            date: notifyDate,
-            names: notifyNames,
-            time: now,
-            pending: true,
-            claimToken,
-            claimTime: now
-          };
-
-          ctx.storage.setJSON(notifyKey, claimState);
-
-          await delay(NOTIFY_CLAIM_SETTLE_MS);
-
-          const verifiedState = ctx.storage.getJSON(notifyKey) || {};
-
-          const claimOwned =
-            verifiedState.date === notifyDate &&
-            verifiedState.pending === true &&
-            verifiedState.claimToken === claimToken;
-
-          if (claimOwned) {
-            try {
-              await Promise.resolve(ctx.notify({
-                title: "✨ 今日提醒",
-                body: notifyNames.join("、"),
-                sound: true
-              }));
-
-              ctx.storage.setJSON(notifyKey, {
-                date: notifyDate,
-                names: notifyNames,
-                time: Date.now(),
-                pending: false
-              });
-            } catch (e) {
-              warnLog("[Countdown] notify failed:", e);
-
-              ctx.storage.setJSON(notifyKey, {
-                date: notifyDate,
-                names: notifyNames,
-                time: Date.now(),
-                pending: false,
-                failed: true,
-                failedTime: Date.now()
-              });
-            }
-          }
-        }
-      }
-    } catch (e) {
-      warnLog("[Countdown] notify process failed:", e);
-    }
-  }
+  await notifyTodayIfNeeded(
+    ctx,
+    NOTIFY_KEY,
+    `${Y}-${pad2(M)}-${pad2(D)}`,
+    todayItems
+  );
 
   const officialTodayInfo = enableWeekendTheme
     ? getOfficialDayInfo(officialHolidayCache, todayIso)
@@ -2914,10 +2880,6 @@ export default async function (ctx = {}) {
 
   const layoutConfig = buildLayoutConfig(isLarge);
 
-  /**
-   * gridRows 不再从 daily cache 中读取。
-   * 每次渲染时由 displayCache + result 即时构建。
-   */
   const gridRows = buildGridRows(displayCache, result, layoutConfig, isLarge);
 
   const rightHeaderElements = [];
