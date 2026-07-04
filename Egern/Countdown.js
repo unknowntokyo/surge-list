@@ -20,43 +20,6 @@
  * =========================================
  */
 
-/**
- * =======================================
- * ⚙️ 环境变量说明
- *
- * ENABLE_PRIORITY_SORT:
- *   是否启用节日优先级排序，默认 true。
- *   true  时：按倒数天数优先，同天数时参考节日优先级。
- *   false 时：弱化节日优先级，仅保留基础排序。
- *
- * ENABLE_EXCLUSIVE_WEIGHT:
- *   是否提高专属纪念日权重，默认 true。
- *   仅在 ENABLE_PRIORITY_SORT 启用时有明显效果。
- *
- * ENABLE_WEEKEND_THEME:
- *   是否根据周末 / 调休 / 官方节假日切换背景主题，默认 true。
- *   该配置只影响渲染主题，不会导致倒计时数据缓存失效。
- *
- * PINNED_HOLIDAY:
- *   置顶节日名称，多个名称使用英文逗号分隔。
- *   示例：
- *   春节,国庆节,中秋节
- *
- * EXCLUSIVE_NAME / EXCLUSIVE_DATE:
- *   兼容旧版第 1 个专属纪念日配置。
- *
- * EXCLUSIVE_NAME_1 ~ EXCLUSIVE_NAME_6:
- *   专属纪念日名称，最多 6 个。
- *
- * EXCLUSIVE_DATE_1 ~ EXCLUSIVE_DATE_6:
- *   专属纪念日日期。
- *   支持两种格式：
- *   - MM/DD：每年重复，例如 08/08
- *   - YYYY/MM/DD：一次性日期，例如 2026/08/08
- *
-=========================================
- */
-
 const RANDOM_NOTICES = [
   " 距离放假，还要摸鱼多少天？", " 坚持住，就快放假啦！", " 上班好累呀，下顿吃啥？",
   " 努力，我还能加班24小时！", " 躺平中，等放假", " 施主请回，此饼不吃",
@@ -626,12 +589,9 @@ function sanitizeEnvStringValue(key, value) {
 const DATA_ENV_KEYS = Object.freeze([
   "ENABLE_PRIORITY_SORT",
   "ENABLE_EXCLUSIVE_WEIGHT",
-
   "PINNED_HOLIDAY",
-
   "EXCLUSIVE_NAME",
   "EXCLUSIVE_DATE",
-
   "EXCLUSIVE_NAME_1",
   "EXCLUSIVE_DATE_1",
   "EXCLUSIVE_NAME_2",
@@ -924,6 +884,23 @@ function shallowObjectEqual(a = {}, b = {}) {
   return ak.every(key => a[key] === b[key]);
 }
 
+function sameSortedKeys(a = {}, b = {}) {
+  const ak = Object.keys(a || {}).sort();
+  const bk = Object.keys(b || {}).sort();
+
+  if (ak.length !== bk.length) {
+    return false;
+  }
+
+  for (let i = 0; i < ak.length; i++) {
+    if (ak[i] !== bk[i]) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 function shouldSaveOfficialCache(oldCache, newCache) {
   if (!oldCache) return true;
 
@@ -931,7 +908,7 @@ function shouldSaveOfficialCache(oldCache, newCache) {
     oldCache.version !== newCache.version ||
     oldCache.fingerprint !== newCache.fingerprint ||
     oldCache.checkedDate !== newCache.checkedDate ||
-    JSON.stringify(oldCache.years || {}) !== JSON.stringify(newCache.years || {}) ||
+    !sameSortedKeys(oldCache.years || {}, newCache.years || {}) ||
     !shallowObjectEqual(
       oldCache.retryAfterByYear || {},
       newCache.retryAfterByYear || {}
@@ -1330,7 +1307,7 @@ async function fetchOfficialHolidayYear(
     }
   });
 
-  const status = resp?.status ?? resp?.statusCode;
+  const status = resp?.status;
 
   if (typeof status === "number" && status >= 400) {
     throw new Error(`HTTP ${status}`);
@@ -2062,19 +2039,13 @@ function notifyTodayIfNeeded(ctx, notifyKey, notifyDate, todayItems) {
     markPending();
 
     try {
-      const maybePromise = ctx.notify({
+      ctx.notify({
         title: "✨ 今日提醒",
         body: notifyNames.join("、"),
         sound: true
       });
 
-      if (maybePromise && typeof maybePromise.then === "function") {
-        maybePromise
-          .then(markSuccess)
-          .catch(markFailed);
-      } else {
-        markSuccess();
-      }
+      markSuccess();
     } catch (e) {
       markFailed(e);
     }
@@ -2197,9 +2168,17 @@ export default async function (ctx = {}) {
   let cachedBaseData = readBaseDailyCache(envFingerprint);
 
   if (!cachedBaseData) {
+    const missingRequiredOfficialYears = getMissingOfficialYears(
+      officialHolidayCache?.years,
+      officialRequiredYears(Y)
+    ).map(Number);
+
     const shouldBlockingRefreshOfficialHoliday =
       Boolean(ctx.http && ctx.storage) &&
-      !isOfficialRequiredReady(officialHolidayCache?.years, Y);
+      (
+        missingRequiredOfficialYears.length > 0 ||
+        !isOfficialCacheFresh(officialHolidayCache, todayIso, Y)
+      );
 
     if (shouldBlockingRefreshOfficialHoliday) {
       const lockKey = getOfficialRefreshLockKey(officialHolidayStorageKey);
@@ -2215,10 +2194,11 @@ export default async function (ctx = {}) {
             {
               httpTimeoutMs: WIDGET_OFFICIAL_HTTP_TIMEOUT_MS,
               includeOptional: false,
-              forceYearsToFetch: getMissingOfficialYears(
-                officialHolidayCache?.years,
-                officialRequiredYears(Y)
-              ).map(Number)
+              ...(
+                missingRequiredOfficialYears.length > 0
+                  ? { forceYearsToFetch: missingRequiredOfficialYears }
+                  : {}
+              )
             }
           );
 
@@ -2687,7 +2667,7 @@ export default async function (ctx = {}) {
   notifyTodayIfNeeded(
     ctx,
     NOTIFY_KEY,
-    `${Y}-${pad2(M)}-${pad2(D)}`,
+    todayIso,
     todayItems
   );
 
