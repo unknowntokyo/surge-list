@@ -680,25 +680,16 @@ function modResponseBody(ipInfo, speedMbps, ipPureInfo) {
   return body;
 }
 
-function deleteBodyRelatedHeaders(headers) {
+function prepareResponseHeaders(ctx, contentType) {
+  const headers = ctx.response.headers;
+
+  if (contentType) {
+    headers.set('Content-Type', contentType);
+  }
+
   headers.delete('Content-Length');
   headers.delete('Content-Encoding');
   headers.delete('ETag');
-}
-
-function makeModifiedJsonHeaders(ctx) {
-  const headers = ctx.response.headers;
-
-  headers.set('Content-Type', 'application/json; charset=utf-8');
-  deleteBodyRelatedHeaders(headers);
-
-  return headers;
-}
-
-function makeRewrittenBodyHeaders(ctx) {
-  const headers = ctx.response.headers;
-
-  deleteBodyRelatedHeaders(headers);
 
   return headers;
 }
@@ -720,7 +711,7 @@ export default async function(ctx) {
   if (!ipInfo) {
     if (typeof ipResult?.fallbackBody === 'string') {
       return {
-        headers: makeRewrittenBodyHeaders(ctx),
+        headers: prepareResponseHeaders(ctx),
         body: ipResult.fallbackBody
       };
     }
@@ -760,7 +751,7 @@ export default async function(ctx) {
   ]);
 
   return {
-    headers: makeModifiedJsonHeaders(ctx),
+    headers: prepareResponseHeaders(ctx, 'application/json; charset=utf-8'),
     body: modResponseBody(ipInfo, speedMbps, ipPureInfo)
   };
 }
