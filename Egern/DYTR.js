@@ -5,7 +5,7 @@ const ERROR_REFRESH_MS = 5 * 60 * 1000;
 const REQUEST_TIMEOUT_MS = 5000;
 const MAX_ITEMS = 5;
 
-const CACHE_KEY = 'douyin_hot_widget_cache_v1';
+const CACHE_KEY = 'douyin_hot_widget_cache';
 const CACHE_VERSION = 1;
 const CACHE_MAX_AGE_MS = 6 * 60 * 60 * 1000;
 
