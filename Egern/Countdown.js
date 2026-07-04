@@ -16,7 +16,7 @@
  * • 刷新策略：Widget 下一次刷新时间固定为北京时间次日 00:01，不再按 15 点拆分缓存。
  *
  * 🔗 作者: https://github.com/jnlaoshu/MySelf/tree/1c35eedff4e052e7dc4e9d87105e32f2490617cf/Egern/Widget
- * ⏱️ 更新时间: 2026.07.03
+ * ⏱️ 更新时间: 2026.07.04
  * =========================================
  */
 
@@ -670,6 +670,29 @@ function parseBoolValue(value, defaultVal = true) {
   return defaultVal;
 }
 
+function getBoolFromNormalizedEnv(normalizedEnv, key, defaultVal = true) {
+  const value = normalizedEnv?.[key];
+
+  if (value === undefined || value === "") {
+    return defaultVal;
+  }
+
+  if (value === "1") return true;
+  if (value === "0") return false;
+
+  return parseBoolValue(value, defaultVal);
+}
+
+function getStrFromNormalizedEnv(normalizedEnv, key, defaultVal = "") {
+  const value = normalizedEnv?.[key];
+
+  if (value === undefined || value === "") {
+    return sanitizeEnvStringValue(key, defaultVal);
+  }
+
+  return value;
+}
+
 function normalizeCacheEnvValue(key, value) {
   if (CACHE_BOOL_ENV_KEYS.has(key)) {
     return parseBoolValue(value, true) ? "1" : "0";
@@ -1224,6 +1247,22 @@ function buildOfficialFingerprint(yearsData) {
   return hashString(parts.join("|"));
 }
 
+function getOfficialFingerprintText(cache) {
+  if (cache?.fingerprint) {
+    return `official=${cache.fingerprint}`;
+  }
+
+  if (cache?.years && typeof cache.years === "object") {
+    return `official=${buildOfficialFingerprint(cache.years)}`;
+  }
+
+  return "official=none";
+}
+
+function getOfficialEnvFingerprint(dataEnvFingerprint, officialCache) {
+  return `${dataEnvFingerprint}|${getOfficialFingerprintText(officialCache)}`;
+}
+
 function isOfficialRequiredReady(yearsData, currentYear) {
   return getMissingOfficialYears(
     yearsData,
@@ -1247,6 +1286,24 @@ function isOfficialCacheFresh(cache, todayIso, currentYear) {
   const age = isoToMs(todayIso) - isoToMs(cache.checkedDate);
 
   return age >= 0 && age < OFFICIAL_REFRESH_INTERVAL_MS;
+}
+
+function shouldRefreshOfficialCache(cache, currentYear, todayIso) {
+  const years = pruneOfficialYears(cache?.years || {}, currentYear);
+  const retryAfterByYear = pruneRetryAfterByYear(
+    cache?.retryAfterByYear,
+    currentYear
+  );
+
+  return !isOfficialCacheFresh(
+    {
+      ...cache,
+      years,
+      retryAfterByYear
+    },
+    todayIso,
+    currentYear
+  );
 }
 
 function isOfficialYearRetryBlocked(cache, year, now = Date.now()) {
@@ -1625,6 +1682,141 @@ function releaseOfficialRefreshLock(ctx, lockKey, owner) {
   }
 }
 
+/**
+ * Official holiday cache 的唯一准备入口。
+ *
+ * 后续不要在主流程中直接散落调用：
+ * - readOfficialHolidayCache
+ * - safeLoadOfficialHolidayDaily
+ * - getOfficialFingerprintText
+ * - readBaseDailyCache
+ */
+async function prepareOfficialHolidayCacheForWidget({
+  ctx,
+  currentYear,
+  todayIso,
+  dataEnvFingerprint,
+  officialHolidayStorageKey,
+  readBaseDailyCache
+}) {
+  let officialHolidayCache = readOfficialHolidayCache(
+    ctx,
+    officialHolidayStorageKey,
+    {
+      sanitize: false
+    }
+  );
+
+  let envFingerprint = getOfficialEnvFingerprint(
+    dataEnvFingerprint,
+    officialHolidayCache
+  );
+
+  let cachedBaseData = readBaseDailyCache(envFingerprint);
+
+  /**
+   * official cache sanitize 后必须重新计算 fingerprint，
+   * 否则 daily cache 的 envFingerprint 可能和实际参与计算的数据不一致。
+   */
+  if (!cachedBaseData && officialHolidayCache?.years) {
+    officialHolidayCache = {
+      ...officialHolidayCache,
+      years: sanitizeOfficialYears(officialHolidayCache.years)
+    };
+
+    envFingerprint = getOfficialEnvFingerprint(
+      dataEnvFingerprint,
+      officialHolidayCache
+    );
+
+    cachedBaseData = readBaseDailyCache(envFingerprint);
+  }
+
+  if (!cachedBaseData) {
+    const missingRequiredOfficialYears = getMissingOfficialYears(
+      officialHolidayCache?.years,
+      officialRequiredYears(currentYear)
+    ).map(Number);
+
+    const shouldBlockingRefreshOfficialHoliday =
+      Boolean(ctx.http && ctx.storage) &&
+      (
+        missingRequiredOfficialYears.length > 0 ||
+        shouldRefreshOfficialCache(
+          officialHolidayCache,
+          currentYear,
+          todayIso
+        )
+      );
+
+    if (shouldBlockingRefreshOfficialHoliday) {
+      const lockKey = getOfficialRefreshLockKey(officialHolidayStorageKey);
+      const lockOwner = tryAcquireOfficialRefreshLock(ctx, lockKey);
+
+      if (lockOwner) {
+        try {
+          officialHolidayCache = await safeLoadOfficialHolidayDaily(
+            ctx,
+            currentYear,
+            todayIso,
+            officialHolidayStorageKey,
+            {
+              httpTimeoutMs: WIDGET_OFFICIAL_HTTP_TIMEOUT_MS,
+              includeOptional: false,
+              ...(
+                missingRequiredOfficialYears.length > 0
+                  ? { forceYearsToFetch: missingRequiredOfficialYears }
+                  : {}
+              )
+            }
+          );
+
+          envFingerprint = getOfficialEnvFingerprint(
+            dataEnvFingerprint,
+            officialHolidayCache
+          );
+
+          cachedBaseData = readBaseDailyCache(envFingerprint);
+        } finally {
+          releaseOfficialRefreshLock(ctx, lockKey, lockOwner);
+        }
+      } else {
+        /**
+         * 其他 Widget 实例可能正在刷新或刚刷新完。
+         * 这里重新读 storage，避免继续使用旧 official cache。
+         */
+        officialHolidayCache = readOfficialHolidayCache(
+          ctx,
+          officialHolidayStorageKey,
+          {
+            sanitize: false
+          }
+        );
+
+        if (officialHolidayCache?.years) {
+          officialHolidayCache = {
+            ...officialHolidayCache,
+            years: sanitizeOfficialYears(officialHolidayCache.years)
+          };
+        }
+
+        envFingerprint = getOfficialEnvFingerprint(
+          dataEnvFingerprint,
+          officialHolidayCache
+        );
+
+        cachedBaseData = readBaseDailyCache(envFingerprint);
+      }
+    }
+  }
+
+  return {
+    officialHolidayCache,
+    envFingerprint,
+    cachedBaseData
+  };
+}
+
 function isValidOfficialRange(range) {
   if (!range || typeof range !== "object") return false;
   if (typeof range.name !== "string" || !range.name.trim()) return false;
@@ -1945,6 +2137,411 @@ function getOfficialDayInfo(officialHolidayCache, todayIso) {
   ) || null;
 }
 
+function isValidMonthDay(y, m, d) {
+  if (!Number.isInteger(m) || !Number.isInteger(d)) return false;
+  if (m < 1 || m > 12) return false;
+
+  const maxDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  return d >= 1 && d <= maxDay;
+}
+
+function parseExclusiveDateSpec(raw) {
+  const spec = parseSlashDateSpec(raw);
+
+  if (!spec) {
+    return null;
+  }
+
+  if (spec.type === "annual") {
+    if (!isValidMonthDay(2000, spec.month, spec.day)) {
+      return null;
+    }
+
+    return spec;
+  }
+
+  if (spec.type === "once") {
+    if (spec.year < 1900 || spec.year > 9999) {
+      return null;
+    }
+
+    if (!isValidMonthDay(spec.year, spec.month, spec.day)) {
+      return null;
+    }
+
+    return spec;
+  }
+
+  return null;
+}
+
+/**
+ * Countdown data 的唯一构建入口。
+ *
+ * 后续新增节日、排序、置顶、专属纪念日规则，优先改这里。
+ * 不要再把业务构建逻辑塞回 export default。
+ */
+function buildCountdownData({
+  normalizedEnv,
+  officialHolidayCache,
+  year: Y,
+  todayMs
+}) {
+  const officialRanges = buildOfficialHolidayRangeCache(officialHolidayCache);
+
+  const getStr = (key, defaultVal = "") =>
+    getStrFromNormalizedEnv(normalizedEnv, key, defaultVal);
+
+  const getBool = (key, defaultVal = true) =>
+    getBoolFromNormalizedEnv(normalizedEnv, key, defaultVal);
+
+  const enablePrioritySort = getBool("ENABLE_PRIORITY_SORT", true);
+  const enableExclusiveWeight = getBool("ENABLE_EXCLUSIVE_WEIGHT", true);
+
+  const pinnedHolidays = [
+    ...new Set(
+      getStr("PINNED_HOLIDAY")
+        .split(",")
+        .map(s => s.trim())
+        .filter(Boolean)
+    )
+  ];
+
+  const pinnedHolidaySet = new Set(pinnedHolidays);
+
+  const customDays = [1, 2, 3, 4, 5, 6]
+    .map(i => {
+      const legacyName = i === 1 ? getStr("EXCLUSIVE_NAME") : "";
+      const legacyDate = i === 1 ? getStr("EXCLUSIVE_DATE") : "";
+
+      const name = getStr(`EXCLUSIVE_NAME_${i}`) || legacyName;
+      const date = getStr(`EXCLUSIVE_DATE_${i}`) || legacyDate;
+
+      return {
+        name,
+        spec: parseExclusiveDateSpec(date)
+      };
+    })
+    .filter(item => item.name && item.spec);
+
+  const annualCustomDays = customDays.filter(
+    item => item.spec.type === "annual"
+  );
+
+  const onceCustomDays = customDays.filter(
+    item => item.spec.type === "once"
+  );
+
+  const lunarToSolarCache = new Map();
+
+  const l2s = (y, m, d) => {
+    const cacheKey = `${y}-${m}-${d}`;
+
+    if (lunarToSolarCache.has(cacheKey)) {
+      return lunarToSolarCache.get(cacheKey);
+    }
+
+    let resultDate = null;
+
+    if (
+      isValidLunarYear(y) &&
+      Number.isInteger(m) &&
+      m >= 1 &&
+      m <= 12
+    ) {
+      const monthDays = Lunar.mDays(y, m);
+
+      if (
+        Number.isInteger(d) &&
+        d >= 1 &&
+        d <= monthDays
+      ) {
+        ensureLunarCumulative(y);
+
+        let off = lunarCumulativeCache.off[y - MIN_LUNAR_YEAR] ?? 0;
+        const info = Lunar.info[y - 1900];
+        const leapMonth = info & 0xf;
+
+        for (let i = 1; i < m; i++) {
+          off += Lunar.mDays(y, i);
+
+          if (leapMonth > 0 && i === leapMonth) {
+            off += info & 0x10000 ? 30 : 29;
+          }
+        }
+
+        const date = new Date(
+          Date.UTC(1900, 0, 31) + (off + d - 1) * DAY_MS
+        );
+
+        resultDate = YMD(
+          date.getUTCFullYear(),
+          date.getUTCMonth() + 1,
+          date.getUTCDate()
+        );
+      }
+    }
+
+    lunarToSolarCache.set(cacheKey, resultDate);
+    return resultDate;
+  };
+
+  const getFests = y => {
+    const term = n => {
+      if (!isValidLunarYear(y)) return null;
+
+      const bjT = new Date(Lunar.term(y, n).getTime() + BJ_OFFSET_MS);
+
+      return YMD(
+        bjT.getUTCFullYear(),
+        bjT.getUTCMonth() + 1,
+        bjT.getUTCDate()
+      );
+    };
+
+    const wDay = (m, n, w) => {
+      const x = w - new Date(Date.UTC(y, m - 1, 1)).getUTCDay();
+
+      return YMD(
+        y,
+        m,
+        1 + (x < 0 ? x + 7 : x) + (n - 1) * 7
+      );
+    };
+
+    const qmDateStr = term(7);
+
+    const fallbackLegal = [
+      ["元旦", YMD(y, 1, 1), 1],
+      ["春节", l2s(y, 1, 1), 3],
+      ["清明节", qmDateStr, 1],
+      ["劳动节", YMD(y, 5, 1), 1],
+      ["端午节", l2s(y, 5, 5), 1],
+      ["中秋节", l2s(y, 8, 15), 1],
+      ["国庆节", YMD(y, 10, 1), 3]
+    ];
+
+    const officialLegal = getOfficialLegalHolidaysFromRanges(
+      officialRanges,
+      y
+    );
+
+    const legal = mergeLegalHolidays(fallbackLegal, officialLegal);
+
+    return {
+      legal,
+
+      exclusive: annualCustomDays.map(item => {
+        const { month, day } = item.spec;
+
+        return [
+          item.name,
+          isValidMonthDay(y, month, day) ? YMD(y, month, day) : null,
+          1,
+          "custom"
+        ];
+      }),
+
+      folk: [
+        ["元宵节", l2s(y, 1, 15), 1],
+        ["龙抬头", l2s(y, 2, 2), 1],
+        ["七夕节", l2s(y, 7, 7), 1],
+        ["中元节", l2s(y, 7, 15), 1],
+        ["重阳节", l2s(y, 9, 9), 1],
+        ["寒衣节", l2s(y, 10, 1), 1],
+        ["腊八节", l2s(y, 12, 8), 1],
+        ["小年", l2s(y, 12, 23), 1],
+        ["除夕", l2s(y, 12, Lunar.mDays(y, 12)), 1]
+      ],
+
+      intl: [
+        ["情人节", YMD(y, 2, 14), 1],
+        ["妇女节", YMD(y, 3, 8), 1],
+        ["母亲节", wDay(5, 2, 0), 1],
+        ["儿童节", YMD(y, 6, 1), 1],
+        ["父亲节", wDay(6, 3, 0), 1],
+        ["万圣节", YMD(y, 10, 31), 1],
+        ["感恩节", wDay(11, 4, 4), 1],
+        ["平安夜", YMD(y, 12, 24), 1],
+        ["圣诞节", YMD(y, 12, 25), 1]
+      ]
+    };
+  };
+
+  const getPriority = (name, cat, sourceKind) => {
+    if (!enablePrioritySort) return 1;
+
+    if (sourceKind === "custom") {
+      return enableExclusiveWeight
+        ? 9
+        : basePriority[cat] ?? 1;
+    }
+
+    const special = getSpecialHolidayPriority(name);
+
+    return special ?? basePriority[cat] ?? 1;
+  };
+
+  const isInFestivalPeriod = (diff, duration) =>
+    diff <= 0 && diff > -duration;
+
+  const rawResult = {
+    legal: new Map(),
+    folk: new Map(),
+    intl: new Map(),
+    exclusive: new Map()
+  };
+
+  const todayFests = [];
+  const todayFestTokenSet = new Set();
+  const todayItemKeySet = new Set();
+  const pinnedMap = new Map();
+  const pinnedTokenSet = new Set();
+
+  const todayItems = [];
+
+  const updatePinned = (name, diff) => {
+    const matchedPinnedNames = getMatchedHolidayNames(
+      name,
+      pinnedHolidaySet
+    );
+
+    if (matchedPinnedNames.length === 0) {
+      return;
+    }
+
+    for (const pinnedName of matchedPinnedNames) {
+      const oldPinnedDiff = pinnedMap.get(pinnedName);
+
+      if (oldPinnedDiff === undefined || diff < oldPinnedDiff) {
+        pinnedMap.set(pinnedName, diff);
+        addHolidayNameTokens(pinnedTokenSet, pinnedName);
+      }
+    }
+  };
+
+  const addTodayItem = (name, diff, priority, cat, duration = 1) => {
+    const key = `${cat}:${name}`;
+
+    if (todayItemKeySet.has(key)) return;
+
+    todayItemKeySet.add(key);
+
+    todayItems.push({
+      name,
+      diff,
+      duration,
+      priority: priority + 100,
+      cat
+    });
+  };
+
+  const addFestival = (cat, name, dateStr, duration = 1, sourceKind = "") => {
+    if (!name || !dateStr) return;
+
+    const [yy, mm, dd] = dateStr.split("/").map(Number);
+
+    if (!Number.isInteger(yy) || !isValidMonthDay(yy, mm, dd)) {
+      return;
+    }
+
+    const diff = (Date.UTC(yy, mm - 1, dd) - todayMs) / DAY_MS;
+    const priority = getPriority(name, cat, sourceKind);
+
+    if (isInFestivalPeriod(diff, duration)) {
+      if (!holidayNameMatchesTokenSet(name, todayFestTokenSet)) {
+        addHolidayNameTokens(todayFestTokenSet, name);
+
+        todayFests.push({
+          name,
+          diff,
+          duration
+        });
+      }
+
+      addTodayItem(name, diff, priority, cat, duration);
+      return;
+    }
+
+    if (diff > 0) {
+      updatePinned(name, diff);
+
+      const old = rawResult[cat].get(name);
+
+      if (!old || diff < old.diff) {
+        rawResult[cat].set(name, {
+          name,
+          diff,
+          duration,
+          priority,
+          cat
+        });
+      }
+    }
+  };
+
+  const yearsToScan = [Y - 1, Y, Y + 1];
+
+  for (const y of yearsToScan) {
+    const f = getFests(y);
+
+    for (const cat of Object.keys(rawResult)) {
+      for (const [name, dateStr, duration = 1, sourceKind = ""] of f[cat]) {
+        addFestival(cat, name, dateStr, duration, sourceKind);
+      }
+    }
+  }
+
+  for (const item of onceCustomDays) {
+    const { year, month, day } = item.spec;
+
+    addFestival(
+      "exclusive",
+      item.name,
+      YMD(year, month, day),
+      1,
+      "custom"
+    );
+  }
+
+  const result = {};
+
+  Object.keys(rawResult).forEach(cat => {
+    result[cat] = Array.from(rawResult[cat].values())
+      .filter(i =>
+        !holidayNameMatchesTokenSet(i.name, pinnedTokenSet) &&
+        !holidayNameMatchesTokenSet(i.name, todayFestTokenSet)
+      )
+      .sort((a, b) => {
+        if (a.diff !== b.diff) return a.diff - b.diff;
+        return enablePrioritySort ? b.priority - a.priority : 0;
+      })
+      .slice(0, 7);
+  });
+
+  const todayNoticeText = todayFests.length > 0
+    ? formatTodayFestGroup(todayFests)
+    : "";
+
+  const pinnedData = pinnedHolidays
+    .filter(n => pinnedMap.has(n))
+    .map(n => ({
+      name: n,
+      diff: pinnedMap.get(n)
+    }))
+    .sort((a, b) => a.diff - b.diff);
+
+  const displayCache = buildDisplayCache(result);
+
+  return {
+    result,
+    todayNoticeText,
+    pinnedData,
+    todayItems,
+    displayCache
+  };
+}
+
 function notifyTodayIfNeeded(ctx, notifyKey, notifyDate, todayItems) {
   if (
     typeof ctx.notify !== "function" ||
@@ -2079,20 +2676,11 @@ export default async function (ctx = {}) {
   const dataEnvStorageFingerprint =
     buildEnvFingerprintFromNormalized(normalizedEnv, DATA_ENV_KEYS);
 
-  const getBool = (key, defaultVal = true) => {
-    const value = normalizedEnv[key];
-
-    if (value === undefined || value === "") {
-      return defaultVal;
-    }
-
-    if (value === "1") return true;
-    if (value === "0") return false;
-
-    return parseBoolValue(value, defaultVal);
-  };
-
-  const enableWeekendTheme = getBool("ENABLE_WEEKEND_THEME", true);
+  const enableWeekendTheme = getBoolFromNormalizedEnv(
+    normalizedEnv,
+    "ENABLE_WEEKEND_THEME",
+    true
+  );
 
   const family = String(ctx.widgetFamily || "systemMedium").toLowerCase();
 
@@ -2138,18 +2726,6 @@ export default async function (ctx = {}) {
 
   const CACHE_VERSION = DAILY_CACHE_VERSION_TEXT;
 
-  const getOfficialFingerprintText = cache => {
-    if (cache?.fingerprint) {
-      return `official=${cache.fingerprint}`;
-    }
-
-    if (cache?.years && typeof cache.years === "object") {
-      return `official=${buildOfficialFingerprint(cache.years)}`;
-    }
-
-    return "official=none";
-  };
-
   const readBaseDailyCache = currentEnvFingerprint => {
     if (!ctx.storage) return null;
 
@@ -2172,504 +2748,54 @@ export default async function (ctx = {}) {
     return null;
   };
 
-  let officialHolidayCache = readOfficialHolidayCache(
-    ctx,
-    officialHolidayStorageKey,
-    {
-      sanitize: false
-    }
-  );
-
-  let officialFingerprint = getOfficialFingerprintText(officialHolidayCache);
-  let envFingerprint = `${dataEnvStorageFingerprint}|${officialFingerprint}`;
-
-  let cachedBaseData = readBaseDailyCache(envFingerprint);
-
-  if (!cachedBaseData) {
-    const missingRequiredOfficialYears = getMissingOfficialYears(
-      officialHolidayCache?.years,
-      officialRequiredYears(Y)
-    ).map(Number);
-
-    const shouldBlockingRefreshOfficialHoliday =
-      Boolean(ctx.http && ctx.storage) &&
-      missingRequiredOfficialYears.length > 0;
-
-    if (shouldBlockingRefreshOfficialHoliday) {
-      const lockKey = getOfficialRefreshLockKey(officialHolidayStorageKey);
-      const lockOwner = tryAcquireOfficialRefreshLock(ctx, lockKey);
-
-      if (lockOwner) {
-        try {
-          officialHolidayCache = await safeLoadOfficialHolidayDaily(
-            ctx,
-            Y,
-            todayIso,
-            officialHolidayStorageKey,
-            {
-              httpTimeoutMs: WIDGET_OFFICIAL_HTTP_TIMEOUT_MS,
-              includeOptional: false,
-              ...(
-                missingRequiredOfficialYears.length > 0
-                  ? { forceYearsToFetch: missingRequiredOfficialYears }
-                  : {}
-              )
-            }
-          );
-
-          officialFingerprint = getOfficialFingerprintText(officialHolidayCache);
-          envFingerprint = `${dataEnvStorageFingerprint}|${officialFingerprint}`;
-
-          cachedBaseData = readBaseDailyCache(envFingerprint);
-        } finally {
-          releaseOfficialRefreshLock(ctx, lockKey, lockOwner);
-        }
-      } else {
-        officialHolidayCache = readOfficialHolidayCache(
-          ctx,
-          officialHolidayStorageKey,
-          {
-            sanitize: false
-          }
-        );
-
-        officialFingerprint = getOfficialFingerprintText(officialHolidayCache);
-        envFingerprint = `${dataEnvStorageFingerprint}|${officialFingerprint}`;
-
-        cachedBaseData = readBaseDailyCache(envFingerprint);
-      }
-    }
-  }
-
-  if (!cachedBaseData && officialHolidayCache?.years) {
-    officialHolidayCache = {
-      ...officialHolidayCache,
-      years: sanitizeOfficialYears(officialHolidayCache.years)
-    };
-  }
-
-  let result;
-  let todayNoticeText;
-  let pinnedData;
-  let todayItems;
-  let displayCache;
-
-  if (cachedBaseData) {
-    ({
-      result,
-      todayNoticeText,
-      pinnedData,
-      todayItems,
-      displayCache
-    } = cachedBaseData);
-  } else {
-    const officialRanges = buildOfficialHolidayRangeCache(officialHolidayCache);
-
-    const getStr = (key, defaultVal = "") => {
-      const value = normalizedEnv[key];
-
-      if (value === undefined || value === "") {
-        return sanitizeEnvStringValue(key, defaultVal);
-      }
-
-      return value;
-    };
-
-    const enablePrioritySort = getBool("ENABLE_PRIORITY_SORT", true);
-    const enableExclusiveWeight = getBool("ENABLE_EXCLUSIVE_WEIGHT", true);
-
-    const pinnedHolidays = [
-      ...new Set(
-        getStr("PINNED_HOLIDAY")
-          .split(",")
-          .map(s => s.trim())
-          .filter(Boolean)
-      )
-    ];
-
-    const pinnedHolidaySet = new Set(pinnedHolidays);
-
-    const isValidMonthDay = (y, m, d) => {
-      if (!Number.isInteger(m) || !Number.isInteger(d)) return false;
-      if (m < 1 || m > 12) return false;
-
-      const maxDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
-      return d >= 1 && d <= maxDay;
-    };
-
-    const parseExclusiveDateSpec = raw => {
-      const spec = parseSlashDateSpec(raw);
-
-      if (!spec) {
-        return null;
-      }
-
-      if (spec.type === "annual") {
-        if (!isValidMonthDay(2000, spec.month, spec.day)) {
-          return null;
-        }
-
-        return spec;
-      }
-
-      if (spec.type === "once") {
-        if (spec.year < 1900 || spec.year > 9999) {
-          return null;
-        }
-
-        if (!isValidMonthDay(spec.year, spec.month, spec.day)) {
-          return null;
-        }
-
-        return spec;
-      }
-
-      return null;
-    };
-
-    const customDays = [1, 2, 3, 4, 5, 6]
-      .map(i => {
-        const legacyName = i === 1 ? getStr("EXCLUSIVE_NAME") : "";
-        const legacyDate = i === 1 ? getStr("EXCLUSIVE_DATE") : "";
-
-        const name = getStr(`EXCLUSIVE_NAME_${i}`) || legacyName;
-        const date = getStr(`EXCLUSIVE_DATE_${i}`) || legacyDate;
-
-        return {
-          name,
-          spec: parseExclusiveDateSpec(date)
-        };
-      })
-      .filter(item => item.name && item.spec);
-
-    const annualCustomDays = customDays.filter(
-      item => item.spec.type === "annual"
-    );
-
-    const onceCustomDays = customDays.filter(
-      item => item.spec.type === "once"
-    );
-
-    const lunarToSolarCache = new Map();
-
-    const l2s = (y, m, d) => {
-      const cacheKey = `${y}-${m}-${d}`;
-
-      if (lunarToSolarCache.has(cacheKey)) {
-        return lunarToSolarCache.get(cacheKey);
-      }
-
-      let resultDate = null;
-
-      if (
-        isValidLunarYear(y) &&
-        Number.isInteger(m) &&
-        m >= 1 &&
-        m <= 12
-      ) {
-        const monthDays = Lunar.mDays(y, m);
-
-        if (
-          Number.isInteger(d) &&
-          d >= 1 &&
-          d <= monthDays
-        ) {
-          ensureLunarCumulative(y);
-
-          let off = lunarCumulativeCache.off[y - MIN_LUNAR_YEAR] ?? 0;
-          const info = Lunar.info[y - 1900];
-          const leapMonth = info & 0xf;
-
-          for (let i = 1; i < m; i++) {
-            off += Lunar.mDays(y, i);
-
-            if (leapMonth > 0 && i === leapMonth) {
-              off += info & 0x10000 ? 30 : 29;
-            }
-          }
-
-          const date = new Date(
-            Date.UTC(1900, 0, 31) + (off + d - 1) * DAY_MS
-          );
-
-          resultDate = YMD(
-            date.getUTCFullYear(),
-            date.getUTCMonth() + 1,
-            date.getUTCDate()
-          );
-        }
-      }
-
-      lunarToSolarCache.set(cacheKey, resultDate);
-      return resultDate;
-    };
-
-    const getFests = y => {
-      const term = n => {
-        if (!isValidLunarYear(y)) return null;
-
-        const bjT = new Date(Lunar.term(y, n).getTime() + BJ_OFFSET_MS);
-
-        return YMD(
-          bjT.getUTCFullYear(),
-          bjT.getUTCMonth() + 1,
-          bjT.getUTCDate()
-        );
-      };
-
-      const wDay = (m, n, w) => {
-        const x = w - new Date(Date.UTC(y, m - 1, 1)).getUTCDay();
-
-        return YMD(
-          y,
-          m,
-          1 + (x < 0 ? x + 7 : x) + (n - 1) * 7
-        );
-      };
-
-      const qmDateStr = term(7);
-
-      const fallbackLegal = [
-        ["元旦", YMD(y, 1, 1), 1],
-        ["春节", l2s(y, 1, 1), 3],
-        ["清明节", qmDateStr, 1],
-        ["劳动节", YMD(y, 5, 1), 1],
-        ["端午节", l2s(y, 5, 5), 1],
-        ["中秋节", l2s(y, 8, 15), 1],
-        ["国庆节", YMD(y, 10, 1), 3]
-      ];
-
-      const officialLegal = getOfficialLegalHolidaysFromRanges(
-        officialRanges,
-        y
-      );
-
-      const legal = mergeLegalHolidays(fallbackLegal, officialLegal);
-
-      return {
-        legal,
-
-        exclusive: annualCustomDays.map(item => {
-          const { month, day } = item.spec;
-
-          return [
-            item.name,
-            isValidMonthDay(y, month, day) ? YMD(y, month, day) : null,
-            1,
-            "custom"
-          ];
-        }),
-
-        folk: [
-          ["元宵节", l2s(y, 1, 15), 1],
-          ["龙抬头", l2s(y, 2, 2), 1],
-          ["七夕节", l2s(y, 7, 7), 1],
-          ["中元节", l2s(y, 7, 15), 1],
-          ["重阳节", l2s(y, 9, 9), 1],
-          ["寒衣节", l2s(y, 10, 1), 1],
-          ["腊八节", l2s(y, 12, 8), 1],
-          ["小年", l2s(y, 12, 23), 1],
-          ["除夕", l2s(y, 12, Lunar.mDays(y, 12)), 1]
-        ],
-
-        intl: [
-          ["情人节", YMD(y, 2, 14), 1],
-          ["妇女节", YMD(y, 3, 8), 1],
-          ["母亲节", wDay(5, 2, 0), 1],
-          ["儿童节", YMD(y, 6, 1), 1],
-          ["父亲节", wDay(6, 3, 0), 1],
-          ["万圣节", YMD(y, 10, 31), 1],
-          ["感恩节", wDay(11, 4, 4), 1],
-          ["平安夜", YMD(y, 12, 24), 1],
-          ["圣诞节", YMD(y, 12, 25), 1]
-        ]
-      };
-    };
-
-    const getPriority = (name, cat, sourceKind) => {
-      if (!enablePrioritySort) return 1;
-
-      if (sourceKind === "custom") {
-        return enableExclusiveWeight
-          ? 9
-          : basePriority[cat] ?? 1;
-      }
-
-      const special = getSpecialHolidayPriority(name);
-
-      return special ?? basePriority[cat] ?? 1;
-    };
-
-    const isInFestivalPeriod = (diff, duration) =>
-      diff <= 0 && diff > -duration;
-
-    const rawResult = {
-      legal: new Map(),
-      folk: new Map(),
-      intl: new Map(),
-      exclusive: new Map()
-    };
-
-    const todayFests = [];
-    const todayFestTokenSet = new Set();
-    const todayItemKeySet = new Set();
-    const pinnedMap = new Map();
-    const pinnedTokenSet = new Set();
-
-    todayItems = [];
-
-    const updatePinned = (name, diff) => {
-      const matchedPinnedNames = getMatchedHolidayNames(
-        name,
-        pinnedHolidaySet
-      );
-
-      if (matchedPinnedNames.length === 0) {
-        return;
-      }
-
-      for (const pinnedName of matchedPinnedNames) {
-        const oldPinnedDiff = pinnedMap.get(pinnedName);
-
-        if (oldPinnedDiff === undefined || diff < oldPinnedDiff) {
-          pinnedMap.set(pinnedName, diff);
-          addHolidayNameTokens(pinnedTokenSet, pinnedName);
-        }
-      }
-    };
-
-    const addTodayItem = (name, diff, priority, cat, duration = 1) => {
-      const key = `${cat}:${name}`;
-
-      if (todayItemKeySet.has(key)) return;
-
-      todayItemKeySet.add(key);
-
-      todayItems.push({
-        name,
-        diff,
-        duration,
-        priority: priority + 100,
-        cat
+  const writeBaseDailyCache = (envFingerprint, payload) => {
+    if (!ctx.storage) return;
+
+    try {
+      ctx.storage.setJSON(BASE_CACHE_KEY, {
+        version: CACHE_VERSION,
+        date: todayStr,
+        envFingerprint,
+        payload
       });
-    };
-
-    const addFestival = (cat, name, dateStr, duration = 1, sourceKind = "") => {
-      if (!name || !dateStr) return;
-
-      const [yy, mm, dd] = dateStr.split("/").map(Number);
-
-      if (!Number.isInteger(yy) || !isValidMonthDay(yy, mm, dd)) {
-        return;
-      }
-
-      const diff = (Date.UTC(yy, mm - 1, dd) - todayMs) / DAY_MS;
-      const priority = getPriority(name, cat, sourceKind);
-
-      if (isInFestivalPeriod(diff, duration)) {
-        if (!holidayNameMatchesTokenSet(name, todayFestTokenSet)) {
-          addHolidayNameTokens(todayFestTokenSet, name);
-
-          todayFests.push({
-            name,
-            diff,
-            duration
-          });
-        }
-
-        addTodayItem(name, diff, priority, cat, duration);
-        return;
-      }
-
-      if (diff > 0) {
-        updatePinned(name, diff);
-
-        const old = rawResult[cat].get(name);
-
-        if (!old || diff < old.diff) {
-          rawResult[cat].set(name, {
-            name,
-            diff,
-            duration,
-            priority,
-            cat
-          });
-        }
-      }
-    };
-
-    const yearsToScan = [Y - 1, Y, Y + 1];
-
-    for (const y of yearsToScan) {
-      const f = getFests(y);
-
-      for (const cat of Object.keys(rawResult)) {
-        for (const [name, dateStr, duration = 1, sourceKind = ""] of f[cat]) {
-          addFestival(cat, name, dateStr, duration, sourceKind);
-        }
-      }
+    } catch (e) {
+      warnLog("[Countdown] failed to save base daily cache:", e);
     }
+  };
 
-    for (const item of onceCustomDays) {
-      const { year, month, day } = item.spec;
+  const {
+    officialHolidayCache,
+    envFingerprint,
+    cachedBaseData
+  } = await prepareOfficialHolidayCacheForWidget({
+    ctx,
+    currentYear: Y,
+    todayIso,
+    dataEnvFingerprint: dataEnvStorageFingerprint,
+    officialHolidayStorageKey,
+    readBaseDailyCache
+  });
 
-      addFestival(
-        "exclusive",
-        item.name,
-        YMD(year, month, day),
-        1,
-        "custom"
-      );
-    }
+  let baseData = cachedBaseData;
 
-    result = {};
-
-    Object.keys(rawResult).forEach(cat => {
-      result[cat] = Array.from(rawResult[cat].values())
-        .filter(i =>
-          !holidayNameMatchesTokenSet(i.name, pinnedTokenSet) &&
-          !holidayNameMatchesTokenSet(i.name, todayFestTokenSet)
-        )
-        .sort((a, b) => {
-          if (a.diff !== b.diff) return a.diff - b.diff;
-          return enablePrioritySort ? b.priority - a.priority : 0;
-        })
-        .slice(0, 7);
+  if (!baseData) {
+    baseData = buildCountdownData({
+      normalizedEnv,
+      officialHolidayCache,
+      year: Y,
+      todayMs
     });
 
-    todayNoticeText = todayFests.length > 0
-      ? formatTodayFestGroup(todayFests)
-      : "";
-
-    pinnedData = pinnedHolidays
-      .filter(n => pinnedMap.has(n))
-      .map(n => ({
-        name: n,
-        diff: pinnedMap.get(n)
-      }))
-      .sort((a, b) => a.diff - b.diff);
-
-    displayCache = buildDisplayCache(result);
-
-    if (ctx.storage) {
-      try {
-        ctx.storage.setJSON(BASE_CACHE_KEY, {
-          version: CACHE_VERSION,
-          date: todayStr,
-          envFingerprint,
-          payload: {
-            result,
-            todayNoticeText,
-            pinnedData,
-            todayItems,
-            displayCache
-          }
-        });
-      } catch (e) {
-        warnLog("[Countdown] failed to save base daily cache:", e);
-      }
-    }
+    writeBaseDailyCache(envFingerprint, baseData);
   }
+
+  let {
+    result,
+    todayNoticeText,
+    pinnedData,
+    todayItems,
+    displayCache
+  } = baseData;
 
   if (!displayCache || !isValidDisplayCache(displayCache)) {
     displayCache = buildDisplayCache(result);
