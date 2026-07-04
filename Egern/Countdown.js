@@ -97,6 +97,7 @@ const specialPriority = {
 };
 
 const DAY_MS = 86400000;
+const BJ_OFFSET_MS = 8 * 3600000;
 const HTTP_TIMEOUT_MS = 5000;
 const WIDGET_OFFICIAL_HTTP_TIMEOUT_MS = 1500;
 
@@ -152,6 +153,30 @@ const mkSpacer = length =>
 const pad2 = n => String(n).padStart(2, "0");
 
 const YMD = (y, m, d) => `${y}/${pad2(m)}/${pad2(d)}`;
+
+function getBeijingDateContext(nowMs = Date.now()) {
+  const bjDate = new Date(nowMs + BJ_OFFSET_MS);
+  const year = bjDate.getUTCFullYear();
+  const month = bjDate.getUTCMonth() + 1;
+  const day = bjDate.getUTCDate();
+
+  const todayMs = Date.UTC(year, month - 1, day);
+  const todayIso = `${year}-${pad2(month)}-${pad2(day)}`;
+  const todayStr = `${year}_${month}_${day}`;
+  const nextRefreshMs =
+    Date.UTC(year, month - 1, day + 1, 0, 1) - BJ_OFFSET_MS;
+
+  return {
+    year,
+    month,
+    day,
+    weekday: bjDate.getUTCDay(),
+    todayMs,
+    todayIso,
+    todayStr,
+    nextRefreshIso: new Date(nextRefreshMs).toISOString()
+  };
+}
 
 const msToYMD = ms => {
   if (!Number.isFinite(ms)) return null;
@@ -292,13 +317,8 @@ const formatPeriodStr = (label, diff, duration = 1) => {
   return `${label} ${diff}天`;
 };
 
-const formatDisplayItem = item => {
-  if (item?.status === "ended") {
-    return `${displayName(item.name)}已结束`;
-  }
-
-  return formatPeriodStr(displayName(item.name), item.diff, item.duration);
-};
+const formatDisplayItem = item =>
+  formatPeriodStr(displayName(item.name), item.diff, item.duration);
 
 const formatTodayFestGroup = items => {
   let todayPrefixUsed = false;
@@ -729,13 +749,6 @@ function isValidCountdownItem(item) {
     return false;
   }
 
-  if (
-    item.status !== undefined &&
-    typeof item.status !== "string"
-  ) {
-    return false;
-  }
-
   return true;
 }
 
@@ -857,7 +870,7 @@ function hashString(str) {
   return (h >>> 0).toString(36);
 }
 
-const DAILY_CACHE_SCHEMA_VERSION = 17;
+const DAILY_CACHE_SCHEMA_VERSION = 18;
 const DAILY_CACHE_VERSION_TEXT = `daily:v${DAILY_CACHE_SCHEMA_VERSION}:medium`;
 
 function warnLog(...args) {
@@ -1944,7 +1957,7 @@ function notifyTodayIfNeeded(ctx, notifyKey, notifyDate, todayItems) {
 
   try {
     const notifyItems = todayItems
-      .filter(i => i && i.diff === 0 && i.status !== "ended")
+      .filter(i => i && i.diff === 0)
       .sort((a, b) => {
         const pa = a.priority ?? 0;
         const pb = b.priority ?? 0;
@@ -2106,31 +2119,36 @@ export default async function (ctx = {}) {
     return mkUnsupportedWidget("暂不支持 Extra Large", { maxLines: 2 });
   }
 
-  const bjDate = new Date(Date.now() + 8 * 3600000);
-  const Y = bjDate.getUTCFullYear();
-  const M = bjDate.getUTCMonth() + 1;
-  const D = bjDate.getUTCDate();
-  const currentDay = bjDate.getUTCDay();
-  const todayMs = Date.UTC(Y, M - 1, D);
-  const todayIso = `${Y}-${pad2(M)}-${pad2(D)}`;
-
-  const nextRefreshMs = Date.UTC(Y, M - 1, D + 1, 0, 1) - 8 * 3600000;
+  const dateCtx = getBeijingDateContext();
+  const {
+    year: Y,
+    weekday: currentDay,
+    todayMs,
+    todayIso,
+    todayStr
+  } = dateCtx;
 
   const withRefresh = widget => ({
     ...widget,
-    refreshAfter: new Date(nextRefreshMs).toISOString()
+    refreshAfter: dateCtx.nextRefreshIso
   });
 
   const BASE_CACHE_KEY = `${storageScope}:daily:base`;
   const NOTIFY_KEY = `${storageScope}:notify`;
 
   const CACHE_VERSION = DAILY_CACHE_VERSION_TEXT;
-  const todayStr = `${Y}_${M}_${D}`;
 
-  const getOfficialFingerprintText = cache =>
-    cache?.fingerprint
-      ? `official=${cache.fingerprint}`
-      : "official=none";
+  const getOfficialFingerprintText = cache => {
+    if (cache?.fingerprint) {
+      return `official=${cache.fingerprint}`;
+    }
+
+    if (cache?.years && typeof cache.years === "object") {
+      return `official=${buildOfficialFingerprint(cache.years)}`;
+    }
+
+    return "official=none";
+  };
 
   const readBaseDailyCache = currentEnvFingerprint => {
     if (!ctx.storage) return null;
@@ -2175,10 +2193,7 @@ export default async function (ctx = {}) {
 
     const shouldBlockingRefreshOfficialHoliday =
       Boolean(ctx.http && ctx.storage) &&
-      (
-        missingRequiredOfficialYears.length > 0 ||
-        !isOfficialCacheFresh(officialHolidayCache, todayIso, Y)
-      );
+      missingRequiredOfficialYears.length > 0;
 
     if (shouldBlockingRefreshOfficialHoliday) {
       const lockKey = getOfficialRefreshLockKey(officialHolidayStorageKey);
@@ -2393,7 +2408,7 @@ export default async function (ctx = {}) {
       const term = n => {
         if (!isValidLunarYear(y)) return null;
 
-        const bjT = new Date(Lunar.term(y, n).getTime() + 8 * 3600000);
+        const bjT = new Date(Lunar.term(y, n).getTime() + BJ_OFFSET_MS);
 
         return YMD(
           bjT.getUTCFullYear(),
@@ -2523,8 +2538,8 @@ export default async function (ctx = {}) {
       }
     };
 
-    const addTodayItem = (name, diff, priority, cat, duration = 1, status = "") => {
-      const key = `${cat}:${name}:${status || "active"}`;
+    const addTodayItem = (name, diff, priority, cat, duration = 1) => {
+      const key = `${cat}:${name}`;
 
       if (todayItemKeySet.has(key)) return;
 
@@ -2535,8 +2550,7 @@ export default async function (ctx = {}) {
         diff,
         duration,
         priority: priority + 100,
-        cat,
-        ...(status ? { status } : {})
+        cat
       });
     };
 
@@ -2680,7 +2694,7 @@ export default async function (ctx = {}) {
 
   const hasActiveTodayItem =
     Array.isArray(todayItems) &&
-    todayItems.some(item => item && item.status !== "ended");
+    todayItems.length > 0;
 
   const themeKey =
     hasActiveTodayItem
