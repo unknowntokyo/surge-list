@@ -1,22 +1,7 @@
 /**
  * =========================================
  * 📌 时光倒数 (Countdown) Medium 小组件
- *
- * ✨ 主要功能：
- * • 尺寸适配：仅支持桌面 Medium 小组件；不支持 Small、Large、Extra Large 和锁屏组件。
- * • 节日计算：内置农历算法，支持计算法定节假日、民俗节日、国际节日、专属纪念日倒计时。
- * • 官方假期：法定节假日优先使用 NateScarlet/holiday-cn 官方放假数据；缺失上一年 / 当前年数据时，会在 Widget 渲染前进行短超时拉取；年底可尝试拉取下一年数据。
- * • 本地兜底：官方假期数据不可用时，使用内置固定节日和农历节日作为兜底，不影响基础倒计时显示。
- * • 时区基准：统一采用 UTC+8 北京时间进行日期判断、倒计时计算、缓存日期和刷新时间计算。
- * • 自定义配置：支持通过环境变量设置最多 6 个专属纪念日。
- * • 排序与显示：支持按倒数天数和节日优先级排序；支持指定节日置顶显示，并从分类列表中去重。
- * • 状态响应：根据今日节日、官方休息日、调休日、普通周末 / 工作日切换背景渐变色。
- * • 当天提醒：节日或专属纪念日当天弹窗提醒；按日期和通知内容去重，避免因主题配置变化重复提醒。
- * • 缓存策略：按北京时间自然日生成 daily cache，倒计时数据和渲染文本共用一份缓存；主题配置不触发数据缓存失效。
- * • 刷新策略：Widget 下一次刷新时间固定为北京时间次日 00:01。
- *
- * 🔗 作者: https://github.com/jnlaoshu/MySelf/tree/1c35eedff4e052e7dc4e9d87105e32f2490617cf/Egern/Widget
- * ⏱️ 更新时间: 2026.07.04
+ * ⏱️ 重构版：2026.07.04
  * =========================================
  */
 
@@ -150,7 +135,6 @@ const mkSpacer = length =>
   length != null ? { type: "spacer", length } : { type: "spacer" };
 
 const pad2 = n => String(n).padStart(2, "0");
-
 const YMD = (y, m, d) => `${y}/${pad2(m)}/${pad2(d)}`;
 
 function getBeijingDateContext(nowMs = Date.now()) {
@@ -221,7 +205,6 @@ function splitHolidayNames(name) {
   clearHolidayNameCachesIfNeeded();
 
   const parts = Object.freeze(splitNameList(raw));
-
   holidayNamePartsCache.set(raw, parts);
   holidayNamePartSetCache.set(raw, new Set(parts));
 
@@ -230,10 +213,7 @@ function splitHolidayNames(name) {
 
 function getHolidayNamePartSet(name) {
   const raw = String(name ?? "").trim();
-
-  if (!raw) {
-    return null;
-  }
+  if (!raw) return null;
 
   const cached = holidayNamePartSetCache.get(raw);
   if (cached) return cached;
@@ -575,25 +555,14 @@ function truncateByCodePoint(value, maxLength) {
 }
 
 function getEnvValueMaxLength(key) {
-  if (/^EXCLUSIVE_NAME_\d+$/.test(key)) {
-    return MAX_EXCLUSIVE_NAME_LENGTH;
-  }
-
-  if (/^EXCLUSIVE_DATE_\d+$/.test(key)) {
-    return MAX_EXCLUSIVE_DATE_LENGTH;
-  }
-
-  if (key === "PINNED_HOLIDAY") {
-    return MAX_PINNED_HOLIDAY_TOTAL_LENGTH;
-  }
-
+  if (/^EXCLUSIVE_NAME_\d+$/.test(key)) return MAX_EXCLUSIVE_NAME_LENGTH;
+  if (/^EXCLUSIVE_DATE_\d+$/.test(key)) return MAX_EXCLUSIVE_DATE_LENGTH;
+  if (key === "PINNED_HOLIDAY") return MAX_PINNED_HOLIDAY_TOTAL_LENGTH;
   return MAX_ENV_TEXT_LENGTH;
 }
 
 function sanitizeEnvStringValue(key, value) {
-  if (value === undefined || value === null) {
-    return "";
-  }
+  if (value === undefined || value === null) return "";
 
   const raw = truncateByCodePoint(value, getEnvValueMaxLength(key));
 
@@ -1117,6 +1086,58 @@ function sanitizeOfficialYears(years) {
   return sanitized;
 }
 
+function buildOfficialFingerprint(yearsData) {
+  if (!yearsData || typeof yearsData !== "object") {
+    return "none";
+  }
+
+  const parts = [];
+
+  for (const year of Object.keys(yearsData).sort()) {
+    const yearData = yearsData[year];
+
+    if (!isValidOfficialYearData(yearData)) continue;
+
+    parts.push(year);
+
+    for (const day of yearData.days) {
+      parts.push(`${day.date}:${day.name.trim()}:${day.isOffDay ? 1 : 0}`);
+    }
+  }
+
+  if (parts.length === 0) {
+    return "none";
+  }
+
+  return hashString(parts.join("|"));
+}
+
+function normalizeOfficialCacheOnRead(cache, sanitize = true) {
+  if (
+    !cache ||
+    cache.version !== OFFICIAL_HOLIDAY_STORAGE_VERSION ||
+    !cache.years ||
+    typeof cache.years !== "object"
+  ) {
+    return null;
+  }
+
+  const years = sanitize
+    ? sanitizeOfficialYears(cache.years)
+    : cache.years;
+
+  const fingerprint =
+    typeof cache.fingerprint === "string" && cache.fingerprint
+      ? cache.fingerprint
+      : buildOfficialFingerprint(years);
+
+  return {
+    ...cache,
+    fingerprint,
+    years
+  };
+}
+
 function readOfficialHolidayCache(
   ctx,
   storageKey,
@@ -1129,21 +1150,10 @@ function readOfficialHolidayCache(
   const { sanitize = true } = options || {};
 
   try {
-    const cache = ctx.storage?.getJSON(storageKey);
-
-    if (
-      cache &&
-      cache.version === OFFICIAL_HOLIDAY_STORAGE_VERSION &&
-      cache.years &&
-      typeof cache.years === "object"
-    ) {
-      return {
-        ...cache,
-        years: sanitize
-          ? sanitizeOfficialYears(cache.years)
-          : cache.years
-      };
-    }
+    return normalizeOfficialCacheOnRead(
+      ctx.storage?.getJSON(storageKey),
+      sanitize
+    );
   } catch (e) {
     warnLog("[Countdown] failed to read official holiday cache:", e);
   }
@@ -1219,39 +1229,17 @@ function getMissingOfficialYears(yearsData, requestYears) {
     .filter(year => !hasOfficialYearData(yearsData, year));
 }
 
-function buildOfficialFingerprint(yearsData) {
-  if (!yearsData || typeof yearsData !== "object") {
-    return "none";
-  }
-
-  const parts = [];
-
-  for (const year of Object.keys(yearsData).sort()) {
-    const yearData = yearsData[year];
-
-    if (!isValidOfficialYearData(yearData)) continue;
-
-    parts.push(year);
-
-    for (const day of yearData.days) {
-      parts.push(`${day.date}:${day.name.trim()}:${day.isOffDay ? 1 : 0}`);
-    }
-  }
-
-  if (parts.length === 0) {
-    return "none";
-  }
-
-  return hashString(parts.join("|"));
-}
-
 function getOfficialFingerprintText(cache) {
+  const fp = typeof cache?.fingerprint === "string" && cache.fingerprint
+    ? cache.fingerprint
+    : "";
+
+  if (fp) {
+    return `official=${fp}`;
+  }
+
   if (cache?.years && typeof cache.years === "object") {
     return `official=${buildOfficialFingerprint(cache.years)}`;
-  }
-
-  if (cache?.fingerprint) {
-    return `official=${cache.fingerprint}`;
   }
 
   return "official=none";
@@ -1402,8 +1390,14 @@ async function loadOfficialHolidayDaily(
     forceYearsToFetch = null
   } = options || {};
 
+  const hasProvidedOldCache =
+    Object.prototype.hasOwnProperty.call(options || {}, "oldCache");
+
+  const oldCache = hasProvidedOldCache
+    ? options.oldCache
+    : readOfficialHolidayCache(ctx, storageKey);
+
   const requestTimeoutMs = normalizeHttpTimeoutMs(httpTimeoutMs);
-  const oldCache = readOfficialHolidayCache(ctx, storageKey);
 
   if (!ctx.http || !ctx.storage) {
     return oldCache;
@@ -1635,14 +1629,117 @@ function releaseOfficialRefreshLock(ctx, lockKey, owner) {
   }
 }
 
+function readBaseCacheByOfficialState(
+  officialHolidayCache,
+  dataEnvFingerprint,
+  readBaseDailyCache
+) {
+  const envFingerprint = getOfficialEnvFingerprint(
+    dataEnvFingerprint,
+    officialHolidayCache
+  );
+
+  return {
+    envFingerprint,
+    cachedBaseData: readBaseDailyCache(envFingerprint)
+  };
+}
+
+function resolveOfficialRefreshPlan({
+  officialHolidayCache,
+  currentYear,
+  todayIso
+}) {
+  const missingRequiredOfficialYears = getMissingOfficialYears(
+    officialHolidayCache?.years,
+    officialRequiredYears(currentYear)
+  ).map(Number);
+
+  const missingOptionalOfficialYears = shouldTryOptionalOfficialYears(todayIso)
+    ? getMissingOfficialYears(
+        officialHolidayCache?.years,
+        officialOptionalYears(currentYear)
+      ).map(Number)
+    : [];
+
+  const needsOfficialRefresh = shouldRefreshOfficialCache(
+    officialHolidayCache,
+    currentYear,
+    todayIso
+  );
+
+  const forceYearsToFetch = uniqueFiniteNumbers([
+    ...missingRequiredOfficialYears,
+    ...missingOptionalOfficialYears,
+    ...(
+      needsOfficialRefresh && missingRequiredOfficialYears.length === 0
+        ? [currentYear]
+        : []
+    )
+  ]);
+
+  return {
+    forceYearsToFetch,
+    needsOfficialRefresh
+  };
+}
+
+async function refreshOfficialCacheWithLock({
+  ctx,
+  officialHolidayStorageKey,
+  currentYear,
+  todayIso,
+  officialHolidayCache,
+  forceYearsToFetch
+}) {
+  const lockKey = getOfficialRefreshLockKey(officialHolidayStorageKey);
+  const lockOwner = tryAcquireOfficialRefreshLock(ctx, lockKey);
+
+  if (!lockOwner) {
+    return {
+      refreshed: false,
+      officialHolidayCache: readOfficialHolidayCache(
+        ctx,
+        officialHolidayStorageKey
+      )
+    };
+  }
+
+  try {
+    const refreshedCache = await safeLoadOfficialHolidayDaily(
+      ctx,
+      currentYear,
+      todayIso,
+      officialHolidayStorageKey,
+      {
+        oldCache: officialHolidayCache,
+        httpTimeoutMs: WIDGET_OFFICIAL_HTTP_TIMEOUT_MS,
+        ...(
+          forceYearsToFetch.length > 0
+            ? { forceYearsToFetch }
+            : {}
+        )
+      }
+    );
+
+    return {
+      refreshed: true,
+      officialHolidayCache: refreshedCache
+    };
+  } finally {
+    releaseOfficialRefreshLock(ctx, lockKey, lockOwner);
+  }
+}
+
 /**
  * Official holiday cache 的唯一准备入口。
  *
- * 后续不要在主流程中直接散落调用：
- * - readOfficialHolidayCache
- * - safeLoadOfficialHolidayDaily
- * - getOfficialFingerprintText
- * - readBaseDailyCache
+ * 本次重构收敛了：
+ * - 官方缓存读取
+ * - official fingerprint 生成
+ * - daily base cache 读取
+ * - 官方节假日刷新判断
+ * - 加锁刷新
  */
 async function prepareOfficialHolidayCacheForWidget({
   ctx,
@@ -1657,94 +1754,66 @@ async function prepareOfficialHolidayCacheForWidget({
     officialHolidayStorageKey
   );
 
-  let envFingerprint = getOfficialEnvFingerprint(
+  let {
+    envFingerprint,
+    cachedBaseData
+  } = readBaseCacheByOfficialState(
+    officialHolidayCache,
     dataEnvFingerprint,
-    officialHolidayCache
+    readBaseDailyCache
   );
 
-  let cachedBaseData = readBaseDailyCache(envFingerprint);
-
-  if (!cachedBaseData) {
-    const missingRequiredOfficialYears = getMissingOfficialYears(
-      officialHolidayCache?.years,
-      officialRequiredYears(currentYear)
-    ).map(Number);
-
-    const missingOptionalOfficialYears = shouldTryOptionalOfficialYears(todayIso)
-      ? getMissingOfficialYears(
-          officialHolidayCache?.years,
-          officialOptionalYears(currentYear)
-        ).map(Number)
-      : [];
-
-    const needsOfficialRefresh = shouldRefreshOfficialCache(
+  if (cachedBaseData) {
+    return {
       officialHolidayCache,
-      currentYear,
-      todayIso
+      envFingerprint,
+      cachedBaseData
+    };
+  }
+
+  const {
+    forceYearsToFetch,
+    needsOfficialRefresh
+  } = resolveOfficialRefreshPlan({
+    officialHolidayCache,
+    currentYear,
+    todayIso
+  });
+
+  const shouldBlockingRefreshOfficialHoliday =
+    Boolean(ctx.http && ctx.storage) &&
+    (
+      forceYearsToFetch.length > 0 ||
+      needsOfficialRefresh
     );
 
-    const forceYearsToFetch = uniqueFiniteNumbers([
-      ...missingRequiredOfficialYears,
-      ...missingOptionalOfficialYears,
-      ...(
-        needsOfficialRefresh && missingRequiredOfficialYears.length === 0
-          ? [currentYear]
-          : []
-      )
-    ]);
-
-    const shouldBlockingRefreshOfficialHoliday =
-      Boolean(ctx.http && ctx.storage) &&
-      (
-        forceYearsToFetch.length > 0 ||
-        needsOfficialRefresh
-      );
-
-    if (shouldBlockingRefreshOfficialHoliday) {
-      const lockKey = getOfficialRefreshLockKey(officialHolidayStorageKey);
-      const lockOwner = tryAcquireOfficialRefreshLock(ctx, lockKey);
-
-      if (lockOwner) {
-        try {
-          officialHolidayCache = await safeLoadOfficialHolidayDaily(
-            ctx,
-            currentYear,
-            todayIso,
-            officialHolidayStorageKey,
-            {
-              httpTimeoutMs: WIDGET_OFFICIAL_HTTP_TIMEOUT_MS,
-              ...(
-                forceYearsToFetch.length > 0
-                  ? { forceYearsToFetch }
-                  : {}
-              )
-            }
-          );
-
-          envFingerprint = getOfficialEnvFingerprint(
-            dataEnvFingerprint,
-            officialHolidayCache
-          );
-
-          cachedBaseData = readBaseDailyCache(envFingerprint);
-        } finally {
-          releaseOfficialRefreshLock(ctx, lockKey, lockOwner);
-        }
-      } else {
-        officialHolidayCache = readOfficialHolidayCache(
-          ctx,
-          officialHolidayStorageKey
-        );
-
-        envFingerprint = getOfficialEnvFingerprint(
-          dataEnvFingerprint,
-          officialHolidayCache
-        );
-
-        cachedBaseData = readBaseDailyCache(envFingerprint);
-      }
-    }
+  if (!shouldBlockingRefreshOfficialHoliday) {
+    return {
+      officialHolidayCache,
+      envFingerprint,
+      cachedBaseData
+    };
   }
+
+  const refreshResult = await refreshOfficialCacheWithLock({
+    ctx,
+    officialHolidayStorageKey,
+    currentYear,
+    todayIso,
+    officialHolidayCache,
+    forceYearsToFetch
+  });
+
+  officialHolidayCache = refreshResult.officialHolidayCache;
+
+  ({
+    envFingerprint,
+    cachedBaseData
+  } = readBaseCacheByOfficialState(
+    officialHolidayCache,
+    dataEnvFingerprint,
+    readBaseDailyCache
+  ));
 
   return {
     officialHolidayCache,
@@ -2283,12 +2352,6 @@ function buildYearFestivals({
   };
 }
 
-/**
- * Countdown data 的唯一构建入口。
- *
- * 后续新增节日、排序、置顶、专属纪念日规则，优先改这里。
- * 不要再把业务构建逻辑塞回 renderCountdownWidget。
- */
 function buildCountdownData({
   normalizedEnv,
   officialHolidayCache,
@@ -2624,13 +2687,7 @@ function notifyTodayIfNeeded(ctx, notifyKey, notifyDate, todayItems) {
   }
 }
 
-async function renderCountdownWidget(ctx = {}) {
-  const dateCtx = getBeijingDateContext();
-  const withRefresh = widget => ({
-    ...widget,
-    refreshAfter: dateCtx.nextRefreshIso
-  });
-
+function getSupportedFamilyResult(ctx, withRefresh) {
   const family = String(ctx.widgetFamily || "systemMedium").toLowerCase();
 
   const isLockScreenFamily =
@@ -2659,6 +2716,19 @@ async function renderCountdownWidget(ctx = {}) {
   if (family !== "systemmedium") {
     return withRefresh(mkUnsupportedWidget("仅支持 Medium 组件", { maxLines: 2 }));
   }
+
+  return null;
+}
+
+async function renderCountdownWidget(ctx = {}) {
+  const dateCtx = getBeijingDateContext();
+  const withRefresh = widget => ({
+    ...widget,
+    refreshAfter: dateCtx.nextRefreshIso
+  });
+
+  const unsupportedWidget = getSupportedFamilyResult(ctx, withRefresh);
+  if (unsupportedWidget) return unsupportedWidget;
 
   const env = ctx.env ?? {};
   const normalizedEnv = buildNormalizedEnv(env);
@@ -2799,9 +2869,7 @@ async function renderCountdownWidget(ctx = {}) {
         : "workday";
 
   const backgroundGradient = getBackgroundGradient(themeKey);
-
   const layoutConfig = LAYOUT_CONFIG;
-
   const gridRows = buildGridRows(displayCache, result, layoutConfig);
 
   const rightHeaderElements = [];
