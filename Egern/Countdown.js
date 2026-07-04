@@ -859,7 +859,7 @@ function hashString(str) {
 }
 
 const DAILY_CACHE_SCHEMA_VERSION = 20;
-const DAILY_CACHE_VERSION_TEXT = `daily:v${DAILY_CACHE_SCHEMA_VERSION}:medium`;
+const DAILY_CACHE_VERSION_TEXT = `v${DAILY_CACHE_SCHEMA_VERSION}`;
 
 function warnLog(...args) {
   try {
@@ -2768,7 +2768,7 @@ async function renderCountdownWidget(ctx = {}) {
   } = dateCtx;
 
   const BASE_CACHE_KEY =
-    `${storageScope}:daily:base:${dataEnvCacheScope}:v${DAILY_CACHE_SCHEMA_VERSION}:medium`;
+  `${storageScope}:daily:${dataEnvCacheScope}:v${DAILY_CACHE_SCHEMA_VERSION}`;
 
   const NOTIFY_KEY =
     `${storageScope}:notify:${dataEnvCacheScope}`;
