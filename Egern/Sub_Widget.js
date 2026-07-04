@@ -42,15 +42,21 @@ const COLORS = {
 };
 
 const WIDGET_BG_COLOR = { light: "#FFFFFF", dark: "#2C2C2E" };
+const CARD_BG_COLOR = { light: "#FFFFFF", dark: "#2B2B2D" };
 
 const REFRESH_INTERVAL_MS = 60 * 60 * 1000;
 const NETWORK_COOLDOWN_MS = 30 * 60 * 1000;
 const MAX_STALE_MS = 10 * 24 * 60 * 60 * 1000;
 
+const SCRIPT_SOFT_TIMEOUT_MS = 8500;
+const REQUEST_TIMEOUT_MS = 1500;
+const MIN_REQUEST_TIMEOUT_MS = 500;
+
 const CACHE_PREFIX = "sub_cache";
 
 const UNITS = ["B", "KB", "MB", "GB", "TB", "PB"];
 const REGEX_USERINFO = /([-\w]+)\s*=\s*([\d.eE+-]+)/g;
+const USERINFO_KEYS = new Set(["upload", "download", "total", "expire"]);
 
 const STRATEGIES = [
   {
@@ -77,58 +83,25 @@ const STRATEGIES = [
 ];
 
 export default async function (ctx) {
-  const slots = [];
   const env = ctx.env || {};
-
-  for (let i = 1; i <= 5; i++) {
-    const url = String(env[`URL${i}`] || "").trim();
-    if (!url) continue;
-
-    slots.push({
-      id: i,
-      name: String(env[`NAME${i}`] || "").trim() || "机场订阅",
-      url,
-      resetDay: parseResetDay(env[`RESET${i}`]),
-    });
-  }
+  const slots = buildSlots(env);
 
   if (!slots.length) {
-    return {
-      type: "widget",
-      backgroundColor: WIDGET_BG_COLOR,
-      padding: 16,
-      children: [
-        {
-          type: "stack",
-          direction: "column",
-          gap: 10,
-          alignItems: "center",
-          children: [
-            {
-              type: "image",
-              src: "sf-symbol:wifi.slash",
-              width: 32,
-              height: 32,
-              color: COLORS.accentRed,
-            },
-            {
-              type: "text",
-              text: "未配置订阅",
-              font: { size: "headline", weight: "semibold" },
-              textColor: COLORS.textPrimary,
-            },
-          ],
-        },
-      ],
-    };
+    return buildEmptyWidget();
   }
 
   const widgetFamily = String(ctx.widgetFamily || "systemMedium");
   const activeSlots = slots.slice(0, widgetFamily.includes("Large") ? 5 : 2);
-  const now = new Date();
 
-  const results = await concurrentMap(activeSlots, 2, (slot) => fetchInfo(ctx, slot, now));
-  const cardChildren = results.map((result) => safeBuildCard(result, ctx));
+  const now = new Date();
+  const nowTime = now.getTime();
+  const deadlineTime = nowTime + SCRIPT_SOFT_TIMEOUT_MS;
+
+  const results = await concurrentMap(activeSlots, 2, (slot) =>
+    fetchInfo(ctx, slot, now, nowTime, deadlineTime)
+  );
+
+  const cardChildren = results.map((result) => safeBuildCard(result, ctx, nowTime));
 
   const timeStr =
     String(now.getHours()).padStart(2, "0") +
@@ -140,7 +113,7 @@ export default async function (ctx) {
     backgroundColor: WIDGET_BG_COLOR,
     padding: [10, 10],
     gap: 6,
-    refreshAfter: new Date(now.getTime() + REFRESH_INTERVAL_MS).toISOString(),
+    refreshAfter: new Date(nowTime + REFRESH_INTERVAL_MS).toISOString(),
     children: [
       {
         type: "stack",
@@ -187,132 +160,265 @@ export default async function (ctx) {
   };
 }
 
-async function fetchInfo(ctx, slot, now) {
-  const cacheKey = `${CACHE_PREFIX}_${slot.id}_${hashString(slot.url)}`;
-  const nowTime = now.getTime();
+function buildSlots(env) {
+  const slots = [];
 
-  let cacheData = null;
-  let lastErrorMsg = "Unknown";
+  for (let i = 1; i <= 5; i++) {
+    const url = String(env[`URL${i}`] || "").trim();
+    if (!url) continue;
 
-  const remainDays = slot.resetDay ? getRemainingDays(slot.resetDay, now) : null;
-
-  try {
-    const parsed = ctx.storage.getJSON(cacheKey);
-    const cacheTime = Number(parsed?.time ?? parsed?.data?.updatedAt);
-
-    if (parsed?.data && Number.isFinite(cacheTime)) {
-      const timeDiff = nowTime - cacheTime;
-
-      if (timeDiff >= 0 && timeDiff < NETWORK_COOLDOWN_MS) {
-        return {
-          ...parsed.data,
-          cacheTime,
-          name: slot.name,
-          remainDays,
-        };
-      }
-
-      if (timeDiff >= 0 && timeDiff < MAX_STALE_MS) {
-        cacheData = {
-          ...parsed.data,
-          cacheTime,
-        };
-      } else {
-        try {
-          ctx.storage.delete(cacheKey);
-        } catch (e) {}
-      }
-    } else if (parsed) {
-      try {
-        ctx.storage.delete(cacheKey);
-      } catch (e) {}
-    }
-  } catch (e) {}
-
-  for (const strategy of STRATEGIES) {
-    let retryCount = 0;
-
-    while (retryCount < 2) {
-      try {
-        const resp = await ctx.http.get(buildUrl(slot.url, strategy.flag), {
-          headers: strategy.ua,
-          timeout: 2000,
-        });
-
-        if (resp.status && (resp.status < 200 || resp.status >= 300)) {
-          lastErrorMsg = `HTTP ${resp.status}`;
-          break;
-        }
-
-        const info = parseUserInfo(getHeader(resp.headers, "subscription-userinfo"));
-
-        if (info && Number.isFinite(info.total) && info.total > 0) {
-          const upload = Math.max(0, info.upload || 0);
-          const download = Math.max(0, info.download || 0);
-          const used = upload + download;
-          const totalBytes = info.total;
-
-          const result = {
-            used,
-            totalBytes,
-            percent: totalBytes > 0 ? (used / totalBytes) * 100 : 0,
-            expire: Number.isFinite(info.expire) && info.expire > 0 ? info.expire : null,
-            updatedAt: nowTime,
-          };
-
-          try {
-            ctx.storage.setJSON(cacheKey, {
-              time: nowTime,
-              data: result,
-            });
-          } catch (e) {}
-
-          return {
-            ...result,
-            cacheTime: nowTime,
-            name: slot.name,
-            remainDays,
-          };
-        }
-
-        lastErrorMsg = "No Data";
-        break;
-      } catch (err) {
-        retryCount++;
-
-        const msg = String(err?.message ?? err ?? "").toLowerCase();
-
-        if (msg.includes("timeout") || msg.includes("timed out")) {
-          lastErrorMsg = "Timeout";
-          if (retryCount < 2) continue;
-        } else {
-          lastErrorMsg = msg.includes("dns") ? "DNS Error" : "Network";
-        }
-
-        break;
-      }
-    }
+    slots.push({
+      id: i,
+      name: String(env[`NAME${i}`] || "").trim() || "机场订阅",
+      url,
+      resetDay: parseResetDay(env[`RESET${i}`]),
+    });
   }
 
-  if (cacheData) {
-    return {
-      ...cacheData,
-      name: slot.name,
-      remainDays,
-      isFallback: true,
-      cacheAgeText: formatCacheAge(nowTime - cacheData.cacheTime),
-    };
+  return slots;
+}
+
+function buildEmptyWidget() {
+  return {
+    type: "widget",
+    backgroundColor: WIDGET_BG_COLOR,
+    padding: 16,
+    children: [
+      {
+        type: "stack",
+        direction: "column",
+        gap: 10,
+        alignItems: "center",
+        children: [
+          {
+            type: "image",
+            src: "sf-symbol:wifi.slash",
+            width: 32,
+            height: 32,
+            color: COLORS.accentRed,
+          },
+          {
+            type: "text",
+            text: "未配置订阅",
+            font: { size: "headline", weight: "semibold" },
+            textColor: COLORS.textPrimary,
+          },
+        ],
+      },
+    ],
+  };
+}
+
+async function fetchInfo(ctx, slot, now, nowTime, deadlineTime) {
+  const remainDays = slot.resetDay ? getRemainingDays(slot.resetDay, now) : null;
+  const cacheKey = `${CACHE_PREFIX}_${slot.id}_${hashString(slot.url)}`;
+
+  const cache = readCache(ctx, cacheKey, nowTime);
+
+  if (cache.fresh) {
+    return attachSlotMeta(cache.fresh, slot, remainDays);
+  }
+
+  const hasStaleCache = Boolean(cache.stale);
+  const remote = await fetchRemoteInfo(
+    ctx,
+    slot.url,
+    nowTime,
+    deadlineTime,
+    hasStaleCache
+  );
+
+  if (remote.ok) {
+    saveCache(ctx, cacheKey, remote.data);
+    return attachSlotMeta(
+      {
+        ...remote.data,
+        cacheTime: nowTime,
+      },
+      slot,
+      remainDays
+    );
+  }
+
+  if (cache.stale) {
+    return attachSlotMeta(
+      {
+        ...cache.stale,
+        isFallback: true,
+        cacheAgeText: formatCacheAge(nowTime - cache.stale.cacheTime),
+      },
+      slot,
+      remainDays
+    );
+  }
+
+  return buildErrorResult(slot, remainDays, remote.errorMsg || "Unknown");
+}
+
+function readCache(ctx, cacheKey, nowTime) {
+  try {
+    const parsed = ctx.storage.getJSON(cacheKey);
+    if (!parsed) return { fresh: null, stale: null };
+
+    const data = parsed.data;
+    const cacheTime = Number(parsed.time ?? data?.updatedAt);
+
+    if (!data || !Number.isFinite(cacheTime)) {
+      safeDeleteCache(ctx, cacheKey);
+      return { fresh: null, stale: null };
+    }
+
+    const age = nowTime - cacheTime;
+
+    if (age >= 0 && age < NETWORK_COOLDOWN_MS) {
+      return {
+        fresh: {
+          ...data,
+          cacheTime,
+        },
+        stale: null,
+      };
+    }
+
+    if (age >= 0 && age < MAX_STALE_MS) {
+      return {
+        fresh: null,
+        stale: {
+          ...data,
+          cacheTime,
+        },
+      };
+    }
+
+    safeDeleteCache(ctx, cacheKey);
+  } catch (e) {
+    safeDeleteCache(ctx, cacheKey);
+  }
+
+  return { fresh: null, stale: null };
+}
+
+function saveCache(ctx, cacheKey, data) {
+  try {
+    ctx.storage.setJSON(cacheKey, {
+      time: data.updatedAt,
+      data,
+    });
+  } catch (e) {}
+}
+
+function safeDeleteCache(ctx, cacheKey) {
+  try {
+    ctx.storage.delete(cacheKey);
+  } catch (e) {}
+}
+
+async function fetchRemoteInfo(ctx, url, nowTime, deadlineTime, hasStaleCache) {
+  let lastErrorMsg = "Unknown";
+
+  for (const strategy of STRATEGIES) {
+    const timeout = getRequestTimeout(deadlineTime);
+
+    if (timeout <= 0) {
+      lastErrorMsg = "Timeout";
+      break;
+    }
+
+    try {
+      const resp = await ctx.http.get(buildUrl(url, strategy.flag), {
+        headers: strategy.ua,
+        timeout,
+      });
+
+      const status = Number(resp.status);
+
+      if (Number.isFinite(status) && (status < 200 || status >= 300)) {
+        lastErrorMsg = `HTTP ${status}`;
+        continue;
+      }
+
+      const info = parseUserInfo(getHeader(resp.headers, "subscription-userinfo"));
+
+      if (info && Number.isFinite(info.total) && info.total > 0) {
+        return {
+          ok: true,
+          data: buildSuccessResult(info, nowTime),
+        };
+      }
+
+      lastErrorMsg = "No Data";
+    } catch (err) {
+      lastErrorMsg = normalizeRequestError(err);
+
+      if (hasStaleCache) {
+        break;
+      }
+    }
   }
 
   return {
-    name: slot.name,
-    error: true,
+    ok: false,
     errorMsg: lastErrorMsg,
+  };
+}
+
+function getRequestTimeout(deadlineTime) {
+  const remaining = deadlineTime - Date.now() - 100;
+
+  if (remaining < MIN_REQUEST_TIMEOUT_MS) {
+    return 0;
+  }
+
+  return Math.min(REQUEST_TIMEOUT_MS, remaining);
+}
+
+function normalizeRequestError(err) {
+  const msg = String(err?.message ?? err ?? "").toLowerCase();
+
+  if (msg.includes("timeout") || msg.includes("timed out")) {
+    return "Timeout";
+  }
+
+  if (msg.includes("dns")) {
+    return "DNS Error";
+  }
+
+  return "Network";
+}
+
+function buildSuccessResult(info, nowTime) {
+  const upload = Math.max(0, info.upload || 0);
+  const download = Math.max(0, info.download || 0);
+  const used = upload + download;
+  const totalBytes = info.total;
+
+  return {
+    used,
+    totalBytes,
+    percent: totalBytes > 0 ? (used / totalBytes) * 100 : 0,
+    expire: Number.isFinite(info.expire) && info.expire > 0 ? info.expire : null,
+    updatedAt: nowTime,
+  };
+}
+
+function attachSlotMeta(data, slot, remainDays) {
+  return {
+    ...data,
+    name: slot.name,
     remainDays,
   };
 }
 
-function buildCard(result, ctx) {
+function buildErrorResult(slot, remainDays, errorMsg) {
+  return {
+    name: slot.name,
+    error: true,
+    errorMsg,
+    remainDays,
+  };
+}
+
+function buildCard(result, ctx, nowTime) {
   const {
     name,
     error,
@@ -356,14 +462,14 @@ function buildCard(result, ctx) {
           font: { size: "caption2", weight: "semibold" },
           textColor: COLORS.accentRed,
           flex: 1,
-          lineLimit: 1,
+          maxLines: 1,
         },
         {
           type: "text",
           text: `失败 | ${errorMsg || "异常"}`,
           font: { size: "caption2", weight: "bold" },
           textColor: COLORS.accentRed,
-          lineLimit: 1,
+          maxLines: 1,
         },
       ],
     };
@@ -382,14 +488,15 @@ function buildCard(result, ctx) {
     const expireMs = expire < 1e12 ? expire * 1000 : expire;
     const d = new Date(expireMs);
 
-    if (Number.isFinite(expireMs) && expireMs < Date.now()) {
+    if (Number.isFinite(expireMs) && expireMs < nowTime) {
       expireText = "已过期";
       isExpired = true;
       statusColor = COLORS.accentRed;
     } else {
-      expireText = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
-        d.getDate()
-      ).padStart(2, "0")}`;
+      expireText = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
+        2,
+        "0"
+      )}-${String(d.getDate()).padStart(2, "0")}`;
     }
   }
 
@@ -400,7 +507,7 @@ function buildCard(result, ctx) {
     direction: "column",
     gap: 5,
     padding: [8, 10],
-    backgroundColor: { light: "#FFFFFF", dark: "#2B2B2D" },
+    backgroundColor: CARD_BG_COLOR,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: COLORS.divider,
@@ -424,14 +531,14 @@ function buildCard(result, ctx) {
             font: { size: "caption2", weight: "semibold" },
             textColor: COLORS.textPrimary,
             flex: 1,
-            lineLimit: 1,
+            maxLines: 1,
           },
           {
             type: "text",
             text: `${Math.round(displayPercent)}%`,
             font: { size: "caption2", weight: "bold" },
             textColor: statusColor,
-            lineLimit: 1,
+            maxLines: 1,
           },
         ],
       },
@@ -472,7 +579,7 @@ function buildCard(result, ctx) {
                 text: `${formatBytes(used)}/${formatBytes(totalBytes)}`,
                 font: { size: "caption2", weight: "medium" },
                 textColor: COLORS.textSecondary,
-                lineLimit: 1,
+                maxLines: 1,
               },
               { type: "spacer" },
             ],
@@ -485,7 +592,7 @@ function buildCard(result, ctx) {
                   text: expireText,
                   font: { size: "caption2", weight: "medium" },
                   textColor: isExpired ? COLORS.accentRed : COLORS.textTertiary,
-                  lineLimit: 1,
+                  maxLines: 1,
                 },
               ]),
           {
@@ -499,7 +606,7 @@ function buildCard(result, ctx) {
                 text: `剩${formatBytes(Math.max(0, totalBytes - used))}`,
                 font: { size: "caption2", weight: "semibold" },
                 textColor: statusColor,
-                lineLimit: 1,
+                maxLines: 1,
               },
             ],
           },
@@ -509,9 +616,9 @@ function buildCard(result, ctx) {
   };
 }
 
-function safeBuildCard(result, ctx) {
+function safeBuildCard(result, ctx, nowTime) {
   try {
-    return buildCard(result, ctx);
+    return buildCard(result, ctx, nowTime);
   } catch (err) {
     return buildCard(
       {
@@ -519,7 +626,8 @@ function safeBuildCard(result, ctx) {
         error: true,
         errorMsg: "Render Error",
       },
-      ctx
+      ctx,
+      nowTime
     );
   }
 }
@@ -595,11 +703,11 @@ function parseUserInfo(header) {
   if (!header.trim()) return null;
 
   const info = {};
-  const allowedKeys = new Set(["upload", "download", "total", "expire"]);
+  REGEX_USERINFO.lastIndex = 0;
 
   for (const match of header.matchAll(REGEX_USERINFO)) {
     const key = String(match[1] || "").toLowerCase();
-    if (!allowedKeys.has(key)) continue;
+    if (!USERINFO_KEYS.has(key)) continue;
 
     const val = Number(match[2]);
 
