@@ -892,7 +892,7 @@ function hashString(str) {
   return (h >>> 0).toString(36);
 }
 
-const DAILY_CACHE_SCHEMA_VERSION = 18;
+const DAILY_CACHE_SCHEMA_VERSION = 19;
 const DAILY_CACHE_VERSION_TEXT = `daily:v${DAILY_CACHE_SCHEMA_VERSION}:medium`;
 
 function warnLog(...args) {
@@ -1154,16 +1154,16 @@ function readOfficialHolidayCache(
   return null;
 }
 
-function officialRequestYears(currentYear) {
+function officialRelevantYears(currentYear) {
   return [currentYear - 1, currentYear];
+}
+
+function officialRequestYears(currentYear) {
+  return officialRelevantYears(currentYear);
 }
 
 function officialRequiredYears(currentYear) {
-  return [currentYear - 1, currentYear];
-}
-
-function getOfficialFailedRetryIntervalMs() {
-  return OFFICIAL_FAILED_RETRY_INTERVAL_MS;
+  return officialRelevantYears(currentYear);
 }
 
 function pruneOfficialYears(years, currentYear) {
@@ -1241,12 +1241,12 @@ function buildOfficialFingerprint(yearsData) {
 }
 
 function getOfficialFingerprintText(cache) {
-  if (cache?.fingerprint) {
-    return `official=${cache.fingerprint}`;
-  }
-
   if (cache?.years && typeof cache.years === "object") {
     return `official=${buildOfficialFingerprint(cache.years)}`;
+  }
+
+  if (cache?.fingerprint) {
+    return `official=${cache.fingerprint}`;
   }
 
   return "official=none";
@@ -1491,7 +1491,7 @@ async function loadOfficialHolidayDaily(
       successfulFetchYearSet.add(key);
     } else {
       retryAfterByYear[key] =
-        now + getOfficialFailedRetryIntervalMs();
+        now + OFFICIAL_FAILED_RETRY_INTERVAL_MS;
 
       warnLog(
         "[Countdown] failed to fetch official holiday:",
@@ -1623,14 +1623,7 @@ function releaseOfficialRefreshLock(ctx, lockKey, owner) {
     const lock = ctx.storage.getJSON(lockKey);
 
     if (lock?.owner === owner) {
-      if (typeof ctx.storage.delete === "function") {
-        ctx.storage.delete(lockKey);
-      } else {
-        ctx.storage.setJSON(lockKey, {
-          releasedAt: Date.now(),
-          expiresAt: 0
-        });
-      }
+      ctx.storage.delete(lockKey);
     }
   } catch (e) {
     warnLog("[Countdown] failed to release official refresh lock:", e);
@@ -1656,10 +1649,7 @@ async function prepareOfficialHolidayCacheForWidget({
 }) {
   let officialHolidayCache = readOfficialHolidayCache(
     ctx,
-    officialHolidayStorageKey,
-    {
-      sanitize: false
-    }
+    officialHolidayStorageKey
   );
 
   let envFingerprint = getOfficialEnvFingerprint(
@@ -1668,24 +1658,6 @@ async function prepareOfficialHolidayCacheForWidget({
   );
 
   let cachedBaseData = readBaseDailyCache(envFingerprint);
-
-  /**
-   * official cache sanitize 后必须重新计算 fingerprint，
-   * 否则 daily cache 的 envFingerprint 可能和实际参与计算的数据不一致。
-   */
-  if (!cachedBaseData && officialHolidayCache?.years) {
-    officialHolidayCache = {
-      ...officialHolidayCache,
-      years: sanitizeOfficialYears(officialHolidayCache.years)
-    };
-
-    envFingerprint = getOfficialEnvFingerprint(
-      dataEnvFingerprint,
-      officialHolidayCache
-    );
-
-    cachedBaseData = readBaseDailyCache(envFingerprint);
-  }
 
   if (!cachedBaseData) {
     const missingRequiredOfficialYears = getMissingOfficialYears(
@@ -1741,18 +1713,8 @@ async function prepareOfficialHolidayCacheForWidget({
          */
         officialHolidayCache = readOfficialHolidayCache(
           ctx,
-          officialHolidayStorageKey,
-          {
-            sanitize: false
-          }
+          officialHolidayStorageKey
         );
-
-        if (officialHolidayCache?.years) {
-          officialHolidayCache = {
-            ...officialHolidayCache,
-            years: sanitizeOfficialYears(officialHolidayCache.years)
-          };
-        }
 
         envFingerprint = getOfficialEnvFingerprint(
           dataEnvFingerprint,
@@ -2129,28 +2091,12 @@ function parseExclusiveDateSpec(raw) {
   return null;
 }
 
-/**
- * Countdown data 的唯一构建入口。
- *
- * 后续新增节日、排序、置顶、专属纪念日规则，优先改这里。
- * 不要再把业务构建逻辑塞回 export default。
- */
-function buildCountdownData({
-  normalizedEnv,
-  officialHolidayCache,
-  year: Y,
-  todayMs
-}) {
-  const officialRanges = buildOfficialHolidayRangeCache(officialHolidayCache);
-
+function parseCountdownUserConfig(normalizedEnv) {
   const getStr = (key, defaultVal = "") =>
     getStrFromNormalizedEnv(normalizedEnv, key, defaultVal);
 
   const getBool = (key, defaultVal = true) =>
     getBoolFromNormalizedEnv(normalizedEnv, key, defaultVal);
-
-  const enablePrioritySort = getBool("ENABLE_PRIORITY_SORT", true);
-  const enableExclusiveWeight = getBool("ENABLE_EXCLUSIVE_WEIGHT", true);
 
   const pinnedHolidays = [
     ...new Set(
@@ -2160,8 +2106,6 @@ function buildCountdownData({
         .filter(Boolean)
     )
   ];
-
-  const pinnedHolidaySet = new Set(pinnedHolidays);
 
   const customDays = [1, 2, 3, 4, 5, 6]
     .map(i => {
@@ -2178,17 +2122,20 @@ function buildCountdownData({
     })
     .filter(item => item.name && item.spec);
 
-  const annualCustomDays = customDays.filter(
-    item => item.spec.type === "annual"
-  );
+  return {
+    enablePrioritySort: getBool("ENABLE_PRIORITY_SORT", true),
+    enableExclusiveWeight: getBool("ENABLE_EXCLUSIVE_WEIGHT", true),
+    pinnedHolidays,
+    pinnedHolidaySet: new Set(pinnedHolidays),
+    annualCustomDays: customDays.filter(item => item.spec.type === "annual"),
+    onceCustomDays: customDays.filter(item => item.spec.type === "once")
+  };
+}
 
-  const onceCustomDays = customDays.filter(
-    item => item.spec.type === "once"
-  );
-
+function createLunarToSolarConverter() {
   const lunarToSolarCache = new Map();
 
-  const l2s = (y, m, d) => {
+  return (y, m, d) => {
     const cacheKey = `${y}-${m}-${d}`;
 
     if (lunarToSolarCache.has(cacheKey)) {
@@ -2239,88 +2186,116 @@ function buildCountdownData({
     lunarToSolarCache.set(cacheKey, resultDate);
     return resultDate;
   };
+}
 
-  const getFests = y => {
-    const term = n => {
-      if (!isValidLunarYear(y)) return null;
+function buildYearFestivals({
+  year: y,
+  annualCustomDays,
+  l2s,
+  officialRanges
+}) {
+  const term = n => {
+    if (!isValidLunarYear(y)) return null;
 
-      const bjT = new Date(Lunar.term(y, n).getTime() + BJ_OFFSET_MS);
+    const bjT = new Date(Lunar.term(y, n).getTime() + BJ_OFFSET_MS);
 
-      return YMD(
-        bjT.getUTCFullYear(),
-        bjT.getUTCMonth() + 1,
-        bjT.getUTCDate()
-      );
-    };
-
-    const wDay = (m, n, w) => {
-      const x = w - new Date(Date.UTC(y, m - 1, 1)).getUTCDay();
-
-      return YMD(
-        y,
-        m,
-        1 + (x < 0 ? x + 7 : x) + (n - 1) * 7
-      );
-    };
-
-    const qmDateStr = term(7);
-
-    const fallbackLegal = [
-      ["元旦", YMD(y, 1, 1), 1],
-      ["春节", l2s(y, 1, 1), 3],
-      ["清明节", qmDateStr, 1],
-      ["劳动节", YMD(y, 5, 1), 1],
-      ["端午节", l2s(y, 5, 5), 1],
-      ["中秋节", l2s(y, 8, 15), 1],
-      ["国庆节", YMD(y, 10, 1), 3]
-    ];
-
-    const officialLegal = getOfficialLegalHolidaysFromRanges(
-      officialRanges,
-      y
+    return YMD(
+      bjT.getUTCFullYear(),
+      bjT.getUTCMonth() + 1,
+      bjT.getUTCDate()
     );
-
-    const legal = mergeLegalHolidays(fallbackLegal, officialLegal);
-
-    return {
-      legal,
-
-      exclusive: annualCustomDays.map(item => {
-        const { month, day } = item.spec;
-
-        return [
-          item.name,
-          isValidMonthDay(y, month, day) ? YMD(y, month, day) : null,
-          1,
-          "custom"
-        ];
-      }),
-
-      folk: [
-        ["元宵节", l2s(y, 1, 15), 1],
-        ["龙抬头", l2s(y, 2, 2), 1],
-        ["七夕节", l2s(y, 7, 7), 1],
-        ["中元节", l2s(y, 7, 15), 1],
-        ["重阳节", l2s(y, 9, 9), 1],
-        ["寒衣节", l2s(y, 10, 1), 1],
-        ["腊八节", l2s(y, 12, 8), 1],
-        ["小年", l2s(y, 12, 23), 1],
-        ["除夕", l2s(y, 12, Lunar.mDays(y, 12)), 1]
-      ],
-
-      intl: [
-        ["情人节", YMD(y, 2, 14), 1],
-        ["妇女节", YMD(y, 3, 8), 1],
-        ["母亲节", wDay(5, 2, 0), 1],
-        ["儿童节", YMD(y, 6, 1), 1],
-        ["父亲节", wDay(6, 3, 0), 1],
-        ["万圣节", YMD(y, 10, 31), 1],
-        ["感恩节", wDay(11, 4, 4), 1],
-        ["平安夜", YMD(y, 12, 24), 1],
-        ["圣诞节", YMD(y, 12, 25), 1]
-      ]
-    };
   };
+
+  const wDay = (m, n, w) => {
+    const x = w - new Date(Date.UTC(y, m - 1, 1)).getUTCDay();
+
+    return YMD(
+      y,
+      m,
+      1 + (x < 0 ? x + 7 : x) + (n - 1) * 7
+    );
+  };
+
+  const fallbackLegal = [
+    ["元旦", YMD(y, 1, 1), 1],
+    ["春节", l2s(y, 1, 1), 3],
+    ["清明节", term(7), 1],
+    ["劳动节", YMD(y, 5, 1), 1],
+    ["端午节", l2s(y, 5, 5), 1],
+    ["中秋节", l2s(y, 8, 15), 1],
+    ["国庆节", YMD(y, 10, 1), 3]
+  ];
+
+  const officialLegal = getOfficialLegalHolidaysFromRanges(
+    officialRanges,
+    y
+  );
+
+  return {
+    legal: mergeLegalHolidays(fallbackLegal, officialLegal),
+
+    exclusive: annualCustomDays.map(item => {
+      const { month, day } = item.spec;
+
+      return [
+        item.name,
+        isValidMonthDay(y, month, day) ? YMD(y, month, day) : null,
+        1,
+        "custom"
+      ];
+    }),
+
+    folk: [
+      ["元宵节", l2s(y, 1, 15), 1],
+      ["龙抬头", l2s(y, 2, 2), 1],
+      ["七夕节", l2s(y, 7, 7), 1],
+      ["中元节", l2s(y, 7, 15), 1],
+      ["重阳节", l2s(y, 9, 9), 1],
+      ["寒衣节", l2s(y, 10, 1), 1],
+      ["腊八节", l2s(y, 12, 8), 1],
+      ["小年", l2s(y, 12, 23), 1],
+      ["除夕", l2s(y, 12, Lunar.mDays(y, 12)), 1]
+    ],
+
+    intl: [
+      ["情人节", YMD(y, 2, 14), 1],
+      ["妇女节", YMD(y, 3, 8), 1],
+      ["母亲节", wDay(5, 2, 0), 1],
+      ["儿童节", YMD(y, 6, 1), 1],
+      ["父亲节", wDay(6, 3, 0), 1],
+      ["万圣节", YMD(y, 10, 31), 1],
+      ["感恩节", wDay(11, 4, 4), 1],
+      ["平安夜", YMD(y, 12, 24), 1],
+      ["圣诞节", YMD(y, 12, 25), 1]
+    ]
+  };
+}
+
+/**
+ * Countdown data 的唯一构建入口。
+ *
+ * 后续新增节日、排序、置顶、专属纪念日规则，优先改这里。
+ * 不要再把业务构建逻辑塞回 renderCountdownWidget。
+ */
+function buildCountdownData({
+  normalizedEnv,
+  officialHolidayCache,
+  year: Y,
+  todayMs
+}) {
+  const officialRanges = buildOfficialHolidayRangeCache(officialHolidayCache);
+  const userConfig = parseCountdownUserConfig(normalizedEnv);
+
+  const {
+    enablePrioritySort,
+    enableExclusiveWeight,
+    pinnedHolidays,
+    pinnedHolidaySet,
+    annualCustomDays,
+    onceCustomDays
+  } = userConfig;
+
+  const l2s = createLunarToSolarConverter();
 
   const getPriority = (name, cat, sourceKind) => {
     if (!enablePrioritySort) return 1;
@@ -2437,7 +2412,12 @@ function buildCountdownData({
   const yearsToScan = [Y - 1, Y, Y + 1];
 
   for (const y of yearsToScan) {
-    const f = getFests(y);
+    const f = buildYearFestivals({
+      year: y,
+      annualCustomDays,
+      l2s,
+      officialRanges
+    });
 
     for (const cat of Object.keys(rawResult)) {
       for (const [name, dateStr, duration = 1, sourceKind = ""] of f[cat]) {
@@ -2618,7 +2598,13 @@ function notifyTodayIfNeeded(ctx, notifyKey, notifyDate, todayItems) {
   }
 }
 
-export default async function (ctx = {}) {
+async function renderCountdownWidget(ctx = {}) {
+  const dateCtx = getBeijingDateContext();
+  const withRefresh = widget => ({
+    ...widget,
+    refreshAfter: dateCtx.nextRefreshIso
+  });
+
   const family = String(ctx.widgetFamily || "systemMedium").toLowerCase();
 
   const isLockScreenFamily =
@@ -2628,11 +2614,11 @@ export default async function (ctx = {}) {
     family.includes("lock-screen");
 
   if (isLockScreenFamily) {
-    return mkUnsupportedWidget("不支持锁屏组件");
+    return withRefresh(mkUnsupportedWidget("不支持锁屏组件"));
   }
 
   if (family === "systemsmall" || family === "systemlarge") {
-    return mkUnsupportedWidget("仅支持 Medium 组件", { maxLines: 2 });
+    return withRefresh(mkUnsupportedWidget("仅支持 Medium 组件", { maxLines: 2 }));
   }
 
   const isExtraLarge =
@@ -2641,7 +2627,7 @@ export default async function (ctx = {}) {
     family.includes("extra-large");
 
   if (isExtraLarge) {
-    return mkUnsupportedWidget("暂不支持 Extra Large", { maxLines: 2 });
+    return withRefresh(mkUnsupportedWidget("暂不支持 Extra Large", { maxLines: 2 }));
   }
 
   const env = ctx.env ?? {};
@@ -2661,7 +2647,6 @@ export default async function (ctx = {}) {
     true
   );
 
-  const dateCtx = getBeijingDateContext();
   const {
     year: Y,
     weekday: currentDay,
@@ -2670,12 +2655,8 @@ export default async function (ctx = {}) {
     todayStr
   } = dateCtx;
 
-  const withRefresh = widget => ({
-    ...widget,
-    refreshAfter: dateCtx.nextRefreshIso
-  });
-
-  const BASE_CACHE_KEY = `${storageScope}:daily:base`;
+  const BASE_CACHE_KEY =
+    `${storageScope}:daily:base:${hashString(dataEnvStorageFingerprint)}`;
   const NOTIFY_KEY = `${storageScope}:notify`;
 
   const CACHE_VERSION = DAILY_CACHE_VERSION_TEXT;
@@ -2855,4 +2836,35 @@ export default async function (ctx = {}) {
       mkSpacer()
     ]
   });
+}
+
+export default async function (ctx = {}) {
+  try {
+    return await renderCountdownWidget(ctx || {});
+  } catch (e) {
+    warnLog("[Countdown] widget render failed:", e);
+
+    const dateCtx = getBeijingDateContext();
+
+    return {
+      type: "widget",
+      padding: 12,
+      refreshAfter: dateCtx.nextRefreshIso,
+      backgroundGradient: getBackgroundGradient("workday"),
+      children: [
+        mkRow([
+          mkIcon("exclamationmark.triangle.fill", C.red, 16),
+          mkText("时光倒数加载失败", 14, "heavy", C.main)
+        ], 6),
+        mkSpacer(8),
+        mkText(
+          "请稍后刷新或检查脚本配置",
+          12,
+          "medium",
+          C.sub,
+          { maxLines: 2 }
+        )
+      ]
+    };
+  }
 }
