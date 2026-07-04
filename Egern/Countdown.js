@@ -848,6 +848,38 @@ const isoToYMD = iso => {
   return parts ? YMD(parts.y, parts.m, parts.d) : null;
 };
 
+const ANNUAL_SLASH_DATE_RE = /^(\d{1,2})\/(\d{1,2})$/;
+const ONCE_SLASH_DATE_RE = /^(\d{4})\/(\d{1,2})\/(\d{1,2})$/;
+
+function parseSlashYMDParts(raw) {
+  const match = String(raw ?? "").trim().match(ONCE_SLASH_DATE_RE);
+
+  if (!match) {
+    return null;
+  }
+
+  const y = Number(match[1]);
+  const m = Number(match[2]);
+  const d = Number(match[3]);
+
+  const dt = new Date(Date.UTC(y, m - 1, d));
+
+  if (
+    dt.getUTCFullYear() !== y ||
+    dt.getUTCMonth() + 1 !== m ||
+    dt.getUTCDate() !== d
+  ) {
+    return null;
+  }
+
+  return {
+    y,
+    m,
+    d,
+    ms: Date.UTC(y, m - 1, d)
+  };
+}
+
 function hashString(str) {
   let h = 5381;
 
@@ -1645,30 +1677,27 @@ function readBaseCacheByOfficialState(
   };
 }
 
-/**
- * 官方节假日刷新计划。
- *
- * 关键调整：
- * - required 年份缺失：允许阻塞，因为会影响今日调休和法定假期准确性；
- * - required 已齐但缓存 stale：不阻塞 widget 渲染，避免小组件周期性等待网络；
- * - optional 年份缺失：不阻塞 widget 渲染，避免年底下一年数据未发布时影响性能。
- */
 function resolveOfficialRefreshPlan({
   officialHolidayCache,
   currentYear,
   todayIso
 }) {
   const yearsData = officialHolidayCache?.years;
-  const requiredYearsToFetch = getMissingOfficialYears(
-    yearsData,
-    officialRequiredYears(currentYear)
-  ).map(Number);
+
+  const requiredYearsToFetch = uniqueFiniteNumbers(
+    getMissingOfficialYears(
+      yearsData,
+      officialRequiredYears(currentYear)
+    )
+  );
 
   const optionalYearsToFetch = shouldTryOptionalOfficialYears(todayIso)
-    ? getMissingOfficialYears(
-        yearsData,
-        officialOptionalYears(currentYear)
-      ).map(Number)
+    ? uniqueFiniteNumbers(
+        getMissingOfficialYears(
+          yearsData,
+          officialOptionalYears(currentYear)
+        )
+      )
     : [];
 
   const requiredReady = isOfficialRequiredReady(yearsData, currentYear);
@@ -1685,15 +1714,16 @@ function resolveOfficialRefreshPlan({
       ? [currentYear]
       : [];
 
-  return {
-    requiredYearsToFetch: uniqueFiniteNumbers(requiredYearsToFetch),
-    optionalYearsToFetch: uniqueFiniteNumbers(optionalYearsToFetch),
-    staleRefreshYearsToFetch: uniqueFiniteNumbers(staleRefreshYearsToFetch),
+  const nonBlockingYearsToFetch = uniqueFiniteNumbers([
+    ...staleRefreshYearsToFetch,
+    ...optionalYearsToFetch
+  ]);
 
-    // Widget 渲染路径只阻塞 required 缺失，不阻塞 stale / optional。
+  return {
+    requiredYearsToFetch,
+    nonBlockingYearsToFetch,
     shouldBlockRenderForOfficialRefresh:
       requiredYearsToFetch.length > 0,
-
     needsOfficialRefresh
   };
 }
@@ -1706,16 +1736,22 @@ async function refreshOfficialCacheWithLock({
   officialHolidayCache,
   forceYearsToFetch
 }) {
+  const yearsToFetch = uniqueFiniteNumbers(forceYearsToFetch);
+
+  if (yearsToFetch.length === 0) {
+    return {
+      officialHolidayCache
+    };
+  }
+
   const lockKey = getOfficialRefreshLockKey(officialHolidayStorageKey);
   const lockOwner = tryAcquireOfficialRefreshLock(ctx, lockKey);
 
   if (!lockOwner) {
     return {
-      refreshed: false,
-      officialHolidayCache: readOfficialHolidayCache(
-        ctx,
-        officialHolidayStorageKey
-      )
+      officialHolidayCache:
+        readOfficialHolidayCache(ctx, officialHolidayStorageKey) ||
+        officialHolidayCache
     };
   }
 
@@ -1728,32 +1764,18 @@ async function refreshOfficialCacheWithLock({
       {
         oldCache: officialHolidayCache,
         httpTimeoutMs: WIDGET_OFFICIAL_HTTP_TIMEOUT_MS,
-        ...(
-          forceYearsToFetch.length > 0
-            ? { forceYearsToFetch }
-            : {}
-        )
+        forceYearsToFetch: yearsToFetch
       }
     );
 
     return {
-      refreshed: true,
-      officialHolidayCache: refreshedCache
+      officialHolidayCache: refreshedCache || officialHolidayCache
     };
   } finally {
     releaseOfficialRefreshLock(ctx, lockKey, lockOwner);
   }
 }
 
-/**
- * Official holiday cache 的唯一准备入口。
- *
- * 本次调整：
- * - 仍然优先读 base daily cache；
- * - base cache 未命中时，只在 required 年份缺失时阻塞刷新；
- * - required 已齐但官方缓存过期时，不阻塞小组件渲染；
- * - optional 年份缺失不阻塞渲染。
- */
 async function prepareOfficialHolidayCacheForWidget({
   ctx,
   currentYear,
@@ -1776,52 +1798,93 @@ async function prepareOfficialHolidayCacheForWidget({
     readBaseDailyCache
   );
 
-  if (cachedBaseData) {
-    return {
+  const canRefreshOfficialHoliday = Boolean(ctx.http && ctx.storage);
+
+  const refreshAndReloadBaseCache = async yearsToFetch => {
+    if (!canRefreshOfficialHoliday || yearsToFetch.length === 0) {
+      return;
+    }
+
+    const refreshResult = await refreshOfficialCacheWithLock({
+      ctx,
+      officialHolidayStorageKey,
+      currentYear,
+      todayIso,
       officialHolidayCache,
+      forceYearsToFetch: yearsToFetch
+    });
+
+    officialHolidayCache = refreshResult.officialHolidayCache;
+
+    ({
       envFingerprint,
       cachedBaseData
-    };
-  }
+    } = readBaseCacheByOfficialState(
+      officialHolidayCache,
+      dataEnvFingerprint,
+      readBaseDailyCache
+    ));
+  };
 
-  const plan = resolveOfficialRefreshPlan({
+  let plan = resolveOfficialRefreshPlan({
     officialHolidayCache,
     currentYear,
     todayIso
   });
 
-  const canRefreshOfficialHoliday = Boolean(ctx.http && ctx.storage);
+  if (cachedBaseData) {
+    if (
+      canRefreshOfficialHoliday &&
+      plan.shouldBlockRenderForOfficialRefresh
+    ) {
+      const fallbackEnvFingerprint = envFingerprint;
+      const fallbackCachedBaseData = cachedBaseData;
+      const oldOfficialFingerprint = getOfficialFingerprintText(
+        officialHolidayCache
+      );
 
-  if (
-    !canRefreshOfficialHoliday ||
-    !plan.shouldBlockRenderForOfficialRefresh
-  ) {
-    return {
-      officialHolidayCache,
-      envFingerprint,
-      cachedBaseData
-    };
+      await refreshAndReloadBaseCache(plan.requiredYearsToFetch);
+
+      if (cachedBaseData) {
+        return {
+          officialHolidayCache,
+          envFingerprint,
+          cachedBaseData
+        };
+      }
+
+      if (
+        getOfficialFingerprintText(officialHolidayCache) ===
+        oldOfficialFingerprint
+      ) {
+        return {
+          officialHolidayCache,
+          envFingerprint: fallbackEnvFingerprint,
+          cachedBaseData: fallbackCachedBaseData
+        };
+      }
+    } else {
+      return {
+        officialHolidayCache,
+        envFingerprint,
+        cachedBaseData
+      };
+    }
   }
 
-  const refreshResult = await refreshOfficialCacheWithLock({
-    ctx,
-    officialHolidayStorageKey,
-    currentYear,
-    todayIso,
+  plan = resolveOfficialRefreshPlan({
     officialHolidayCache,
-    forceYearsToFetch: plan.requiredYearsToFetch
+    currentYear,
+    todayIso
   });
 
-  officialHolidayCache = refreshResult.officialHolidayCache;
+  if (canRefreshOfficialHoliday) {
+    const yearsToFetch = plan.shouldBlockRenderForOfficialRefresh
+      ? plan.requiredYearsToFetch
+      : plan.nonBlockingYearsToFetch;
 
-  ({
-    envFingerprint,
-    cachedBaseData
-  } = readBaseCacheByOfficialState(
-    officialHolidayCache,
-    dataEnvFingerprint,
-    readBaseDailyCache
-  ));
+    await refreshAndReloadBaseCache(yearsToFetch);
+  }
 
   return {
     officialHolidayCache,
@@ -1880,24 +1943,24 @@ function isValidOfficialRange(range) {
 function parseSlashDateSpec(raw) {
   const s = String(raw ?? "").trim();
 
-  let match = s.match(/^(\d{1,2})\/(\d{1,2})$/);
+  const annualMatch = s.match(ANNUAL_SLASH_DATE_RE);
 
-  if (match) {
+  if (annualMatch) {
     return {
       type: "annual",
-      month: Number(match[1]),
-      day: Number(match[2])
+      month: Number(annualMatch[1]),
+      day: Number(annualMatch[2])
     };
   }
 
-  match = s.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/);
+  const onceParts = parseSlashYMDParts(s);
 
-  if (match) {
+  if (onceParts) {
     return {
       type: "once",
-      year: Number(match[1]),
-      month: Number(match[2]),
-      day: Number(match[3])
+      year: onceParts.y,
+      month: onceParts.m,
+      day: onceParts.d
     };
   }
 
@@ -1905,29 +1968,8 @@ function parseSlashDateSpec(raw) {
 }
 
 function slashYMDToMs(dateStr) {
-  const match = String(dateStr ?? "").match(
-    /^(\d{4})\/(\d{1,2})\/(\d{1,2})$/
-  );
-
-  if (!match) {
-    return NaN;
-  }
-
-  const y = Number(match[1]);
-  const m = Number(match[2]);
-  const d = Number(match[3]);
-
-  const dt = new Date(Date.UTC(y, m - 1, d));
-
-  if (
-    dt.getUTCFullYear() !== y ||
-    dt.getUTCMonth() + 1 !== m ||
-    dt.getUTCDate() !== d
-  ) {
-    return NaN;
-  }
-
-  return Date.UTC(y, m - 1, d);
+  const parts = parseSlashYMDParts(dateStr);
+  return parts ? parts.ms : NaN;
 }
 
 function officialRangeOverlapsYear(range, year) {
@@ -2451,13 +2493,13 @@ function buildCountdownData({
   const addFestival = (cat, name, dateStr, duration = 1, sourceKind = "") => {
     if (!name || !dateStr) return;
 
-    const [yy, mm, dd] = dateStr.split("/").map(Number);
+    const dateParts = parseSlashYMDParts(dateStr);
 
-    if (!Number.isInteger(yy) || !isValidMonthDay(yy, mm, dd)) {
+    if (!dateParts) {
       return;
     }
 
-    const diff = (Date.UTC(yy, mm - 1, dd) - todayMs) / DAY_MS;
+    const diff = (dateParts.ms - todayMs) / DAY_MS;
     const priority = getPriority(name, cat, sourceKind);
 
     if (isInFestivalPeriod(diff, duration)) {
@@ -2749,8 +2791,6 @@ async function renderCountdownWidget(ctx = {}) {
   const dataEnvStorageFingerprint =
     buildEnvFingerprintFromNormalized(normalizedEnv, DATA_ENV_KEYS);
 
-  // 问题 1 / 2 修复点：
-  // 按数据 env 隔离 base cache 和 notify 状态，避免多个 widget / 多套 env 互相覆盖。
   const dataEnvCacheScope = hashString(dataEnvStorageFingerprint);
 
   const enableWeekendTheme = getBoolFromNormalizedEnv(
@@ -2768,7 +2808,7 @@ async function renderCountdownWidget(ctx = {}) {
   } = dateCtx;
 
   const BASE_CACHE_KEY =
-  `${storageScope}:daily:${dataEnvCacheScope}:v${DAILY_CACHE_SCHEMA_VERSION}`;
+    `${storageScope}:daily:${dataEnvCacheScope}:v${DAILY_CACHE_SCHEMA_VERSION}`;
 
   const NOTIFY_KEY =
     `${storageScope}:notify:${dataEnvCacheScope}`;
