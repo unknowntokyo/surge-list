@@ -5,6 +5,10 @@ const ERROR_REFRESH_MS = 5 * 60 * 1000;
 const REQUEST_TIMEOUT_MS = 5000;
 const MAX_ITEMS = 5;
 
+const CACHE_KEY = 'douyin_hot_widget_cache_v1';
+const CACHE_VERSION = 1;
+const CACHE_MAX_AGE_MS = 6 * 60 * 60 * 1000;
+
 const REQUEST_OPTIONS = {
   timeout: REQUEST_TIMEOUT_MS,
   insecureTls: true,
@@ -41,8 +45,19 @@ export default async function(ctx) {
     const hotList = getHotList(data);
     const items = buildHotItems(hotList);
 
+    saveCache(ctx, items);
+
     return makeWidget(items);
   } catch (err) {
+    const cache = readCache(ctx);
+
+    if (cache) {
+      return makeWidget(cache.items, {
+        cached: true,
+        savedAt: cache.savedAt
+      });
+    }
+
     return makeError(err);
   }
 }
@@ -81,7 +96,7 @@ function buildHotItems(hotList) {
     const item = normalizeHotItem(hotList[i], rank);
 
     if (item) {
-      items.push(makeHotItem(item.rank, item.text, item.hot));
+      items.push(item);
     }
   }
 
@@ -127,34 +142,123 @@ function getTitleText(item, rank) {
   return text || `热榜 ${rank}`;
 }
 
-function makeWidget(items) {
+function saveCache(ctx, items) {
+  if (!items.length || !ctx?.storage?.setJSON) {
+    return;
+  }
+
+  try {
+    ctx.storage.setJSON(CACHE_KEY, {
+      version: CACHE_VERSION,
+      savedAt: Date.now(),
+      items
+    });
+  } catch {
+    // 缓存失败不影响主流程，避免因为存储异常导致 Widget 加载失败。
+  }
+}
+
+function readCache(ctx) {
+  if (!ctx?.storage?.getJSON) {
+    return null;
+  }
+
+  try {
+    const cache = ctx.storage.getJSON(CACHE_KEY);
+
+    if (
+      !cache ||
+      cache.version !== CACHE_VERSION ||
+      typeof cache.savedAt !== 'number' ||
+      Date.now() - cache.savedAt > CACHE_MAX_AGE_MS
+    ) {
+      return null;
+    }
+
+    const items = normalizeCachedItems(cache.items);
+
+    return items.length
+      ? {
+          savedAt: cache.savedAt,
+          items
+        }
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function normalizeCachedItems(rawItems) {
+  if (!Array.isArray(rawItems)) {
+    return [];
+  }
+
+  const items = [];
+
+  for (let i = 0; i < rawItems.length && items.length < MAX_ITEMS; i++) {
+    const item = rawItems[i];
+
+    if (!item || typeof item !== 'object') {
+      continue;
+    }
+
+    const rank = Number(item.rank);
+    const text = typeof item.text === 'string' ? item.text.trim() : '';
+    const hot = typeof item.hot === 'string' ? item.hot.trim() : '';
+
+    if (rank > 0 && rank < 1000 && text && hot) {
+      items.push({
+        rank: Math.floor(rank),
+        text,
+        hot
+      });
+    }
+  }
+
+  return items;
+}
+
+function makeWidget(items, options = {}) {
+  const cached = options.cached === true;
+
   return {
     type: 'widget',
-    refreshAfter: after(REFRESH_MS),
+    refreshAfter: after(cached ? ERROR_REFRESH_MS : REFRESH_MS),
     padding: 10,
     gap: 6,
     backgroundColor: colors.bg,
     children: [
-      makeHeader(),
-      ...(items.length ? items : [makeEmpty()])
+      makeHeader(cached ? `缓存 ${formatTime(options.savedAt)}` : `↻ ${currentTime()}`),
+      ...(items.length ? makeHotRows(items) : [makeEmpty()])
     ]
   };
 }
 
-function makeHeader() {
+function makeHotRows(items) {
+  const rows = [];
+
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    rows.push(makeHotItem(item.rank, item.text, item.hot));
+  }
+
+  return rows;
+}
+
+function makeHeader(statusText) {
   return {
     type: 'stack',
     direction: 'row',
     alignItems: 'center',
     gap: 6,
     children: [
-      centerBox({
+      {
         type: 'image',
         src: 'sf-symbol:flame',
         color: '#FF3B30',
         width: 16,
         height: 16
-      }),
+      },
       {
         type: 'text',
         text: '抖音热榜',
@@ -167,7 +271,7 @@ function makeHeader() {
       },
       {
         type: 'text',
-        text: `↻ ${currentTime()}`,
+        text: statusText,
         font: {
           size: 'caption1'
         },
@@ -184,15 +288,16 @@ function makeHotItem(rank, text, hot) {
     alignItems: 'center',
     gap: 6,
     children: [
-      centerBox({
+      {
         type: 'text',
         text: `#${rank}`,
         font: {
           size: 'subheadline',
           weight: 'bold'
         },
-        textColor: rankColors[rank - 1] || '#8E8E93'
-      }),
+        textColor: rankColors[rank - 1] || '#8E8E93',
+        textAlign: 'center'
+      },
       {
         type: 'text',
         text,
@@ -245,31 +350,18 @@ function makeError(err) {
   };
 }
 
-function centerBox(child) {
-  return {
-    type: 'stack',
-    direction: 'row',
-    alignItems: 'center',
-    width: 30,
-    children: [
-      {
-        type: 'spacer'
-      },
-      child,
-      {
-        type: 'spacer'
-      }
-    ]
-  };
-}
-
 function isZeroHot(value) {
   const text = String(value ?? '').replace(SPACE_RE, '');
   return ZERO_HOT_RE.test(text);
 }
 
 function currentTime() {
-  const date = new Date(Date.now() + 8 * 60 * 60 * 1000);
+  return formatTime(Date.now());
+}
+
+function formatTime(timestamp) {
+  const time = Number(timestamp) || Date.now();
+  const date = new Date(time + 8 * 60 * 60 * 1000);
   return `${pad2(date.getUTCHours())}:${pad2(date.getUTCMinutes())}`;
 }
 
