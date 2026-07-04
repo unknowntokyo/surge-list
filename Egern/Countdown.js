@@ -5,15 +5,15 @@
  * ✨ 主要功能：
  * • 尺寸适配：仅支持桌面 Medium 小组件；不支持 Small、Large、Extra Large 和锁屏组件。
  * • 节日计算：内置农历算法，支持计算法定节假日、民俗节日、国际节日、专属纪念日倒计时。
- * • 官方假期：法定节假日优先使用 NateScarlet/holiday-cn 官方放假数据；缺失上一年 / 当前年数据时，会在 Widget 渲染前进行短超时拉取。
+ * • 官方假期：法定节假日优先使用 NateScarlet/holiday-cn 官方放假数据；缺失上一年 / 当前年数据时，会在 Widget 渲染前进行短超时拉取；年底可尝试拉取下一年数据。
  * • 本地兜底：官方假期数据不可用时，使用内置固定节日和农历节日作为兜底，不影响基础倒计时显示。
  * • 时区基准：统一采用 UTC+8 北京时间进行日期判断、倒计时计算、缓存日期和刷新时间计算。
- * • 自定义配置：支持通过环境变量设置最多 6 个专属纪念日，兼容旧版第 1 个专属纪念日配置。
+ * • 自定义配置：支持通过环境变量设置最多 6 个专属纪念日。
  * • 排序与显示：支持按倒数天数和节日优先级排序；支持指定节日置顶显示，并从分类列表中去重。
  * • 状态响应：根据今日节日、官方休息日、调休日、普通周末 / 工作日切换背景渐变色。
  * • 当天提醒：节日或专属纪念日当天弹窗提醒；按日期和通知内容去重，避免因主题配置变化重复提醒。
  * • 缓存策略：按北京时间自然日生成 daily cache，倒计时数据和渲染文本共用一份缓存；主题配置不触发数据缓存失效。
- * • 刷新策略：Widget 下一次刷新时间固定为北京时间次日 00:01，不再按 15 点拆分缓存。
+ * • 刷新策略：Widget 下一次刷新时间固定为北京时间次日 00:01。
  *
  * 🔗 作者: https://github.com/jnlaoshu/MySelf/tree/1c35eedff4e052e7dc4e9d87105e32f2490617cf/Egern/Widget
  * ⏱️ 更新时间: 2026.07.04
@@ -191,6 +191,15 @@ const DISPLAY_NAME_MAP = {
 
 const displayName = name => DISPLAY_NAME_MAP[name] ?? name;
 
+const NAME_LIST_SEPARATOR_RE = /[、，,\/]+/;
+
+function splitNameList(value) {
+  return String(value ?? "")
+    .split(NAME_LIST_SEPARATOR_RE)
+    .map(s => s.trim())
+    .filter(Boolean);
+}
+
 const holidayNamePartsCache = new Map();
 const holidayNamePartSetCache = new Map();
 const EMPTY_HOLIDAY_NAME_PARTS = Object.freeze([]);
@@ -211,12 +220,7 @@ function splitHolidayNames(name) {
 
   clearHolidayNameCachesIfNeeded();
 
-  const parts = Object.freeze(
-    raw
-      .split(/[、，,\/]+/)
-      .map(s => s.trim())
-      .filter(Boolean)
-  );
+  const parts = Object.freeze(splitNameList(raw));
 
   holidayNamePartsCache.set(raw, parts);
   holidayNamePartSetCache.set(raw, new Set(parts));
@@ -571,11 +575,11 @@ function truncateByCodePoint(value, maxLength) {
 }
 
 function getEnvValueMaxLength(key) {
-  if (/^EXCLUSIVE_NAME(_\d+)?$/.test(key)) {
+  if (/^EXCLUSIVE_NAME_\d+$/.test(key)) {
     return MAX_EXCLUSIVE_NAME_LENGTH;
   }
 
-  if (/^EXCLUSIVE_DATE(_\d+)?$/.test(key)) {
+  if (/^EXCLUSIVE_DATE_\d+$/.test(key)) {
     return MAX_EXCLUSIVE_DATE_LENGTH;
   }
 
@@ -594,8 +598,7 @@ function sanitizeEnvStringValue(key, value) {
   const raw = truncateByCodePoint(value, getEnvValueMaxLength(key));
 
   if (key === "PINNED_HOLIDAY") {
-    return raw
-      .split(",")
+    return splitNameList(raw)
       .map(v => truncateByCodePoint(v, MAX_PINNED_HOLIDAY_ITEM_LENGTH))
       .filter(Boolean)
       .slice(0, MAX_PINNED_HOLIDAY_COUNT)
@@ -609,8 +612,6 @@ const DATA_ENV_KEYS = Object.freeze([
   "ENABLE_PRIORITY_SORT",
   "ENABLE_EXCLUSIVE_WEIGHT",
   "PINNED_HOLIDAY",
-  "EXCLUSIVE_NAME",
-  "EXCLUSIVE_DATE",
   "EXCLUSIVE_NAME_1",
   "EXCLUSIVE_DATE_1",
   "EXCLUSIVE_NAME_2",
@@ -700,11 +701,7 @@ function normalizeCacheEnvValue(key, value) {
   const s = sanitizeEnvStringValue(key, value);
 
   if (key === "PINNED_HOLIDAY") {
-    return s
-      .split(",")
-      .map(v => v.trim())
-      .filter(Boolean)
-      .join(",");
+    return splitNameList(s).join(",");
   }
 
   return s;
@@ -892,7 +889,7 @@ function hashString(str) {
   return (h >>> 0).toString(36);
 }
 
-const DAILY_CACHE_SCHEMA_VERSION = 19;
+const DAILY_CACHE_SCHEMA_VERSION = 20;
 const DAILY_CACHE_VERSION_TEXT = `daily:v${DAILY_CACHE_SCHEMA_VERSION}:medium`;
 
 function warnLog(...args) {
@@ -1154,16 +1151,24 @@ function readOfficialHolidayCache(
   return null;
 }
 
-function officialRelevantYears(currentYear) {
+function officialRequiredYears(currentYear) {
   return [currentYear - 1, currentYear];
 }
 
-function officialRequestYears(currentYear) {
-  return officialRelevantYears(currentYear);
+function officialOptionalYears(currentYear) {
+  return [currentYear + 1];
 }
 
-function officialRequiredYears(currentYear) {
-  return officialRelevantYears(currentYear);
+function officialRequestYears(currentYear) {
+  return [
+    ...officialRequiredYears(currentYear),
+    ...officialOptionalYears(currentYear)
+  ];
+}
+
+function shouldTryOptionalOfficialYears(todayIso) {
+  const parts = parseISODateParts(todayIso);
+  return Boolean(parts && parts.m >= 10);
 }
 
 function pruneOfficialYears(years, currentYear) {
@@ -1665,15 +1670,34 @@ async function prepareOfficialHolidayCacheForWidget({
       officialRequiredYears(currentYear)
     ).map(Number);
 
+    const missingOptionalOfficialYears = shouldTryOptionalOfficialYears(todayIso)
+      ? getMissingOfficialYears(
+          officialHolidayCache?.years,
+          officialOptionalYears(currentYear)
+        ).map(Number)
+      : [];
+
+    const needsOfficialRefresh = shouldRefreshOfficialCache(
+      officialHolidayCache,
+      currentYear,
+      todayIso
+    );
+
+    const forceYearsToFetch = uniqueFiniteNumbers([
+      ...missingRequiredOfficialYears,
+      ...missingOptionalOfficialYears,
+      ...(
+        needsOfficialRefresh && missingRequiredOfficialYears.length === 0
+          ? [currentYear]
+          : []
+      )
+    ]);
+
     const shouldBlockingRefreshOfficialHoliday =
       Boolean(ctx.http && ctx.storage) &&
       (
-        missingRequiredOfficialYears.length > 0 ||
-        shouldRefreshOfficialCache(
-          officialHolidayCache,
-          currentYear,
-          todayIso
-        )
+        forceYearsToFetch.length > 0 ||
+        needsOfficialRefresh
       );
 
     if (shouldBlockingRefreshOfficialHoliday) {
@@ -1690,8 +1714,8 @@ async function prepareOfficialHolidayCacheForWidget({
             {
               httpTimeoutMs: WIDGET_OFFICIAL_HTTP_TIMEOUT_MS,
               ...(
-                missingRequiredOfficialYears.length > 0
-                  ? { forceYearsToFetch: missingRequiredOfficialYears }
+                forceYearsToFetch.length > 0
+                  ? { forceYearsToFetch }
                   : {}
               )
             }
@@ -1707,10 +1731,6 @@ async function prepareOfficialHolidayCacheForWidget({
           releaseOfficialRefreshLock(ctx, lockKey, lockOwner);
         }
       } else {
-        /**
-         * 其他 Widget 实例可能正在刷新或刚刷新完。
-         * 这里重新读 storage，避免继续使用旧 official cache。
-         */
         officialHolidayCache = readOfficialHolidayCache(
           ctx,
           officialHolidayStorageKey
@@ -2099,21 +2119,13 @@ function parseCountdownUserConfig(normalizedEnv) {
     getBoolFromNormalizedEnv(normalizedEnv, key, defaultVal);
 
   const pinnedHolidays = [
-    ...new Set(
-      getStr("PINNED_HOLIDAY")
-        .split(",")
-        .map(s => s.trim())
-        .filter(Boolean)
-    )
+    ...new Set(splitNameList(getStr("PINNED_HOLIDAY")))
   ];
 
   const customDays = [1, 2, 3, 4, 5, 6]
     .map(i => {
-      const legacyName = i === 1 ? getStr("EXCLUSIVE_NAME") : "";
-      const legacyDate = i === 1 ? getStr("EXCLUSIVE_DATE") : "";
-
-      const name = getStr(`EXCLUSIVE_NAME_${i}`) || legacyName;
-      const date = getStr(`EXCLUSIVE_DATE_${i}`) || legacyDate;
+      const name = getStr(`EXCLUSIVE_NAME_${i}`);
+      const date = getStr(`EXCLUSIVE_DATE_${i}`);
 
       return {
         name,
@@ -2384,7 +2396,9 @@ function buildCountdownData({
         todayFests.push({
           name,
           diff,
-          duration
+          duration,
+          priority,
+          cat
         });
       }
 
@@ -2453,8 +2467,20 @@ function buildCountdownData({
       .slice(0, 7);
   });
 
-  const todayNoticeText = todayFests.length > 0
-    ? formatTodayFestGroup(todayFests)
+  const sortedTodayFests = todayFests
+    .slice()
+    .sort((a, b) => {
+      const pa = a.priority ?? 0;
+      const pb = b.priority ?? 0;
+
+      if (pb !== pa) return pb - pa;
+      if (b.diff !== a.diff) return b.diff - a.diff;
+
+      return String(a.name).localeCompare(String(b.name));
+    });
+
+  const todayNoticeText = sortedTodayFests.length > 0
+    ? formatTodayFestGroup(sortedTodayFests)
     : "";
 
   const pinnedData = pinnedHolidays
@@ -2630,6 +2656,10 @@ async function renderCountdownWidget(ctx = {}) {
     return withRefresh(mkUnsupportedWidget("暂不支持 Extra Large", { maxLines: 2 }));
   }
 
+  if (family !== "systemmedium") {
+    return withRefresh(mkUnsupportedWidget("仅支持 Medium 组件", { maxLines: 2 }));
+  }
+
   const env = ctx.env ?? {};
   const normalizedEnv = buildNormalizedEnv(env);
 
@@ -2656,7 +2686,7 @@ async function renderCountdownWidget(ctx = {}) {
   } = dateCtx;
 
   const BASE_CACHE_KEY =
-    `${storageScope}:daily:base:${hashString(dataEnvStorageFingerprint)}`;
+    `${storageScope}:daily:base:v${DAILY_CACHE_SCHEMA_VERSION}:medium`;
   const NOTIFY_KEY = `${storageScope}:notify`;
 
   const CACHE_VERSION = DAILY_CACHE_VERSION_TEXT;
