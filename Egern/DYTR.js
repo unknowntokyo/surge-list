@@ -2,7 +2,14 @@ const API_URL = 'https://dabenshi.cn/other/api/hot.php?type=douyinhot';
 
 const REFRESH_MS = 15 * 60 * 1000;
 const ERROR_REFRESH_MS = 5 * 60 * 1000;
+const REQUEST_TIMEOUT_MS = 5000;
 const MAX_ITEMS = 5;
+
+const REQUEST_OPTIONS = {
+  timeout: REQUEST_TIMEOUT_MS,
+  insecureTls: true,
+  credentials: 'omit'
+};
 
 const rankColors = ['#FF3B30', '#FF9500', '#FFCC00'];
 
@@ -25,74 +32,113 @@ const colors = {
   }
 };
 
+const SPACE_RE = /\s+/g;
+const ZERO_HOT_RE = /^0+(?:\.0+)?(?:万)?$/;
+
 export default async function(ctx) {
   try {
-    const resp = await ctx.http.get(API_URL, {
-      timeout: 5000,
-      insecureTls: true,
-      credentials: 'omit'
-    });
-
-    if (resp.status < 200 || resp.status >= 300) {
-      throw new Error(`HTTP ${resp.status}`);
-    }
-
-    let data;
-    try {
-      data = await resp.json();
-    } catch {
-      throw new Error('JSON 解析失败');
-    }
-
+    const data = await fetchHotData(ctx);
     const hotList = getHotList(data);
-    const items = [];
+    const items = buildHotItems(hotList);
 
-    for (let i = 0; i < hotList.length && items.length < MAX_ITEMS; i++) {
-      const item = hotList[i];
-
-      const hot = String(
-        item?.hot ??
-        item?.hot_num ??
-        item?.hot_value ??
-        ''
-      ).trim();
-
-      if (!hot || isZeroHot(hot)) {
-        continue;
-      }
-
-      const rank = items.length + 1;
-
-      const text = String(
-        item?.title ||
-        item?.word ||
-        item?.name ||
-        item?.keyword ||
-        (typeof item === 'string' ? item : '') ||
-        `热榜 ${rank}`
-      );
-
-      items.push(makeHotItem(rank, text, hot));
-    }
-
-    return {
-      type: 'widget',
-      refreshAfter: after(REFRESH_MS),
-      padding: 10,
-      gap: 6,
-      backgroundColor: colors.bg,
-      children: [
-        makeHeader(),
-        ...(items.length ? items : [makeEmpty()])
-      ]
-    };
+    return makeWidget(items);
   } catch (err) {
     return makeError(err);
   }
 }
 
+async function fetchHotData(ctx) {
+  const resp = await ctx.http.get(API_URL, REQUEST_OPTIONS);
+
+  if (resp.status < 200 || resp.status >= 300) {
+    throw new Error(`HTTP ${resp.status}`);
+  }
+
+  try {
+    return await resp.json();
+  } catch {
+    throw new Error('JSON 解析失败');
+  }
+}
+
 function getHotList(data) {
-  return Array.isArray(data?.data) ? data.data : [];
+  if (data?.success === false) {
+    throw new Error(data?.message || data?.msg || '接口返回失败');
+  }
+
+  if (!Array.isArray(data?.data)) {
+    throw new Error('接口数据格式异常');
+  }
+
+  return data.data;
+}
+
+function buildHotItems(hotList) {
+  const items = [];
+
+  for (let i = 0; i < hotList.length && items.length < MAX_ITEMS; i++) {
+    const rank = items.length + 1;
+    const item = normalizeHotItem(hotList[i], rank);
+
+    if (item) {
+      items.push(makeHotItem(item.rank, item.text, item.hot));
+    }
+  }
+
+  return items;
+}
+
+function normalizeHotItem(item, rank) {
+  if (!item || typeof item !== 'object') {
+    return null;
+  }
+
+  const hot = getHotText(item);
+
+  if (!hot || isZeroHot(hot)) {
+    return null;
+  }
+
+  return {
+    rank,
+    text: getTitleText(item, rank),
+    hot
+  };
+}
+
+function getHotText(item) {
+  return String(
+    item.hot ??
+    item.hot_num ??
+    item.hot_value ??
+    ''
+  ).trim();
+}
+
+function getTitleText(item, rank) {
+  const text = String(
+    item.title ||
+    item.word ||
+    item.name ||
+    item.keyword ||
+    ''
+  ).trim();
+
+  return text || `热榜 ${rank}`;
+}
+
+function makeWidget(items) {
+  return {
+    type: 'widget',
+    refreshAfter: after(REFRESH_MS),
+    padding: 10,
+    gap: 6,
+    backgroundColor: colors.bg,
+    children: [
+      makeHeader(),
+      ...(items.length ? items : [makeEmpty()])
+    ]
+  };
 }
 
 function makeHeader() {
@@ -218,17 +264,17 @@ function centerBox(child) {
 }
 
 function isZeroHot(value) {
-  const text = String(value ?? '').replace(/\s+/g, '');
-  return /^0+(?:\.0+)?(?:万)?$/.test(text);
+  const text = String(value ?? '').replace(SPACE_RE, '');
+  return ZERO_HOT_RE.test(text);
 }
 
 function currentTime() {
-  return new Intl.DateTimeFormat('zh-CN', {
-    timeZone: 'Asia/Shanghai',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false
-  }).format(new Date());
+  const date = new Date(Date.now() + 8 * 60 * 60 * 1000);
+  return `${pad2(date.getUTCHours())}:${pad2(date.getUTCMinutes())}`;
+}
+
+function pad2(value) {
+  return value < 10 ? `0${value}` : String(value);
 }
 
 function after(ms) {
