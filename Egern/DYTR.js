@@ -5,10 +5,6 @@ const ERROR_REFRESH_MS = 5 * 60 * 1000;
 const REQUEST_TIMEOUT_MS = 5000;
 const MAX_ITEMS = 5;
 
-const CACHE_KEY = 'douyin_hot_widget_cache';
-const CACHE_VERSION = 1;
-const CACHE_MAX_AGE_MS = 6 * 60 * 60 * 1000;
-
 const REQUEST_OPTIONS = {
   timeout: REQUEST_TIMEOUT_MS,
   insecureTls: true,
@@ -43,21 +39,10 @@ export default async function(ctx) {
   try {
     const data = await fetchHotData(ctx);
     const hotList = getHotList(data);
-    const items = buildHotItems(hotList);
+    const rows = buildHotRows(hotList);
 
-    saveCache(ctx, items);
-
-    return makeWidget(items);
+    return makeWidget(rows);
   } catch (err) {
-    const cache = readCache(ctx);
-
-    if (cache) {
-      return makeWidget(cache.items, {
-        cached: true,
-        savedAt: cache.savedAt
-      });
-    }
-
     return makeError(err);
   }
 }
@@ -88,37 +73,29 @@ function getHotList(data) {
   return data.data;
 }
 
-function buildHotItems(hotList) {
-  const items = [];
+function buildHotRows(hotList) {
+  const rows = [];
 
-  for (let i = 0; i < hotList.length && items.length < MAX_ITEMS; i++) {
-    const rank = items.length + 1;
-    const item = normalizeHotItem(hotList[i], rank);
+  for (let i = 0; i < hotList.length && rows.length < MAX_ITEMS; i++) {
+    const item = hotList[i];
 
-    if (item) {
-      items.push(item);
+    if (!item || typeof item !== 'object') {
+      continue;
     }
+
+    const hot = getHotText(item);
+
+    if (!hot || isZeroHot(hot)) {
+      continue;
+    }
+
+    const rank = rows.length + 1;
+    const text = getTitleText(item, rank);
+
+    rows.push(makeHotItem(rank, text, hot));
   }
 
-  return items;
-}
-
-function normalizeHotItem(item, rank) {
-  if (!item || typeof item !== 'object') {
-    return null;
-  }
-
-  const hot = getHotText(item);
-
-  if (!hot || isZeroHot(hot)) {
-    return null;
-  }
-
-  return {
-    rank,
-    text: getTitleText(item, rank),
-    hot
-  };
+  return rows;
 }
 
 function getHotText(item) {
@@ -142,107 +119,18 @@ function getTitleText(item, rank) {
   return text || `热榜 ${rank}`;
 }
 
-function saveCache(ctx, items) {
-  if (!items.length || !ctx?.storage?.setJSON) {
-    return;
-  }
-
-  try {
-    ctx.storage.setJSON(CACHE_KEY, {
-      version: CACHE_VERSION,
-      savedAt: Date.now(),
-      items
-    });
-  } catch {
-    // 缓存失败不影响主流程，避免因为存储异常导致 Widget 加载失败。
-  }
-}
-
-function readCache(ctx) {
-  if (!ctx?.storage?.getJSON) {
-    return null;
-  }
-
-  try {
-    const cache = ctx.storage.getJSON(CACHE_KEY);
-
-    if (
-      !cache ||
-      cache.version !== CACHE_VERSION ||
-      typeof cache.savedAt !== 'number' ||
-      Date.now() - cache.savedAt > CACHE_MAX_AGE_MS
-    ) {
-      return null;
-    }
-
-    const items = normalizeCachedItems(cache.items);
-
-    return items.length
-      ? {
-          savedAt: cache.savedAt,
-          items
-        }
-      : null;
-  } catch {
-    return null;
-  }
-}
-
-function normalizeCachedItems(rawItems) {
-  if (!Array.isArray(rawItems)) {
-    return [];
-  }
-
-  const items = [];
-
-  for (let i = 0; i < rawItems.length && items.length < MAX_ITEMS; i++) {
-    const item = rawItems[i];
-
-    if (!item || typeof item !== 'object') {
-      continue;
-    }
-
-    const rank = Number(item.rank);
-    const text = typeof item.text === 'string' ? item.text.trim() : '';
-    const hot = typeof item.hot === 'string' ? item.hot.trim() : '';
-
-    if (rank > 0 && rank < 1000 && text && hot) {
-      items.push({
-        rank: Math.floor(rank),
-        text,
-        hot
-      });
-    }
-  }
-
-  return items;
-}
-
-function makeWidget(items, options = {}) {
-  const cached = options.cached === true;
-
+function makeWidget(rows) {
   return {
     type: 'widget',
-    refreshAfter: after(cached ? ERROR_REFRESH_MS : REFRESH_MS),
+    refreshAfter: after(REFRESH_MS),
     padding: 10,
     gap: 6,
     backgroundColor: colors.bg,
     children: [
-      makeHeader(cached ? `缓存 ${formatTime(options.savedAt)}` : `↻ ${currentTime()}`),
-      ...(items.length ? makeHotRows(items) : [makeEmpty()])
+      makeHeader(`↻ ${currentTime()}`),
+      ...(rows.length ? rows : [makeEmpty()])
     ]
   };
-}
-
-function makeHotRows(items) {
-  const rows = [];
-
-  for (let i = 0; i < items.length; i++) {
-    const item = items[i];
-    rows.push(makeHotItem(item.rank, item.text, item.hot));
-  }
-
-  return rows;
 }
 
 function makeHeader(statusText) {
