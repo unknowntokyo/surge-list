@@ -103,7 +103,6 @@ const WIDGET_OFFICIAL_HTTP_TIMEOUT_MS = 1500;
 
 const OFFICIAL_REFRESH_INTERVAL_MS = 3 * DAY_MS;
 const OFFICIAL_FAILED_RETRY_INTERVAL_MS = DAY_MS;
-const OFFICIAL_OPTIONAL_FAILED_RETRY_INTERVAL_MS = 7 * DAY_MS;
 const OFFICIAL_BACKGROUND_REFRESH_LOCK_TTL_MS = 10 * 60 * 1000;
 
 const NOTIFY_PENDING_TTL_MS = 2 * 60 * 1000;
@@ -1156,21 +1155,15 @@ function readOfficialHolidayCache(
 }
 
 function officialRequestYears(currentYear) {
-  return [currentYear - 1, currentYear, currentYear + 1];
+  return [currentYear - 1, currentYear];
 }
 
 function officialRequiredYears(currentYear) {
   return [currentYear - 1, currentYear];
 }
 
-function officialOptionalYears(currentYear) {
-  return [currentYear + 1];
-}
-
-function getOfficialFailedRetryIntervalMs(year, currentYear) {
-  return officialOptionalYears(currentYear).includes(Number(year))
-    ? OFFICIAL_OPTIONAL_FAILED_RETRY_INTERVAL_MS
-    : OFFICIAL_FAILED_RETRY_INTERVAL_MS;
+function getOfficialFailedRetryIntervalMs() {
+  return OFFICIAL_FAILED_RETRY_INTERVAL_MS;
 }
 
 function pruneOfficialYears(years, currentYear) {
@@ -1401,7 +1394,6 @@ async function loadOfficialHolidayDaily(
 
   const {
     httpTimeoutMs = HTTP_TIMEOUT_MS,
-    includeOptional = true,
     forceYearsToFetch = null
   } = options || {};
 
@@ -1413,7 +1405,6 @@ async function loadOfficialHolidayDaily(
   }
 
   const requiredYears = officialRequiredYears(currentYear);
-  const optionalYears = officialOptionalYears(currentYear);
   const mergedYears = pruneOfficialYears(oldCache?.years || {}, currentYear);
 
   const retryAfterByYear = pruneRetryAfterByYear(
@@ -1435,57 +1426,21 @@ async function loadOfficialHolidayDaily(
     currentYear
   );
 
-  const todayParts = parseISODateParts(todayIso);
-  const currentMonth = todayParts?.m ?? 1;
-
   const missingRequiredYears = getMissingOfficialYears(
     mergedYears,
     requiredYears
   ).map(Number);
 
-  const missingOptionalYears = getMissingOfficialYears(
-    mergedYears,
-    optionalYears
-  ).map(Number);
-
-  const allowOptionalFetch = includeOptional && currentMonth >= 7;
-
   const buildFetchCandidates = () => {
     if (requiredFresh) {
-      return allowOptionalFetch
-        ? missingOptionalYears
-        : [];
+      return [];
     }
 
     if (missingRequiredYears.length > 0) {
-      const currentYearMissing = !hasOfficialYearData(
-        mergedYears,
-        currentYear
-      );
-
-      return [
-        ...missingRequiredYears,
-        ...(
-          includeOptional && currentYearMissing
-            ? [currentYear]
-            : []
-        ),
-        ...(
-          allowOptionalFetch
-            ? missingOptionalYears
-            : []
-        )
-      ];
+      return missingRequiredYears;
     }
 
-    return [
-      currentYear,
-      ...(
-        allowOptionalFetch
-          ? missingOptionalYears
-          : []
-      )
-    ];
+    return [currentYear];
   };
 
   const rawFetchCandidates = Array.isArray(forceYearsToFetch)
@@ -1536,7 +1491,7 @@ async function loadOfficialHolidayDaily(
       successfulFetchYearSet.add(key);
     } else {
       retryAfterByYear[key] =
-        now + getOfficialFailedRetryIntervalMs(year, currentYear);
+        now + getOfficialFailedRetryIntervalMs();
 
       warnLog(
         "[Countdown] failed to fetch official holiday:",
@@ -1762,7 +1717,6 @@ async function prepareOfficialHolidayCacheForWidget({
             officialHolidayStorageKey,
             {
               httpTimeoutMs: WIDGET_OFFICIAL_HTTP_TIMEOUT_MS,
-              includeOptional: false,
               ...(
                 missingRequiredOfficialYears.length > 0
                   ? { forceYearsToFetch: missingRequiredOfficialYears }
@@ -2665,23 +2619,6 @@ function notifyTodayIfNeeded(ctx, notifyKey, notifyDate, todayItems) {
 }
 
 export default async function (ctx = {}) {
-  const env = ctx.env ?? {};
-  const normalizedEnv = buildNormalizedEnv(env);
-
-  const scriptName = String(ctx.script?.name || "countdown");
-  const storageScope = `countdown:${hashString(scriptName)}`;
-  const officialHolidayStorageKey =
-    `${storageScope}:official_holidays:v${OFFICIAL_HOLIDAY_STORAGE_VERSION}`;
-
-  const dataEnvStorageFingerprint =
-    buildEnvFingerprintFromNormalized(normalizedEnv, DATA_ENV_KEYS);
-
-  const enableWeekendTheme = getBoolFromNormalizedEnv(
-    normalizedEnv,
-    "ENABLE_WEEKEND_THEME",
-    true
-  );
-
   const family = String(ctx.widgetFamily || "systemMedium").toLowerCase();
 
   const isLockScreenFamily =
@@ -2706,6 +2643,23 @@ export default async function (ctx = {}) {
   if (isExtraLarge) {
     return mkUnsupportedWidget("暂不支持 Extra Large", { maxLines: 2 });
   }
+
+  const env = ctx.env ?? {};
+  const normalizedEnv = buildNormalizedEnv(env);
+
+  const scriptName = String(ctx.script?.name || "countdown");
+  const storageScope = `countdown:${hashString(scriptName)}`;
+  const officialHolidayStorageKey =
+    `${storageScope}:official_holidays:v${OFFICIAL_HOLIDAY_STORAGE_VERSION}`;
+
+  const dataEnvStorageFingerprint =
+    buildEnvFingerprintFromNormalized(normalizedEnv, DATA_ENV_KEYS);
+
+  const enableWeekendTheme = getBoolFromNormalizedEnv(
+    normalizedEnv,
+    "ENABLE_WEEKEND_THEME",
+    true
+  );
 
   const dateCtx = getBeijingDateContext();
   const {
