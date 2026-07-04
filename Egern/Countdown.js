@@ -1645,41 +1645,55 @@ function readBaseCacheByOfficialState(
   };
 }
 
+/**
+ * 官方节假日刷新计划。
+ *
+ * 关键调整：
+ * - required 年份缺失：允许阻塞，因为会影响今日调休和法定假期准确性；
+ * - required 已齐但缓存 stale：不阻塞 widget 渲染，避免小组件周期性等待网络；
+ * - optional 年份缺失：不阻塞 widget 渲染，避免年底下一年数据未发布时影响性能。
+ */
 function resolveOfficialRefreshPlan({
   officialHolidayCache,
   currentYear,
   todayIso
 }) {
-  const missingRequiredOfficialYears = getMissingOfficialYears(
-    officialHolidayCache?.years,
+  const yearsData = officialHolidayCache?.years;
+  const requiredYearsToFetch = getMissingOfficialYears(
+    yearsData,
     officialRequiredYears(currentYear)
   ).map(Number);
 
-  const missingOptionalOfficialYears = shouldTryOptionalOfficialYears(todayIso)
+  const optionalYearsToFetch = shouldTryOptionalOfficialYears(todayIso)
     ? getMissingOfficialYears(
-        officialHolidayCache?.years,
+        yearsData,
         officialOptionalYears(currentYear)
       ).map(Number)
     : [];
 
+  const requiredReady = isOfficialRequiredReady(yearsData, currentYear);
   const needsOfficialRefresh = shouldRefreshOfficialCache(
     officialHolidayCache,
     currentYear,
     todayIso
   );
 
-  const forceYearsToFetch = uniqueFiniteNumbers([
-    ...missingRequiredOfficialYears,
-    ...missingOptionalOfficialYears,
-    ...(
-      needsOfficialRefresh && missingRequiredOfficialYears.length === 0
-        ? [currentYear]
-        : []
-    )
-  ]);
+  const staleRefreshYearsToFetch =
+    requiredReady &&
+    needsOfficialRefresh &&
+    requiredYearsToFetch.length === 0
+      ? [currentYear]
+      : [];
 
   return {
-    forceYearsToFetch,
+    requiredYearsToFetch: uniqueFiniteNumbers(requiredYearsToFetch),
+    optionalYearsToFetch: uniqueFiniteNumbers(optionalYearsToFetch),
+    staleRefreshYearsToFetch: uniqueFiniteNumbers(staleRefreshYearsToFetch),
+
+    // Widget 渲染路径只阻塞 required 缺失，不阻塞 stale / optional。
+    shouldBlockRenderForOfficialRefresh:
+      requiredYearsToFetch.length > 0,
+
     needsOfficialRefresh
   };
 }
@@ -1734,12 +1748,11 @@ async function refreshOfficialCacheWithLock({
 /**
  * Official holiday cache 的唯一准备入口。
  *
- * 本次重构收敛了：
- * - 官方缓存读取
- * - official fingerprint 生成
- * - daily base cache 读取
- * - 官方节假日刷新判断
- * - 加锁刷新
+ * 本次调整：
+ * - 仍然优先读 base daily cache；
+ * - base cache 未命中时，只在 required 年份缺失时阻塞刷新；
+ * - required 已齐但官方缓存过期时，不阻塞小组件渲染；
+ * - optional 年份缺失不阻塞渲染。
  */
 async function prepareOfficialHolidayCacheForWidget({
   ctx,
@@ -1771,23 +1784,18 @@ async function prepareOfficialHolidayCacheForWidget({
     };
   }
 
-  const {
-    forceYearsToFetch,
-    needsOfficialRefresh
-  } = resolveOfficialRefreshPlan({
+  const plan = resolveOfficialRefreshPlan({
     officialHolidayCache,
     currentYear,
     todayIso
   });
 
-  const shouldBlockingRefreshOfficialHoliday =
-    Boolean(ctx.http && ctx.storage) &&
-    (
-      forceYearsToFetch.length > 0 ||
-      needsOfficialRefresh
-    );
+  const canRefreshOfficialHoliday = Boolean(ctx.http && ctx.storage);
 
-  if (!shouldBlockingRefreshOfficialHoliday) {
+  if (
+    !canRefreshOfficialHoliday ||
+    !plan.shouldBlockRenderForOfficialRefresh
+  ) {
     return {
       officialHolidayCache,
       envFingerprint,
@@ -1801,7 +1809,7 @@ async function prepareOfficialHolidayCacheForWidget({
     currentYear,
     todayIso,
     officialHolidayCache,
-    forceYearsToFetch
+    forceYearsToFetch: plan.requiredYearsToFetch
   });
 
   officialHolidayCache = refreshResult.officialHolidayCache;
@@ -2741,6 +2749,10 @@ async function renderCountdownWidget(ctx = {}) {
   const dataEnvStorageFingerprint =
     buildEnvFingerprintFromNormalized(normalizedEnv, DATA_ENV_KEYS);
 
+  // 问题 1 / 2 修复点：
+  // 按数据 env 隔离 base cache 和 notify 状态，避免多个 widget / 多套 env 互相覆盖。
+  const dataEnvCacheScope = hashString(dataEnvStorageFingerprint);
+
   const enableWeekendTheme = getBoolFromNormalizedEnv(
     normalizedEnv,
     "ENABLE_WEEKEND_THEME",
@@ -2756,8 +2768,10 @@ async function renderCountdownWidget(ctx = {}) {
   } = dateCtx;
 
   const BASE_CACHE_KEY =
-    `${storageScope}:daily:base:v${DAILY_CACHE_SCHEMA_VERSION}:medium`;
-  const NOTIFY_KEY = `${storageScope}:notify`;
+    `${storageScope}:daily:base:${dataEnvCacheScope}:v${DAILY_CACHE_SCHEMA_VERSION}:medium`;
+
+  const NOTIFY_KEY =
+    `${storageScope}:notify:${dataEnvCacheScope}`;
 
   const CACHE_VERSION = DAILY_CACHE_VERSION_TEXT;
 
