@@ -60,6 +60,13 @@ const USERINFO_KEYS = new Set(["upload", "download", "total", "expire"]);
 
 const STRATEGIES = [
   {
+    flag: null,
+    ua: {
+      "User-Agent": "Clash/1.18.0",
+      Accept: "application/x-yaml,text/plain,*/*",
+    },
+  },
+  {
     flag: "meta",
     ua: {
       "User-Agent": "mihomo/1.19.3",
@@ -70,13 +77,6 @@ const STRATEGIES = [
     flag: "clash",
     ua: {
       "User-Agent": "Clash/1.18.0",
-      Accept: "application/x-yaml,text/plain,*/*",
-    },
-  },
-  {
-    flag: null,
-    ua: {
-      "User-Agent": "clash-verge-rev/2.3.1",
       Accept: "application/x-yaml,text/plain,*/*",
     },
   },
@@ -556,10 +556,6 @@ function cancelResponseBody(resp) {
 function getStrategyLimit(activeSlotCount, hasStaleCache) {
   if (hasStaleCache) return 1;
 
-  if (activeSlotCount > 2) {
-    return Math.min(2, STRATEGIES.length);
-  }
-
   return STRATEGIES.length;
 }
 
@@ -576,7 +572,7 @@ function getRequestTimeout(deadlineTime) {
 function normalizeRequestError(err) {
   const msg = String(err?.message ?? err ?? "").toLowerCase();
 
-  if (msg.includes("timeout" ) || msg.includes("timed out")) {
+  if (msg.includes("timeout") || msg.includes("timed out")) {
     return "Timeout";
   }
 
