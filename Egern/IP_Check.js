@@ -201,6 +201,9 @@ const cityMap = {
   'st petersburg': '圣彼得堡'
 };
 
+const IPPURE_RESIDENTIAL_KEYS = ['isResidential', 'is_residential', 'residential'];
+const IPPURE_RISK_KEYS = ['fraudScore', 'riskScore', 'risk_score', 'score'];
+
 let CITY_REGEX = null;
 let CITY_REGEX_READY = false;
 
@@ -307,12 +310,17 @@ function parseBooleanLike(v) {
   return undefined;
 }
 
-function isValidValue(v) {
-  return v !== undefined && v !== null && v !== '';
-}
+function pickFirstValidField(obj, keys) {
+  if (!obj || typeof obj !== 'object') return undefined;
 
-function firstValid(...values) {
-  return values.find(isValidValue);
+  for (let i = 0; i < keys.length; i++) {
+    const value = obj[keys[i]];
+    if (value !== undefined && value !== null && value !== '') {
+      return value;
+    }
+  }
+
+  return undefined;
 }
 
 function parsePositiveFloat(v, fallback) {
@@ -401,7 +409,7 @@ async function getIPInfo(ctx) {
       passthrough: false
     };
   } catch (e) {
-    console.log('IP信息错误，脚本终止:', e);
+    console.log('IP信息解析失败，尝试返回原始响应:', e);
 
     return {
       ipInfo: null,
@@ -411,15 +419,26 @@ async function getIPInfo(ctx) {
   }
 }
 
+function cancelReader(reader) {
+  if (!reader?.cancel) return;
+
+  try {
+    const result = reader.cancel();
+    if (result?.catch) result.catch(() => {});
+  } catch {}
+}
+
 async function getSpeedTest(ctx, policy, timeoutMs, packetBytes) {
   let downloadedBytes = 0;
   let reader = null;
   let timeoutId = null;
-  let downloadCompleted = false;
+  let timedOut = false;
+  let streamCompleted = false;
 
   const start = now();
+  const deadline = start + timeoutMs;
 
-  const downloadPromise = (async () => {
+  try {
     const response = await ctx.http.get(
       `https://speed.cloudflare.com/__down?bytes=${packetBytes}`,
       {
@@ -439,32 +458,49 @@ async function getSpeedTest(ctx, policy, timeoutMs, packetBytes) {
     reader = response?.body?.getReader?.();
     if (!reader) throw new Error('Reader Error');
 
+    const remainingMs = deadline - now();
+    if (remainingMs <= 0) {
+      throw new Error('Timeout');
+    }
+
+    const timeoutPromise = new Promise((_, reject) => {
+      timeoutId = setTimeout(() => {
+        timedOut = true;
+        cancelReader(reader);
+        reject(new Error('Timeout'));
+      }, Math.max(1, Math.ceil(remainingMs)));
+    });
+
+    timeoutPromise.catch(() => {});
+
     while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
+      const readPromise = reader.read();
+
+      readPromise.catch(() => {});
+
+      const { done, value } = await Promise.race([
+        readPromise,
+        timeoutPromise
+      ]);
+
+      if (timedOut) {
+        throw new Error('Timeout');
+      }
+
+      if (done) {
+        streamCompleted = true;
+        break;
+      }
 
       downloadedBytes += value?.byteLength || value?.length || 0;
     }
-  })();
-
-  const timeoutPromise = new Promise((_, reject) => {
-    timeoutId = setTimeout(() => {
-      reject(new Error('Timeout'));
-    }, timeoutMs);
-  });
-
-  try {
-    await Promise.race([downloadPromise, timeoutPromise]);
-    downloadCompleted = true;
   } catch (e) {
     console.log('测速失败:', e);
   } finally {
     if (timeoutId) clearTimeout(timeoutId);
 
-    if (!downloadCompleted && reader) {
-      try {
-        await reader.cancel();
-      } catch {}
+    if (!streamCompleted) {
+      cancelReader(reader);
     }
 
     if (reader?.releaseLock) {
@@ -511,49 +547,31 @@ function formatRiskLevel(risk) {
   return `纯净低危 (${score})`;
 }
 
-function ipPureFailed(reason) {
-  if (reason) console.log('IPPure不可用:', reason);
+function makeIPPureStatus(failed, reason) {
+  if (reason) {
+    console.log(failed ? 'IPPure不可用:' : '暂无评级:', reason);
+  }
 
   return {
-    failed: true,
+    failed,
     nativeText: null,
-    riskText: null
-  };
-}
-
-function ipPureNoRating(reason) {
-  if (reason) console.log('暂无评级:', reason);
-
-  return {
-    failed: false,
-    nativeText: null,
-    riskText: '暂无评级'
+    riskText: failed ? null : '暂无评级'
   };
 }
 
 function normalizeIPPureInfo(d) {
   const data = pickIPPureData(d);
-  if (!data) return ipPureNoRating('IPPure返回数据为空');
+  if (!data) return makeIPPureStatus(false, 'IPPure返回数据为空');
 
-  const rawResidential = firstValid(
-    data.isResidential,
-    data.is_residential,
-    data.residential
-  );
-
-  const rawRiskScore = firstValid(
-    data.fraudScore,
-    data.riskScore,
-    data.risk_score,
-    data.score
-  );
+  const rawResidential = pickFirstValidField(data, IPPURE_RESIDENTIAL_KEYS);
+  const rawRiskScore = pickFirstValidField(data, IPPURE_RISK_KEYS);
 
   const nativeText = formatNativeType(parseBooleanLike(rawResidential));
   const riskText = formatRiskLevel(rawRiskScore);
 
   if (!nativeText && !riskText) {
     console.log('IPPure字段缺失，返回字段:', Object.keys(data).join(','));
-    return ipPureNoRating('缺少fraudScore和isResidential字段');
+    return makeIPPureStatus(false, '缺少fraudScore和isResidential字段');
   }
 
   return {
@@ -572,7 +590,7 @@ async function getIPPureInfo(ctx, policy) {
     });
 
     if (!res) {
-      return ipPureFailed('无响应');
+      return makeIPPureStatus(true, '无响应');
     }
 
     if (
@@ -580,19 +598,19 @@ async function getIPPureInfo(ctx, policy) {
       (res.status < 200 || res.status >= 300)
     ) {
       console.log('IPPure HTTP状态异常:', res.status);
-      return ipPureFailed(`HTTP ${res.status}`);
+      return makeIPPureStatus(true, `HTTP ${res.status}`);
     }
 
     const d = await res.json();
 
     if (!d || typeof d !== 'object') {
-      return ipPureNoRating('IPPure返回内容为空');
+      return makeIPPureStatus(false, 'IPPure返回内容为空');
     }
 
     return normalizeIPPureInfo(d);
   } catch (e) {
     console.log('IPPure信息获取失败:', e);
-    return ipPureFailed('IPPure请求失败或超时');
+    return makeIPPureStatus(true, 'IPPure请求失败或超时');
   }
 }
 
