@@ -258,12 +258,16 @@ async function fetchInfo(ctx, slot, now, nowTime, deadlineTime) {
 function readCache(ctx, cacheKey, nowTime) {
   try {
     const parsed = ctx.storage.getJSON(cacheKey);
-    if (!parsed) return { fresh: null, stale: null };
+
+    if (!parsed || typeof parsed !== "object") {
+      return { fresh: null, stale: null };
+    }
 
     const data = parsed.data;
     const cacheTime = Number(parsed.time ?? data?.updatedAt);
+    const normalized = normalizeCachedData(data, cacheTime);
 
-    if (!data || !Number.isFinite(cacheTime)) {
+    if (!normalized) {
       safeDeleteCache(ctx, cacheKey);
       return { fresh: null, stale: null };
     }
@@ -272,10 +276,7 @@ function readCache(ctx, cacheKey, nowTime) {
 
     if (age >= 0 && age < NETWORK_COOLDOWN_MS) {
       return {
-        fresh: {
-          ...data,
-          cacheTime,
-        },
+        fresh: normalized,
         stale: null,
       };
     }
@@ -283,10 +284,7 @@ function readCache(ctx, cacheKey, nowTime) {
     if (age >= 0 && age < MAX_STALE_MS) {
       return {
         fresh: null,
-        stale: {
-          ...data,
-          cacheTime,
-        },
+        stale: normalized,
       };
     }
 
@@ -296,6 +294,37 @@ function readCache(ctx, cacheKey, nowTime) {
   }
 
   return { fresh: null, stale: null };
+}
+
+function normalizeCachedData(data, cacheTime) {
+  if (!data || typeof data !== "object" || !Number.isFinite(cacheTime)) {
+    return null;
+  }
+
+  const used = Number(data.used);
+  const totalBytes = Number(data.totalBytes);
+
+  if (
+    !Number.isFinite(used) ||
+    !Number.isFinite(totalBytes) ||
+    used < 0 ||
+    totalBytes <= 0
+  ) {
+    return null;
+  }
+
+  const expire = Number(data.expire);
+  const updatedAt = Number(data.updatedAt);
+
+  return {
+    ...data,
+    used,
+    totalBytes,
+    percent: (used / totalBytes) * 100,
+    expire: Number.isFinite(expire) && expire > 0 ? expire : null,
+    updatedAt: Number.isFinite(updatedAt) ? updatedAt : cacheTime,
+    cacheTime,
+  };
 }
 
 function saveCache(ctx, cacheKey, data) {
@@ -334,6 +363,11 @@ async function fetchRemoteInfo(ctx, url, nowTime, deadlineTime, hasStaleCache) {
 
       if (Number.isFinite(status) && (status < 200 || status >= 300)) {
         lastErrorMsg = `HTTP ${status}`;
+
+        if (hasStaleCache) {
+          break;
+        }
+
         continue;
       }
 
@@ -347,6 +381,10 @@ async function fetchRemoteInfo(ctx, url, nowTime, deadlineTime, hasStaleCache) {
       }
 
       lastErrorMsg = "No Data";
+
+      if (hasStaleCache) {
+        break;
+      }
     } catch (err) {
       lastErrorMsg = normalizeRequestError(err);
 
@@ -620,16 +658,44 @@ function safeBuildCard(result, ctx, nowTime) {
   try {
     return buildCard(result, ctx, nowTime);
   } catch (err) {
-    return buildCard(
-      {
-        name: result?.name || "未知",
-        error: true,
-        errorMsg: "Render Error",
-      },
-      ctx,
-      nowTime
-    );
+    return buildRenderErrorCard(result?.name || "未知");
   }
+}
+
+function buildRenderErrorCard(name) {
+  return {
+    type: "stack",
+    direction: "row",
+    alignItems: "center",
+    gap: 6,
+    padding: [8, 10],
+    backgroundColor: COLORS.errorBg,
+    borderRadius: 8,
+    children: [
+      {
+        type: "image",
+        src: "sf-symbol:exclamationmark.circle.fill",
+        width: 12,
+        height: 12,
+        color: COLORS.accentRed,
+      },
+      {
+        type: "text",
+        text: String(name || "未知"),
+        font: { size: "caption2", weight: "semibold" },
+        textColor: COLORS.accentRed,
+        flex: 1,
+        maxLines: 1,
+      },
+      {
+        type: "text",
+        text: "失败 | Render Error",
+        font: { size: "caption2", weight: "bold" },
+        textColor: COLORS.accentRed,
+        maxLines: 1,
+      },
+    ],
+  };
 }
 
 function buildUrl(base, flag) {
@@ -637,6 +703,13 @@ function buildUrl(base, flag) {
 
   try {
     const u = new URL(base);
+
+    for (const key of Array.from(u.searchParams.keys())) {
+      if (key.toLowerCase() === "flag") {
+        u.searchParams.delete(key);
+      }
+    }
+
     u.searchParams.set("flag", flag);
     return u.toString();
   } catch (e) {
