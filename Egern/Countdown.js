@@ -1147,20 +1147,6 @@ function normalizeHolidayCnYearData(data, year) {
   return { days };
 }
 
-function isValidOfficialDay(day) {
-  return normalizeOfficialDay(day) !== null;
-}
-
-function isValidOfficialYearData(yearData) {
-  return (
-    yearData &&
-    typeof yearData === "object" &&
-    Array.isArray(yearData.days) &&
-    yearData.days.length > 0 &&
-    yearData.days.every(isValidOfficialDay)
-  );
-}
-
 function normalizeCachedOfficialYearData(yearData) {
   if (
     !yearData ||
@@ -1322,7 +1308,8 @@ function pruneRetryAfterByYear(retryAfterByYear, currentYear) {
 }
 
 function hasOfficialYearData(yearsData, year) {
-  return normalizeCachedOfficialYearData(yearsData?.[String(year)]) !== null;
+  const days = yearsData?.[String(year)]?.days;
+  return Array.isArray(days) && days.length > 0;
 }
 
 function getMissingOfficialYears(yearsData, requestYears) {
@@ -2677,15 +2664,6 @@ function buildCountdownData({
   };
 }
 
-function sameStringArray(a, b) {
-  return (
-    Array.isArray(a) &&
-    Array.isArray(b) &&
-    a.length === b.length &&
-    a.every((v, i) => v === b[i])
-  );
-}
-
 function notifyTodayIfNeeded(ctx, notifyKey, notifyDate, todayItems) {
   if (
     typeof ctx.notify !== "function" ||
@@ -2713,18 +2691,11 @@ function notifyTodayIfNeeded(ctx, notifyKey, notifyDate, todayItems) {
     const now = Date.now();
     const currentNotifyState = ctx.storage.getJSON(notifyKey) || {};
 
-    if (
-      currentNotifyState.date === notifyDate &&
-      sameStringArray(currentNotifyState.names, notifyNames)
-    ) {
+    if (currentNotifyState.date === notifyDate) {
       const failed = currentNotifyState.failed === true;
       const retryAfter = Number(currentNotifyState.retryAfter) || 0;
 
-      if (failed && retryAfter > now) {
-        return;
-      }
-
-      if (!failed) {
+      if (!failed || retryAfter > now) {
         return;
       }
     }
@@ -2862,7 +2833,7 @@ async function renderCountdownWidget(ctx = {}) {
     `${storageScope}:daily:${dataEnvCacheScope}:v${DAILY_CACHE_SCHEMA_VERSION}`;
 
   const NOTIFY_KEY =
-    `${storageScope}:notify:${dataEnvCacheScope}`;
+    `${storageScope}:notify`;
 
   const CACHE_VERSION = DAILY_CACHE_VERSION_TEXT;
 

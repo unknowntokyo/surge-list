@@ -48,9 +48,9 @@ const REFRESH_INTERVAL_MS = 60 * 60 * 1000;
 const NETWORK_COOLDOWN_MS = 30 * 60 * 1000;
 const MAX_STALE_MS = 10 * 24 * 60 * 60 * 1000;
 
-const SCRIPT_SOFT_TIMEOUT_MS = 5000;
-const REQUEST_TIMEOUT_MS = 3000;
-const MIN_REQUEST_TIMEOUT_MS = 1000;
+const SCRIPT_SOFT_TIMEOUT_MS = 8000;
+const REQUEST_TIMEOUT_MS = 2000;
+const MIN_REQUEST_TIMEOUT_MS = 500;
 
 const CACHE_PREFIX = "sub_cache";
 
@@ -226,13 +226,11 @@ async function fetchInfo(ctx, slot, now, nowTime, deadlineTime, activeSlotCount)
     return attachSlotMeta(cache.fresh, slot, remainDays);
   }
 
-  const hasStaleCache = Boolean(cache.stale);
   const remote = await fetchRemoteInfo(
     ctx,
     slot.url,
     nowTime,
     deadlineTime,
-    hasStaleCache,
     activeSlotCount
   );
 
@@ -326,11 +324,10 @@ async function fetchRemoteInfo(
   url,
   nowTime,
   deadlineTime,
-  hasStaleCache,
   activeSlotCount
 ) {
   let lastErrorMsg = "Unknown";
-  const strategyLimit = getStrategyLimit(activeSlotCount, hasStaleCache);
+  const strategyLimit = getStrategyLimit(activeSlotCount);
 
   for (let i = 0; i < strategyLimit; i++) {
     const strategy = STRATEGIES[i];
@@ -354,7 +351,6 @@ async function fetchRemoteInfo(
 
       if (Number.isFinite(status) && (status < 200 || status >= 300)) {
         lastErrorMsg = `HTTP ${status}`;
-        if (hasStaleCache) break;
         continue;
       }
 
@@ -368,10 +364,8 @@ async function fetchRemoteInfo(
       }
 
       lastErrorMsg = "No Data";
-      if (hasStaleCache) break;
     } catch (err) {
       lastErrorMsg = normalizeRequestError(err);
-      if (hasStaleCache) break;
     }
   }
 
@@ -395,9 +389,7 @@ function cancelResponseBody(resp) {
   } catch (e) {}
 }
 
-function getStrategyLimit(activeSlotCount, hasStaleCache) {
-  if (hasStaleCache) return 1;
-
+function getStrategyLimit(activeSlotCount) {
   if (activeSlotCount > 2) {
     return Math.min(2, STRATEGIES.length);
   }
