@@ -121,13 +121,8 @@ function loadCachedSpeedData(ctx, cacheKey) {
   }
 }
 
-async function cancelResponseBody(response) {
-  try {
-    await response?.body?.cancel?.();
-  } catch {}
-}
-
 async function measureSpeed(ctx, url, policy) {
+  let body;
   let reader;
   let completed = false;
   let downloadedBytes = 0;
@@ -141,14 +136,14 @@ async function measureSpeed(ctx, url, policy) {
       credentials: 'omit'
     });
 
+    body = response?.body;
+
     if (!response || response.status < 200 || response.status >= 300) {
-      await cancelResponseBody(response);
       return null;
     }
 
-    reader = response.body?.getReader?.();
+    reader = body?.getReader?.();
     if (!reader) {
-      await cancelResponseBody(response);
       return null;
     }
 
@@ -183,6 +178,10 @@ async function measureSpeed(ctx, url, policy) {
       try {
         await reader.cancel();
       } catch {}
+    } else if (!reader && body) {
+      try {
+        await body.cancel?.();
+      } catch {}
     }
   }
 }
@@ -208,17 +207,44 @@ export default async function(ctx) {
 
   const failed = !hasValidSpeedData(speedData);
   const isSmall = ctx.widgetFamily === 'systemSmall';
+
+  const layout = isSmall
+    ? {
+        padding: 12,
+        gap: 8,
+        iconSize: 14,
+        titleFont: 'caption2',
+        detailFont: 'caption2',
+        speedMainFontSize: 32,
+        failedMainFontSize: 22,
+        failedText: '⚠️\n测速失败',
+        speedUnitSeparator: '\n'
+      }
+    : {
+        padding: 16,
+        gap: 12,
+        iconSize: 16,
+        titleFont: 'caption1',
+        detailFont: 'caption1',
+        speedMainFontSize: 44,
+        failedMainFontSize: 30,
+        failedText: '⚠️ 测速失败',
+        speedUnitSeparator: ' '
+      };
+
   const { icon, color } = getSpeedStyle(speedData.mbps, failed);
   const barWidth = failed ? 80 : getBarWidth(speedData.mbps);
   const timeStr = failed ? '--:--' : formatTime(speedData.timestamp);
 
   const mainText = failed
-    ? (isSmall ? '⚠️\n测速失败' : '⚠️ 测速失败')
-    : (isSmall ? `${speedData.mbps}\nMbps` : `${speedData.mbps} Mbps`);
+    ? layout.failedText
+    : `${speedData.mbps}${layout.speedUnitSeparator}Mbps`;
 
   const mainFontSize = failed
-    ? (isSmall ? 22 : 30)
-    : (isSmall ? 32 : 44);
+    ? layout.failedMainFontSize
+    : layout.speedMainFontSize;
+
+  const mutedTextColor = { light: '#6B6B6B', dark: '#A1A1A6' };
 
   const children = [
     {
@@ -229,14 +255,14 @@ export default async function(ctx) {
         {
           type: 'image',
           src: `sf-symbol:${icon}`,
-          width: isSmall ? 14 : 16,
-          height: isSmall ? 14 : 16,
+          width: layout.iconSize,
+          height: layout.iconSize,
           color
         },
         {
           type: 'text',
           text: ' NetSpeed',
-          font: { size: isSmall ? 'caption2' : 'caption1', weight: 'semibold' },
+          font: { size: layout.titleFont, weight: 'semibold' },
           textColor: color
         },
         { type: 'spacer' },
@@ -292,15 +318,15 @@ export default async function(ctx) {
         {
           type: 'text',
           text: `${speedData.mBs} MB/s`,
-          font: { size: isSmall ? 'caption2' : 'caption1' },
-          textColor: { light: '#6B6B6B', dark: '#A1A1A6' }
+          font: { size: layout.detailFont },
+          textColor: mutedTextColor
         },
         { type: 'spacer' },
         {
           type: 'text',
           text: `${speedData.duration}s`,
-          font: { size: isSmall ? 'caption2' : 'caption1' },
-          textColor: { light: '#6B6B6B', dark: '#A1A1A6' }
+          font: { size: layout.detailFont },
+          textColor: mutedTextColor
         }
       ]
     });
@@ -308,8 +334,8 @@ export default async function(ctx) {
 
   return {
     type: 'widget',
-    padding: isSmall ? 12 : 16,
-    gap: isSmall ? 8 : 12,
+    padding: layout.padding,
+    gap: layout.gap,
 
     backgroundColor: {
       light: '#FFFFFF',

@@ -171,7 +171,6 @@ const WIDGET_OFFICIAL_HTTP_TIMEOUT_MS = 1500;
 
 const OFFICIAL_REFRESH_INTERVAL_MS = 3 * DAY_MS;
 const OFFICIAL_FAILED_RETRY_INTERVAL_MS = DAY_MS;
-const OFFICIAL_BACKGROUND_REFRESH_LOCK_TTL_MS = 10 * 60 * 1000;
 
 const NOTIFY_FAILED_RETRY_INTERVAL_MS = 10 * 60 * 1000;
 
@@ -274,42 +273,16 @@ function splitNameList(value) {
     .filter(Boolean);
 }
 
-const holidayNamePartsCache = new Map();
-const holidayNamePartSetCache = new Map();
 const EMPTY_HOLIDAY_NAME_PARTS = Object.freeze([]);
-
-function clearHolidayNameCachesIfNeeded() {
-  if (holidayNamePartsCache.size > 256) {
-    holidayNamePartsCache.clear();
-    holidayNamePartSetCache.clear();
-  }
-}
 
 function splitHolidayNames(name) {
   const raw = String(name ?? "").trim();
-  if (!raw) return EMPTY_HOLIDAY_NAME_PARTS;
-
-  const cached = holidayNamePartsCache.get(raw);
-  if (cached) return cached;
-
-  clearHolidayNameCachesIfNeeded();
-
-  const parts = Object.freeze(splitNameList(raw));
-  holidayNamePartsCache.set(raw, parts);
-  holidayNamePartSetCache.set(raw, new Set(parts));
-
-  return parts;
+  return raw ? splitNameList(raw) : EMPTY_HOLIDAY_NAME_PARTS;
 }
 
 function getHolidayNamePartSet(name) {
-  const raw = String(name ?? "").trim();
-  if (!raw) return null;
-
-  const cached = holidayNamePartSetCache.get(raw);
-  if (cached) return cached;
-
-  splitHolidayNames(raw);
-  return holidayNamePartSetCache.get(raw) || null;
+  const parts = splitHolidayNames(name);
+  return parts.length > 0 ? new Set(parts) : null;
 }
 
 function partsIntersect(parts, partSet) {
@@ -811,51 +784,6 @@ function buildEnvFingerprintFromNormalized(
     .join("|");
 }
 
-const VALID_CATEGORY_KEYS = new Set(CATEGORY_KEYS);
-
-function isValidCountdownItem(item) {
-  if (!item || typeof item !== "object") return false;
-  if (typeof item.name !== "string") return false;
-
-  if (
-    typeof item.diff !== "number" ||
-    !Number.isFinite(item.diff)
-  ) {
-    return false;
-  }
-
-  if (
-    item.duration !== undefined &&
-    (
-      typeof item.duration !== "number" ||
-      !Number.isInteger(item.duration) ||
-      item.duration < 1 ||
-      item.duration > 30
-    )
-  ) {
-    return false;
-  }
-
-  if (
-    typeof item.cat !== "string" ||
-    !VALID_CATEGORY_KEYS.has(item.cat)
-  ) {
-    return false;
-  }
-
-  if (
-    item.priority !== undefined &&
-    (
-      typeof item.priority !== "number" ||
-      !Number.isFinite(item.priority)
-    )
-  ) {
-    return false;
-  }
-
-  return true;
-}
-
 function isValidPinnedItem(item) {
   return (
     item &&
@@ -864,37 +792,6 @@ function isValidPinnedItem(item) {
     typeof item.diff === "number" &&
     Number.isFinite(item.diff)
   );
-}
-
-function isValidBaseCachedPayload(payload) {
-  if (!payload || typeof payload !== "object") return false;
-  if (!payload.result || typeof payload.result !== "object") return false;
-  if (!Array.isArray(payload.todayItems)) return false;
-  if (!Array.isArray(payload.pinnedData)) return false;
-
-  if (
-    payload.todayNoticeText !== undefined &&
-    typeof payload.todayNoticeText !== "string"
-  ) {
-    return false;
-  }
-
-  if (!payload.todayItems.every(isValidCountdownItem)) {
-    return false;
-  }
-
-  if (!payload.pinnedData.every(isValidPinnedItem)) {
-    return false;
-  }
-
-  return CATEGORY_CONFIG.every(cfg => {
-    const arr = payload.result[cfg.key];
-
-    return (
-      Array.isArray(arr) &&
-      arr.every(isValidCountdownItem)
-    );
-  });
 }
 
 const OFFICIAL_HOLIDAY_STORAGE_VERSION = 2;
@@ -977,18 +874,7 @@ function hashString(str) {
 const DAILY_CACHE_SCHEMA_VERSION = 22;
 const DAILY_CACHE_VERSION_TEXT = `v${DAILY_CACHE_SCHEMA_VERSION}`;
 
-function warnLog(...args) {
-  try {
-    if (
-      typeof console !== "undefined" &&
-      console &&
-      typeof console.warn === "function"
-    ) {
-      console.warn(...args);
-    }
-  } catch (_) {
-  }
-}
+const warnLog = (...args) => console.warn(...args);
 
 function shallowObjectEqual(a = {}, b = {}) {
   const ak = Object.keys(a || {});
@@ -1645,73 +1531,6 @@ async function safeLoadOfficialHolidayDaily(
   }
 }
 
-function getOfficialRefreshLockKey(storageKey) {
-  return `${storageKey}:refresh_lock`;
-}
-
-function tryAcquireOfficialRefreshLock(ctx, lockKey, now = Date.now()) {
-  if (!ctx.storage || !lockKey) return null;
-
-  const owner = `${now}:${Math.random().toString(36).slice(2)}`;
-
-  try {
-    const lock = ctx.storage.getJSON(lockKey);
-
-    if (
-      lock &&
-      Number.isFinite(Number(lock.expiresAt)) &&
-      Number(lock.expiresAt) > now
-    ) {
-      return null;
-    }
-
-    ctx.storage.setJSON(lockKey, {
-      owner,
-      startedAt: now,
-      expiresAt: now + OFFICIAL_BACKGROUND_REFRESH_LOCK_TTL_MS
-    });
-
-    const confirmed = ctx.storage.getJSON(lockKey);
-
-    return confirmed?.owner === owner
-      ? owner
-      : null;
-  } catch (e) {
-    warnLog("[Countdown] failed to acquire official refresh lock:", e);
-    return null;
-  }
-}
-
-function releaseOfficialRefreshLock(ctx, lockKey, owner) {
-  if (!ctx.storage || !lockKey || !owner) return;
-
-  try {
-    const lock = ctx.storage.getJSON(lockKey);
-
-    if (lock?.owner === owner) {
-      ctx.storage.delete(lockKey);
-    }
-  } catch (e) {
-    warnLog("[Countdown] failed to release official refresh lock:", e);
-  }
-}
-
-function readBaseCacheByOfficialState(
-  officialHolidayCache,
-  dataEnvFingerprint,
-  readBaseDailyCache
-) {
-  const envFingerprint = getOfficialEnvFingerprint(
-    dataEnvFingerprint,
-    officialHolidayCache
-  );
-
-  return {
-    envFingerprint,
-    cachedBaseData: readBaseDailyCache(envFingerprint)
-  };
-}
-
 function resolveOfficialRefreshPlan({
   officialHolidayCache,
   currentYear,
@@ -1767,7 +1586,7 @@ function resolveOfficialRefreshPlan({
   };
 }
 
-async function refreshOfficialCacheWithLock({
+async function refreshOfficialCache({
   ctx,
   officialHolidayStorageKey,
   currentYear,
@@ -1781,41 +1600,22 @@ async function refreshOfficialCacheWithLock({
   );
 
   if (yearsToFetch.length === 0) {
-    return {
-      officialHolidayCache
-    };
+    return officialHolidayCache;
   }
 
-  const lockKey = getOfficialRefreshLockKey(officialHolidayStorageKey);
-  const lockOwner = tryAcquireOfficialRefreshLock(ctx, lockKey);
+  const refreshedCache = await safeLoadOfficialHolidayDaily(
+    ctx,
+    currentYear,
+    todayIso,
+    officialHolidayStorageKey,
+    {
+      oldCache: officialHolidayCache,
+      httpTimeoutMs: WIDGET_OFFICIAL_HTTP_TIMEOUT_MS,
+      forceYearsToFetch: yearsToFetch
+    }
+  );
 
-  if (!lockOwner) {
-    return {
-      officialHolidayCache:
-        readOfficialHolidayCache(ctx, officialHolidayStorageKey) ||
-        officialHolidayCache
-    };
-  }
-
-  try {
-    const refreshedCache = await safeLoadOfficialHolidayDaily(
-      ctx,
-      currentYear,
-      todayIso,
-      officialHolidayStorageKey,
-      {
-        oldCache: officialHolidayCache,
-        httpTimeoutMs: WIDGET_OFFICIAL_HTTP_TIMEOUT_MS,
-        forceYearsToFetch: yearsToFetch
-      }
-    );
-
-    return {
-      officialHolidayCache: refreshedCache || officialHolidayCache
-    };
-  } finally {
-    releaseOfficialRefreshLock(ctx, lockKey, lockOwner);
-  }
+  return refreshedCache || officialHolidayCache;
 }
 
 async function prepareOfficialHolidayCacheForWidget({
@@ -1831,103 +1631,74 @@ async function prepareOfficialHolidayCacheForWidget({
     officialHolidayStorageKey
   );
 
+  const readBaseByCurrentOfficialState = () => {
+    const envFingerprint = getOfficialEnvFingerprint(
+      dataEnvFingerprint,
+      officialHolidayCache
+    );
+
+    return {
+      envFingerprint,
+      cachedBaseData: readBaseDailyCache(envFingerprint)
+    };
+  };
+
   let {
     envFingerprint,
     cachedBaseData
-  } = readBaseCacheByOfficialState(
-    officialHolidayCache,
-    dataEnvFingerprint,
-    readBaseDailyCache
-  );
+  } = readBaseByCurrentOfficialState();
 
   const canRefreshOfficialHoliday = Boolean(ctx.http && ctx.storage);
 
-  const refreshAndReloadBaseCache = async yearsToFetch => {
-    if (!canRefreshOfficialHoliday || yearsToFetch.length === 0) {
-      return;
-    }
-
-    const refreshResult = await refreshOfficialCacheWithLock({
-      ctx,
-      officialHolidayStorageKey,
-      currentYear,
-      todayIso,
-      officialHolidayCache,
-      forceYearsToFetch: yearsToFetch
-    });
-
-    officialHolidayCache = refreshResult.officialHolidayCache;
-
-    ({
-      envFingerprint,
-      cachedBaseData
-    } = readBaseCacheByOfficialState(
-      officialHolidayCache,
-      dataEnvFingerprint,
-      readBaseDailyCache
-    ));
-  };
-
-  let plan = resolveOfficialRefreshPlan({
+  const plan = resolveOfficialRefreshPlan({
     officialHolidayCache,
     currentYear,
     todayIso,
     hasCachedBaseData: Boolean(cachedBaseData)
   });
 
-  if (cachedBaseData) {
-    if (
-      canRefreshOfficialHoliday &&
-      plan.shouldBlockRenderForOfficialRefresh
-    ) {
-      const fallbackEnvFingerprint = envFingerprint;
-      const fallbackCachedBaseData = cachedBaseData;
-      const oldOfficialFingerprint = getOfficialFingerprintText(
-        officialHolidayCache
-      );
-
-      await refreshAndReloadBaseCache(plan.yearsToFetch);
-
-      if (cachedBaseData) {
-        return {
-          officialHolidayCache,
-          envFingerprint,
-          cachedBaseData
-        };
-      }
-
-      if (
-        getOfficialFingerprintText(officialHolidayCache) ===
-        oldOfficialFingerprint
-      ) {
-        return {
-          officialHolidayCache,
-          envFingerprint: fallbackEnvFingerprint,
-          cachedBaseData: fallbackCachedBaseData
-        };
-      }
-    } else {
-      return {
-        officialHolidayCache,
-        envFingerprint,
-        cachedBaseData
-      };
-    }
+  if (
+    !canRefreshOfficialHoliday ||
+    plan.yearsToFetch.length === 0 ||
+    (cachedBaseData && !plan.shouldBlockRenderForOfficialRefresh)
+  ) {
+    return {
+      officialHolidayCache,
+      envFingerprint,
+      cachedBaseData
+    };
   }
 
-  plan = resolveOfficialRefreshPlan({
-    officialHolidayCache,
+  const fallbackEnvFingerprint = envFingerprint;
+  const fallbackCachedBaseData = cachedBaseData;
+  const oldOfficialFingerprint = getOfficialFingerprintText(
+    officialHolidayCache
+  );
+
+  officialHolidayCache = await refreshOfficialCache({
+    ctx,
+    officialHolidayStorageKey,
     currentYear,
     todayIso,
-    hasCachedBaseData: false
+    officialHolidayCache,
+    forceYearsToFetch: plan.yearsToFetch
   });
 
+  ({
+    envFingerprint,
+    cachedBaseData
+  } = readBaseByCurrentOfficialState());
+
   if (
-    canRefreshOfficialHoliday &&
-    plan.shouldBlockRenderForOfficialRefresh &&
-    plan.yearsToFetch.length > 0
+    !cachedBaseData &&
+    fallbackCachedBaseData &&
+    getOfficialFingerprintText(officialHolidayCache) === oldOfficialFingerprint
   ) {
-    await refreshAndReloadBaseCache(plan.yearsToFetch);
+    return {
+      officialHolidayCache,
+      envFingerprint: fallbackEnvFingerprint,
+      cachedBaseData: fallbackCachedBaseData
+    };
   }
 
   return {
@@ -2117,6 +1888,28 @@ function officialRowDistanceToFallback(row, fallbackMs) {
   );
 }
 
+function toHolidayRowMeta(row) {
+  if (
+    !Array.isArray(row) ||
+    typeof row[0] !== "string" ||
+    !row[0].trim() ||
+    typeof row[1] !== "string"
+  ) {
+    return null;
+  }
+
+  const name = row[0].trim();
+  const parts = splitHolidayNames(name);
+
+  return {
+    row,
+    name,
+    parts,
+    partSet: new Set(parts),
+    startMs: slashYMDToMs(row[1])
+  };
+}
+
 function mergeLegalHolidays(fallbackLegal, officialLegal) {
   if (!Array.isArray(fallbackLegal)) {
     return Array.isArray(officialLegal) ? [...officialLegal] : [];
@@ -2127,59 +1920,61 @@ function mergeLegalHolidays(fallbackLegal, officialLegal) {
   }
 
   const officialRows = officialLegal
-    .filter(row =>
-      Array.isArray(row) &&
-      typeof row[0] === "string" &&
-      row[0].trim() &&
-      typeof row[1] === "string"
-    )
-    .map(row => {
-      const name = String(row[0] ?? "").trim();
-
-      return {
-        row,
-        name,
-        parts: splitHolidayNames(name)
-      };
-    });
+    .map(toHolidayRowMeta)
+    .filter(Boolean);
 
   if (officialRows.length === 0) {
     return [...fallbackLegal];
   }
 
+  const fallbackRows = fallbackLegal.map(row => {
+    const meta = toHolidayRowMeta(row);
+
+    return meta || {
+      row,
+      name: "",
+      parts: EMPTY_HOLIDAY_NAME_PARTS,
+      partSet: null,
+      startMs: NaN
+    };
+  });
+
   const merged = [];
   const usedOfficialIndexes = new Set();
-  const coveredFallbackNames = new Set();
+  const coveredFallbackTokens = new Set();
+  const fallbackTokenSet = new Set();
 
-  for (const row of fallbackLegal) {
-    const fallbackName = String(row?.[0] ?? "").trim();
+  for (const fallback of fallbackRows) {
+    for (const part of fallback.parts) {
+      fallbackTokenSet.add(part);
+    }
+  }
 
-    if (!fallbackName) {
-      merged.push(row);
+  for (const fallback of fallbackRows) {
+    if (!fallback.name) {
+      merged.push(fallback.row);
       continue;
     }
 
-    if (coveredFallbackNames.has(fallbackName)) {
+    if (holidayNameMatchesTokenSet(fallback.name, coveredFallbackTokens)) {
       continue;
     }
 
-    const fallbackMs = slashYMDToMs(row?.[1]);
     let bestIndex = -1;
     let bestDistance = Infinity;
-    const fallbackPartSet = getHolidayNamePartSet(fallbackName);
 
     for (let i = 0; i < officialRows.length; i++) {
       if (usedOfficialIndexes.has(i)) continue;
 
       const official = officialRows[i];
 
-      if (!partsIntersect(official.parts, fallbackPartSet)) {
+      if (!partsIntersect(official.parts, fallback.partSet)) {
         continue;
       }
 
       const distance = officialRowDistanceToFallback(
         official.row,
-        fallbackMs
+        fallback.startMs
       );
 
       if (distance < bestDistance) {
@@ -2193,30 +1988,20 @@ function mergeLegalHolidays(fallbackLegal, officialLegal) {
 
       usedOfficialIndexes.add(bestIndex);
 
-      for (const name of official.parts) {
-        coveredFallbackNames.add(name);
+      for (const part of official.parts) {
+        coveredFallbackTokens.add(part);
       }
 
       merged.push(official.row);
     } else {
-      merged.push(row);
+      merged.push(fallback.row);
     }
   }
-
-  const fallbackNames = new Set(
-    fallbackLegal
-      .map(row => String(row?.[0] ?? "").trim())
-      .filter(Boolean)
-  );
 
   for (let i = 0; i < officialRows.length; i++) {
     if (usedOfficialIndexes.has(i)) continue;
 
-    const overlapsFallback = officialRows[i].parts.some(name =>
-      fallbackNames.has(name)
-    );
-
-    if (!overlapsFallback) {
+    if (!partsIntersect(officialRows[i].parts, fallbackTokenSet)) {
       merged.push(officialRows[i].row);
     }
   }
@@ -2864,15 +2649,17 @@ async function renderCountdownWidget(ctx = {}) {
 
   const readBaseDailyCache = currentEnvFingerprint => {
     const stored = readBaseDailyCacheRecord();
+    const payload = stored?.payload;
 
     if (
       stored &&
       stored.version === CACHE_VERSION &&
       stored.date === todayStr &&
       stored.envFingerprint === currentEnvFingerprint &&
-      isValidBaseCachedPayload(stored.payload)
+      payload &&
+      typeof payload === "object"
     ) {
-      return stored.payload;
+      return payload;
     }
 
     return null;
