@@ -2,7 +2,7 @@
  * 机场订阅流量监控小组件
  *
  * 📝 使用说明
- * 1️⃣ 添加环境变量（在 Egern 中进入小组件"编辑环境变量"）：
+ * 1️⃣ 添加环境变量：
  *
  *    NAME1 = 翻墙                     # 机场名称（自定义）
  *    URL1 = https://xxx.com/sub...   # 订阅地址（必填）
@@ -48,8 +48,8 @@ const REFRESH_INTERVAL_MS = 60 * 60 * 1000;
 const NETWORK_COOLDOWN_MS = 30 * 60 * 1000;
 const MAX_STALE_MS = 10 * 24 * 60 * 60 * 1000;
 
-const SCRIPT_SOFT_TIMEOUT_MS = 8500;
-const REQUEST_TIMEOUT_MS = 1500;
+const SCRIPT_SOFT_TIMEOUT_MS = 8000;
+const REQUEST_TIMEOUT_MS = 2000;
 const MIN_REQUEST_TIMEOUT_MS = 500;
 
 const CACHE_PREFIX = "sub_cache";
@@ -91,17 +91,130 @@ export default async function (ctx) {
   }
 
   const widgetFamily = String(ctx.widgetFamily || "systemMedium");
-  const activeSlots = slots.slice(0, widgetFamily.includes("Large") ? 5 : 2);
+  const activeSlots = slots.slice(0, getDisplayLimit(widgetFamily));
+  const activeSlotCount = activeSlots.length;
 
   const now = new Date();
   const nowTime = now.getTime();
   const deadlineTime = nowTime + SCRIPT_SOFT_TIMEOUT_MS;
 
-  const results = await concurrentMap(activeSlots, 2, (slot) =>
-    fetchInfo(ctx, slot, now, nowTime, deadlineTime)
+  const maxConcurrent = activeSlotCount > 2 ? 3 : 2;
+  const slotStates = activeSlots.map((slot) =>
+    buildSlotState(ctx, slot, now, nowTime)
   );
 
-  const cardChildren = results.map((result) => safeBuildCard(result, ctx, nowTime));
+  const results = new Array(slotStates.length);
+  const remoteGroups = [];
+  const remoteGroupMap = new Map();
+
+  for (let i = 0; i < slotStates.length; i++) {
+    const state = slotStates[i];
+
+    if (state.cache.fresh) {
+      results[i] = attachSlotMeta(
+        state.cache.fresh,
+        state.slot,
+        state.remainDays
+      );
+      continue;
+    }
+
+    let group = remoteGroupMap.get(state.cacheKey);
+
+    if (!group) {
+      group = {
+        cacheKey: state.cacheKey,
+        url: state.slot.url,
+        states: [],
+        indexes: [],
+      };
+      remoteGroupMap.set(state.cacheKey, group);
+      remoteGroups.push(group);
+    }
+
+    group.states.push(state);
+    group.indexes.push(i);
+  }
+
+  if (remoteGroups.length) {
+    const remoteGroupResults = await concurrentMap(
+      remoteGroups,
+      maxConcurrent,
+      (group) =>
+        fetchRemoteForGroup(
+          ctx,
+          group,
+          nowTime,
+          deadlineTime,
+          activeSlotCount
+        )
+    );
+
+    for (const groupResult of remoteGroupResults) {
+      const group = groupResult?.group;
+      const remote = groupResult?.remote || {
+        ok: false,
+        errorMsg: "Fetch Error",
+      };
+
+      if (!group) continue;
+
+      if (remote.ok) {
+        saveCache(ctx, group.cacheKey, remote.data);
+
+        const dataWithCacheTime = {
+          ...remote.data,
+          cacheTime: nowTime,
+        };
+
+        for (const index of group.indexes) {
+          const state = slotStates[index];
+          results[index] = attachSlotMeta(
+            dataWithCacheTime,
+            state.slot,
+            state.remainDays
+          );
+        }
+
+        continue;
+      }
+
+      for (const index of group.indexes) {
+        const state = slotStates[index];
+
+        if (state.cache.stale) {
+          results[index] = attachSlotMeta(
+            {
+              ...state.cache.stale,
+              isFallback: true,
+              cacheAgeText: formatCacheAge(
+                nowTime - state.cache.stale.cacheTime
+              ),
+            },
+            state.slot,
+            state.remainDays
+          );
+        } else {
+          results[index] = buildErrorResult(
+            state.slot,
+            state.remainDays,
+            remote.errorMsg || "Unknown"
+          );
+        }
+      }
+    }
+  }
+
+  for (let i = 0; i < results.length; i++) {
+    if (!results[i]) {
+      const state = slotStates[i];
+      results[i] = buildErrorResult(state.slot, state.remainDays, "Fetch Error");
+    }
+  }
+
+  const cardChildren = results.map((result) =>
+    safeBuildCard(result, ctx, nowTime)
+  );
 
   const timeStr =
     String(now.getHours()).padStart(2, "0") +
@@ -160,6 +273,12 @@ export default async function (ctx) {
   };
 }
 
+function getDisplayLimit(widgetFamily) {
+  return widgetFamily === "systemLarge" || widgetFamily === "systemExtraLarge"
+    ? 5
+    : 2;
+}
+
 function buildSlots(env) {
   const slots = [];
 
@@ -183,6 +302,7 @@ function buildEmptyWidget() {
     type: "widget",
     backgroundColor: WIDGET_BG_COLOR,
     padding: 16,
+    refreshAfter: new Date(Date.now() + REFRESH_INTERVAL_MS).toISOString(),
     children: [
       {
         type: "stack",
@@ -209,65 +329,86 @@ function buildEmptyWidget() {
   };
 }
 
-async function fetchInfo(ctx, slot, now, nowTime, deadlineTime) {
+function buildSlotState(ctx, slot, now, nowTime) {
   const remainDays = slot.resetDay ? getRemainingDays(slot.resetDay, now) : null;
-  const cacheKey = `${CACHE_PREFIX}_${slot.id}_${hashString(slot.url)}`;
+  const urlHash = hashString(slot.url);
+  const cacheKey = `${CACHE_PREFIX}_${urlHash}`;
+  const legacyCacheKey = `${CACHE_PREFIX}_${slot.id}_${urlHash}`;
+  const cache = readCacheWithMigration(ctx, cacheKey, legacyCacheKey, nowTime);
 
+  return {
+    slot,
+    remainDays,
+    cacheKey,
+    cache,
+  };
+}
+
+async function fetchRemoteForGroup(
+  ctx,
+  group,
+  nowTime,
+  deadlineTime,
+  activeSlotCount
+) {
+  try {
+    const allHaveStaleCache = group.states.every((state) =>
+      Boolean(state.cache.stale)
+    );
+
+    const remote = await fetchRemoteInfo(
+      ctx,
+      group.url,
+      nowTime,
+      deadlineTime,
+      allHaveStaleCache,
+      activeSlotCount
+    );
+
+    return {
+      group,
+      remote,
+    };
+  } catch (err) {
+    return {
+      group,
+      remote: {
+        ok: false,
+        errorMsg: normalizeRequestError(err),
+      },
+    };
+  }
+}
+
+function readCacheWithMigration(ctx, cacheKey, legacyCacheKey, nowTime) {
   const cache = readCache(ctx, cacheKey, nowTime);
 
-  if (cache.fresh) {
-    return attachSlotMeta(cache.fresh, slot, remainDays);
+  if (cache.fresh || cache.stale || cacheKey === legacyCacheKey) {
+    return cache;
   }
 
-  const hasStaleCache = Boolean(cache.stale);
-  const remote = await fetchRemoteInfo(
-    ctx,
-    slot.url,
-    nowTime,
-    deadlineTime,
-    hasStaleCache
-  );
+  const legacyCache = readCache(ctx, legacyCacheKey, nowTime);
 
-  if (remote.ok) {
-    saveCache(ctx, cacheKey, remote.data);
-    return attachSlotMeta(
-      {
-        ...remote.data,
-        cacheTime: nowTime,
-      },
-      slot,
-      remainDays
-    );
+  if (legacyCache.fresh || legacyCache.stale) {
+    const data = legacyCache.fresh || legacyCache.stale;
+
+    if (saveCache(ctx, cacheKey, data, data.cacheTime)) {
+      safeDeleteCache(ctx, legacyCacheKey);
+    }
   }
 
-  if (cache.stale) {
-    return attachSlotMeta(
-      {
-        ...cache.stale,
-        isFallback: true,
-        cacheAgeText: formatCacheAge(nowTime - cache.stale.cacheTime),
-      },
-      slot,
-      remainDays
-    );
-  }
-
-  return buildErrorResult(slot, remainDays, remote.errorMsg || "Unknown");
+  return legacyCache;
 }
 
 function readCache(ctx, cacheKey, nowTime) {
   try {
     const parsed = ctx.storage.getJSON(cacheKey);
-
-    if (!parsed || typeof parsed !== "object") {
-      return { fresh: null, stale: null };
-    }
+    if (!parsed) return { fresh: null, stale: null };
 
     const data = parsed.data;
     const cacheTime = Number(parsed.time ?? data?.updatedAt);
-    const normalized = normalizeCachedData(data, cacheTime);
 
-    if (!normalized) {
+    if (!data || !Number.isFinite(cacheTime)) {
       safeDeleteCache(ctx, cacheKey);
       return { fresh: null, stale: null };
     }
@@ -276,7 +417,10 @@ function readCache(ctx, cacheKey, nowTime) {
 
     if (age >= 0 && age < NETWORK_COOLDOWN_MS) {
       return {
-        fresh: normalized,
+        fresh: {
+          ...data,
+          cacheTime,
+        },
         stale: null,
       };
     }
@@ -284,7 +428,10 @@ function readCache(ctx, cacheKey, nowTime) {
     if (age >= 0 && age < MAX_STALE_MS) {
       return {
         fresh: null,
-        stale: normalized,
+        stale: {
+          ...data,
+          cacheTime,
+        },
       };
     }
 
@@ -296,44 +443,34 @@ function readCache(ctx, cacheKey, nowTime) {
   return { fresh: null, stale: null };
 }
 
-function normalizeCachedData(data, cacheTime) {
-  if (!data || typeof data !== "object" || !Number.isFinite(cacheTime)) {
-    return null;
-  }
-
-  const used = Number(data.used);
-  const totalBytes = Number(data.totalBytes);
-
-  if (
-    !Number.isFinite(used) ||
-    !Number.isFinite(totalBytes) ||
-    used < 0 ||
-    totalBytes <= 0
-  ) {
-    return null;
-  }
-
-  const expire = Number(data.expire);
-  const updatedAt = Number(data.updatedAt);
-
-  return {
-    ...data,
-    used,
-    totalBytes,
-    percent: (used / totalBytes) * 100,
-    expire: Number.isFinite(expire) && expire > 0 ? expire : null,
-    updatedAt: Number.isFinite(updatedAt) ? updatedAt : cacheTime,
-    cacheTime,
-  };
-}
-
-function saveCache(ctx, cacheKey, data) {
+function saveCache(ctx, cacheKey, data, cacheTime) {
   try {
+    const time = Number.isFinite(cacheTime) ? cacheTime : Number(data?.updatedAt);
+
+    if (!Number.isFinite(time)) {
+      return false;
+    }
+
+    const storedData = {
+      ...data,
+      updatedAt: Number.isFinite(Number(data?.updatedAt))
+        ? Number(data.updatedAt)
+        : time,
+    };
+
+    delete storedData.cacheTime;
+    delete storedData.isFallback;
+    delete storedData.cacheAgeText;
+
     ctx.storage.setJSON(cacheKey, {
-      time: data.updatedAt,
-      data,
+      time,
+      data: storedData,
     });
-  } catch (e) {}
+
+    return true;
+  } catch (e) {
+    return false;
+  }
 }
 
 function safeDeleteCache(ctx, cacheKey) {
@@ -342,10 +479,19 @@ function safeDeleteCache(ctx, cacheKey) {
   } catch (e) {}
 }
 
-async function fetchRemoteInfo(ctx, url, nowTime, deadlineTime, hasStaleCache) {
+async function fetchRemoteInfo(
+  ctx,
+  url,
+  nowTime,
+  deadlineTime,
+  hasStaleCache,
+  activeSlotCount
+) {
   let lastErrorMsg = "Unknown";
+  const strategyLimit = getStrategyLimit(activeSlotCount, hasStaleCache);
 
-  for (const strategy of STRATEGIES) {
+  for (let i = 0; i < strategyLimit; i++) {
+    const strategy = STRATEGIES[i];
     const timeout = getRequestTimeout(deadlineTime);
 
     if (timeout <= 0) {
@@ -360,18 +506,17 @@ async function fetchRemoteInfo(ctx, url, nowTime, deadlineTime, hasStaleCache) {
       });
 
       const status = Number(resp.status);
+      const userInfoHeader = getHeader(resp.headers, "subscription-userinfo");
+
+      cancelResponseBody(resp);
 
       if (Number.isFinite(status) && (status < 200 || status >= 300)) {
         lastErrorMsg = `HTTP ${status}`;
-
-        if (hasStaleCache) {
-          break;
-        }
-
+        if (hasStaleCache) break;
         continue;
       }
 
-      const info = parseUserInfo(getHeader(resp.headers, "subscription-userinfo"));
+      const info = parseUserInfo(userInfoHeader);
 
       if (info && Number.isFinite(info.total) && info.total > 0) {
         return {
@@ -381,16 +526,10 @@ async function fetchRemoteInfo(ctx, url, nowTime, deadlineTime, hasStaleCache) {
       }
 
       lastErrorMsg = "No Data";
-
-      if (hasStaleCache) {
-        break;
-      }
+      if (hasStaleCache) break;
     } catch (err) {
       lastErrorMsg = normalizeRequestError(err);
-
-      if (hasStaleCache) {
-        break;
-      }
+      if (hasStaleCache) break;
     }
   }
 
@@ -398,6 +537,30 @@ async function fetchRemoteInfo(ctx, url, nowTime, deadlineTime, hasStaleCache) {
     ok: false,
     errorMsg: lastErrorMsg,
   };
+}
+
+function cancelResponseBody(resp) {
+  try {
+    const body = resp?.body;
+
+    if (body && typeof body.cancel === "function") {
+      const result = body.cancel();
+
+      if (result && typeof result.catch === "function") {
+        result.catch(() => {});
+      }
+    }
+  } catch (e) {}
+}
+
+function getStrategyLimit(activeSlotCount, hasStaleCache) {
+  if (hasStaleCache) return 1;
+
+  if (activeSlotCount > 2) {
+    return Math.min(2, STRATEGIES.length);
+  }
+
+  return STRATEGIES.length;
 }
 
 function getRequestTimeout(deadlineTime) {
@@ -413,7 +576,7 @@ function getRequestTimeout(deadlineTime) {
 function normalizeRequestError(err) {
   const msg = String(err?.message ?? err ?? "").toLowerCase();
 
-  if (msg.includes("timeout") || msg.includes("timed out")) {
+  if (msg.includes("timeout" ) || msg.includes("timed out")) {
     return "Timeout";
   }
 
@@ -457,25 +620,7 @@ function buildErrorResult(slot, remainDays, errorMsg) {
 }
 
 function buildCard(result, ctx, nowTime) {
-  const {
-    name,
-    error,
-    errorMsg,
-    used,
-    totalBytes,
-    percent,
-    expire,
-    remainDays,
-    isFallback,
-    cacheAgeText,
-  } = result;
-
-  const safePercent = Number.isFinite(percent) ? percent : 0;
-
-  let statusColor = COLORS.accentGreen;
-  if (safePercent >= 95) statusColor = COLORS.accentRed;
-  else if (safePercent >= 80) statusColor = COLORS.accentOrange;
-  else if (safePercent >= 50) statusColor = COLORS.accentPurple;
+  const { name, error, errorMsg, used, totalBytes } = result;
 
   if (error) {
     return {
@@ -513,32 +658,7 @@ function buildCard(result, ctx, nowTime) {
     };
   }
 
-  const p = Math.min(Math.max(safePercent, 0), 100);
-  const displayPercent = Math.max(0, safePercent);
-  const displayName = isFallback ? `${name} · ${cacheAgeText || "缓存"}` : name;
-
-  let expireText = "永久有效";
-  let isExpired = false;
-
-  if (remainDays != null) {
-    expireText = remainDays === 0 ? "今天重置" : `${remainDays}天后重置`;
-  } else if (expire > 0) {
-    const expireMs = expire < 1e12 ? expire * 1000 : expire;
-    const d = new Date(expireMs);
-
-    if (Number.isFinite(expireMs) && expireMs < nowTime) {
-      expireText = "已过期";
-      isExpired = true;
-      statusColor = COLORS.accentRed;
-    } else {
-      expireText = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
-        2,
-        "0"
-      )}-${String(d.getDate()).padStart(2, "0")}`;
-    }
-  }
-
-  const dotColor = isFallback || isExpired ? COLORS.accentRed : statusColor;
+  const displayState = getCardDisplayState(result, nowTime);
 
   return {
     type: "stack",
@@ -561,11 +681,11 @@ function buildCard(result, ctx, nowTime) {
             src: "sf-symbol:circle.fill",
             width: 6,
             height: 6,
-            color: dotColor,
+            color: displayState.dotColor,
           },
           {
             type: "text",
-            text: displayName,
+            text: displayState.displayName,
             font: { size: "caption2", weight: "semibold" },
             textColor: COLORS.textPrimary,
             flex: 1,
@@ -573,9 +693,9 @@ function buildCard(result, ctx, nowTime) {
           },
           {
             type: "text",
-            text: `${Math.round(displayPercent)}%`,
+            text: `${Math.round(displayState.displayPercent)}%`,
             font: { size: "caption2", weight: "bold" },
-            textColor: statusColor,
+            textColor: displayState.statusColor,
             maxLines: 1,
           },
         ],
@@ -588,14 +708,14 @@ function buildCard(result, ctx, nowTime) {
         children: [
           {
             type: "stack",
-            flex: Math.max(p, 0.01),
+            flex: Math.max(displayState.progressPercent, 0.01),
             height: 5,
-            backgroundColor: statusColor,
+            backgroundColor: displayState.statusColor,
             borderRadius: 3,
           },
           {
             type: "stack",
-            flex: Math.max(100 - p, 0.01),
+            flex: Math.max(100 - displayState.progressPercent, 0.01),
             height: 5,
             backgroundColor: COLORS.progressBg,
             borderRadius: 3,
@@ -627,9 +747,11 @@ function buildCard(result, ctx, nowTime) {
             : [
                 {
                   type: "text",
-                  text: expireText,
+                  text: displayState.expireText,
                   font: { size: "caption2", weight: "medium" },
-                  textColor: isExpired ? COLORS.accentRed : COLORS.textTertiary,
+                  textColor: displayState.isExpired
+                    ? COLORS.accentRed
+                    : COLORS.textTertiary,
                   maxLines: 1,
                 },
               ]),
@@ -643,7 +765,7 @@ function buildCard(result, ctx, nowTime) {
                 type: "text",
                 text: `剩${formatBytes(Math.max(0, totalBytes - used))}`,
                 font: { size: "caption2", weight: "semibold" },
-                textColor: statusColor,
+                textColor: displayState.statusColor,
                 maxLines: 1,
               },
             ],
@@ -654,263 +776,12 @@ function buildCard(result, ctx, nowTime) {
   };
 }
 
-function safeBuildCard(result, ctx, nowTime) {
-  try {
-    return buildCard(result, ctx, nowTime);
-  } catch (err) {
-    return buildRenderErrorCard(result?.name || "未知");
-  }
-}
+function getCardDisplayState(result, nowTime) {
+  const safePercent = Number.isFinite(result.percent) ? result.percent : 0;
+  let statusColor = getUsageColor(safePercent);
 
-function buildRenderErrorCard(name) {
-  return {
-    type: "stack",
-    direction: "row",
-    alignItems: "center",
-    gap: 6,
-    padding: [8, 10],
-    backgroundColor: COLORS.errorBg,
-    borderRadius: 8,
-    children: [
-      {
-        type: "image",
-        src: "sf-symbol:exclamationmark.circle.fill",
-        width: 12,
-        height: 12,
-        color: COLORS.accentRed,
-      },
-      {
-        type: "text",
-        text: String(name || "未知"),
-        font: { size: "caption2", weight: "semibold" },
-        textColor: COLORS.accentRed,
-        flex: 1,
-        maxLines: 1,
-      },
-      {
-        type: "text",
-        text: "失败 | Render Error",
-        font: { size: "caption2", weight: "bold" },
-        textColor: COLORS.accentRed,
-        maxLines: 1,
-      },
-    ],
-  };
-}
+  const expireState = getExpireState(result.expire, nowTime);
+  const isExpired = expireState.isExpired;
 
-function buildUrl(base, flag) {
-  if (!flag) return base;
-
-  try {
-    const u = new URL(base);
-
-    for (const key of Array.from(u.searchParams.keys())) {
-      if (key.toLowerCase() === "flag") {
-        u.searchParams.delete(key);
-      }
-    }
-
-    u.searchParams.set("flag", flag);
-    return u.toString();
-  } catch (e) {
-    const hashIndex = base.indexOf("#");
-    const urlPart = hashIndex >= 0 ? base.slice(0, hashIndex) : base;
-    const hashPart = hashIndex >= 0 ? base.slice(hashIndex) : "";
-
-    const queryIndex = urlPart.indexOf("?");
-    const path = queryIndex >= 0 ? urlPart.slice(0, queryIndex) : urlPart;
-    const query = queryIndex >= 0 ? urlPart.slice(queryIndex + 1) : "";
-
-    const params = query.split("&").filter(isNonFlagParam);
-    params.push(`flag=${encodeURIComponent(flag)}`);
-
-    return `${path}?${params.join("&")}${hashPart}`;
-  }
-}
-
-function isNonFlagParam(param) {
-  if (!param) return false;
-
-  const rawKey = param.split("=")[0] || "";
-  let key = rawKey;
-
-  try {
-    key = decodeURIComponent(rawKey.replace(/\+/g, "%20"));
-  } catch (e) {}
-
-  return key.toLowerCase() !== "flag";
-}
-
-function getHeader(headers, name) {
-  if (!headers) return "";
-
-  if (typeof headers.get === "function") {
-    return (
-      headers.get(name) ||
-      headers.get(name.toLowerCase()) ||
-      headers.get(name.toUpperCase()) ||
-      ""
-    );
-  }
-
-  const target = name.toLowerCase();
-
-  for (const key of Object.keys(headers)) {
-    if (key.toLowerCase() === target) {
-      return headers[key];
-    }
-  }
-
-  return "";
-}
-
-function parseUserInfo(header) {
-  if (header == null) return null;
-
-  if (Array.isArray(header)) {
-    header = header.join("; ");
-  } else {
-    header = String(header);
-  }
-
-  if (!header.trim()) return null;
-
-  const info = {};
-  REGEX_USERINFO.lastIndex = 0;
-
-  for (const match of header.matchAll(REGEX_USERINFO)) {
-    const key = String(match[1] || "").toLowerCase();
-    if (!USERINFO_KEYS.has(key)) continue;
-
-    const val = Number(match[2]);
-
-    if (Number.isFinite(val) && val >= 0) {
-      info[key] = val;
-    }
-  }
-
-  return Object.keys(info).length ? info : null;
-}
-
-function formatBytes(bytes) {
-  if (!Number.isFinite(bytes) || bytes <= 0) return "0B";
-
-  let i = 0;
-  let value = bytes;
-
-  while (value >= 1024 && i < UNITS.length - 1) {
-    value /= 1024;
-    i++;
-  }
-
-  let displayValue =
-    value >= 10 || i === 0 ? Math.round(value) : Number(value.toFixed(1));
-
-  if (displayValue >= 1024 && i < UNITS.length - 1) {
-    displayValue = 1;
-    i++;
-  }
-
-  return `${displayValue}${UNITS[i]}`;
-}
-
-function formatCacheAge(ms) {
-  if (!Number.isFinite(ms) || ms < 0) return "缓存";
-
-  const minutes = Math.max(1, Math.floor(ms / 60000));
-
-  if (minutes < 60) {
-    return `缓存${minutes}分`;
-  }
-
-  const hours = Math.floor(minutes / 60);
-
-  if (hours < 24) {
-    return `缓存${hours}小时`;
-  }
-
-  const days = Math.floor(hours / 24);
-  return `缓存${days}天`;
-}
-
-function getRemainingDays(resetDay, now) {
-  const currentYear = now.getFullYear();
-  const currentMonth = now.getMonth();
-  const currentDate = now.getDate();
-
-  let targetYear = currentYear;
-  let targetMonth = currentMonth;
-
-  const getMonthDays = (year, month) => new Date(year, month + 1, 0).getDate();
-
-  let safeDay = Math.min(resetDay, getMonthDays(targetYear, targetMonth));
-
-  if (currentDate > safeDay) {
-    targetMonth += 1;
-
-    if (targetMonth > 11) {
-      targetMonth = 0;
-      targetYear += 1;
-    }
-
-    safeDay = Math.min(resetDay, getMonthDays(targetYear, targetMonth));
-  }
-
-  const diffMs =
-    Date.UTC(targetYear, targetMonth, safeDay) -
-    Date.UTC(currentYear, currentMonth, currentDate);
-
-  return Math.max(0, Math.ceil(diffMs / 86400000));
-}
-
-function parseResetDay(value) {
-  if (value == null) return null;
-
-  const raw = String(value).trim();
-  if (!raw) return null;
-
-  const num = Number(raw);
-  return Number.isInteger(num) && num >= 1 && num <= 31 ? num : null;
-}
-
-async function concurrentMap(items, maxConcurrent, fn) {
-  if (!Array.isArray(items) || !items.length) return [];
-
-  const results = new Array(items.length);
-  const workerCount = Math.max(
-    1,
-    Math.min(Math.floor(Number(maxConcurrent)) || 1, items.length)
-  );
-
-  let index = 0;
-
-  const worker = async () => {
-    while (index < items.length) {
-      const currentIndex = index++;
-
-      try {
-        results[currentIndex] = await fn(items[currentIndex]);
-      } catch (err) {
-        results[currentIndex] = {
-          name: items[currentIndex]?.name ?? "未知",
-          error: true,
-          errorMsg: "Fetch Error",
-        };
-      }
-    }
-  };
-
-  await Promise.all(Array.from({ length: workerCount }, worker));
-  return results;
-}
-
-function hashString(str) {
-  let h = 2166136261;
-
-  for (let i = 0; i < str.length; i++) {
-    h ^= str.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-
-  return (h >>> 0).toString(36);
-}
+  if (isExpired) {
+    status
