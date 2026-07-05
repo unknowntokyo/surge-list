@@ -161,10 +161,10 @@ async function buildWidget(ctx) {
     );
 
     for (const groupResult of remoteGroupResults) {
-      const group = groupResult?.group;
+      const group = groupResult?.group || groupResult?.item;
       const remote = groupResult?.remote || {
         ok: false,
-        errorMsg: "Fetch Error",
+        errorMsg: groupResult?.errorMsg || "Fetch Error",
       };
 
       if (!group) continue;
@@ -555,8 +555,17 @@ async function fetchRemoteInfo(
     preferredStrategyIndex
   );
 
-  for (const strategyIndex of strategyIndexes) {
+  const strategyTargets = strategyIndexes.map((strategyIndex) => {
     const strategy = STRATEGIES[strategyIndex];
+
+    return {
+      strategy,
+      strategyIndex,
+      requestUrl: buildUrl(url, strategy.flag),
+    };
+  });
+
+  for (const target of strategyTargets) {
     const timeout = getRequestTimeout(deadlineTime);
 
     if (timeout <= 0) {
@@ -566,9 +575,9 @@ async function fetchRemoteInfo(
 
     const remote = await requestUserInfoWithStrategy(
       ctx,
-      url,
-      strategy,
-      strategyIndex,
+      target.requestUrl,
+      target.strategy,
+      target.strategyIndex,
       timeout,
       nowTime
     );
@@ -588,7 +597,7 @@ async function fetchRemoteInfo(
 
 async function requestUserInfoWithStrategy(
   ctx,
-  url,
+  requestUrl,
   strategy,
   strategyIndex,
   timeout,
@@ -597,7 +606,7 @@ async function requestUserInfoWithStrategy(
   let resp = null;
 
   try {
-    resp = await ctx.http.get(buildUrl(url, strategy.flag), {
+    resp = await ctx.http.get(requestUrl, {
       headers: strategy.ua,
       timeout,
     });
@@ -1016,6 +1025,7 @@ function safeBuildCard(result, isSmallWidget, nowTime) {
         name: result?.name || "未知",
         error: true,
         errorMsg: "Render Error",
+        remainDays: result?.remainDays ?? null,
       },
       isSmallWidget,
       nowTime
@@ -1210,7 +1220,7 @@ async function concurrentMap(items, maxConcurrent, fn) {
         results[currentIndex] = {
           item: items[currentIndex],
           error: true,
-          errorMsg: "Fetch Error",
+          errorMsg: normalizeRequestError(err),
         };
       }
     }
