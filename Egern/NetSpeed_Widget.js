@@ -28,7 +28,9 @@ function getPacketBytes(value) {
   if (!Number.isFinite(mb) || mb <= 0) {
     return DEFAULT_PACKET_MB * MB;
   }
-  return Math.floor(mb * MB);
+
+  const bytes = Math.floor(mb * MB);
+  return bytes > 0 ? bytes : DEFAULT_PACKET_MB * MB;
 }
 
 function normalizeSpeedData(data) {
@@ -103,8 +105,15 @@ function loadCachedSpeedData(ctx, cacheKey) {
   }
 }
 
+async function cancelResponseBody(response) {
+  try {
+    await response?.body?.cancel?.();
+  } catch {}
+}
+
 async function measureSpeed(ctx, url, policy) {
   let reader;
+  let completed = false;
   let downloadedBytes = 0;
   const startTime = getNowMs();
 
@@ -117,6 +126,7 @@ async function measureSpeed(ctx, url, policy) {
     });
 
     if (!response || response.status < 200 || response.status >= 300) {
+      await cancelResponseBody(response);
       return null;
     }
 
@@ -127,7 +137,10 @@ async function measureSpeed(ctx, url, policy) {
 
     while (true) {
       const { done, value } = await reader.read();
-      if (done) break;
+      if (done) {
+        completed = true;
+        break;
+      }
 
       downloadedBytes += value?.byteLength || value?.length || 0;
     }
@@ -149,7 +162,7 @@ async function measureSpeed(ctx, url, policy) {
   } catch {
     return null;
   } finally {
-    if (reader) {
+    if (reader && !completed) {
       try {
         await reader.cancel();
       } catch {}
@@ -163,15 +176,17 @@ export default async function(ctx) {
   const speedTestUrl = `https://speed.cloudflare.com/__down?bytes=${packetBytes}`;
   const cacheKey = `netspeed_cache_${policy}`;
 
-  let speedData = loadCachedSpeedData(ctx, cacheKey);
-
   const measuredData = await measureSpeed(ctx, speedTestUrl, policy);
+
+  let speedData;
   if (measuredData) {
     speedData = measuredData;
 
     try {
       ctx.storage.setJSON(cacheKey, speedData);
     } catch {}
+  } else {
+    speedData = loadCachedSpeedData(ctx, cacheKey);
   }
 
   const isSmall = ctx.widgetFamily === 'systemSmall';
