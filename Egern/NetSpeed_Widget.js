@@ -51,6 +51,10 @@ function normalizeSpeedData(data) {
   };
 }
 
+function hasValidSpeedData(data) {
+  return !!data && data.timestamp > 0 && data.duration > 0;
+}
+
 function formatTime(timestamp) {
   if (!timestamp) return '--:--';
 
@@ -67,7 +71,14 @@ function formatTime(timestamp) {
   return `${hour}:${minute}`;
 }
 
-function getSpeedStyle(mbps) {
+function getSpeedStyle(mbps, failed) {
+  if (failed) {
+    return {
+      icon: 'exclamationmark.triangle.fill',
+      color: '#FF3B30'
+    };
+  }
+
   if (mbps >= 50) {
     return {
       icon: 'bolt.fill',
@@ -189,10 +200,11 @@ export default async function(ctx) {
     speedData = loadCachedSpeedData(ctx, cacheKey);
   }
 
+  const failed = !hasValidSpeedData(speedData);
   const isSmall = ctx.widgetFamily === 'systemSmall';
-  const { icon, color } = getSpeedStyle(speedData.mbps);
-  const barWidth = getBarWidth(speedData.mbps);
-  const timeStr = formatTime(speedData.timestamp);
+  const { icon, color } = getSpeedStyle(speedData.mbps, failed);
+  const barWidth = failed ? 80 : getBarWidth(speedData.mbps);
+  const timeStr = failed ? '--:--' : formatTime(speedData.timestamp);
 
   return {
     type: 'widget',
@@ -240,9 +252,18 @@ export default async function(ctx) {
           { type: 'spacer' },
           {
             type: 'text',
-            text: isSmall ? `${speedData.mbps}\nMbps` : `${speedData.mbps} Mbps`,
+            text: failed
+              ? isSmall
+                ? '⚠️\n测速失败'
+                : '⚠️ 测速失败'
+              : isSmall
+                ? `${speedData.mbps}\nMbps`
+                : `${speedData.mbps} Mbps`,
             textAlign: 'center',
-            font: { size: isSmall ? 32 : 44, weight: 'bold' },
+            font: {
+              size: failed ? (isSmall ? 22 : 30) : (isSmall ? 32 : 44),
+              weight: 'bold'
+            },
             textColor: color
           },
           { type: 'spacer' }
@@ -269,14 +290,14 @@ export default async function(ctx) {
         children: [
           {
             type: 'text',
-            text: `${speedData.mBs} MB/s`,
+            text: failed ? '⚠️ 测速失败' : `${speedData.mBs} MB/s`,
             font: { size: isSmall ? 'caption2' : 'caption1' },
             textColor: { light: '#6B6B6B', dark: '#A1A1A6' }
           },
           { type: 'spacer' },
           {
             type: 'text',
-            text: `${speedData.duration}s`,
+            text: failed ? '节点错误' : `${speedData.duration}s`,
             font: { size: isSmall ? 'caption2' : 'caption1' },
             textColor: { light: '#6B6B6B', dark: '#A1A1A6' }
           }
