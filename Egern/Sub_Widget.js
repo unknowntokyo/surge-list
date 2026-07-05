@@ -2,7 +2,7 @@
  * 机场订阅流量监控小组件
  *
  * 📝 使用说明
- * 1️⃣ 添加环境变量（在 Egern 中进入小组件"编辑环境变量"）：
+ * 1️⃣ 添加环境变量：
  *
  *    NAME1 = 翻墙                     # 机场名称（自定义）
  *    URL1 = https://xxx.com/sub...   # 订阅地址（必填）
@@ -42,15 +42,21 @@ const COLORS = {
 };
 
 const WIDGET_BG_COLOR = { light: "#FFFFFF", dark: "#2C2C2E" };
+const CARD_BG_COLOR = { light: "#FFFFFF", dark: "#2B2B2D" };
 
 const REFRESH_INTERVAL_MS = 60 * 60 * 1000;
 const NETWORK_COOLDOWN_MS = 30 * 60 * 1000;
 const MAX_STALE_MS = 10 * 24 * 60 * 60 * 1000;
 
+const SCRIPT_SOFT_TIMEOUT_MS = 8000;
+const REQUEST_TIMEOUT_MS = 2000;
+const MIN_REQUEST_TIMEOUT_MS = 500;
+
 const CACHE_PREFIX = "sub_cache";
 
 const UNITS = ["B", "KB", "MB", "GB", "TB", "PB"];
 const REGEX_USERINFO = /([-\w]+)\s*=\s*([\d.eE+-]+)/g;
+const USERINFO_KEYS = new Set(["upload", "download", "total", "expire"]);
 
 const STRATEGIES = [
   {
@@ -77,58 +83,138 @@ const STRATEGIES = [
 ];
 
 export default async function (ctx) {
-  const slots = [];
   const env = ctx.env || {};
-
-  for (let i = 1; i <= 5; i++) {
-    const url = String(env[`URL${i}`] || "").trim();
-    if (!url) continue;
-
-    slots.push({
-      id: i,
-      name: String(env[`NAME${i}`] || "").trim() || "机场订阅",
-      url,
-      resetDay: parseResetDay(env[`RESET${i}`]),
-    });
-  }
+  const slots = buildSlots(env);
 
   if (!slots.length) {
-    return {
-      type: "widget",
-      backgroundColor: WIDGET_BG_COLOR,
-      padding: 16,
-      children: [
-        {
-          type: "stack",
-          direction: "column",
-          gap: 10,
-          alignItems: "center",
-          children: [
-            {
-              type: "image",
-              src: "sf-symbol:wifi.slash",
-              width: 32,
-              height: 32,
-              color: COLORS.accentRed,
-            },
-            {
-              type: "text",
-              text: "未配置订阅",
-              font: { size: "headline", weight: "semibold" },
-              textColor: COLORS.textPrimary,
-            },
-          ],
-        },
-      ],
-    };
+    return buildEmptyWidget();
   }
 
   const widgetFamily = String(ctx.widgetFamily || "systemMedium");
-  const activeSlots = slots.slice(0, widgetFamily.includes("Large") ? 5 : 2);
-  const now = new Date();
+  const activeSlots = slots.slice(0, getDisplayLimit(widgetFamily));
+  const activeSlotCount = activeSlots.length;
 
-  const results = await concurrentMap(activeSlots, 2, (slot) => fetchInfo(ctx, slot, now));
-  const cardChildren = results.map((result) => safeBuildCard(result, ctx));
+  const now = new Date();
+  const nowTime = now.getTime();
+  const deadlineTime = nowTime + SCRIPT_SOFT_TIMEOUT_MS;
+
+  const maxConcurrent = activeSlotCount > 2 ? 3 : 2;
+  const slotStates = activeSlots.map((slot) =>
+    buildSlotState(ctx, slot, now, nowTime)
+  );
+
+  const results = new Array(slotStates.length);
+  const remoteGroups = [];
+  const remoteGroupMap = new Map();
+
+  for (let i = 0; i < slotStates.length; i++) {
+    const state = slotStates[i];
+
+    if (state.cache.fresh) {
+      results[i] = attachSlotMeta(
+        state.cache.fresh,
+        state.slot,
+        state.remainDays
+      );
+      continue;
+    }
+
+    let group = remoteGroupMap.get(state.cacheKey);
+
+    if (!group) {
+      group = {
+        cacheKey: state.cacheKey,
+        url: state.slot.url,
+        states: [],
+        indexes: [],
+      };
+      remoteGroupMap.set(state.cacheKey, group);
+      remoteGroups.push(group);
+    }
+
+    group.states.push(state);
+    group.indexes.push(i);
+  }
+
+  if (remoteGroups.length) {
+    const remoteGroupResults = await concurrentMap(
+      remoteGroups,
+      maxConcurrent,
+      (group) =>
+        fetchRemoteForGroup(
+          ctx,
+          group,
+          nowTime,
+          deadlineTime,
+          activeSlotCount
+        )
+    );
+
+    for (const groupResult of remoteGroupResults) {
+      const group = groupResult?.group;
+      const remote = groupResult?.remote || {
+        ok: false,
+        errorMsg: "Fetch Error",
+      };
+
+      if (!group) continue;
+
+      if (remote.ok) {
+        saveCache(ctx, group.cacheKey, remote.data);
+
+        const dataWithCacheTime = {
+          ...remote.data,
+          cacheTime: nowTime,
+        };
+
+        for (const index of group.indexes) {
+          const state = slotStates[index];
+          results[index] = attachSlotMeta(
+            dataWithCacheTime,
+            state.slot,
+            state.remainDays
+          );
+        }
+
+        continue;
+      }
+
+      for (const index of group.indexes) {
+        const state = slotStates[index];
+
+        if (state.cache.stale) {
+          results[index] = attachSlotMeta(
+            {
+              ...state.cache.stale,
+              isFallback: true,
+              cacheAgeText: formatCacheAge(
+                nowTime - state.cache.stale.cacheTime
+              ),
+            },
+            state.slot,
+            state.remainDays
+          );
+        } else {
+          results[index] = buildErrorResult(
+            state.slot,
+            state.remainDays,
+            remote.errorMsg || "Unknown"
+          );
+        }
+      }
+    }
+  }
+
+  for (let i = 0; i < results.length; i++) {
+    if (!results[i]) {
+      const state = slotStates[i];
+      results[i] = buildErrorResult(state.slot, state.remainDays, "Fetch Error");
+    }
+  }
+
+  const cardChildren = results.map((result) =>
+    safeBuildCard(result, ctx, nowTime)
+  );
 
   const timeStr =
     String(now.getHours()).padStart(2, "0") +
@@ -140,7 +226,7 @@ export default async function (ctx) {
     backgroundColor: WIDGET_BG_COLOR,
     padding: [10, 10],
     gap: 6,
-    refreshAfter: new Date(now.getTime() + REFRESH_INTERVAL_MS).toISOString(),
+    refreshAfter: new Date(nowTime + REFRESH_INTERVAL_MS).toISOString(),
     children: [
       {
         type: "stack",
@@ -187,151 +273,354 @@ export default async function (ctx) {
   };
 }
 
-async function fetchInfo(ctx, slot, now) {
-  const cacheKey = `${CACHE_PREFIX}_${slot.id}_${hashString(slot.url)}`;
-  const nowTime = now.getTime();
+function getDisplayLimit(widgetFamily) {
+  return widgetFamily === "systemLarge" || widgetFamily === "systemExtraLarge"
+    ? 5
+    : 2;
+}
 
-  let cacheData = null;
-  let lastErrorMsg = "Unknown";
+function buildSlots(env) {
+  const slots = [];
 
+  for (let i = 1; i <= 5; i++) {
+    const url = String(env[`URL${i}`] || "").trim();
+    if (!url) continue;
+
+    slots.push({
+      id: i,
+      name: String(env[`NAME${i}`] || "").trim() || "机场订阅",
+      url,
+      resetDay: parseResetDay(env[`RESET${i}`]),
+    });
+  }
+
+  return slots;
+}
+
+function buildEmptyWidget() {
+  return {
+    type: "widget",
+    backgroundColor: WIDGET_BG_COLOR,
+    padding: 16,
+    refreshAfter: new Date(Date.now() + REFRESH_INTERVAL_MS).toISOString(),
+    children: [
+      {
+        type: "stack",
+        direction: "column",
+        gap: 10,
+        alignItems: "center",
+        children: [
+          {
+            type: "image",
+            src: "sf-symbol:wifi.slash",
+            width: 32,
+            height: 32,
+            color: COLORS.accentRed,
+          },
+          {
+            type: "text",
+            text: "未配置订阅",
+            font: { size: "headline", weight: "semibold" },
+            textColor: COLORS.textPrimary,
+          },
+        ],
+      },
+    ],
+  };
+}
+
+function buildSlotState(ctx, slot, now, nowTime) {
   const remainDays = slot.resetDay ? getRemainingDays(slot.resetDay, now) : null;
+  const urlHash = hashString(slot.url);
+  const cacheKey = `${CACHE_PREFIX}_${urlHash}`;
+  const legacyCacheKey = `${CACHE_PREFIX}_${slot.id}_${urlHash}`;
+  const cache = readCacheWithMigration(ctx, cacheKey, legacyCacheKey, nowTime);
 
+  return {
+    slot,
+    remainDays,
+    cacheKey,
+    cache,
+  };
+}
+
+async function fetchRemoteForGroup(
+  ctx,
+  group,
+  nowTime,
+  deadlineTime,
+  activeSlotCount
+) {
   try {
-    const parsed = ctx.storage.getJSON(cacheKey);
-    const cacheTime = Number(parsed?.time ?? parsed?.data?.updatedAt);
+    const allHaveStaleCache = group.states.every((state) =>
+      Boolean(state.cache.stale)
+    );
 
-    if (parsed?.data && Number.isFinite(cacheTime)) {
-      const timeDiff = nowTime - cacheTime;
+    const remote = await fetchRemoteInfo(
+      ctx,
+      group.url,
+      nowTime,
+      deadlineTime,
+      allHaveStaleCache,
+      activeSlotCount
+    );
 
-      if (timeDiff >= 0 && timeDiff < NETWORK_COOLDOWN_MS) {
-        return {
-          ...parsed.data,
-          cacheTime,
-          name: slot.name,
-          remainDays,
-        };
-      }
+    return {
+      group,
+      remote,
+    };
+  } catch (err) {
+    return {
+      group,
+      remote: {
+        ok: false,
+        errorMsg: normalizeRequestError(err),
+      },
+    };
+  }
+}
 
-      if (timeDiff >= 0 && timeDiff < MAX_STALE_MS) {
-        cacheData = {
-          ...parsed.data,
-          cacheTime,
-        };
-      } else {
-        try {
-          ctx.storage.delete(cacheKey);
-        } catch (e) {}
-      }
-    } else if (parsed) {
-      try {
-        ctx.storage.delete(cacheKey);
-      } catch (e) {}
-    }
-  } catch (e) {}
+function readCacheWithMigration(ctx, cacheKey, legacyCacheKey, nowTime) {
+  const cache = readCache(ctx, cacheKey, nowTime);
 
-  for (const strategy of STRATEGIES) {
-    let retryCount = 0;
+  if (cache.fresh || cache.stale || cacheKey === legacyCacheKey) {
+    return cache;
+  }
 
-    while (retryCount < 2) {
-      try {
-        const resp = await ctx.http.get(buildUrl(slot.url, strategy.flag), {
-          headers: strategy.ua,
-          timeout: 2000,
-        });
+  const legacyCache = readCache(ctx, legacyCacheKey, nowTime);
 
-        if (resp.status && (resp.status < 200 || resp.status >= 300)) {
-          lastErrorMsg = `HTTP ${resp.status}`;
-          break;
-        }
+  if (legacyCache.fresh || legacyCache.stale) {
+    const data = legacyCache.fresh || legacyCache.stale;
 
-        const info = parseUserInfo(getHeader(resp.headers, "subscription-userinfo"));
-
-        if (info && Number.isFinite(info.total) && info.total > 0) {
-          const upload = Math.max(0, info.upload || 0);
-          const download = Math.max(0, info.download || 0);
-          const used = upload + download;
-          const totalBytes = info.total;
-
-          const result = {
-            used,
-            totalBytes,
-            percent: totalBytes > 0 ? (used / totalBytes) * 100 : 0,
-            expire: Number.isFinite(info.expire) && info.expire > 0 ? info.expire : null,
-            updatedAt: nowTime,
-          };
-
-          try {
-            ctx.storage.setJSON(cacheKey, {
-              time: nowTime,
-              data: result,
-            });
-          } catch (e) {}
-
-          return {
-            ...result,
-            cacheTime: nowTime,
-            name: slot.name,
-            remainDays,
-          };
-        }
-
-        lastErrorMsg = "No Data";
-        break;
-      } catch (err) {
-        retryCount++;
-
-        const msg = String(err?.message ?? err ?? "").toLowerCase();
-
-        if (msg.includes("timeout") || msg.includes("timed out")) {
-          lastErrorMsg = "Timeout";
-          if (retryCount < 2) continue;
-        } else {
-          lastErrorMsg = msg.includes("dns") ? "DNS Error" : "Network";
-        }
-
-        break;
-      }
+    if (saveCache(ctx, cacheKey, data, data.cacheTime)) {
+      safeDeleteCache(ctx, legacyCacheKey);
     }
   }
 
-  if (cacheData) {
-    return {
-      ...cacheData,
-      name: slot.name,
-      remainDays,
-      isFallback: true,
-      cacheAgeText: formatCacheAge(nowTime - cacheData.cacheTime),
+  return legacyCache;
+}
+
+function readCache(ctx, cacheKey, nowTime) {
+  try {
+    const parsed = ctx.storage.getJSON(cacheKey);
+    if (!parsed) return { fresh: null, stale: null };
+
+    const data = parsed.data;
+    const cacheTime = Number(parsed.time ?? data?.updatedAt);
+
+    if (!data || !Number.isFinite(cacheTime)) {
+      safeDeleteCache(ctx, cacheKey);
+      return { fresh: null, stale: null };
+    }
+
+    const age = nowTime - cacheTime;
+
+    if (age >= 0 && age < NETWORK_COOLDOWN_MS) {
+      return {
+        fresh: {
+          ...data,
+          cacheTime,
+        },
+        stale: null,
+      };
+    }
+
+    if (age >= 0 && age < MAX_STALE_MS) {
+      return {
+        fresh: null,
+        stale: {
+          ...data,
+          cacheTime,
+        },
+      };
+    }
+
+    safeDeleteCache(ctx, cacheKey);
+  } catch (e) {
+    safeDeleteCache(ctx, cacheKey);
+  }
+
+  return { fresh: null, stale: null };
+}
+
+function saveCache(ctx, cacheKey, data, cacheTime) {
+  try {
+    const time = Number.isFinite(cacheTime) ? cacheTime : Number(data?.updatedAt);
+
+    if (!Number.isFinite(time)) {
+      return false;
+    }
+
+    const storedData = {
+      ...data,
+      updatedAt: Number.isFinite(Number(data?.updatedAt))
+        ? Number(data.updatedAt)
+        : time,
     };
+
+    delete storedData.cacheTime;
+    delete storedData.isFallback;
+    delete storedData.cacheAgeText;
+
+    ctx.storage.setJSON(cacheKey, {
+      time,
+      data: storedData,
+    });
+
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+function safeDeleteCache(ctx, cacheKey) {
+  try {
+    ctx.storage.delete(cacheKey);
+  } catch (e) {}
+}
+
+async function fetchRemoteInfo(
+  ctx,
+  url,
+  nowTime,
+  deadlineTime,
+  hasStaleCache,
+  activeSlotCount
+) {
+  let lastErrorMsg = "Unknown";
+  const strategyLimit = getStrategyLimit(activeSlotCount, hasStaleCache);
+
+  for (let i = 0; i < strategyLimit; i++) {
+    const strategy = STRATEGIES[i];
+    const timeout = getRequestTimeout(deadlineTime);
+
+    if (timeout <= 0) {
+      lastErrorMsg = "Timeout";
+      break;
+    }
+
+    try {
+      const resp = await ctx.http.get(buildUrl(url, strategy.flag), {
+        headers: strategy.ua,
+        timeout,
+      });
+
+      const status = Number(resp.status);
+      const userInfoHeader = getHeader(resp.headers, "subscription-userinfo");
+
+      cancelResponseBody(resp);
+
+      if (Number.isFinite(status) && (status < 200 || status >= 300)) {
+        lastErrorMsg = `HTTP ${status}`;
+        if (hasStaleCache) break;
+        continue;
+      }
+
+      const info = parseUserInfo(userInfoHeader);
+
+      if (info && Number.isFinite(info.total) && info.total > 0) {
+        return {
+          ok: true,
+          data: buildSuccessResult(info, nowTime),
+        };
+      }
+
+      lastErrorMsg = "No Data";
+      if (hasStaleCache) break;
+    } catch (err) {
+      lastErrorMsg = normalizeRequestError(err);
+      if (hasStaleCache) break;
+    }
   }
 
   return {
-    name: slot.name,
-    error: true,
+    ok: false,
     errorMsg: lastErrorMsg,
+  };
+}
+
+function cancelResponseBody(resp) {
+  try {
+    const body = resp?.body;
+
+    if (body && typeof body.cancel === "function") {
+      const result = body.cancel();
+
+      if (result && typeof result.catch === "function") {
+        result.catch(() => {});
+      }
+    }
+  } catch (e) {}
+}
+
+function getStrategyLimit(activeSlotCount, hasStaleCache) {
+  if (hasStaleCache) return 1;
+
+  if (activeSlotCount > 2) {
+    return Math.min(2, STRATEGIES.length);
+  }
+
+  return STRATEGIES.length;
+}
+
+function getRequestTimeout(deadlineTime) {
+  const remaining = deadlineTime - Date.now() - 100;
+
+  if (remaining < MIN_REQUEST_TIMEOUT_MS) {
+    return 0;
+  }
+
+  return Math.min(REQUEST_TIMEOUT_MS, remaining);
+}
+
+function normalizeRequestError(err) {
+  const msg = String(err?.message ?? err ?? "").toLowerCase();
+
+  if (msg.includes("timeout" ) || msg.includes("timed out")) {
+    return "Timeout";
+  }
+
+  if (msg.includes("dns")) {
+    return "DNS Error";
+  }
+
+  return "Network";
+}
+
+function buildSuccessResult(info, nowTime) {
+  const upload = Math.max(0, info.upload || 0);
+  const download = Math.max(0, info.download || 0);
+  const used = upload + download;
+  const totalBytes = info.total;
+
+  return {
+    used,
+    totalBytes,
+    percent: totalBytes > 0 ? (used / totalBytes) * 100 : 0,
+    expire: Number.isFinite(info.expire) && info.expire > 0 ? info.expire : null,
+    updatedAt: nowTime,
+  };
+}
+
+function attachSlotMeta(data, slot, remainDays) {
+  return {
+    ...data,
+    name: slot.name,
     remainDays,
   };
 }
 
-function buildCard(result, ctx) {
-  const {
-    name,
-    error,
+function buildErrorResult(slot, remainDays, errorMsg) {
+  return {
+    name: slot.name,
+    error: true,
     errorMsg,
-    used,
-    totalBytes,
-    percent,
-    expire,
     remainDays,
-    isFallback,
-    cacheAgeText,
-  } = result;
+  };
+}
 
-  const safePercent = Number.isFinite(percent) ? percent : 0;
-
-  let statusColor = COLORS.accentGreen;
-  if (safePercent >= 95) statusColor = COLORS.accentRed;
-  else if (safePercent >= 80) statusColor = COLORS.accentOrange;
-  else if (safePercent >= 50) statusColor = COLORS.accentPurple;
+function buildCard(result, ctx, nowTime) {
+  const { name, error, errorMsg, used, totalBytes } = result;
 
   if (error) {
     return {
@@ -356,51 +645,27 @@ function buildCard(result, ctx) {
           font: { size: "caption2", weight: "semibold" },
           textColor: COLORS.accentRed,
           flex: 1,
-          lineLimit: 1,
+          maxLines: 1,
         },
         {
           type: "text",
           text: `失败 | ${errorMsg || "异常"}`,
           font: { size: "caption2", weight: "bold" },
           textColor: COLORS.accentRed,
-          lineLimit: 1,
+          maxLines: 1,
         },
       ],
     };
   }
 
-  const p = Math.min(Math.max(safePercent, 0), 100);
-  const displayPercent = Math.max(0, safePercent);
-  const displayName = isFallback ? `${name} · ${cacheAgeText || "缓存"}` : name;
-
-  let expireText = "永久有效";
-  let isExpired = false;
-
-  if (remainDays != null) {
-    expireText = remainDays === 0 ? "今天重置" : `${remainDays}天后重置`;
-  } else if (expire > 0) {
-    const expireMs = expire < 1e12 ? expire * 1000 : expire;
-    const d = new Date(expireMs);
-
-    if (Number.isFinite(expireMs) && expireMs < Date.now()) {
-      expireText = "已过期";
-      isExpired = true;
-      statusColor = COLORS.accentRed;
-    } else {
-      expireText = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
-        d.getDate()
-      ).padStart(2, "0")}`;
-    }
-  }
-
-  const dotColor = isFallback || isExpired ? COLORS.accentRed : statusColor;
+  const displayState = getCardDisplayState(result, nowTime);
 
   return {
     type: "stack",
     direction: "column",
     gap: 5,
     padding: [8, 10],
-    backgroundColor: { light: "#FFFFFF", dark: "#2B2B2D" },
+    backgroundColor: CARD_BG_COLOR,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: COLORS.divider,
@@ -416,22 +681,22 @@ function buildCard(result, ctx) {
             src: "sf-symbol:circle.fill",
             width: 6,
             height: 6,
-            color: dotColor,
+            color: displayState.dotColor,
           },
           {
             type: "text",
-            text: displayName,
+            text: displayState.displayName,
             font: { size: "caption2", weight: "semibold" },
             textColor: COLORS.textPrimary,
             flex: 1,
-            lineLimit: 1,
+            maxLines: 1,
           },
           {
             type: "text",
-            text: `${Math.round(displayPercent)}%`,
+            text: `${Math.round(displayState.displayPercent)}%`,
             font: { size: "caption2", weight: "bold" },
-            textColor: statusColor,
-            lineLimit: 1,
+            textColor: displayState.statusColor,
+            maxLines: 1,
           },
         ],
       },
@@ -443,14 +708,14 @@ function buildCard(result, ctx) {
         children: [
           {
             type: "stack",
-            flex: Math.max(p, 0.01),
+            flex: Math.max(displayState.progressPercent, 0.01),
             height: 5,
-            backgroundColor: statusColor,
+            backgroundColor: displayState.statusColor,
             borderRadius: 3,
           },
           {
             type: "stack",
-            flex: Math.max(100 - p, 0.01),
+            flex: Math.max(100 - displayState.progressPercent, 0.01),
             height: 5,
             backgroundColor: COLORS.progressBg,
             borderRadius: 3,
@@ -472,7 +737,7 @@ function buildCard(result, ctx) {
                 text: `${formatBytes(used)}/${formatBytes(totalBytes)}`,
                 font: { size: "caption2", weight: "medium" },
                 textColor: COLORS.textSecondary,
-                lineLimit: 1,
+                maxLines: 1,
               },
               { type: "spacer" },
             ],
@@ -482,10 +747,12 @@ function buildCard(result, ctx) {
             : [
                 {
                   type: "text",
-                  text: expireText,
+                  text: displayState.expireText,
                   font: { size: "caption2", weight: "medium" },
-                  textColor: isExpired ? COLORS.accentRed : COLORS.textTertiary,
-                  lineLimit: 1,
+                  textColor: displayState.isExpired
+                    ? COLORS.accentRed
+                    : COLORS.textTertiary,
+                  maxLines: 1,
                 },
               ]),
           {
@@ -498,8 +765,8 @@ function buildCard(result, ctx) {
                 type: "text",
                 text: `剩${formatBytes(Math.max(0, totalBytes - used))}`,
                 font: { size: "caption2", weight: "semibold" },
-                textColor: statusColor,
-                lineLimit: 1,
+                textColor: displayState.statusColor,
+                maxLines: 1,
               },
             ],
           },
@@ -509,9 +776,84 @@ function buildCard(result, ctx) {
   };
 }
 
-function safeBuildCard(result, ctx) {
+function getCardDisplayState(result, nowTime) {
+  const safePercent = Number.isFinite(result.percent) ? result.percent : 0;
+  let statusColor = getUsageColor(safePercent);
+
+  const expireState = getExpireState(result.expire, nowTime);
+  const isExpired = expireState.isExpired;
+
+  if (isExpired) {
+    statusColor = COLORS.accentRed;
+  }
+
+  let expireText = expireState.text;
+
+  if (!isExpired && result.remainDays != null) {
+    expireText =
+      result.remainDays === 0 ? "今天重置" : `${result.remainDays}天后重置`;
+  }
+
+  return {
+    statusColor,
+    dotColor: result.isFallback || isExpired ? COLORS.accentRed : statusColor,
+    displayName: result.isFallback
+      ? `${result.name} · ${result.cacheAgeText || "缓存"}`
+      : result.name,
+    displayPercent: Math.max(0, safePercent),
+    progressPercent: Math.min(Math.max(safePercent, 0), 100),
+    expireText,
+    isExpired,
+  };
+}
+
+function getUsageColor(percent) {
+  if (percent >= 95) return COLORS.accentRed;
+  if (percent >= 80) return COLORS.accentOrange;
+  if (percent >= 50) return COLORS.accentPurple;
+  return COLORS.accentGreen;
+}
+
+function getExpireState(expire, nowTime) {
+  const rawExpire = Number(expire);
+
+  if (!Number.isFinite(rawExpire) || rawExpire <= 0) {
+    return {
+      text: "永久有效",
+      isExpired: false,
+    };
+  }
+
+  const expireMs = rawExpire < 1e12 ? rawExpire * 1000 : rawExpire;
+  const d = new Date(expireMs);
+  const expireTime = d.getTime();
+
+  if (!Number.isFinite(expireTime)) {
+    return {
+      text: "有效期未知",
+      isExpired: false,
+    };
+  }
+
+  if (expireTime < nowTime) {
+    return {
+      text: "已过期",
+      isExpired: true,
+    };
+  }
+
+  return {
+    text: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
+      2,
+      "0"
+    )}-${String(d.getDate()).padStart(2, "0")}`,
+    isExpired: false,
+  };
+}
+
+function safeBuildCard(result, ctx, nowTime) {
   try {
-    return buildCard(result, ctx);
+    return buildCard(result, ctx, nowTime);
   } catch (err) {
     return buildCard(
       {
@@ -519,7 +861,8 @@ function safeBuildCard(result, ctx) {
         error: true,
         errorMsg: "Render Error",
       },
-      ctx
+      ctx,
+      nowTime
     );
   }
 }
@@ -564,12 +907,7 @@ function getHeader(headers, name) {
   if (!headers) return "";
 
   if (typeof headers.get === "function") {
-    return (
-      headers.get(name) ||
-      headers.get(name.toLowerCase()) ||
-      headers.get(name.toUpperCase()) ||
-      ""
-    );
+    return headers.get(name) || "";
   }
 
   const target = name.toLowerCase();
@@ -595,11 +933,12 @@ function parseUserInfo(header) {
   if (!header.trim()) return null;
 
   const info = {};
-  const allowedKeys = new Set(["upload", "download", "total", "expire"]);
+  REGEX_USERINFO.lastIndex = 0;
 
-  for (const match of header.matchAll(REGEX_USERINFO)) {
+  let match;
+  while ((match = REGEX_USERINFO.exec(header)) !== null) {
     const key = String(match[1] || "").toLowerCase();
-    if (!allowedKeys.has(key)) continue;
+    if (!USERINFO_KEYS.has(key)) continue;
 
     const val = Number(match[2]);
 
@@ -711,7 +1050,7 @@ async function concurrentMap(items, maxConcurrent, fn) {
         results[currentIndex] = await fn(items[currentIndex]);
       } catch (err) {
         results[currentIndex] = {
-          name: items[currentIndex]?.name ?? "未知",
+          item: items[currentIndex],
           error: true,
           errorMsg: "Fetch Error",
         };
