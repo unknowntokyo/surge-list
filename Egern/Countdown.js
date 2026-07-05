@@ -1,7 +1,19 @@
 /**
  * =========================================
- * 📌 时光倒数 (Countdown) Medium 小组件
- * ⏱️ 重构版：2026.07.04
+ * 📌 时光倒数 (Countdown) 小组件
+ *
+ * ✨ 主要功能：
+ * • 尺寸适配：支持桌面 Small、Medium、Large 三种组件尺寸，不支持锁屏组件，区分紧凑列表与定宽多行列表排版。
+ * • 节日计算：内置农历算法数组，支持计算法定节假日、民俗节日、国际节日的倒计时。
+ * • 官方假期：法定分类优先拉取 NateScarlet/holiday-cn 上一年与当前年数据；每年 10 月后尝试预取下一年数据，按实际放假安排展示。
+ * • 时区基准：采用 UTC+8 固定时区进行绝对时间计算。
+ * • 自定义配置：支持通过环境变量设置最多 6 个专属纪念日，支持修改春/秋假的起始日期。
+ * • 排序与显示：支持按倒数天数及分类优先级进行排序，支持指定节日跨分类置顶。
+ * • 状态响应：根据工作日、周末、节假日当天状态切换背景渐变色；当天节日提示于中大号标题栏显示，小号于分类行内显示。
+ * • 当天提醒：节日 / 专属日期当天弹窗提醒，每天只弹一次。
+ *
+ * 🔗 作者: https://github.com/jnlaoshu/MySelf/tree/1c35eedff4e052e7dc4e9d87105e32f2490617cf/Egern/Widget
+ * ⏱️ 更新时间: 2026.04.01 01:40
  * =========================================
  */
 
@@ -88,12 +100,15 @@ const WIDGET_OFFICIAL_HTTP_TIMEOUT_MS = 1500;
 
 const OFFICIAL_REFRESH_INTERVAL_MS = 3 * DAY_MS;
 const OFFICIAL_FAILED_RETRY_INTERVAL_MS = DAY_MS;
+const OFFICIAL_OPTIONAL_FAILED_RETRY_INTERVAL_MS = 7 * DAY_MS;
 const OFFICIAL_BACKGROUND_REFRESH_LOCK_TTL_MS = 10 * 60 * 1000;
 
 const NOTIFY_PENDING_TTL_MS = 2 * 60 * 1000;
 const NOTIFY_FAILED_RETRY_INTERVAL_MS = 10 * 60 * 1000;
 
 const DISPLAY_MAX_WIDTH = 45;
+const TEXT_TOKEN_RE = /[\d\/a-zA-Z.\-]+|./gu;
+const LINE_TRIM_RE = /^[，\s]+|[，\s]+$/g;
 
 const LAYOUT_CONFIG = Object.freeze({
   fz: 13.5,
@@ -328,7 +343,7 @@ const splitTextToLines = (str, maxW) => {
   const lines = [];
   let line = "";
   let w = 0;
-  const tokens = str?.match(/[\d\/a-zA-Z.\-]+|./gu) || [];
+  const tokens = String(str ?? "").match(TEXT_TOKEN_RE) || [];
 
   for (const token of tokens) {
     const tw = token.length > 1
@@ -338,7 +353,7 @@ const splitTextToLines = (str, maxW) => {
         : 1.1;
 
     if (w + tw > maxW && line) {
-      const cleaned = line.replace(/^[，\s]+|[，\s]+$/g, "");
+      const cleaned = line.replace(LINE_TRIM_RE, "");
       if (cleaned) lines.push(cleaned);
       line = token;
       w = tw;
@@ -349,7 +364,7 @@ const splitTextToLines = (str, maxW) => {
   }
 
   if (line) {
-    const cleaned = line.replace(/^[，\s]+|[，\s]+$/g, "");
+    const cleaned = line.replace(LINE_TRIM_RE, "");
     if (cleaned) lines.push(cleaned);
   }
 
@@ -363,7 +378,7 @@ function buildDisplayText(result, cat, limit) {
     .join("，");
 }
 
-function buildDisplayCache(result) {
+function buildDisplayCache(result, maxW = DISPLAY_MAX_WIDTH) {
   const limit = 3;
   const cache = { mode: "medium" };
 
@@ -372,7 +387,7 @@ function buildDisplayCache(result) {
 
     cache[cfg.key] = {
       text,
-      lines: splitTextToLines(text, DISPLAY_MAX_WIDTH)
+      lines: splitTextToLines(text, maxW)
     };
   }
 
@@ -550,8 +565,20 @@ const MAX_PINNED_HOLIDAY_ITEM_LENGTH = 20;
 const MAX_PINNED_HOLIDAY_COUNT = 12;
 
 function truncateByCodePoint(value, maxLength) {
-  const chars = [...String(value ?? "").trim()];
-  return chars.slice(0, maxLength).join("");
+  const s = String(value ?? "").trim();
+  const safeMaxLength = Math.max(0, Number(maxLength) || 0);
+
+  let out = "";
+  let count = 0;
+
+  for (const ch of s) {
+    if (count >= safeMaxLength) break;
+
+    out += ch;
+    count += 1;
+  }
+
+  return out;
 }
 
 function getEnvValueMaxLength(key) {
@@ -937,9 +964,17 @@ function sameSortedKeys(a = {}, b = {}) {
 function shouldSaveOfficialCache(oldCache, newCache) {
   if (!oldCache) return true;
 
+  const oldYearsFingerprint = buildOfficialFingerprint(oldCache.years || {});
+  const newYearsFingerprint = buildOfficialFingerprint(newCache.years || {});
+  const oldStoredFingerprint =
+    typeof oldCache.fingerprint === "string" ? oldCache.fingerprint : "";
+  const newStoredFingerprint =
+    typeof newCache.fingerprint === "string" ? newCache.fingerprint : "";
+
   return (
     oldCache.version !== newCache.version ||
-    oldCache.fingerprint !== newCache.fingerprint ||
+    oldStoredFingerprint !== newStoredFingerprint ||
+    oldYearsFingerprint !== newYearsFingerprint ||
     oldCache.checkedDate !== newCache.checkedDate ||
     !sameSortedKeys(oldCache.years || {}, newCache.years || {}) ||
     !shallowObjectEqual(
@@ -1158,10 +1193,13 @@ function normalizeOfficialCacheOnRead(cache, sanitize = true) {
     ? sanitizeOfficialYears(cache.years)
     : cache.years;
 
-  const fingerprint =
-    typeof cache.fingerprint === "string" && cache.fingerprint
-      ? cache.fingerprint
-      : buildOfficialFingerprint(years);
+  const fingerprint = sanitize
+    ? buildOfficialFingerprint(years)
+    : (
+        typeof cache.fingerprint === "string" && cache.fingerprint
+          ? cache.fingerprint
+          : buildOfficialFingerprint(years)
+      );
 
   return {
     ...cache,
@@ -1206,11 +1244,6 @@ function officialRequestYears(currentYear) {
     ...officialRequiredYears(currentYear),
     ...officialOptionalYears(currentYear)
   ];
-}
-
-function shouldTryOptionalOfficialYears(todayIso) {
-  const parts = parseISODateParts(todayIso);
-  return Boolean(parts && parts.m >= 10);
 }
 
 function pruneOfficialYears(years, currentYear) {
@@ -1306,24 +1339,6 @@ function isOfficialCacheFresh(cache, todayIso, currentYear) {
   return age >= 0 && age < OFFICIAL_REFRESH_INTERVAL_MS;
 }
 
-function shouldRefreshOfficialCache(cache, currentYear, todayIso) {
-  const years = pruneOfficialYears(cache?.years || {}, currentYear);
-  const retryAfterByYear = pruneRetryAfterByYear(
-    cache?.retryAfterByYear,
-    currentYear
-  );
-
-  return !isOfficialCacheFresh(
-    {
-      ...cache,
-      years,
-      retryAfterByYear
-    },
-    todayIso,
-    currentYear
-  );
-}
-
 function isOfficialYearRetryBlocked(cache, year, now = Date.now()) {
   const retryAt = Number(cache?.retryAfterByYear?.[String(year)]);
   return Number.isFinite(retryAt) && retryAt > now;
@@ -1333,16 +1348,11 @@ function normalizeOfficialCachePayload(
   oldCache,
   years,
   currentYear,
-  todayIso,
   retryAfterByYearOverride
 ) {
-  const requiredReady = isOfficialRequiredReady(years, currentYear);
-
   const checkedDate = isValidISODate(oldCache?.checkedDate)
     ? oldCache.checkedDate
-    : requiredReady
-      ? todayIso
-      : undefined;
+    : undefined;
 
   return {
     version: OFFICIAL_HOLIDAY_STORAGE_VERSION,
@@ -1436,6 +1446,7 @@ async function loadOfficialHolidayDaily(
   }
 
   const requiredYears = officialRequiredYears(currentYear);
+  const optionalYears = officialOptionalYears(currentYear);
   const mergedYears = pruneOfficialYears(oldCache?.years || {}, currentYear);
 
   const retryAfterByYear = pruneRetryAfterByYear(
@@ -1462,16 +1473,21 @@ async function loadOfficialHolidayDaily(
     requiredYears
   ).map(Number);
 
-  const buildFetchCandidates = () => {
-    if (requiredFresh) {
-      return [];
-    }
+  const missingOptionalYears = getMissingOfficialYears(
+    mergedYears,
+    optionalYears
+  ).map(Number);
 
+  const buildFetchCandidates = () => {
     if (missingRequiredYears.length > 0) {
       return missingRequiredYears;
     }
 
-    return [currentYear];
+    if (!requiredFresh) {
+      return [currentYear];
+    }
+
+    return missingOptionalYears.slice(0, 1);
   };
 
   const rawFetchCandidates = Array.isArray(forceYearsToFetch)
@@ -1488,7 +1504,6 @@ async function loadOfficialHolidayDaily(
       oldCache,
       mergedYears,
       currentYear,
-      todayIso,
       retryAfterByYear
     );
 
@@ -1521,8 +1536,11 @@ async function loadOfficialHolidayDaily(
       delete retryAfterByYear[key];
       successfulFetchYearSet.add(key);
     } else {
-      retryAfterByYear[key] =
-        now + OFFICIAL_FAILED_RETRY_INTERVAL_MS;
+      const retryMs = optionalYears.includes(year)
+        ? OFFICIAL_OPTIONAL_FAILED_RETRY_INTERVAL_MS
+        : OFFICIAL_FAILED_RETRY_INTERVAL_MS;
+
+      retryAfterByYear[key] = now + retryMs;
 
       warnLog(
         "[Countdown] failed to fetch official holiday:",
@@ -1532,21 +1550,18 @@ async function loadOfficialHolidayDaily(
     }
   }
 
-  const fetchedRequiredYears = yearsToFetch
-    .filter(year => requiredYears.includes(year))
-    .map(String);
+  const fetchedCurrentYear = yearsToFetch.includes(currentYear);
 
   const previousCheckedDate = isValidISODate(oldCache?.checkedDate)
     ? oldCache.checkedDate
     : undefined;
 
-  const checkedDate = (
+  const shouldUpdateCheckedDate =
     isOfficialRequiredReady(mergedYears, currentYear) &&
-    (
-      fetchedRequiredYears.length === 0 ||
-      fetchedRequiredYears.every(year => successfulFetchYearSet.has(year))
-    )
-  )
+    fetchedCurrentYear &&
+    successfulFetchYearSet.has(String(currentYear));
+
+  const checkedDate = shouldUpdateCheckedDate
     ? todayIso
     : previousCheckedDate;
 
@@ -1680,51 +1695,55 @@ function readBaseCacheByOfficialState(
 function resolveOfficialRefreshPlan({
   officialHolidayCache,
   currentYear,
-  todayIso
+  todayIso,
+  hasCachedBaseData = false
 }) {
-  const yearsData = officialHolidayCache?.years;
+  const years = officialHolidayCache?.years;
 
   const requiredYearsToFetch = uniqueFiniteNumbers(
     getMissingOfficialYears(
-      yearsData,
+      years,
       officialRequiredYears(currentYear)
     )
   );
 
-  const optionalYearsToFetch = shouldTryOptionalOfficialYears(todayIso)
-    ? uniqueFiniteNumbers(
-        getMissingOfficialYears(
-          yearsData,
-          officialOptionalYears(currentYear)
-        )
-      )
-    : [];
+  if (requiredYearsToFetch.length > 0) {
+    return {
+      yearsToFetch: requiredYearsToFetch,
+      shouldBlockRenderForOfficialRefresh: true
+    };
+  }
 
-  const requiredReady = isOfficialRequiredReady(yearsData, currentYear);
-  const needsOfficialRefresh = shouldRefreshOfficialCache(
+  const cacheIsFresh = isOfficialCacheFresh(
     officialHolidayCache,
-    currentYear,
-    todayIso
+    todayIso,
+    currentYear
   );
 
-  const staleRefreshYearsToFetch =
-    requiredReady &&
-    needsOfficialRefresh &&
-    requiredYearsToFetch.length === 0
-      ? [currentYear]
-      : [];
+  if (!cacheIsFresh) {
+    return {
+      yearsToFetch: [currentYear],
+      shouldBlockRenderForOfficialRefresh: !hasCachedBaseData
+    };
+  }
 
-  const nonBlockingYearsToFetch = uniqueFiniteNumbers([
-    ...staleRefreshYearsToFetch,
-    ...optionalYearsToFetch
-  ]);
+  const optionalYearsToFetch = uniqueFiniteNumbers(
+    getMissingOfficialYears(
+      years,
+      officialOptionalYears(currentYear)
+    )
+  ).slice(0, 1);
+
+  if (optionalYearsToFetch.length > 0) {
+    return {
+      yearsToFetch: optionalYearsToFetch,
+      shouldBlockRenderForOfficialRefresh: false
+    };
+  }
 
   return {
-    requiredYearsToFetch,
-    nonBlockingYearsToFetch,
-    shouldBlockRenderForOfficialRefresh:
-      requiredYearsToFetch.length > 0,
-    needsOfficialRefresh
+    yearsToFetch: [],
+    shouldBlockRenderForOfficialRefresh: false
   };
 }
 
@@ -1829,7 +1848,8 @@ async function prepareOfficialHolidayCacheForWidget({
   let plan = resolveOfficialRefreshPlan({
     officialHolidayCache,
     currentYear,
-    todayIso
+    todayIso,
+    hasCachedBaseData: Boolean(cachedBaseData)
   });
 
   if (cachedBaseData) {
@@ -1843,7 +1863,7 @@ async function prepareOfficialHolidayCacheForWidget({
         officialHolidayCache
       );
 
-      await refreshAndReloadBaseCache(plan.requiredYearsToFetch);
+      await refreshAndReloadBaseCache(plan.yearsToFetch);
 
       if (cachedBaseData) {
         return {
@@ -1875,15 +1895,15 @@ async function prepareOfficialHolidayCacheForWidget({
   plan = resolveOfficialRefreshPlan({
     officialHolidayCache,
     currentYear,
-    todayIso
+    todayIso,
+    hasCachedBaseData: false
   });
 
-  if (canRefreshOfficialHoliday) {
-    const yearsToFetch = plan.shouldBlockRenderForOfficialRefresh
-      ? plan.requiredYearsToFetch
-      : plan.nonBlockingYearsToFetch;
-
-    await refreshAndReloadBaseCache(yearsToFetch);
+  if (
+    canRefreshOfficialHoliday &&
+    plan.yearsToFetch.length > 0
+  ) {
+    await refreshAndReloadBaseCache(plan.yearsToFetch);
   }
 
   return {
@@ -2082,12 +2102,22 @@ function mergeLegalHolidays(fallbackLegal, officialLegal) {
     return [...fallbackLegal];
   }
 
-  const officialRows = officialLegal.filter(row =>
-    Array.isArray(row) &&
-    typeof row[0] === "string" &&
-    row[0].trim() &&
-    typeof row[1] === "string"
-  );
+  const officialRows = officialLegal
+    .filter(row =>
+      Array.isArray(row) &&
+      typeof row[0] === "string" &&
+      row[0].trim() &&
+      typeof row[1] === "string"
+    )
+    .map(row => {
+      const name = String(row[0] ?? "").trim();
+
+      return {
+        row,
+        name,
+        parts: splitHolidayNames(name)
+      };
+    });
 
   if (officialRows.length === 0) {
     return [...fallbackLegal];
@@ -2117,14 +2147,14 @@ function mergeLegalHolidays(fallbackLegal, officialLegal) {
     for (let i = 0; i < officialRows.length; i++) {
       if (usedOfficialIndexes.has(i)) continue;
 
-      const officialName = String(officialRows[i]?.[0] ?? "").trim();
+      const official = officialRows[i];
 
-      if (!partsIntersect(splitHolidayNames(officialName), fallbackPartSet)) {
+      if (!partsIntersect(official.parts, fallbackPartSet)) {
         continue;
       }
 
       const distance = officialRowDistanceToFallback(
-        officialRows[i],
+        official.row,
         fallbackMs
       );
 
@@ -2135,15 +2165,15 @@ function mergeLegalHolidays(fallbackLegal, officialLegal) {
     }
 
     if (bestIndex >= 0) {
-      const officialRow = officialRows[bestIndex];
+      const official = officialRows[bestIndex];
 
       usedOfficialIndexes.add(bestIndex);
 
-      for (const name of splitHolidayNames(officialRow[0])) {
+      for (const name of official.parts) {
         coveredFallbackNames.add(name);
       }
 
-      merged.push(officialRow);
+      merged.push(official.row);
     } else {
       merged.push(row);
     }
@@ -2158,14 +2188,12 @@ function mergeLegalHolidays(fallbackLegal, officialLegal) {
   for (let i = 0; i < officialRows.length; i++) {
     if (usedOfficialIndexes.has(i)) continue;
 
-    const officialNameParts = splitHolidayNames(officialRows[i][0]);
-
-    const overlapsFallback = officialNameParts.some(name =>
+    const overlapsFallback = officialRows[i].parts.some(name =>
       fallbackNames.has(name)
     );
 
     if (!overlapsFallback) {
-      merged.push(officialRows[i]);
+      merged.push(officialRows[i].row);
     }
   }
 
@@ -2604,7 +2632,7 @@ function buildCountdownData({
     }))
     .sort((a, b) => a.diff - b.diff);
 
-  const displayCache = buildDisplayCache(result);
+  const displayCache = buildDisplayCache(result, LAYOUT_CONFIG.maxW);
 
   return {
     result,
@@ -2886,8 +2914,10 @@ async function renderCountdownWidget(ctx = {}) {
     displayCache
   } = baseData;
 
+  const layoutConfig = LAYOUT_CONFIG;
+
   if (!displayCache || !isValidDisplayCache(displayCache)) {
-    displayCache = buildDisplayCache(result);
+    displayCache = buildDisplayCache(result, layoutConfig.maxW);
   }
 
   const stickyParts = (pinnedData || []).map(p => `${p.name} ${p.diff}天`);
@@ -2923,7 +2953,6 @@ async function renderCountdownWidget(ctx = {}) {
         : "workday";
 
   const backgroundGradient = getBackgroundGradient(themeKey);
-  const layoutConfig = LAYOUT_CONFIG;
   const gridRows = buildGridRows(displayCache, result, layoutConfig);
 
   const rightHeaderElements = [];
