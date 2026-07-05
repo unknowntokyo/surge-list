@@ -91,14 +91,15 @@ export default async function (ctx) {
   }
 
   const widgetFamily = String(ctx.widgetFamily || "systemMedium");
-  const activeSlots = slots.slice(0, widgetFamily.includes("Large") ? 5 : 2);
+  const activeSlots = slots.slice(0, getDisplayLimit(widgetFamily));
+  const activeSlotCount = activeSlots.length;
 
   const now = new Date();
   const nowTime = now.getTime();
   const deadlineTime = nowTime + SCRIPT_SOFT_TIMEOUT_MS;
 
   const results = await concurrentMap(activeSlots, 2, (slot) =>
-    fetchInfo(ctx, slot, now, nowTime, deadlineTime)
+    fetchInfo(ctx, slot, now, nowTime, deadlineTime, activeSlotCount)
   );
 
   const cardChildren = results.map((result) => safeBuildCard(result, ctx, nowTime));
@@ -160,6 +161,12 @@ export default async function (ctx) {
   };
 }
 
+function getDisplayLimit(widgetFamily) {
+  return widgetFamily === "systemLarge" || widgetFamily === "systemExtraLarge"
+    ? 5
+    : 2;
+}
+
 function buildSlots(env) {
   const slots = [];
 
@@ -209,7 +216,7 @@ function buildEmptyWidget() {
   };
 }
 
-async function fetchInfo(ctx, slot, now, nowTime, deadlineTime) {
+async function fetchInfo(ctx, slot, now, nowTime, deadlineTime, activeSlotCount) {
   const remainDays = slot.resetDay ? getRemainingDays(slot.resetDay, now) : null;
   const cacheKey = `${CACHE_PREFIX}_${slot.id}_${hashString(slot.url)}`;
 
@@ -225,7 +232,8 @@ async function fetchInfo(ctx, slot, now, nowTime, deadlineTime) {
     slot.url,
     nowTime,
     deadlineTime,
-    hasStaleCache
+    hasStaleCache,
+    activeSlotCount
   );
 
   if (remote.ok) {
@@ -313,10 +321,23 @@ function safeDeleteCache(ctx, cacheKey) {
   } catch (e) {}
 }
 
-async function fetchRemoteInfo(ctx, url, nowTime, deadlineTime, hasStaleCache) {
+async function fetchRemoteInfo(
+  ctx,
+  url,
+  nowTime,
+  deadlineTime,
+  hasStaleCache,
+  activeSlotCount
+) {
   let lastErrorMsg = "Unknown";
+  const strategyLimit = getStrategyLimit(activeSlotCount, hasStaleCache);
+  const requestPlans = STRATEGIES.slice(0, strategyLimit).map((strategy) => ({
+    url: buildUrl(url, strategy.flag),
+    headers: strategy.ua,
+  }));
 
-  for (const strategy of STRATEGIES) {
+  for (let i = 0; i < requestPlans.length; i++) {
+    const requestPlan = requestPlans[i];
     const timeout = getRequestTimeout(deadlineTime);
 
     if (timeout <= 0) {
@@ -325,19 +346,23 @@ async function fetchRemoteInfo(ctx, url, nowTime, deadlineTime, hasStaleCache) {
     }
 
     try {
-      const resp = await ctx.http.get(buildUrl(url, strategy.flag), {
-        headers: strategy.ua,
+      const resp = await ctx.http.get(requestPlan.url, {
+        headers: requestPlan.headers,
         timeout,
       });
 
       const status = Number(resp.status);
+      const userInfoHeader = getHeader(resp.headers, "subscription-userinfo");
+
+      cancelResponseBody(resp);
 
       if (Number.isFinite(status) && (status < 200 || status >= 300)) {
         lastErrorMsg = `HTTP ${status}`;
+        if (hasStaleCache) break;
         continue;
       }
 
-      const info = parseUserInfo(getHeader(resp.headers, "subscription-userinfo"));
+      const info = parseUserInfo(userInfoHeader);
 
       if (info && Number.isFinite(info.total) && info.total > 0) {
         return {
@@ -347,12 +372,10 @@ async function fetchRemoteInfo(ctx, url, nowTime, deadlineTime, hasStaleCache) {
       }
 
       lastErrorMsg = "No Data";
+      if (hasStaleCache) break;
     } catch (err) {
       lastErrorMsg = normalizeRequestError(err);
-
-      if (hasStaleCache) {
-        break;
-      }
+      if (hasStaleCache) break;
     }
   }
 
@@ -360,6 +383,30 @@ async function fetchRemoteInfo(ctx, url, nowTime, deadlineTime, hasStaleCache) {
     ok: false,
     errorMsg: lastErrorMsg,
   };
+}
+
+function cancelResponseBody(resp) {
+  try {
+    const body = resp?.body;
+
+    if (body && typeof body.cancel === "function") {
+      const result = body.cancel();
+
+      if (result && typeof result.catch === "function") {
+        result.catch(() => {});
+      }
+    }
+  } catch (e) {}
+}
+
+function getStrategyLimit(activeSlotCount, hasStaleCache) {
+  if (hasStaleCache) return 1;
+
+  if (activeSlotCount > 2) {
+    return Math.min(2, STRATEGIES.length);
+  }
+
+  return STRATEGIES.length;
 }
 
 function getRequestTimeout(deadlineTime) {
@@ -484,19 +531,26 @@ function buildCard(result, ctx, nowTime) {
 
   if (remainDays != null) {
     expireText = remainDays === 0 ? "今天重置" : `${remainDays}天后重置`;
-  } else if (expire > 0) {
-    const expireMs = expire < 1e12 ? expire * 1000 : expire;
-    const d = new Date(expireMs);
+  } else {
+    const rawExpire = Number(expire);
 
-    if (Number.isFinite(expireMs) && expireMs < nowTime) {
-      expireText = "已过期";
-      isExpired = true;
-      statusColor = COLORS.accentRed;
-    } else {
-      expireText = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
-        2,
-        "0"
-      )}-${String(d.getDate()).padStart(2, "0")}`;
+    if (Number.isFinite(rawExpire) && rawExpire > 0) {
+      const expireMs = rawExpire < 1e12 ? rawExpire * 1000 : rawExpire;
+      const d = new Date(expireMs);
+      const expireTime = d.getTime();
+
+      if (!Number.isFinite(expireTime)) {
+        expireText = "有效期未知";
+      } else if (expireTime < nowTime) {
+        expireText = "已过期";
+        isExpired = true;
+        statusColor = COLORS.accentRed;
+      } else {
+        expireText = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
+          2,
+          "0"
+        )}-${String(d.getDate()).padStart(2, "0")}`;
+      }
     }
   }
 
@@ -672,12 +726,7 @@ function getHeader(headers, name) {
   if (!headers) return "";
 
   if (typeof headers.get === "function") {
-    return (
-      headers.get(name) ||
-      headers.get(name.toLowerCase()) ||
-      headers.get(name.toUpperCase()) ||
-      ""
-    );
+    return headers.get(name) || "";
   }
 
   const target = name.toLowerCase();
@@ -705,7 +754,8 @@ function parseUserInfo(header) {
   const info = {};
   REGEX_USERINFO.lastIndex = 0;
 
-  for (const match of header.matchAll(REGEX_USERINFO)) {
+  let match;
+  while ((match = REGEX_USERINFO.exec(header)) !== null) {
     const key = String(match[1] || "").toLowerCase();
     if (!USERINFO_KEYS.has(key)) continue;
 
