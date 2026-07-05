@@ -1,5 +1,5 @@
 /**
- * =========================================
+ * =======================================
  * 📌 时光倒数小组件
  *
  * ✨ 主要功能：
@@ -83,7 +83,7 @@
  *
  * 🔗 作者: https://github.com/jnlaoshu/MySelf/tree/1c35eedff4e052e7dc4e9d87105e32f2490617cf/Egern/Widget
  * ⏱️ 更新时间: 2026.04.01 01:40
- * =========================================
+ * =======================================
  */
 
 const RANDOM_NOTICES = [
@@ -2003,6 +2003,7 @@ async function prepareOfficialHolidayCacheForWidget({
 
   if (
     canRefreshOfficialHoliday &&
+    plan.shouldBlockRenderForOfficialRefresh &&
     plan.yearsToFetch.length > 0
   ) {
     await refreshAndReloadBaseCache(plan.yearsToFetch);
@@ -2988,23 +2989,42 @@ async function renderCountdownWidget(ctx = {}) {
 
   const CACHE_VERSION = DAILY_CACHE_VERSION_TEXT;
 
-  const readBaseDailyCache = currentEnvFingerprint => {
-    if (!ctx.storage) return null;
+  let baseDailyCacheRecordLoaded = false;
+  let baseDailyCacheRecord = null;
+
+  const readBaseDailyCacheRecord = () => {
+    if (baseDailyCacheRecordLoaded) {
+      return baseDailyCacheRecord;
+    }
+
+    baseDailyCacheRecordLoaded = true;
+
+    if (!ctx.storage) {
+      baseDailyCacheRecord = null;
+      return null;
+    }
 
     try {
-      const stored = ctx.storage.getJSON(BASE_CACHE_KEY);
-
-      if (
-        stored &&
-        stored.version === CACHE_VERSION &&
-        stored.date === todayStr &&
-        stored.envFingerprint === currentEnvFingerprint &&
-        isValidBaseCachedPayload(stored.payload)
-      ) {
-        return stored.payload;
-      }
+      baseDailyCacheRecord = ctx.storage.getJSON(BASE_CACHE_KEY);
     } catch (e) {
       warnLog("[Countdown] failed to read base daily cache:", e);
+      baseDailyCacheRecord = null;
+    }
+
+    return baseDailyCacheRecord;
+  };
+
+  const readBaseDailyCache = currentEnvFingerprint => {
+    const stored = readBaseDailyCacheRecord();
+
+    if (
+      stored &&
+      stored.version === CACHE_VERSION &&
+      stored.date === todayStr &&
+      stored.envFingerprint === currentEnvFingerprint &&
+      isValidBaseCachedPayload(stored.payload)
+    ) {
+      return stored.payload;
     }
 
     return null;
@@ -3013,13 +3033,18 @@ async function renderCountdownWidget(ctx = {}) {
   const writeBaseDailyCache = (envFingerprint, payload) => {
     if (!ctx.storage) return;
 
+    const nextRecord = {
+      version: CACHE_VERSION,
+      date: todayStr,
+      envFingerprint,
+      payload
+    };
+
     try {
-      ctx.storage.setJSON(BASE_CACHE_KEY, {
-        version: CACHE_VERSION,
-        date: todayStr,
-        envFingerprint,
-        payload
-      });
+      ctx.storage.setJSON(BASE_CACHE_KEY, nextRecord);
+
+      baseDailyCacheRecordLoaded = true;
+      baseDailyCacheRecord = nextRecord;
     } catch (e) {
       warnLog("[Countdown] failed to save base daily cache:", e);
     }
