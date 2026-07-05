@@ -11,6 +11,9 @@ const REQUEST_OPTIONS = {
   credentials: 'omit'
 };
 
+const HOT_KEYS = ['hot', 'hot_num', 'hot_value'];
+const TITLE_KEYS = ['title', 'word', 'name', 'keyword'];
+
 const rankColors = ['#FF3B30', '#FF9500', '#FFCC00'];
 
 const colors = {
@@ -99,24 +102,29 @@ function buildHotRows(hotList) {
 }
 
 function getHotText(item) {
-  return String(
-    item.hot ??
-    item.hot_num ??
-    item.hot_value ??
-    ''
-  ).trim();
+  return pickText(item, HOT_KEYS);
 }
 
 function getTitleText(item, rank) {
-  const text = String(
-    item.title ||
-    item.word ||
-    item.name ||
-    item.keyword ||
-    ''
-  ).trim();
+  return pickText(item, TITLE_KEYS) || `热榜 ${rank}`;
+}
 
-  return text || `热榜 ${rank}`;
+function pickText(item, keys) {
+  for (let i = 0; i < keys.length; i++) {
+    const value = item[keys[i]];
+
+    if (value === null || value === undefined) {
+      continue;
+    }
+
+    const text = String(value).trim();
+
+    if (text) {
+      return text;
+    }
+  }
+
+  return '';
 }
 
 function makeWidget(rows) {
@@ -244,12 +252,7 @@ function isZeroHot(value) {
 }
 
 function currentTime() {
-  return formatTime(Date.now());
-}
-
-function formatTime(timestamp) {
-  const time = Number(timestamp) || Date.now();
-  const date = new Date(time + 8 * 60 * 60 * 1000);
+  const date = new Date(Date.now() + 8 * 60 * 60 * 1000);
   return `${pad2(date.getUTCHours())}:${pad2(date.getUTCMinutes())}`;
 }
 
