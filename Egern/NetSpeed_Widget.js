@@ -2,7 +2,7 @@
  * 📌 桌面小组件: NetSpeed 小组件
  * 小组件环境变量：
  * 1、名称 policy，值为策略组名称，默认 DIRECT；
- * 2、下行测速数据量 SPEED_TEST_PACKET，值为数字，默认 3MB
+ * 2、下行测速数据量 SPEED_TEST_PACKET，默认 3MB
  */
 
 const MB = 1048576;
