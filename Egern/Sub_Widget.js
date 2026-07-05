@@ -83,6 +83,14 @@ const STRATEGIES = [
 ];
 
 export default async function (ctx) {
+  try {
+    return await buildWidget(ctx || {});
+  } catch (err) {
+    return buildFatalWidget(normalizeFatalError(err));
+  }
+}
+
+async function buildWidget(ctx) {
   const env = ctx.env || {};
   const slots = buildSlots(env);
 
@@ -91,6 +99,7 @@ export default async function (ctx) {
   }
 
   const widgetFamily = String(ctx.widgetFamily || "systemMedium");
+  const isSmallWidget = widgetFamily === "systemSmall";
   const activeSlots = slots.slice(0, getDisplayLimit(widgetFamily));
   const activeSlotCount = activeSlots.length;
 
@@ -99,8 +108,9 @@ export default async function (ctx) {
   const deadlineTime = nowTime + SCRIPT_SOFT_TIMEOUT_MS;
 
   const maxConcurrent = activeSlotCount > 2 ? 3 : 2;
+  const cacheMemo = new Map();
   const slotStates = activeSlots.map((slot) =>
-    buildSlotState(ctx, slot, now, nowTime)
+    buildSlotState(ctx, slot, now, nowTime, cacheMemo)
   );
 
   const results = new Array(slotStates.length);
@@ -213,7 +223,7 @@ export default async function (ctx) {
   }
 
   const cardChildren = results.map((result) =>
-    safeBuildCard(result, ctx, nowTime)
+    safeBuildCard(result, isSmallWidget, nowTime)
   );
 
   const timeStr =
@@ -329,12 +339,61 @@ function buildEmptyWidget() {
   };
 }
 
-function buildSlotState(ctx, slot, now, nowTime) {
+function buildFatalWidget(errorMsg) {
+  return {
+    type: "widget",
+    backgroundColor: WIDGET_BG_COLOR,
+    padding: 16,
+    refreshAfter: new Date(Date.now() + REFRESH_INTERVAL_MS).toISOString(),
+    children: [
+      {
+        type: "stack",
+        direction: "column",
+        gap: 8,
+        alignItems: "center",
+        children: [
+          {
+            type: "image",
+            src: "sf-symbol:exclamationmark.triangle.fill",
+            width: 28,
+            height: 28,
+            color: COLORS.accentRed,
+          },
+          {
+            type: "text",
+            text: "脚本异常",
+            font: { size: "headline", weight: "semibold" },
+            textColor: COLORS.accentRed,
+            maxLines: 1,
+          },
+          {
+            type: "text",
+            text: errorMsg || "Unknown",
+            font: { size: "caption2", weight: "medium" },
+            textColor: COLORS.textTertiary,
+            maxLines: 1,
+          },
+        ],
+      },
+    ],
+  };
+}
+
+function buildSlotState(ctx, slot, now, nowTime, cacheMemo) {
   const remainDays = slot.resetDay ? getRemainingDays(slot.resetDay, now) : null;
   const urlHash = hashString(slot.url);
   const cacheKey = `${CACHE_PREFIX}_${urlHash}`;
   const legacyCacheKey = `${CACHE_PREFIX}_${slot.id}_${urlHash}`;
-  const cache = readCacheWithMigration(ctx, cacheKey, legacyCacheKey, nowTime);
+
+  let cache = cacheMemo.get(cacheKey);
+
+  if (!cache) {
+    cache = readCacheWithMigration(ctx, cacheKey, legacyCacheKey, nowTime);
+
+    if (cache.fresh || cache.stale) {
+      cacheMemo.set(cacheKey, cache);
+    }
+  }
 
   return {
     slot,
@@ -355,6 +414,7 @@ async function fetchRemoteForGroup(
     const allHaveStaleCache = group.states.every((state) =>
       Boolean(state.cache.stale)
     );
+    const preferredStrategyIndex = getPreferredStrategyIndex(group.states);
 
     const remote = await fetchRemoteInfo(
       ctx,
@@ -362,7 +422,8 @@ async function fetchRemoteForGroup(
       nowTime,
       deadlineTime,
       allHaveStaleCache,
-      activeSlotCount
+      activeSlotCount,
+      preferredStrategyIndex
     );
 
     return {
@@ -451,11 +512,10 @@ function saveCache(ctx, cacheKey, data, cacheTime) {
       return false;
     }
 
+    const updatedAt = Number(data?.updatedAt);
     const storedData = {
       ...data,
-      updatedAt: Number.isFinite(Number(data?.updatedAt))
-        ? Number(data.updatedAt)
-        : time,
+      updatedAt: Number.isFinite(updatedAt) ? updatedAt : time,
     };
 
     delete storedData.cacheTime;
@@ -485,13 +545,18 @@ async function fetchRemoteInfo(
   nowTime,
   deadlineTime,
   hasStaleCache,
-  activeSlotCount
+  activeSlotCount,
+  preferredStrategyIndex
 ) {
   let lastErrorMsg = "Unknown";
-  const strategyLimit = getStrategyLimit(activeSlotCount, hasStaleCache);
+  const strategyIndexes = getStrategyIndexes(
+    activeSlotCount,
+    hasStaleCache,
+    preferredStrategyIndex
+  );
 
-  for (let i = 0; i < strategyLimit; i++) {
-    const strategy = STRATEGIES[i];
+  for (const strategyIndex of strategyIndexes) {
+    const strategy = STRATEGIES[strategyIndex];
     const timeout = getRequestTimeout(deadlineTime);
 
     if (timeout <= 0) {
@@ -499,44 +564,135 @@ async function fetchRemoteInfo(
       break;
     }
 
-    try {
-      const resp = await ctx.http.get(buildUrl(url, strategy.flag), {
-        headers: strategy.ua,
-        timeout,
-      });
+    const remote = await requestUserInfoWithStrategy(
+      ctx,
+      url,
+      strategy,
+      strategyIndex,
+      timeout,
+      nowTime
+    );
 
-      const status = Number(resp.status);
-      const userInfoHeader = getHeader(resp.headers, "subscription-userinfo");
-
-      cancelResponseBody(resp);
-
-      if (Number.isFinite(status) && (status < 200 || status >= 300)) {
-        lastErrorMsg = `HTTP ${status}`;
-        if (hasStaleCache) break;
-        continue;
-      }
-
-      const info = parseUserInfo(userInfoHeader);
-
-      if (info && Number.isFinite(info.total) && info.total > 0) {
-        return {
-          ok: true,
-          data: buildSuccessResult(info, nowTime),
-        };
-      }
-
-      lastErrorMsg = "No Data";
-      if (hasStaleCache) break;
-    } catch (err) {
-      lastErrorMsg = normalizeRequestError(err);
-      if (hasStaleCache) break;
+    if (remote.ok) {
+      return remote;
     }
+
+    lastErrorMsg = remote.errorMsg || "Unknown";
   }
 
   return {
     ok: false,
     errorMsg: lastErrorMsg,
   };
+}
+
+async function requestUserInfoWithStrategy(
+  ctx,
+  url,
+  strategy,
+  strategyIndex,
+  timeout,
+  nowTime
+) {
+  let resp = null;
+
+  try {
+    resp = await ctx.http.get(buildUrl(url, strategy.flag), {
+      headers: strategy.ua,
+      timeout,
+    });
+
+    const status = Number(resp.status);
+    const userInfoHeader = getHeader(resp.headers, "subscription-userinfo");
+
+    if (Number.isFinite(status) && (status < 200 || status >= 300)) {
+      return {
+        ok: false,
+        errorMsg: `HTTP ${status}`,
+      };
+    }
+
+    const info = parseUserInfo(userInfoHeader);
+
+    if (info && Number.isFinite(info.total) && info.total > 0) {
+      return {
+        ok: true,
+        data: {
+          ...buildSuccessResult(info, nowTime),
+          strategyIndex,
+        },
+      };
+    }
+
+    return {
+      ok: false,
+      errorMsg: "No Data",
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      errorMsg: normalizeRequestError(err),
+    };
+  } finally {
+    cancelResponseBody(resp);
+  }
+}
+
+function getPreferredStrategyIndex(states) {
+  for (const state of states) {
+    const data = state.cache.fresh || state.cache.stale;
+    const index = Number(data?.strategyIndex);
+
+    if (
+      Number.isInteger(index) &&
+      index >= 0 &&
+      index < STRATEGIES.length
+    ) {
+      return index;
+    }
+  }
+
+  return null;
+}
+
+function getStrategyIndexes(
+  activeSlotCount,
+  hasStaleCache,
+  preferredStrategyIndex
+) {
+  const normalLimit =
+    activeSlotCount > 2
+      ? Math.min(2, STRATEGIES.length)
+      : STRATEGIES.length;
+
+  const maxAttempts = Math.max(
+    1,
+    hasStaleCache ? STRATEGIES.length : normalLimit
+  );
+
+  const indexes = [];
+  const usedIndexes = [];
+
+  if (preferredStrategyIndex != null) {
+    const preferred = Number(preferredStrategyIndex);
+
+    if (
+      Number.isInteger(preferred) &&
+      preferred >= 0 &&
+      preferred < STRATEGIES.length
+    ) {
+      indexes.push(preferred);
+      usedIndexes[preferred] = true;
+    }
+  }
+
+  for (let i = 0; i < STRATEGIES.length && indexes.length < maxAttempts; i++) {
+    if (!usedIndexes[i]) {
+      indexes.push(i);
+    }
+  }
+
+  return indexes;
 }
 
 function cancelResponseBody(resp) {
@@ -553,16 +709,6 @@ function cancelResponseBody(resp) {
   } catch (e) {}
 }
 
-function getStrategyLimit(activeSlotCount, hasStaleCache) {
-  if (hasStaleCache) return 1;
-
-  if (activeSlotCount > 2) {
-    return Math.min(2, STRATEGIES.length);
-  }
-
-  return STRATEGIES.length;
-}
-
 function getRequestTimeout(deadlineTime) {
   const remaining = deadlineTime - Date.now() - 100;
 
@@ -576,7 +722,7 @@ function getRequestTimeout(deadlineTime) {
 function normalizeRequestError(err) {
   const msg = String(err?.message ?? err ?? "").toLowerCase();
 
-  if (msg.includes("timeout" ) || msg.includes("timed out")) {
+  if (msg.includes("timeout") || msg.includes("timed out")) {
     return "Timeout";
   }
 
@@ -585,6 +731,16 @@ function normalizeRequestError(err) {
   }
 
   return "Network";
+}
+
+function normalizeFatalError(err) {
+  const msg = String(err?.message ?? err ?? "").trim();
+
+  if (!msg) {
+    return "Unknown";
+  }
+
+  return msg.length > 40 ? `${msg.slice(0, 40)}…` : msg;
 }
 
 function buildSuccessResult(info, nowTime) {
@@ -619,7 +775,7 @@ function buildErrorResult(slot, remainDays, errorMsg) {
   };
 }
 
-function buildCard(result, ctx, nowTime) {
+function buildCard(result, isSmallWidget, nowTime) {
   const { name, error, errorMsg, used, totalBytes } = result;
 
   if (error) {
@@ -742,7 +898,7 @@ function buildCard(result, ctx, nowTime) {
               { type: "spacer" },
             ],
           },
-          ...(ctx.widgetFamily === "systemSmall"
+          ...(isSmallWidget
             ? []
             : [
                 {
@@ -851,9 +1007,9 @@ function getExpireState(expire, nowTime) {
   };
 }
 
-function safeBuildCard(result, ctx, nowTime) {
+function safeBuildCard(result, isSmallWidget, nowTime) {
   try {
-    return buildCard(result, ctx, nowTime);
+    return buildCard(result, isSmallWidget, nowTime);
   } catch (err) {
     return buildCard(
       {
@@ -861,7 +1017,7 @@ function safeBuildCard(result, ctx, nowTime) {
         error: true,
         errorMsg: "Render Error",
       },
-      ctx,
+      isSmallWidget,
       nowTime
     );
   }
@@ -933,6 +1089,7 @@ function parseUserInfo(header) {
   if (!header.trim()) return null;
 
   const info = {};
+  let hasInfo = false;
   REGEX_USERINFO.lastIndex = 0;
 
   let match;
@@ -944,10 +1101,11 @@ function parseUserInfo(header) {
 
     if (Number.isFinite(val) && val >= 0) {
       info[key] = val;
+      hasInfo = true;
     }
   }
 
-  return Object.keys(info).length ? info : null;
+  return hasInfo ? info : null;
 }
 
 function formatBytes(bytes) {
