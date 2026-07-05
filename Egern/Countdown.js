@@ -5,7 +5,7 @@
  * ✨ 主要功能：
  * • 尺寸适配：仅支持中号小组件。
  * • 节日计算：内置农历算法数组，支持计算法定节假日、民俗节日、国际节日和专属纪念日倒计时。
- * • 官方假期：法定分类优先使用 NateScarlet/holiday-cn 官方放假数据；缺失时拉取缺失的上一年与当前年数据，过期时刷新当前年数据，并在当前年数据就绪后尝试预取下一年数据；失败年份会按重试窗口延后再次请求。
+ * • 官方假期：法定分类优先使用 NateScarlet/holiday-cn 官方放假数据；缺失时拉取缺失的上一年与当前年数据，过期时刷新当前年数据；失败年份会按重试窗口延后再次请求。
  * • 时区基准：采用 UTC+8 固定时区进行日期、倒计时和每日刷新时间计算。
  * • 自定义配置：支持通过 Egern 环境变量设置最多 6 个专属纪念日。
  * • 排序与显示：支持按倒数天数及分类优先级排序，支持指定节日跨分类置顶。
@@ -169,7 +169,6 @@ const WIDGET_OFFICIAL_HTTP_TIMEOUT_MS = 1500;
 
 const OFFICIAL_REFRESH_INTERVAL_MS = 3 * DAY_MS;
 const OFFICIAL_FAILED_RETRY_INTERVAL_MS = DAY_MS;
-const OFFICIAL_OPTIONAL_FAILED_RETRY_INTERVAL_MS = 7 * DAY_MS;
 const OFFICIAL_BACKGROUND_REFRESH_LOCK_TTL_MS = 10 * 60 * 1000;
 
 const NOTIFY_PENDING_TTL_MS = 2 * 60 * 1000;
@@ -177,8 +176,15 @@ const NOTIFY_FAILED_RETRY_INTERVAL_MS = 10 * 60 * 1000;
 
 const DISPLAY_MAX_WIDTH = 45;
 const TOP_PINNED_DISPLAY_LIMIT = 2;
+
+const ISO_DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+const EXCLUSIVE_NAME_KEY_RE = /^EXCLUSIVE_NAME_\d+$/;
+const EXCLUSIVE_DATE_KEY_RE = /^EXCLUSIVE_DATE_\d+$/;
 const TEXT_TOKEN_RE = /[\d\/a-zA-Z.\-]+|./gu;
 const LINE_TRIM_RE = /^[，\s]+|[，\s]+$/g;
+const NAME_LIST_SEPARATOR_RE = /[、，,\/]+/;
+const ANNUAL_SLASH_DATE_RE = /^(\d{1,2})\/(\d{1,2})$/;
+const ONCE_SLASH_DATE_RE = /^(\d{4})\/(\d{1,2})\/(\d{1,2})$/;
 
 const LAYOUT_CONFIG = Object.freeze({
   fz: 13.5,
@@ -259,8 +265,6 @@ const DISPLAY_NAME_MAP = {
 };
 
 const displayName = name => DISPLAY_NAME_MAP[name] ?? name;
-
-const NAME_LIST_SEPARATOR_RE = /[、，,\/]+/;
 
 function splitNameList(value) {
   return String(value ?? "")
@@ -652,8 +656,8 @@ function truncateByCodePoint(value, maxLength) {
 }
 
 function getEnvValueMaxLength(key) {
-  if (/^EXCLUSIVE_NAME_\d+$/.test(key)) return MAX_EXCLUSIVE_NAME_LENGTH;
-  if (/^EXCLUSIVE_DATE_\d+$/.test(key)) return MAX_EXCLUSIVE_DATE_LENGTH;
+  if (EXCLUSIVE_NAME_KEY_RE.test(key)) return MAX_EXCLUSIVE_NAME_LENGTH;
+  if (EXCLUSIVE_DATE_KEY_RE.test(key)) return MAX_EXCLUSIVE_DATE_LENGTH;
   if (key === "PINNED_HOLIDAY") return MAX_PINNED_HOLIDAY_TOTAL_LENGTH;
   return MAX_ENV_TEXT_LENGTH;
 }
@@ -764,13 +768,7 @@ function normalizeCacheEnvValue(key, value) {
     return parseBoolValue(value, true) ? "1" : "0";
   }
 
-  const s = sanitizeEnvStringValue(key, value);
-
-  if (key === "PINNED_HOLIDAY") {
-    return splitNameList(s).join(",");
-  }
-
-  return s;
+  return sanitizeEnvStringValue(key, value);
 }
 
 function buildNormalizedEnv(env) {
@@ -847,31 +845,6 @@ function isValidPinnedItem(item) {
   );
 }
 
-function isValidStringArray(arr) {
-  return Array.isArray(arr) && arr.every(v => typeof v === "string");
-}
-
-function isValidDisplayCache(displayCache) {
-  if (!displayCache || typeof displayCache !== "object") {
-    return false;
-  }
-
-  if (displayCache.mode !== "medium") {
-    return false;
-  }
-
-  return CATEGORY_CONFIG.every(cfg => {
-    const item = displayCache[cfg.key];
-
-    return (
-      item &&
-      typeof item === "object" &&
-      typeof item.text === "string" &&
-      isValidStringArray(item.lines)
-    );
-  });
-}
-
 function isValidBaseCachedPayload(payload) {
   if (!payload || typeof payload !== "object") return false;
   if (!payload.result || typeof payload.result !== "object") return false;
@@ -893,10 +866,6 @@ function isValidBaseCachedPayload(payload) {
     return false;
   }
 
-  if (!isValidDisplayCache(payload.displayCache)) {
-    return false;
-  }
-
   return CATEGORY_CONFIG.every(cfg => {
     const arr = payload.result[cfg.key];
 
@@ -910,7 +879,7 @@ function isValidBaseCachedPayload(payload) {
 const OFFICIAL_HOLIDAY_STORAGE_VERSION = 2;
 
 function parseISODateParts(date) {
-  const match = String(date ?? "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const match = String(date ?? "").match(ISO_DATE_RE);
 
   if (!match) {
     return null;
@@ -944,9 +913,6 @@ const isoToYMD = iso => {
   const parts = parseISODateParts(iso);
   return parts ? YMD(parts.y, parts.m, parts.d) : null;
 };
-
-const ANNUAL_SLASH_DATE_RE = /^(\d{1,2})\/(\d{1,2})$/;
-const ONCE_SLASH_DATE_RE = /^(\d{4})\/(\d{1,2})\/(\d{1,2})$/;
 
 function parseSlashYMDParts(raw) {
   const match = String(raw ?? "").trim().match(ONCE_SLASH_DATE_RE);
@@ -987,7 +953,7 @@ function hashString(str) {
   return (h >>> 0).toString(36);
 }
 
-const DAILY_CACHE_SCHEMA_VERSION = 20;
+const DAILY_CACHE_SCHEMA_VERSION = 21;
 const DAILY_CACHE_VERSION_TEXT = `v${DAILY_CACHE_SCHEMA_VERSION}`;
 
 function warnLog(...args) {
@@ -1308,15 +1274,8 @@ function officialRequiredYears(currentYear) {
   return [currentYear - 1, currentYear];
 }
 
-function officialOptionalYears(currentYear) {
-  return [currentYear + 1];
-}
-
 function officialRequestYears(currentYear) {
-  return [
-    ...officialRequiredYears(currentYear),
-    ...officialOptionalYears(currentYear)
-  ];
+  return officialRequiredYears(currentYear);
 }
 
 function pruneOfficialYears(years, currentYear) {
@@ -1341,6 +1300,7 @@ function pruneOfficialYears(years, currentYear) {
 function pruneRetryAfterByYear(retryAfterByYear, currentYear) {
   const keep = new Set(officialRequestYears(currentYear).map(String));
   const pruned = {};
+  const now = Date.now();
 
   for (const [year, value] of Object.entries(retryAfterByYear || {})) {
     const time = Number(value);
@@ -1348,7 +1308,7 @@ function pruneRetryAfterByYear(retryAfterByYear, currentYear) {
     if (
       keep.has(year) &&
       Number.isFinite(time) &&
-      time > Date.now()
+      time > now
     ) {
       pruned[year] = time;
     }
@@ -1524,7 +1484,6 @@ async function loadOfficialHolidayDaily(
   }
 
   const requiredYears = officialRequiredYears(currentYear);
-  const optionalYears = officialOptionalYears(currentYear);
   const mergedYears = pruneOfficialYears(oldCache?.years || {}, currentYear);
 
   const retryAfterByYear = pruneRetryAfterByYear(
@@ -1551,11 +1510,6 @@ async function loadOfficialHolidayDaily(
     requiredYears
   ).map(Number);
 
-  const missingOptionalYears = getMissingOfficialYears(
-    mergedYears,
-    optionalYears
-  ).map(Number);
-
   const buildFetchCandidates = () => {
     if (missingRequiredYears.length > 0) {
       return missingRequiredYears;
@@ -1565,7 +1519,7 @@ async function loadOfficialHolidayDaily(
       return [currentYear];
     }
 
-    return missingOptionalYears.slice(0, 1);
+    return [];
   };
 
   const rawFetchCandidates = Array.isArray(forceYearsToFetch)
@@ -1615,11 +1569,7 @@ async function loadOfficialHolidayDaily(
       delete retryAfterByYear[key];
       successfulFetchYearSet.add(key);
     } else {
-      const retryMs = optionalYears.includes(year)
-        ? OFFICIAL_OPTIONAL_FAILED_RETRY_INTERVAL_MS
-        : OFFICIAL_FAILED_RETRY_INTERVAL_MS;
-
-      retryAfterByYear[key] = now + retryMs;
+      retryAfterByYear[key] = now + OFFICIAL_FAILED_RETRY_INTERVAL_MS;
 
       warnLog(
         "[Countdown] failed to fetch official holiday:",
@@ -1817,26 +1767,6 @@ function resolveOfficialRefreshPlan({
       yearsToFetch,
       shouldBlockRenderForOfficialRefresh:
         yearsToFetch.length > 0 && !hasCachedBaseData
-    };
-  }
-
-  const missingOptionalYears = uniqueFiniteNumbers(
-    getMissingOfficialYears(
-      years,
-      officialOptionalYears(currentYear)
-    )
-  ).slice(0, 1);
-
-  const optionalYearsToFetch = getOfficialFetchableYears(
-    officialHolidayCache,
-    missingOptionalYears,
-    now
-  );
-
-  if (optionalYearsToFetch.length > 0) {
-    return {
-      yearsToFetch: optionalYearsToFetch,
-      shouldBlockRenderForOfficialRefresh: false
     };
   }
 
@@ -2752,15 +2682,21 @@ function buildCountdownData({
       return String(a.name).localeCompare(String(b.name));
     });
 
-  const displayCache = buildDisplayCache(result, LAYOUT_CONFIG.maxW);
-
   return {
     result,
     todayNoticeText,
     pinnedData,
-    todayItems,
-    displayCache
+    todayItems
   };
+}
+
+function sameStringArray(a, b) {
+  return (
+    Array.isArray(a) &&
+    Array.isArray(b) &&
+    a.length === b.length &&
+    a.every((v, i) => v === b[i])
+  );
 }
 
 function notifyTodayIfNeeded(ctx, notifyKey, notifyDate, todayItems) {
@@ -2774,22 +2710,10 @@ function notifyTodayIfNeeded(ctx, notifyKey, notifyDate, todayItems) {
   }
 
   try {
-    const notifyItems = todayItems
-      .filter(i => i && i.diff === 0)
-      .sort((a, b) => {
-        const pa = a.priority ?? 0;
-        const pb = b.priority ?? 0;
-
-        if (pb !== pa) {
-          return pb - pa;
-        }
-
-        return (a.diff ?? 0) - (b.diff ?? 0);
-      });
-
     const notifyNames = [
       ...new Set(
-        notifyItems
+        todayItems
+          .filter(i => i && i.diff === 0)
           .map(i => i.name)
           .filter(Boolean)
       )
@@ -2798,12 +2722,6 @@ function notifyTodayIfNeeded(ctx, notifyKey, notifyDate, todayItems) {
     if (notifyNames.length === 0) {
       return;
     }
-
-    const sameStringArray = (a, b) =>
-      Array.isArray(a) &&
-      Array.isArray(b) &&
-      a.length === b.length &&
-      a.every((v, i) => v === b[i]);
 
     const now = Date.now();
     const currentNotifyState = ctx.storage.getJSON(notifyKey) || {};
@@ -2817,7 +2735,7 @@ function notifyTodayIfNeeded(ctx, notifyKey, notifyDate, todayItems) {
       const lastTime = Number(currentNotifyState.time) || 0;
       const retryAfter = Number(currentNotifyState.retryAfter) || 0;
 
-      if (!pending && !failed) {
+      if (failed && retryAfter > now) {
         return;
       }
 
@@ -2825,22 +2743,18 @@ function notifyTodayIfNeeded(ctx, notifyKey, notifyDate, todayItems) {
         return;
       }
 
-      if (failed && retryAfter > now) {
+      if (!pending && !failed) {
         return;
       }
     }
 
-    const markPending = () => {
-      ctx.storage.setJSON(notifyKey, {
-        date: notifyDate,
-        names: notifyNames,
-        time: Date.now(),
-        pending: true,
-        failed: false
+    try {
+      ctx.notify({
+        title: "✨ 今日提醒",
+        body: notifyNames.join("、"),
+        sound: true
       });
-    };
 
-    const markSuccess = () => {
       ctx.storage.setJSON(notifyKey, {
         date: notifyDate,
         names: notifyNames,
@@ -2848,9 +2762,7 @@ function notifyTodayIfNeeded(ctx, notifyKey, notifyDate, todayItems) {
         pending: false,
         failed: false
       });
-    };
-
-    const markFailed = e => {
+    } catch (e) {
       warnLog("[Countdown] notify failed:", e);
 
       try {
@@ -2865,20 +2777,6 @@ function notifyTodayIfNeeded(ctx, notifyKey, notifyDate, todayItems) {
         });
       } catch (_) {
       }
-    };
-
-    markPending();
-
-    try {
-      ctx.notify({
-        title: "✨ 今日提醒",
-        body: notifyNames.join("、"),
-        sound: true
-      });
-
-      markSuccess();
-    } catch (e) {
-      markFailed(e);
     }
   } catch (e) {
     warnLog("[Countdown] notify process failed:", e);
@@ -3076,20 +2974,15 @@ async function renderCountdownWidget(ctx = {}) {
     writeBaseDailyCache(envFingerprint, baseData);
   }
 
-  let {
+  const {
     result,
     todayNoticeText,
     pinnedData,
-    todayItems,
-    displayCache
+    todayItems
   } = baseData;
 
   const layoutConfig = LAYOUT_CONFIG;
-
-  if (!displayCache || !isValidDisplayCache(displayCache)) {
-    displayCache = buildDisplayCache(result, layoutConfig.maxW);
-  }
-
+  const displayCache = buildDisplayCache(result, layoutConfig.maxW);
   const stickyText = buildPinnedStickyText(pinnedData);
 
   notifyTodayIfNeeded(
