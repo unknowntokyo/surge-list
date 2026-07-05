@@ -23,6 +23,11 @@ function getNowMs() {
     : Date.now();
 }
 
+function getPolicy(value) {
+  const policy = typeof value === 'string' ? value.trim() : '';
+  return policy || DEFAULT_POLICY;
+}
+
 function getPacketBytes(value) {
   const mb = parseFloat(value);
   if (!Number.isFinite(mb) || mb <= 0) {
@@ -141,8 +146,9 @@ async function measureSpeed(ctx, url, policy) {
       return null;
     }
 
-    reader = response.body?.getReader();
+    reader = response.body?.getReader?.();
     if (!reader) {
+      await cancelResponseBody(response);
       return null;
     }
 
@@ -182,7 +188,7 @@ async function measureSpeed(ctx, url, policy) {
 }
 
 export default async function(ctx) {
-  const policy = ctx.env?.policy || DEFAULT_POLICY;
+  const policy = getPolicy(ctx.env?.policy);
   const packetBytes = getPacketBytes(ctx.env?.SPEED_TEST_PACKET);
   const speedTestUrl = `https://speed.cloudflare.com/__down?bytes=${packetBytes}`;
   const cacheKey = `netspeed_cache_${policy}`;
@@ -205,6 +211,17 @@ export default async function(ctx) {
   const { icon, color } = getSpeedStyle(speedData.mbps, failed);
   const barWidth = failed ? 80 : getBarWidth(speedData.mbps);
   const timeStr = failed ? '--:--' : formatTime(speedData.timestamp);
+
+  const mainText = failed
+    ? (isSmall ? '⚠️\n测速失败' : '⚠️ 测速失败')
+    : (isSmall ? `${speedData.mbps}\nMbps` : `${speedData.mbps} Mbps`);
+
+  const mainFontSize = failed
+    ? (isSmall ? 22 : 30)
+    : (isSmall ? 32 : 44);
+
+  const speedText = failed ? '⚠️ 测速失败' : `${speedData.mBs} MB/s`;
+  const durationText = failed ? '节点错误' : `${speedData.duration}s`;
 
   return {
     type: 'widget',
@@ -252,16 +269,10 @@ export default async function(ctx) {
           { type: 'spacer' },
           {
             type: 'text',
-            text: failed
-              ? isSmall
-                ? '⚠️\n测速失败'
-                : '⚠️ 测速失败'
-              : isSmall
-                ? `${speedData.mbps}\nMbps`
-                : `${speedData.mbps} Mbps`,
+            text: mainText,
             textAlign: 'center',
             font: {
-              size: failed ? (isSmall ? 22 : 30) : (isSmall ? 32 : 44),
+              size: mainFontSize,
               weight: 'bold'
             },
             textColor: color
@@ -290,14 +301,14 @@ export default async function(ctx) {
         children: [
           {
             type: 'text',
-            text: failed ? '⚠️ 测速失败' : `${speedData.mBs} MB/s`,
+            text: speedText,
             font: { size: isSmall ? 'caption2' : 'caption1' },
             textColor: { light: '#6B6B6B', dark: '#A1A1A6' }
           },
           { type: 'spacer' },
           {
             type: 'text',
-            text: failed ? '节点错误' : `${speedData.duration}s`,
+            text: durationText,
             font: { size: isSmall ? 'caption2' : 'caption1' },
             textColor: { light: '#6B6B6B', dark: '#A1A1A6' }
           }
