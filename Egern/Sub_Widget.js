@@ -2,7 +2,7 @@
  * 机场订阅流量监控小组件
  *
  * 📝 使用说明
- * 1️⃣ 添加环境变量（在 Egern 中进入小组件"编辑环境变量"）：
+ * 1️⃣ 环境变量说明：
  *
  *    NAME1 = 翻墙                     # 机场名称（自定义）
  *    URL1 = https://xxx.com/sub...   # 订阅地址（必填）
@@ -331,13 +331,9 @@ async function fetchRemoteInfo(
 ) {
   let lastErrorMsg = "Unknown";
   const strategyLimit = getStrategyLimit(activeSlotCount, hasStaleCache);
-  const requestPlans = STRATEGIES.slice(0, strategyLimit).map((strategy) => ({
-    url: buildUrl(url, strategy.flag),
-    headers: strategy.ua,
-  }));
 
-  for (let i = 0; i < requestPlans.length; i++) {
-    const requestPlan = requestPlans[i];
+  for (let i = 0; i < strategyLimit; i++) {
+    const strategy = STRATEGIES[i];
     const timeout = getRequestTimeout(deadlineTime);
 
     if (timeout <= 0) {
@@ -346,8 +342,8 @@ async function fetchRemoteInfo(
     }
 
     try {
-      const resp = await ctx.http.get(requestPlan.url, {
-        headers: requestPlan.headers,
+      const resp = await ctx.http.get(buildUrl(url, strategy.flag), {
+        headers: strategy.ua,
         timeout,
       });
 

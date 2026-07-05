@@ -11,9 +11,6 @@ const REQUEST_OPTIONS = {
   credentials: 'omit'
 };
 
-const HOT_KEYS = ['hot', 'hot_num', 'hot_value'];
-const TITLE_KEYS = ['title', 'word', 'name', 'keyword'];
-
 const rankColors = ['#FF3B30', '#FF9500', '#FFCC00'];
 
 const colors = {
@@ -102,29 +99,19 @@ function buildHotRows(hotList) {
 }
 
 function getHotText(item) {
-  return pickText(item, HOT_KEYS);
+  return toText(item.hot);
 }
 
 function getTitleText(item, rank) {
-  return pickText(item, TITLE_KEYS) || `热榜 ${rank}`;
+  return toText(item.title) || `热榜 ${rank}`;
 }
 
-function pickText(item, keys) {
-  for (let i = 0; i < keys.length; i++) {
-    const value = item[keys[i]];
-
-    if (value === null || value === undefined) {
-      continue;
-    }
-
-    const text = String(value).trim();
-
-    if (text) {
-      return text;
-    }
+function toText(value) {
+  if (value === null || value === undefined) {
+    return '';
   }
 
-  return '';
+  return String(value).trim();
 }
 
 function makeWidget(rows) {

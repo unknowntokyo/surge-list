@@ -2,7 +2,7 @@
  * 📌 桌面小组件: NetSpeed 小组件
  * 小组件环境变量：
  * 1、名称 policy，值为策略组名称，默认 DIRECT；
- * 2、下行测速数据量 SPEED_TEST_PACKET，默认 3MB
+ * 2、下行测速数据量 SPEED_TEST_PACKET，默认为 3MB
  */
 
 const MB = 1048576;
@@ -220,8 +220,91 @@ export default async function(ctx) {
     ? (isSmall ? 22 : 30)
     : (isSmall ? 32 : 44);
 
-  const speedText = failed ? '⚠️ 测速失败' : `${speedData.mBs} MB/s`;
-  const durationText = failed ? '节点错误' : `${speedData.duration}s`;
+  const children = [
+    {
+      type: 'stack',
+      direction: 'row',
+      alignItems: 'center',
+      children: [
+        {
+          type: 'image',
+          src: `sf-symbol:${icon}`,
+          width: isSmall ? 14 : 16,
+          height: isSmall ? 14 : 16,
+          color
+        },
+        {
+          type: 'text',
+          text: ' NetSpeed',
+          font: { size: isSmall ? 'caption2' : 'caption1', weight: 'semibold' },
+          textColor: color
+        },
+        { type: 'spacer' },
+        {
+          type: 'text',
+          text: `↻ ${timeStr}`,
+          font: { size: 'caption2' },
+          textColor: { light: '#8E8E93', dark: '#8E8E93' }
+        }
+      ]
+    },
+    {
+      type: 'stack',
+      direction: 'row',
+      alignItems: 'center',
+      children: [
+        { type: 'spacer' },
+        {
+          type: 'text',
+          text: mainText,
+          textAlign: 'center',
+          font: {
+            size: mainFontSize,
+            weight: 'bold'
+          },
+          textColor: color
+        },
+        { type: 'spacer' }
+      ]
+    },
+    {
+      type: 'stack',
+      direction: 'row',
+      children: [
+        { type: 'spacer' },
+        {
+          type: 'stack',
+          width: barWidth,
+          height: 4,
+          backgroundColor: color,
+          borderRadius: 2
+        },
+        { type: 'spacer' }
+      ]
+    }
+  ];
+
+  if (!failed) {
+    children.push({
+      type: 'stack',
+      direction: 'row',
+      children: [
+        {
+          type: 'text',
+          text: `${speedData.mBs} MB/s`,
+          font: { size: isSmall ? 'caption2' : 'caption1' },
+          textColor: { light: '#6B6B6B', dark: '#A1A1A6' }
+        },
+        { type: 'spacer' },
+        {
+          type: 'text',
+          text: `${speedData.duration}s`,
+          font: { size: isSmall ? 'caption2' : 'caption1' },
+          textColor: { light: '#6B6B6B', dark: '#A1A1A6' }
+        }
+      ]
+    });
+  }
 
   return {
     type: 'widget',
@@ -233,87 +316,6 @@ export default async function(ctx) {
       dark: '#2C2C2E'
     },
 
-    children: [
-      {
-        type: 'stack',
-        direction: 'row',
-        alignItems: 'center',
-        children: [
-          {
-            type: 'image',
-            src: `sf-symbol:${icon}`,
-            width: isSmall ? 14 : 16,
-            height: isSmall ? 14 : 16,
-            color
-          },
-          {
-            type: 'text',
-            text: ' NetSpeed',
-            font: { size: isSmall ? 'caption2' : 'caption1', weight: 'semibold' },
-            textColor: color
-          },
-          { type: 'spacer' },
-          {
-            type: 'text',
-            text: `↻ ${timeStr}`,
-            font: { size: 'caption2' },
-            textColor: { light: '#8E8E93', dark: '#8E8E93' }
-          }
-        ]
-      },
-      {
-        type: 'stack',
-        direction: 'row',
-        alignItems: 'center',
-        children: [
-          { type: 'spacer' },
-          {
-            type: 'text',
-            text: mainText,
-            textAlign: 'center',
-            font: {
-              size: mainFontSize,
-              weight: 'bold'
-            },
-            textColor: color
-          },
-          { type: 'spacer' }
-        ]
-      },
-      {
-        type: 'stack',
-        direction: 'row',
-        children: [
-          { type: 'spacer' },
-          {
-            type: 'stack',
-            width: barWidth,
-            height: 4,
-            backgroundColor: color,
-            borderRadius: 2
-          },
-          { type: 'spacer' }
-        ]
-      },
-      {
-        type: 'stack',
-        direction: 'row',
-        children: [
-          {
-            type: 'text',
-            text: speedText,
-            font: { size: isSmall ? 'caption2' : 'caption1' },
-            textColor: { light: '#6B6B6B', dark: '#A1A1A6' }
-          },
-          { type: 'spacer' },
-          {
-            type: 'text',
-            text: durationText,
-            font: { size: isSmall ? 'caption2' : 'caption1' },
-            textColor: { light: '#6B6B6B', dark: '#A1A1A6' }
-          }
-        ]
-      }
-    ]
+    children
   };
 }
