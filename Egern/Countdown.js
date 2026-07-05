@@ -145,6 +145,8 @@ const CATEGORY_CONFIG = [
   { key: "exclusive", label: "专属", icon: "gift.fill", color: C.teal }
 ];
 
+const CATEGORY_KEYS = CATEGORY_CONFIG.map(cfg => cfg.key);
+
 const basePriority = {
   legal: 3,
   folk: 2,
@@ -171,7 +173,6 @@ const OFFICIAL_REFRESH_INTERVAL_MS = 3 * DAY_MS;
 const OFFICIAL_FAILED_RETRY_INTERVAL_MS = DAY_MS;
 const OFFICIAL_BACKGROUND_REFRESH_LOCK_TTL_MS = 10 * 60 * 1000;
 
-const NOTIFY_PENDING_TTL_MS = 2 * 60 * 1000;
 const NOTIFY_FAILED_RETRY_INTERVAL_MS = 10 * 60 * 1000;
 
 const DISPLAY_MAX_WIDTH = 45;
@@ -372,6 +373,26 @@ function getMatchedHolidayNames(name, targetNameSet) {
   }
 
   return matched;
+}
+
+function dedupeHolidayItemsByToken(items) {
+  if (!Array.isArray(items) || items.length === 0) {
+    return [];
+  }
+
+  const usedTokenSet = new Set();
+  const output = [];
+
+  for (const item of items) {
+    if (!item || holidayNameMatchesTokenSet(item.name, usedTokenSet)) {
+      continue;
+    }
+
+    addHolidayNameTokens(usedTokenSet, item.name);
+    output.push(item);
+  }
+
+  return output;
 }
 
 const formatPeriodStr = (label, diff, duration = 1) => {
@@ -790,7 +811,7 @@ function buildEnvFingerprintFromNormalized(
     .join("|");
 }
 
-const VALID_CATEGORY_KEYS = new Set(CATEGORY_CONFIG.map(cfg => cfg.key));
+const VALID_CATEGORY_KEYS = new Set(CATEGORY_KEYS);
 
 function isValidCountdownItem(item) {
   if (!item || typeof item !== "object") return false;
@@ -953,7 +974,7 @@ function hashString(str) {
   return (h >>> 0).toString(36);
 }
 
-const DAILY_CACHE_SCHEMA_VERSION = 21;
+const DAILY_CACHE_SCHEMA_VERSION = 22;
 const DAILY_CACHE_VERSION_TEXT = `v${DAILY_CACHE_SCHEMA_VERSION}`;
 
 function warnLog(...args) {
@@ -1028,27 +1049,41 @@ function uniqueFiniteNumbers(arr) {
     .filter(Number.isFinite);
 }
 
-function buildOfficialHolidayRanges(days) {
-  const offDays = days
-    .filter(day =>
-      day &&
-      day.isOffDay === true &&
-      typeof day.name === "string" &&
-      day.name.trim() &&
-      isValidISODate(day.date)
-    )
-    .map(day => {
-      const ms = Number.isFinite(Number(day.ms))
-        ? Number(day.ms)
-        : isoToMs(day.date);
+function normalizeOfficialDay(day) {
+  if (
+    !day ||
+    typeof day !== "object" ||
+    typeof day.name !== "string" ||
+    typeof day.date !== "string" ||
+    typeof day.isOffDay !== "boolean"
+  ) {
+    return null;
+  }
 
-      return {
-        name: day.name.trim(),
-        date: day.date,
-        ms
-      };
-    })
-    .filter(day => Number.isFinite(day.ms))
+  const name = day.name.trim();
+
+  if (!name) {
+    return null;
+  }
+
+  const parts = parseISODateParts(day.date);
+
+  if (!parts) {
+    return null;
+  }
+
+  return {
+    name,
+    date: day.date,
+    isOffDay: day.isOffDay,
+    ms: Date.UTC(parts.y, parts.m - 1, parts.d)
+  };
+}
+
+function buildOfficialHolidayRanges(days) {
+  const offDays = (days || [])
+    .map(normalizeOfficialDay)
+    .filter(day => day && day.isOffDay === true)
     .sort((a, b) => a.ms - b.ms);
 
   const groups = [];
@@ -1064,7 +1099,11 @@ function buildOfficialHolidayRanges(days) {
       last.end = day.date;
       last.endMs = day.ms;
       last.duration += 1;
-    } else {
+    } else if (
+      !last ||
+      last.name !== day.name ||
+      last.endMs !== day.ms
+    ) {
       groups.push({
         name: day.name,
         start: day.date,
@@ -1101,45 +1140,15 @@ function normalizeHolidayCnYearData(data, year) {
   }
 
   const days = data.days
-    .filter(day =>
-      day &&
-      typeof day.name === "string" &&
-      day.name.trim() &&
-      typeof day.date === "string" &&
-      typeof day.isOffDay === "boolean" &&
-      isValidISODate(day.date)
-    )
-    .map(day => {
-      const name = day.name.trim();
-      const ms = isoToMs(day.date);
-
-      return {
-        name,
-        date: day.date,
-        isOffDay: day.isOffDay,
-        ms
-      };
-    })
-    .filter(day => Number.isFinite(day.ms))
+    .map(normalizeOfficialDay)
+    .filter(Boolean)
     .sort((a, b) => a.ms - b.ms);
 
   return { days };
 }
 
 function isValidOfficialDay(day) {
-  return (
-    day &&
-    typeof day === "object" &&
-    typeof day.name === "string" &&
-    day.name.trim() &&
-    typeof day.date === "string" &&
-    isValidISODate(day.date) &&
-    typeof day.isOffDay === "boolean" &&
-    (
-      day.ms === undefined ||
-      Number.isFinite(Number(day.ms))
-    )
-  );
+  return normalizeOfficialDay(day) !== null;
 }
 
 function isValidOfficialYearData(yearData) {
@@ -1153,22 +1162,17 @@ function isValidOfficialYearData(yearData) {
 }
 
 function normalizeCachedOfficialYearData(yearData) {
-  if (!isValidOfficialYearData(yearData)) {
+  if (
+    !yearData ||
+    typeof yearData !== "object" ||
+    !Array.isArray(yearData.days)
+  ) {
     return null;
   }
 
   const days = yearData.days
-    .map(day => {
-      const ms = isoToMs(day.date);
-
-      return {
-        name: day.name.trim(),
-        date: day.date,
-        isOffDay: day.isOffDay,
-        ms
-      };
-    })
-    .filter(day => Number.isFinite(day.ms))
+    .map(normalizeOfficialDay)
+    .filter(Boolean)
     .sort((a, b) => a.ms - b.ms);
 
   return days.length > 0 ? { days } : null;
@@ -1200,14 +1204,14 @@ function buildOfficialFingerprint(yearsData) {
   const parts = [];
 
   for (const year of Object.keys(yearsData).sort()) {
-    const yearData = yearsData[year];
+    const yearData = normalizeCachedOfficialYearData(yearsData[year]);
 
-    if (!isValidOfficialYearData(yearData)) continue;
+    if (!yearData) continue;
 
     parts.push(year);
 
     for (const day of yearData.days) {
-      parts.push(`${day.date}:${day.name.trim()}:${day.isOffDay ? 1 : 0}`);
+      parts.push(`${day.date}:${day.name}:${day.isOffDay ? 1 : 0}`);
     }
   }
 
@@ -1318,7 +1322,7 @@ function pruneRetryAfterByYear(retryAfterByYear, currentYear) {
 }
 
 function hasOfficialYearData(yearsData, year) {
-  return isValidOfficialYearData(yearsData?.[String(year)]);
+  return normalizeCachedOfficialYearData(yearsData?.[String(year)]) !== null;
 }
 
 function getMissingOfficialYears(yearsData, requestYears) {
@@ -2463,6 +2467,16 @@ function buildYearFestivals({
   };
 }
 
+function compareTodayItems(a, b) {
+  const pa = a.priority ?? 0;
+  const pb = b.priority ?? 0;
+
+  if (pb !== pa) return pb - pa;
+  if (b.diff !== a.diff) return b.diff - a.diff;
+
+  return String(a.name).localeCompare(String(b.name));
+}
+
 function buildCountdownData({
   normalizedEnv,
   officialHolidayCache,
@@ -2507,8 +2521,6 @@ function buildCountdownData({
     exclusive: new Map()
   };
 
-  const todayFests = [];
-  const todayFestTokenSet = new Set();
   const todayItemMap = new Map();
   const pinnedMap = new Map();
   const pinnedTokenSet = new Set();
@@ -2570,18 +2582,6 @@ function buildCountdownData({
     const priority = getPriority(name, cat, sourceKind);
 
     if (isInFestivalPeriod(diff, duration)) {
-      if (!holidayNameMatchesTokenSet(name, todayFestTokenSet)) {
-        addHolidayNameTokens(todayFestTokenSet, name);
-
-        todayFests.push({
-          name,
-          diff,
-          duration,
-          priority,
-          cat
-        });
-      }
-
       addTodayItem(name, diff, priority, cat, duration);
       return;
     }
@@ -2613,7 +2613,7 @@ function buildCountdownData({
       officialRanges
     });
 
-    for (const cat of Object.keys(rawResult)) {
+    for (const cat of CATEGORY_KEYS) {
       for (const [name, dateStr, duration = 1, sourceKind = ""] of f[cat]) {
         addFestival(cat, name, dateStr, duration, sourceKind);
       }
@@ -2632,9 +2632,19 @@ function buildCountdownData({
     );
   }
 
+  const todayItems = Array.from(todayItemMap.values())
+    .sort(compareTodayItems);
+
+  const displayTodayItems = dedupeHolidayItemsByToken(todayItems);
+  const todayFestTokenSet = new Set();
+
+  for (const item of displayTodayItems) {
+    addHolidayNameTokens(todayFestTokenSet, item.name);
+  }
+
   const result = {};
 
-  Object.keys(rawResult).forEach(cat => {
+  for (const cat of CATEGORY_KEYS) {
     result[cat] = Array.from(rawResult[cat].values())
       .filter(i =>
         !holidayNameMatchesTokenSet(i.name, pinnedTokenSet) &&
@@ -2645,22 +2655,10 @@ function buildCountdownData({
         return enablePrioritySort ? b.priority - a.priority : 0;
       })
       .slice(0, 7);
-  });
+  }
 
-  const sortedTodayFests = todayFests
-    .slice()
-    .sort((a, b) => {
-      const pa = a.priority ?? 0;
-      const pb = b.priority ?? 0;
-
-      if (pb !== pa) return pb - pa;
-      if (b.diff !== a.diff) return b.diff - a.diff;
-
-      return String(a.name).localeCompare(String(b.name));
-    });
-
-  const todayNoticeText = sortedTodayFests.length > 0
-    ? formatTodayFestGroup(sortedTodayFests)
+  const todayNoticeText = displayTodayItems.length > 0
+    ? formatTodayFestGroup(displayTodayItems)
     : "";
 
   const pinnedData = pinnedHolidays
@@ -2670,17 +2668,6 @@ function buildCountdownData({
       diff: pinnedMap.get(n)
     }))
     .sort((a, b) => a.diff - b.diff);
-
-  const todayItems = Array.from(todayItemMap.values())
-    .sort((a, b) => {
-      const pa = a.priority ?? 0;
-      const pb = b.priority ?? 0;
-
-      if (pb !== pa) return pb - pa;
-      if (b.diff !== a.diff) return b.diff - a.diff;
-
-      return String(a.name).localeCompare(String(b.name));
-    });
 
   return {
     result,
@@ -2730,20 +2717,14 @@ function notifyTodayIfNeeded(ctx, notifyKey, notifyDate, todayItems) {
       currentNotifyState.date === notifyDate &&
       sameStringArray(currentNotifyState.names, notifyNames)
     ) {
-      const pending = currentNotifyState.pending === true;
       const failed = currentNotifyState.failed === true;
-      const lastTime = Number(currentNotifyState.time) || 0;
       const retryAfter = Number(currentNotifyState.retryAfter) || 0;
 
       if (failed && retryAfter > now) {
         return;
       }
 
-      if (pending && now - lastTime < NOTIFY_PENDING_TTL_MS) {
-        return;
-      }
-
-      if (!pending && !failed) {
+      if (!failed) {
         return;
       }
     }
@@ -2759,7 +2740,6 @@ function notifyTodayIfNeeded(ctx, notifyKey, notifyDate, todayItems) {
         date: notifyDate,
         names: notifyNames,
         time: Date.now(),
-        pending: false,
         failed: false
       });
     } catch (e) {
@@ -2770,7 +2750,6 @@ function notifyTodayIfNeeded(ctx, notifyKey, notifyDate, todayItems) {
           date: notifyDate,
           names: notifyNames,
           time: Date.now(),
-          pending: false,
           failed: true,
           retryAfter: Date.now() + NOTIFY_FAILED_RETRY_INTERVAL_MS,
           error: String(e?.message || e || "notify failed").slice(0, 120)
