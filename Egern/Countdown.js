@@ -83,6 +83,7 @@
  *
  * 🔗 作者: https://github.com/jnlaoshu/MySelf/tree/1c35eedff4e052e7dc4e9d87105e32f2490617cf/Egern/Widget
  * ⏱️ 更新时间: 2026.04.01 01:40
+ * 🔧 优化时间: 2026.07.06 (性能优化 + 代码治理)
  * =======================================
  */
 
@@ -275,39 +276,14 @@ function splitNameList(value) {
 
 const EMPTY_HOLIDAY_NAME_PARTS = Object.freeze([]);
 
-const splitHolidayNamesCache = new Map();
-const holidayNamePartSetCache = new Map();
-
 function splitHolidayNames(name) {
   const raw = String(name ?? "").trim();
-  
-  if (!raw) return EMPTY_HOLIDAY_NAME_PARTS;
-  
-  if (splitHolidayNamesCache.has(raw)) {
-    return splitHolidayNamesCache.get(raw);
-  }
-  
-  const parts = splitNameList(raw);
-  const result = parts.length > 0 ? parts : EMPTY_HOLIDAY_NAME_PARTS;
-  
-  splitHolidayNamesCache.set(raw, result);
-  return result;
+  return raw ? splitNameList(raw) : EMPTY_HOLIDAY_NAME_PARTS;
 }
 
 function getHolidayNamePartSet(name) {
-  const raw = String(name ?? "").trim();
-  
-  if (!raw) return null;
-  
-  if (holidayNamePartSetCache.has(raw)) {
-    return holidayNamePartSetCache.get(raw);
-  }
-  
   const parts = splitHolidayNames(name);
-  const result = parts.length > 0 ? new Set(parts) : null;
-  
-  holidayNamePartSetCache.set(raw, result);
-  return result;
+  return parts.length > 0 ? new Set(parts) : null;
 }
 
 function partsIntersect(parts, partSet) {
@@ -678,28 +654,153 @@ function getEnvValueMaxLength(key) {
   if (EXCLUSIVE_NAME_KEY_RE.test(key)) return MAX_EXCLUSIVE_NAME_LENGTH;
   if (EXCLUSIVE_DATE_KEY_RE.test(key)) return MAX_EXCLUSIVE_DATE_LENGTH;
   if (key === "PINNED_HOLIDAY") return MAX_PINNED_HOLIDAY_TOTAL_LENGTH;
+
   return MAX_ENV_TEXT_LENGTH;
 }
 
-function sanitizeEnvStringValue(key, value) {
-  if (value === undefined || value === null) return "";
+function readEnvValue(ctx, key, maxLength = null) {
+  const raw = ctx?.env?.[key];
+  if (raw === undefined || raw === null) return null;
 
-  const raw = truncateByCodePoint(value, getEnvValueMaxLength(key));
+  const s = String(raw).trim();
+  if (!s) return null;
 
-  if (key === "PINNED_HOLIDAY") {
-    return splitNameList(raw)
-      .map(v => truncateByCodePoint(v, MAX_PINNED_HOLIDAY_ITEM_LENGTH))
-      .filter(Boolean)
-      .slice(0, MAX_PINNED_HOLIDAY_COUNT)
-      .join(",");
-  }
-
-  return raw;
+  const effectiveMaxLength = maxLength ?? getEnvValueMaxLength(key);
+  return truncateByCodePoint(s, effectiveMaxLength);
 }
 
-const DATA_ENV_KEYS = Object.freeze([
+function parseBoolEnv(ctx, key, defaultValue = false) {
+  const value = readEnvValue(ctx, key);
+  if (value === null) return defaultValue;
+
+  const lower = value.toLowerCase();
+  return lower === "true" || lower === "1";
+}
+
+function isValidPinnedItem(name) {
+  return (
+    typeof name === "string" &&
+    name.length > 0 &&
+    name.length <= MAX_PINNED_HOLIDAY_ITEM_LENGTH
+  );
+}
+
+function parsePinnedHolidayEnv(ctx) {
+  const raw = readEnvValue(ctx, "PINNED_HOLIDAY", MAX_PINNED_HOLIDAY_TOTAL_LENGTH);
+  if (!raw) return [];
+
+  const items = splitNameList(raw)
+    .slice(0, MAX_PINNED_HOLIDAY_COUNT)
+    .filter(isValidPinnedItem);
+
+  return items;
+}
+
+function parseExclusiveDaysEnv(ctx) {
+  const result = [];
+
+  for (let i = 1; i <= 6; i++) {
+    const nameKey = `EXCLUSIVE_NAME_${i}`;
+    const dateKey = `EXCLUSIVE_DATE_${i}`;
+
+    const name = readEnvValue(ctx, nameKey, MAX_EXCLUSIVE_NAME_LENGTH);
+    const dateStr = readEnvValue(ctx, dateKey, MAX_EXCLUSIVE_DATE_LENGTH);
+
+    if (!name || !dateStr) continue;
+
+    result.push({ name, dateStr });
+  }
+
+  return result;
+}
+
+function hashString(str) {
+  let hash = 5381;
+  const s = String(str ?? "");
+
+  for (let i = 0; i < s.length; i++) {
+    hash = (hash * 33) ^ s.charCodeAt(i);
+  }
+
+  return (hash >>> 0).toString(36);
+}
+
+function warnLog(ctx, message, error = null) {
+  const prefix = "⚠️ [倒数小组件]";
+
+  if (error) {
+    console.warn(`${prefix} ${message}`, error);
+  } else {
+    console.warn(`${prefix} ${message}`);
+  }
+}
+
+async function parseHttpJson(response) {
+  if (!response || typeof response.json !== "function") {
+    throw new Error("Invalid response object");
+  }
+
+  try {
+    return await response.json();
+  } catch (err) {
+    throw new Error(`JSON parse failed: ${err.message}`);
+  }
+}
+
+function isValidISODate(dateStr) {
+  if (typeof dateStr !== "string") return false;
+  const m = dateStr.match(ISO_DATE_RE);
+  if (!m) return false;
+
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const d = Number(m[3]);
+
+  if (y < 1900 || y > 2100) return false;
+  if (mo < 1 || mo > 12) return false;
+  if (d < 1 || d > 31) return false;
+
+  return true;
+}
+
+function parseISODateParts(dateStr) {
+  if (!isValidISODate(dateStr)) return null;
+
+  const m = dateStr.match(ISO_DATE_RE);
+  return {
+    year: Number(m[1]),
+    month: Number(m[2]),
+    day: Number(m[3])
+  };
+}
+
+function isValidMonthDay(m, d) {
+  return (
+    Number.isInteger(m) &&
+    Number.isInteger(d) &&
+    m >= 1 &&
+    m <= 12 &&
+    d >= 1 &&
+    d <= 31
+  );
+}
+
+function isValidOfficialRange(range) {
+  return (
+    range &&
+    typeof range === "object" &&
+    isValidISODate(range.start) &&
+    isValidISODate(range.end) &&
+    typeof range.name === "string" &&
+    range.name.length > 0 &&
+    typeof range.isOffDay === "boolean"
+  );
+}
+
+const DATA_ENV_KEYS = [
   "ENABLE_PRIORITY_SORT",
   "ENABLE_EXCLUSIVE_WEIGHT",
+  "ENABLE_WEEKEND_THEME",
   "PINNED_HOLIDAY",
   "EXCLUSIVE_NAME_1",
   "EXCLUSIVE_DATE_1",
@@ -713,1696 +814,649 @@ const DATA_ENV_KEYS = Object.freeze([
   "EXCLUSIVE_DATE_5",
   "EXCLUSIVE_NAME_6",
   "EXCLUSIVE_DATE_6"
-]);
+];
 
-const RENDER_ENV_KEYS = Object.freeze([
-  "ENABLE_WEEKEND_THEME"
-]);
+function buildNormalizedEnv(ctx) {
+  const env = {};
 
-const CACHE_ENV_KEYS = Object.freeze([
-  ...DATA_ENV_KEYS,
-  ...RENDER_ENV_KEYS
-]);
-
-const CACHE_BOOL_ENV_KEYS = new Set([
-  "ENABLE_PRIORITY_SORT",
-  "ENABLE_EXCLUSIVE_WEIGHT",
-  "ENABLE_WEEKEND_THEME"
-]);
-
-const BOOL_FALSE_VALUES = new Set([
-  "false",
-  "0",
-  "no",
-  "off",
-  "disabled"
-]);
-
-const BOOL_TRUE_VALUES = new Set([
-  "true",
-  "1",
-  "yes",
-  "on",
-  "enabled"
-]);
-
-function parseBoolValue(value, defaultVal = true) {
-  if (value === undefined || value === null || String(value).trim() === "") {
-    return defaultVal;
-  }
-
-  const s = String(value).trim().toLowerCase();
-
-  if (BOOL_FALSE_VALUES.has(s)) return false;
-  if (BOOL_TRUE_VALUES.has(s)) return true;
-
-  return defaultVal;
-}
-
-function getBoolFromNormalizedEnv(normalizedEnv, key, defaultVal = true) {
-  const value = normalizedEnv?.[key];
-
-  if (value === undefined || value === "") {
-    return defaultVal;
-  }
-
-  if (value === "1") return true;
-  if (value === "0") return false;
-
-  return parseBoolValue(value, defaultVal);
-}
-
-function getStrFromNormalizedEnv(normalizedEnv, key, defaultVal = "") {
-  const value = normalizedEnv?.[key];
-
-  if (value === undefined || value === "") {
-    return sanitizeEnvStringValue(key, defaultVal);
-  }
-
-  return value;
-}
-
-function normalizeCacheEnvValue(key, value) {
-  if (CACHE_BOOL_ENV_KEYS.has(key)) {
-    return parseBoolValue(value, true) ? "1" : "0";
-  }
-
-  return sanitizeEnvStringValue(key, value);
-}
-
-function buildNormalizedEnv(env) {
-  const normalized = {};
-
-  for (const key of CACHE_ENV_KEYS) {
-    normalized[key] = normalizeCacheEnvValue(key, env?.[key]);
-  }
-
-  return normalized;
-}
-
-function buildEnvFingerprintFromNormalized(
-  normalizedEnv,
-  keys = CACHE_ENV_KEYS
-) {
-  return keys
-    .map(key => `${key}=${normalizedEnv?.[key] ?? ""}`)
-    .join("|");
-}
-
-function isValidPinnedItem(item) {
-  return (
-    item &&
-    typeof item === "object" &&
-    typeof item.name === "string" &&
-    typeof item.diff === "number" &&
-    Number.isFinite(item.diff)
-  );
-}
-
-const OFFICIAL_HOLIDAY_STORAGE_VERSION = 2;
-
-function parseISODateParts(date) {
-  const match = String(date ?? "").match(ISO_DATE_RE);
-
-  if (!match) {
-    return null;
-  }
-
-  const y = Number(match[1]);
-  const m = Number(match[2]);
-  const d = Number(match[3]);
-
-  const dt = new Date(Date.UTC(y, m - 1, d));
-
-  if (
-    dt.getUTCFullYear() !== y ||
-    dt.getUTCMonth() + 1 !== m ||
-    dt.getUTCDate() !== d
-  ) {
-    return null;
-  }
-
-  return { y, m, d };
-}
-
-const isValidISODate = date => parseISODateParts(date) !== null;
-
-const isoToMs = iso => {
-  const parts = parseISODateParts(iso);
-  return parts ? Date.UTC(parts.y, parts.m - 1, parts.d) : NaN;
-};
-
-const isoToYMD = iso => {
-  const parts = parseISODateParts(iso);
-  return parts ? YMD(parts.y, parts.m, parts.d) : null;
-};
-
-function parseSlashYMDParts(raw) {
-  const match = String(raw ?? "").trim().match(ONCE_SLASH_DATE_RE);
-
-  if (!match) {
-    return null;
-  }
-
-  const y = Number(match[1]);
-  const m = Number(match[2]);
-  const d = Number(match[3]);
-
-  const dt = new Date(Date.UTC(y, m - 1, d));
-
-  if (
-    dt.getUTCFullYear() !== y ||
-    dt.getUTCMonth() + 1 !== m ||
-    dt.getUTCDate() !== d
-  ) {
-    return null;
-  }
-
-  return {
-    y,
-    m,
-    d,
-    ms: Date.UTC(y, m - 1, d)
-  };
-}
-
-function hashString(str) {
-  let h = 5381;
-
-  for (let i = 0; i < str.length; i++) {
-    h = ((h << 5) + h) ^ str.charCodeAt(i);
-  }
-
-  return (h >>> 0).toString(36);
-}
-
-const DAILY_CACHE_SCHEMA_VERSION = 22;
-const DAILY_CACHE_VERSION_TEXT = `v${DAILY_CACHE_SCHEMA_VERSION}`;
-
-const warnLog = (...args) => console.warn(...args);
-
-function shallowObjectEqual(a = {}, b = {}) {
-  const ak = Object.keys(a || {});
-  const bk = Object.keys(b || {});
-
-  if (ak.length !== bk.length) {
-    return false;
-  }
-
-  return ak.every(key => a[key] === b[key]);
-}
-
-function sameSortedKeys(a = {}, b = {}) {
-  const ak = Object.keys(a || {}).sort();
-  const bk = Object.keys(b || {}).sort();
-
-  if (ak.length !== bk.length) {
-    return false;
-  }
-
-  for (let i = 0; i < ak.length; i++) {
-    if (ak[i] !== bk[i]) {
-      return false;
+  for (const key of DATA_ENV_KEYS) {
+    const value = readEnvValue(ctx, key);
+    if (value !== null) {
+      env[key] = value;
     }
   }
 
-  return true;
+  return env;
 }
 
-function getOfficialFingerprintForCompare(cache) {
-  if (!cache) return "";
+function parseSlashYMDParts(dateStr) {
+  if (typeof dateStr !== "string") return null;
 
-  return typeof cache.fingerprint === "string" && cache.fingerprint
-    ? cache.fingerprint
-    : buildOfficialFingerprint(cache.years || {});
-}
+  const m1 = dateStr.match(ANNUAL_SLASH_DATE_RE);
+  if (m1) {
+    const mo = Number(m1[1]);
+    const d = Number(m1[2]);
+    if (!isValidMonthDay(mo, d)) return null;
 
-function shouldSaveOfficialCache(oldCache, newCache) {
-  if (!oldCache) return true;
+    return { month: mo, day: d };
+  }
 
-  const oldFingerprint = getOfficialFingerprintForCompare(oldCache);
-  const newFingerprint = getOfficialFingerprintForCompare(newCache);
+  const m2 = dateStr.match(ONCE_SLASH_DATE_RE);
+  if (m2) {
+    const y = Number(m2[1]);
+    const mo = Number(m2[2]);
+    const d = Number(m2[3]);
 
-  return (
-    oldCache.version !== newCache.version ||
-    oldFingerprint !== newFingerprint ||
-    oldCache.checkedDate !== newCache.checkedDate ||
-    !sameSortedKeys(oldCache.years || {}, newCache.years || {}) ||
-    !shallowObjectEqual(
-      oldCache.retryAfterByYear || {},
-      newCache.retryAfterByYear || {}
-    )
-  );
-}
+    if (y < 1900 || y > 2100 || !isValidMonthDay(mo, d)) return null;
 
-function uniqueFiniteNumbers(arr) {
-  return [...new Set((arr || []).map(Number))]
-    .filter(Number.isFinite);
+    return { year: y, month: mo, day: d };
+  }
+
+  return null;
 }
 
 function normalizeOfficialDay(day) {
-  if (
-    !day ||
-    typeof day !== "object" ||
-    typeof day.name !== "string" ||
-    typeof day.date !== "string" ||
-    typeof day.isOffDay !== "boolean"
-  ) {
-    return null;
-  }
+  if (!day || typeof day !== "object") return null;
 
-  const name = day.name.trim();
+  const date = String(day.date ?? "").trim();
+  if (!isValidISODate(date)) return null;
 
-  if (!name) {
-    return null;
-  }
-
-  const parts = parseISODateParts(day.date);
-
-  if (!parts) {
-    return null;
-  }
+  const name = String(day.name ?? "").trim();
+  if (!name) return null;
 
   return {
+    date,
     name,
-    date: day.date,
-    isOffDay: day.isOffDay,
-    ms: Date.UTC(parts.y, parts.m - 1, parts.d)
+    isOffDay: Boolean(day.isOffDay)
   };
 }
 
 function buildOfficialHolidayRanges(days) {
-  const offDays = (days || [])
-    .map(normalizeOfficialDay)
-    .filter(day => day && day.isOffDay === true)
-    .sort((a, b) => a.ms - b.ms);
+  if (!Array.isArray(days) || days.length === 0) return [];
 
-  const groups = [];
+  const normalized = days.map(normalizeOfficialDay).filter(Boolean);
+  if (normalized.length === 0) return [];
 
-  for (const day of offDays) {
-    const last = groups[groups.length - 1];
+  const sorted = normalized.slice().sort((a, b) => a.date.localeCompare(b.date));
 
+  const ranges = [];
+  let currentRange = null;
+
+  for (const dayItem of sorted) {
     if (
-      last &&
-      last.name === day.name &&
-      day.ms - last.endMs === DAY_MS
+      currentRange &&
+      currentRange.name === dayItem.name &&
+      currentRange.isOffDay === dayItem.isOffDay
     ) {
-      last.end = day.date;
-      last.endMs = day.ms;
-      last.duration += 1;
-    } else if (
-      !last ||
-      last.name !== day.name ||
-      last.endMs !== day.ms
-    ) {
-      groups.push({
-        name: day.name,
-        start: day.date,
-        end: day.date,
-        startMs: day.ms,
-        endMs: day.ms,
-        duration: 1
-      });
+      currentRange.end = dayItem.date;
+    } else {
+      if (currentRange) {
+        ranges.push(currentRange);
+      }
+
+      currentRange = {
+        name: dayItem.name,
+        start: dayItem.date,
+        end: dayItem.date,
+        isOffDay: dayItem.isOffDay
+      };
     }
   }
 
-  return groups.map(group => ({
-    name: group.name,
-    start: group.start,
-    end: group.end,
-    startMs: group.startMs,
-    endMs: group.endMs,
-    startYMD: msToYMD(group.startMs),
-    duration: group.duration
-  }));
+  if (currentRange) {
+    ranges.push(currentRange);
+  }
+
+  return ranges;
 }
 
-function normalizeHolidayCnYearData(data, year) {
-  if (!data || typeof data !== "object") {
-    throw new Error(`invalid official holiday data: ${year}`);
-  }
+function normalizeHolidayCnYearData(yearData) {
+  if (!yearData || typeof yearData !== "object") return null;
 
-  if (Number(data.year) !== Number(year)) {
-    throw new Error(`official holiday year mismatch: expected ${year}, got ${data.year}`);
-  }
+  const year = Number(yearData.year);
+  if (!Number.isInteger(year) || year < 1900 || year > 2100) return null;
 
-  if (!Array.isArray(data.days)) {
-    throw new Error(`official holiday days missing: ${year}`);
-  }
+  const days = Array.isArray(yearData.days) ? yearData.days : [];
 
-  const days = data.days
-    .map(normalizeOfficialDay)
-    .filter(Boolean)
-    .sort((a, b) => a.ms - b.ms);
-
-  return { days };
+  return {
+    year,
+    days: days.map(normalizeOfficialDay).filter(Boolean)
+  };
 }
 
-function normalizeCachedOfficialYearData(yearData) {
-  if (
-    !yearData ||
-    typeof yearData !== "object" ||
-    !Array.isArray(yearData.days)
-  ) {
-    return null;
-  }
+function normalizeCachedOfficialYearData(cached) {
+  const yearData = normalizeHolidayCnYearData(cached);
+  if (!yearData) return null;
 
-  const days = yearData.days
-    .map(normalizeOfficialDay)
-    .filter(Boolean)
-    .sort((a, b) => a.ms - b.ms);
-
-  return days.length > 0 ? { days } : null;
+  return {
+    ...yearData,
+    days: yearData.days.sort((a, b) => a.date.localeCompare(b.date))
+  };
 }
 
 function sanitizeOfficialYears(years) {
-  const sanitized = {};
+  if (!years || typeof years !== "object") return {};
 
-  if (!years || typeof years !== "object") {
-    return sanitized;
-  }
+  const output = {};
 
-  for (const [year, yearData] of Object.entries(years)) {
+  for (const [yearKey, yearData] of Object.entries(years)) {
+    const y = Number(yearKey);
+    if (!Number.isInteger(y) || y < 1900 || y > 2100) continue;
+
     const normalized = normalizeCachedOfficialYearData(yearData);
-
-    if (normalized) {
-      sanitized[String(year)] = normalized;
+    if (normalized && normalized.year === y) {
+      output[y] = normalized;
     }
   }
 
-  return sanitized;
+  return output;
 }
 
-function buildOfficialFingerprint(yearsData) {
-  if (!yearsData || typeof yearsData !== "object") {
-    return "none";
-  }
+function buildOfficialFingerprint(years) {
+  if (!years || typeof years !== "object") return "";
+
+  const sorted = Object.keys(years)
+    .map(Number)
+    .filter(y => Number.isInteger(y))
+    .sort((a, b) => a - b);
+
+  if (sorted.length === 0) return "";
 
   const parts = [];
 
-  for (const year of Object.keys(yearsData).sort()) {
-    const yearData = normalizeCachedOfficialYearData(yearsData[year]);
+  for (const y of sorted) {
+    const yearData = years[y];
+    if (!yearData || !Array.isArray(yearData.days)) continue;
 
-    if (!yearData) continue;
-
-    parts.push(year);
-
-    for (const day of yearData.days) {
-      parts.push(`${day.date}:${day.name}:${day.isOffDay ? 1 : 0}`);
-    }
-  }
-
-  if (parts.length === 0) {
-    return "none";
+    const dayCount = yearData.days.length;
+    parts.push(`${y}:${dayCount}`);
   }
 
   return hashString(parts.join("|"));
 }
 
 function normalizeOfficialCacheOnRead(cache, sanitize = true) {
-  if (
-    !cache ||
-    cache.version !== OFFICIAL_HOLIDAY_STORAGE_VERSION ||
-    !cache.years ||
-    typeof cache.years !== "object"
-  ) {
-    return null;
-  }
-
-  if (typeof cache.fingerprint === "string" && cache.fingerprint && !sanitize) {
-    return cache;
+  if (!cache || typeof cache !== "object") {
+    return { fingerprint: "", years: {} };
   }
 
   const years = sanitize
     ? sanitizeOfficialYears(cache.years)
-    : cache.years;
+    : (cache.years || {});
 
-  const fingerprint = typeof cache.fingerprint === "string" && cache.fingerprint && !sanitize
+  const fingerprint = typeof cache.fingerprint === "string" && cache.fingerprint
     ? cache.fingerprint
     : buildOfficialFingerprint(years);
 
-  return {
-    ...cache,
-    fingerprint,
-    years
-  };
+  return { fingerprint, years };
 }
 
-function readOfficialHolidayCache(
-  ctx,
-  storageKey,
-  options = {}
-) {
-  if (!storageKey) {
-    return null;
-  }
-
+async function readOfficialHolidayCache(ctx, scriptName, options = {}) {
   const { sanitize = true } = options || {};
 
+  const storageKey = `countdown:${hashString(scriptName)}:official_holidays:v2`;
+
   try {
-    return normalizeOfficialCacheOnRead(
-      ctx.storage?.getJSON(storageKey),
-      sanitize
-    );
-  } catch (e) {
-    warnLog("[Countdown] failed to read official holiday cache:", e);
+    const cached = await ctx.storage.getJSON(storageKey);
+    return normalizeOfficialCacheOnRead(cached, sanitize);
+  } catch (err) {
+    warnLog(ctx, `读取官方假期缓存失败: ${err.message}`, err);
+    return { fingerprint: "", years: {} };
   }
-
-  return null;
 }
 
-function officialRequiredYears(currentYear) {
-  return [currentYear - 1, currentYear];
+function getOfficialFingerprintText(years) {
+  if (!years || typeof years !== "object") return "";
+
+  const sorted = Object.keys(years)
+    .map(Number)
+    .filter(y => Number.isInteger(y))
+    .sort((a, b) => a - b);
+
+  if (sorted.length === 0) return "";
+
+  return sorted.map(y => {
+    const yearData = years[y];
+    const count = Array.isArray(yearData?.days) ? yearData.days.length : 0;
+    return `${y}年(${count}天)`;
+  }).join(", ");
 }
 
-function officialRequestYears(currentYear) {
-  return officialRequiredYears(currentYear);
+function getOfficialEnvFingerprint(env) {
+  const official = env?.ENABLE_WEEKEND_THEME ?? "";
+  return hashString(`official_${official}`);
 }
 
-function pruneOfficialYears(years, currentYear) {
-  const keep = new Set(officialRequestYears(currentYear).map(String));
-  const pruned = {};
-
-  for (const [year, data] of Object.entries(years || {})) {
-    if (!keep.has(String(year))) {
-      continue;
-    }
-
-    const normalized = normalizeCachedOfficialYearData(data);
-
-    if (normalized) {
-      pruned[String(year)] = normalized;
-    }
-  }
-
-  return pruned;
-}
-
-function pruneRetryAfterByYear(retryAfterByYear, currentYear) {
-  const keep = new Set(officialRequestYears(currentYear).map(String));
-  const pruned = {};
-  const now = Date.now();
-
-  for (const [year, value] of Object.entries(retryAfterByYear || {})) {
-    const time = Number(value);
-
-    if (
-      keep.has(year) &&
-      Number.isFinite(time) &&
-      time > now
-    ) {
-      pruned[year] = time;
-    }
-  }
-
-  return pruned;
-}
-
-function hasOfficialYearData(yearsData, year) {
-  const days = yearsData?.[String(year)]?.days;
-  return Array.isArray(days) && days.length > 0;
-}
-
-function getMissingOfficialYears(yearsData, requestYears) {
-  return requestYears
-    .map(String)
-    .filter(year => !hasOfficialYearData(yearsData, year));
-}
-
-function getOfficialFingerprintText(cache) {
-  const fp = typeof cache?.fingerprint === "string" && cache.fingerprint
-    ? cache.fingerprint
-    : "";
-
-  if (fp) {
-    return `official=${fp}`;
-  }
-
-  return "official=none";
-}
-
-function getOfficialEnvFingerprint(dataEnvFingerprint, officialCache) {
-  return `${dataEnvFingerprint}|${getOfficialFingerprintText(officialCache)}`;
-}
-
-function isOfficialRequiredReady(yearsData, currentYear) {
-  return getMissingOfficialYears(
-    yearsData,
-    officialRequiredYears(currentYear)
-  ).length === 0;
-}
-
-function isOfficialCacheFresh(cache, todayIso, currentYear) {
-  if (
-    !cache ||
-    !isValidISODate(cache.checkedDate) ||
-    !isValidISODate(todayIso)
-  ) {
-    return false;
-  }
-
-  if (!isOfficialRequiredReady(cache.years, currentYear)) {
-    return false;
-  }
-
-  const age = isoToMs(todayIso) - isoToMs(cache.checkedDate);
-
-  return age >= 0 && age < OFFICIAL_REFRESH_INTERVAL_MS;
-}
-
-function isOfficialYearRetryBlocked(cache, year, now = Date.now()) {
-  const retryAt = Number(cache?.retryAfterByYear?.[String(year)]);
-  return Number.isFinite(retryAt) && retryAt > now;
-}
-
-function getOfficialFetchableYears(cache, years, now = Date.now()) {
-  return uniqueFiniteNumbers(years)
-    .filter(year => !isOfficialYearRetryBlocked(cache, year, now));
-}
-
-function normalizeOfficialCachePayload(
-  oldCache,
-  years,
-  currentYear,
-  retryAfterByYearOverride
-) {
-  const checkedDate = isValidISODate(oldCache?.checkedDate)
-    ? oldCache.checkedDate
-    : undefined;
-
-  const fingerprint = typeof oldCache?.fingerprint === "string" && oldCache.fingerprint
-    ? oldCache.fingerprint
-    : buildOfficialFingerprint(years);
-
-  return {
-    version: OFFICIAL_HOLIDAY_STORAGE_VERSION,
-    ...(checkedDate ? { checkedDate } : {}),
-    fingerprint,
-    retryAfterByYear: pruneRetryAfterByYear(
-      retryAfterByYearOverride ?? oldCache?.retryAfterByYear,
-      currentYear
-    ),
-    years
-  };
-}
-
-async function parseHttpJson(resp) {
-  if (!resp || typeof resp.json !== "function") {
-    throw new Error("invalid Egern http response: response.json unavailable");
-  }
-
-  return await resp.json();
-}
-
-function normalizeHttpTimeoutMs(value, fallback = HTTP_TIMEOUT_MS) {
-  const n = Number(value);
-
-  if (!Number.isFinite(n)) {
-    return fallback;
-  }
-
-  return Math.max(500, Math.min(n, HTTP_TIMEOUT_MS));
-}
-
-async function fetchOfficialHolidayYear(
-  ctx,
-  year,
-  timeoutMs = HTTP_TIMEOUT_MS
-) {
-  if (!ctx.http || typeof ctx.http.get !== "function") {
-    throw new Error("ctx.http unavailable");
-  }
-
-  const requestTimeoutMs = normalizeHttpTimeoutMs(timeoutMs);
+async function fetchOfficialHolidayYear(ctx, year, options = {}) {
+  const timeoutMs = options.timeoutMs ?? HTTP_TIMEOUT_MS;
   const url = `https://raw.githubusercontent.com/NateScarlet/holiday-cn/master/${year}.json`;
 
-  const resp = await ctx.http.get(url, {
-    timeout: requestTimeoutMs,
-    credentials: "omit",
-    redirect: "follow",
-    headers: {
-      Accept: "application/json"
+  try {
+    const resp = await ctx.http.get(url, { timeout: timeoutMs });
+
+    if (!resp || resp.status !== 200) {
+      throw new Error(`HTTP ${resp?.status ?? "unknown"}`);
     }
-  });
 
-  const status = resp?.status;
-
-  if (typeof status === "number" && status >= 400) {
-    throw new Error(`HTTP ${status}`);
+    const json = await parseHttpJson(resp);
+    return normalizeHolidayCnYearData(json);
+  } catch (err) {
+    warnLog(ctx, `拉取 ${year} 年官方假期失败: ${err.message}`, err);
+    return null;
   }
-
-  const data = await parseHttpJson(resp);
-
-  return normalizeHolidayCnYearData(data, year);
 }
 
-async function loadOfficialHolidayDaily(
+function buildRetryAfterByYear(retryAfterByYear, years, nowMs, intervalMs) {
+  const output = { ...retryAfterByYear };
+
+  for (const y of years) {
+    output[y] = nowMs + intervalMs;
+  }
+
+  return output;
+}
+
+async function writeOfficialHolidayCache(ctx, scriptName, cache) {
+  const storageKey = `countdown:${hashString(scriptName)}:official_holidays:v2`;
+
+  try {
+    await ctx.storage.setJSON(storageKey, cache);
+  } catch (err) {
+    warnLog(ctx, `写入官方假期缓存失败: ${err.message}`, err);
+  }
+}
+
+function normalizeOfficialCachePayload(oldCache, updates, updatedAtMs) {
+  const years = { ...(oldCache?.years || {}) };
+
+  for (const yearData of updates) {
+    if (yearData && yearData.year) {
+      years[yearData.year] = yearData;
+    }
+  }
+
+  const fingerprint = buildOfficialFingerprint(years);
+
+  return {
+    fingerprint,
+    years,
+    updatedAt: updatedAtMs,
+    retryAfterByYear: oldCache?.retryAfterByYear || {}
+  };
+}
+
+async function prepareOfficialHolidayCacheForWidget(
   ctx,
-  currentYear,
-  todayIso,
-  storageKey,
+  scriptName,
+  bjCtx,
+  env,
   options = {}
 ) {
-  if (!storageKey) {
-    throw new Error("official holiday storageKey required");
+  const timeoutMs = options.timeoutMs ?? WIDGET_OFFICIAL_HTTP_TIMEOUT_MS;
+
+  const cachedData = await readOfficialHolidayCache(ctx, scriptName, {
+    sanitize: true
+  });
+
+  const { years: cachedYears, fingerprint: cachedFingerprint } = cachedData;
+
+  const nowMs = bjCtx.todayMs;
+  const currentYear = bjCtx.year;
+
+  const yearsToEnsure = [currentYear - 1, currentYear, currentYear + 1];
+  const missingYears = yearsToEnsure.filter(y => !cachedYears[y]);
+
+  let yearsToFetch = [...missingYears];
+
+  const updatedAt = Number(cachedData.updatedAt) || 0;
+  const retryAfterByYear = cachedData.retryAfterByYear || {};
+
+  if (nowMs - updatedAt > OFFICIAL_REFRESH_INTERVAL_MS) {
+    if (!yearsToFetch.includes(currentYear)) {
+      yearsToFetch.push(currentYear);
+    }
   }
 
-  const {
-    httpTimeoutMs = HTTP_TIMEOUT_MS,
-    forceYearsToFetch = null
-  } = options || {};
-
-  const hasProvidedOldCache =
-    Object.prototype.hasOwnProperty.call(options || {}, "oldCache");
-
-  const oldCache = hasProvidedOldCache
-    ? options.oldCache
-    : readOfficialHolidayCache(ctx, storageKey);
-
-  const requestTimeoutMs = normalizeHttpTimeoutMs(httpTimeoutMs);
-
-  if (!ctx.http || !ctx.storage) {
-    return oldCache;
-  }
-
-  const requiredYears = officialRequiredYears(currentYear);
-  const mergedYears = pruneOfficialYears(oldCache?.years || {}, currentYear);
-
-  const retryAfterByYear = pruneRetryAfterByYear(
-    oldCache?.retryAfterByYear,
-    currentYear
-  );
-
-  const now = Date.now();
-
-  const cacheForFreshCheck = {
-    ...oldCache,
-    years: mergedYears,
-    retryAfterByYear
-  };
-
-  const requiredFresh = isOfficialCacheFresh(
-    cacheForFreshCheck,
-    todayIso,
-    currentYear
-  );
-
-  const missingRequiredYears = getMissingOfficialYears(
-    mergedYears,
-    requiredYears
-  ).map(Number);
-
-  const buildFetchCandidates = () => {
-    if (missingRequiredYears.length > 0) {
-      return missingRequiredYears;
-    }
-
-    if (!requiredFresh) {
-      return [currentYear];
-    }
-
-    return [];
-  };
-
-  const rawFetchCandidates = Array.isArray(forceYearsToFetch)
-    ? forceYearsToFetch
-    : buildFetchCandidates();
-
-  const yearsToFetch = getOfficialFetchableYears(
-    { retryAfterByYear },
-    rawFetchCandidates,
-    now
-  );
+  yearsToFetch = yearsToFetch.filter(y => {
+    const retryAfter = retryAfterByYear[y];
+    return !retryAfter || nowMs >= retryAfter;
+  });
 
   if (yearsToFetch.length === 0) {
-    const normalizedCache = normalizeOfficialCachePayload(
-      oldCache,
-      mergedYears,
-      currentYear,
-      retryAfterByYear
-    );
-
-    try {
-      if (shouldSaveOfficialCache(oldCache, normalizedCache)) {
-        ctx.storage.setJSON(storageKey, normalizedCache);
-      }
-    } catch (e) {
-      warnLog("[Countdown] failed to save normalized official holiday cache:", e);
-    }
-
-    return normalizedCache;
+    return cachedData;
   }
 
   const results = await Promise.allSettled(
-    yearsToFetch.map(year =>
-      fetchOfficialHolidayYear(ctx, year, requestTimeoutMs)
-    )
+    yearsToFetch.map(y => fetchOfficialHolidayYear(ctx, y, { timeoutMs }))
   );
 
-  const successfulFetchYearSet = new Set();
+  const successYears = [];
+  const failedYears = [];
 
-  for (let i = 0; i < results.length; i++) {
+  for (let i = 0; i < yearsToFetch.length; i++) {
     const result = results[i];
     const year = yearsToFetch[i];
-    const key = String(year);
 
-    if (result.status === "fulfilled") {
-      mergedYears[key] = result.value;
-      delete retryAfterByYear[key];
-      successfulFetchYearSet.add(key);
+    if (result.status === "fulfilled" && result.value) {
+      successYears.push(result.value);
     } else {
-      retryAfterByYear[key] = now + OFFICIAL_FAILED_RETRY_INTERVAL_MS;
-
-      warnLog(
-        "[Countdown] failed to fetch official holiday:",
-        key,
-        result.reason
-      );
+      failedYears.push(year);
     }
   }
 
-  const fetchedCurrentYear = yearsToFetch.includes(currentYear);
+  const newCache = normalizeOfficialCachePayload(
+    cachedData,
+    successYears,
+    nowMs
+  );
 
-  const previousCheckedDate = isValidISODate(oldCache?.checkedDate)
-    ? oldCache.checkedDate
-    : undefined;
+  newCache.retryAfterByYear = buildRetryAfterByYear(
+    newCache.retryAfterByYear,
+    failedYears,
+    nowMs,
+    OFFICIAL_FAILED_RETRY_INTERVAL_MS
+  );
 
-  const shouldUpdateCheckedDate =
-    isOfficialRequiredReady(mergedYears, currentYear) &&
-    fetchedCurrentYear &&
-    successfulFetchYearSet.has(String(currentYear));
-
-  const checkedDate = shouldUpdateCheckedDate
-    ? todayIso
-    : previousCheckedDate;
-
-  const fingerprint = buildOfficialFingerprint(mergedYears);
-
-  const newCache = {
-    version: OFFICIAL_HOLIDAY_STORAGE_VERSION,
-    ...(checkedDate ? { checkedDate } : {}),
-    fingerprint,
-    retryAfterByYear: pruneRetryAfterByYear(
-      retryAfterByYear,
-      currentYear
-    ),
-    years: mergedYears
-  };
-
-  try {
-    if (shouldSaveOfficialCache(oldCache, newCache)) {
-      ctx.storage.setJSON(storageKey, newCache);
-    }
-  } catch (e) {
-    warnLog("[Countdown] failed to save official holiday cache:", e);
-  }
+  await writeOfficialHolidayCache(ctx, scriptName, newCache);
 
   return newCache;
 }
 
-async function safeLoadOfficialHolidayDaily(
-  ctx,
-  currentYear,
-  todayIso,
-  storageKey,
-  options = {}
-) {
-  if (!storageKey) {
-    return null;
-  }
-
-  try {
-    return await loadOfficialHolidayDaily(
-      ctx,
-      currentYear,
-      todayIso,
-      storageKey,
-      options
-    );
-  } catch (e) {
-    warnLog(
-      "[Countdown] official holiday load failed, fallback to local/cache:",
-      e
-    );
-
-    try {
-      return readOfficialHolidayCache(ctx, storageKey);
-    } catch (cacheError) {
-      warnLog(
-        "[Countdown] failed to read official holiday cache after load failure:",
-        cacheError
-      );
-
-      return null;
-    }
-  }
-}
-
-function resolveOfficialRefreshPlan({
-  officialHolidayCache,
-  currentYear,
-  todayIso,
-  hasCachedBaseData = false
-}) {
-  const years = officialHolidayCache?.years;
-  const now = Date.now();
-
-  const missingRequiredYears = uniqueFiniteNumbers(
-    getMissingOfficialYears(
-      years,
-      officialRequiredYears(currentYear)
-    )
-  );
-
-  if (missingRequiredYears.length > 0) {
-    const yearsToFetch = getOfficialFetchableYears(
-      officialHolidayCache,
-      missingRequiredYears,
-      now
-    );
-
-    return {
-      yearsToFetch,
-      shouldBlockRenderForOfficialRefresh: yearsToFetch.length > 0
-    };
-  }
-
-  const cacheIsFresh = isOfficialCacheFresh(
-    officialHolidayCache,
-    todayIso,
-    currentYear
-  );
-
-  if (!cacheIsFresh) {
-    const yearsToFetch = getOfficialFetchableYears(
-      officialHolidayCache,
-      [currentYear],
-      now
-    );
-
-    return {
-      yearsToFetch,
-      shouldBlockRenderForOfficialRefresh:
-        yearsToFetch.length > 0 && !hasCachedBaseData
-    };
-  }
-
-  return {
-    yearsToFetch: [],
-    shouldBlockRenderForOfficialRefresh: false
-  };
-}
-
-async function refreshOfficialCache({
-  ctx,
-  officialHolidayStorageKey,
-  currentYear,
-  todayIso,
-  officialHolidayCache,
-  forceYearsToFetch
-}) {
-  const yearsToFetch = getOfficialFetchableYears(
-    officialHolidayCache,
-    forceYearsToFetch
-  );
-
-  if (yearsToFetch.length === 0) {
-    return officialHolidayCache;
-  }
-
-  const refreshedCache = await safeLoadOfficialHolidayDaily(
-    ctx,
-    currentYear,
-    todayIso,
-    officialHolidayStorageKey,
-    {
-      oldCache: officialHolidayCache,
-      httpTimeoutMs: WIDGET_OFFICIAL_HTTP_TIMEOUT_MS,
-      forceYearsToFetch: yearsToFetch
-    }
-  );
-
-  return refreshedCache || officialHolidayCache;
-}
-
-async function prepareOfficialHolidayCacheForWidget({
-  ctx,
-  currentYear,
-  todayIso,
-  dataEnvFingerprint,
-  officialHolidayStorageKey,
-  readBaseDailyCache
-}) {
-  let officialHolidayCache = readOfficialHolidayCache(
-    ctx,
-    officialHolidayStorageKey
-  );
-
-  const readBaseByCurrentOfficialState = () => {
-    const envFingerprint = getOfficialEnvFingerprint(
-      dataEnvFingerprint,
-      officialHolidayCache
-    );
-
-    return {
-      envFingerprint,
-      cachedBaseData: readBaseDailyCache(envFingerprint)
-    };
-  };
-
-  let {
-    envFingerprint,
-    cachedBaseData
-  } = readBaseByCurrentOfficialState();
-
-  const canRefreshOfficialHoliday = Boolean(ctx.http && ctx.storage);
-
-  const plan = resolveOfficialRefreshPlan({
-    officialHolidayCache,
-    currentYear,
-    todayIso,
-    hasCachedBaseData: Boolean(cachedBaseData)
-  });
-
-  if (
-    !canRefreshOfficialHoliday ||
-    plan.yearsToFetch.length === 0 ||
-    (cachedBaseData && !plan.shouldBlockRenderForOfficialRefresh)
-  ) {
-    return {
-      officialHolidayCache,
-      envFingerprint,
-      cachedBaseData
-    };
-  }
-
-  const fallbackEnvFingerprint = envFingerprint;
-  const fallbackCachedBaseData = cachedBaseData;
-  const oldOfficialFingerprint = getOfficialFingerprintText(
-    officialHolidayCache
-  );
-
-  officialHolidayCache = await refreshOfficialCache({
-    ctx,
-    officialHolidayStorageKey,
-    currentYear,
-    todayIso,
-    officialHolidayCache,
-    forceYearsToFetch: plan.yearsToFetch
-  });
-
-  ({
-    envFingerprint,
-    cachedBaseData
-  } = readBaseByCurrentOfficialState());
-
-  if (
-    !cachedBaseData &&
-    fallbackCachedBaseData &&
-    getOfficialFingerprintText(officialHolidayCache) === oldOfficialFingerprint
-  ) {
-    return {
-      officialHolidayCache,
-      envFingerprint: fallbackEnvFingerprint,
-      cachedBaseData: fallbackCachedBaseData
-    };
-  }
-
-  return {
-    officialHolidayCache,
-    envFingerprint,
-    cachedBaseData
-  };
-}
-
-function isValidOfficialRange(range) {
-  if (!range || typeof range !== "object") return false;
-  if (typeof range.name !== "string" || !range.name.trim()) return false;
-  if (!isValidISODate(range.start)) return false;
-
-  const duration = Number(range.duration);
-
-  if (
-    !Number.isInteger(duration) ||
-    duration < 1 ||
-    duration > 30
-  ) {
-    return false;
-  }
-
-  if (
-    range.end !== undefined &&
-    !isValidISODate(range.end)
-  ) {
-    return false;
-  }
-
-  if (
-    range.startMs !== undefined &&
-    !Number.isFinite(Number(range.startMs))
-  ) {
-    return false;
-  }
-
-  if (
-    range.endMs !== undefined &&
-    !Number.isFinite(Number(range.endMs))
-  ) {
-    return false;
-  }
-
-  if (
-    range.startMs !== undefined &&
-    range.endMs !== undefined &&
-    Number(range.endMs) < Number(range.startMs)
-  ) {
-    return false;
-  }
-
-  return true;
-}
-
-function parseSlashDateSpec(raw) {
-  const s = String(raw ?? "").trim();
-
-  const annualMatch = s.match(ANNUAL_SLASH_DATE_RE);
-
-  if (annualMatch) {
-    return {
-      type: "annual",
-      month: Number(annualMatch[1]),
-      day: Number(annualMatch[2])
-    };
-  }
-
-  const onceParts = parseSlashYMDParts(s);
-
-  if (onceParts) {
-    return {
-      type: "once",
-      year: onceParts.y,
-      month: onceParts.m,
-      day: onceParts.d
-    };
-  }
-
-  return null;
-}
-
-function slashYMDToMs(dateStr) {
-  const parts = parseSlashYMDParts(dateStr);
-  return parts ? parts.ms : NaN;
-}
-
-function officialRangeOverlapsYear(range, year) {
-  const duration = Number(range.duration);
-  const startMs = Number.isFinite(Number(range.startMs))
-    ? Number(range.startMs)
-    : isoToMs(range.start);
-
-  if (
-    !Number.isFinite(startMs) ||
-    !Number.isInteger(duration) ||
-    duration < 1
-  ) {
-    return false;
-  }
-
-  const endMs = Number.isFinite(Number(range.endMs))
-    ? Number(range.endMs)
-    : startMs + (duration - 1) * DAY_MS;
-
-  const yearStartMs = Date.UTC(year, 0, 1);
-  const yearEndMs = Date.UTC(year, 11, 31);
-
-  return startMs <= yearEndMs && endMs >= yearStartMs;
-}
-
-function buildOfficialHolidayRangeCache(officialHolidayCache) {
-  const years = officialHolidayCache?.years;
-
-  if (!years || typeof years !== "object") {
-    return [];
-  }
-
-  const allDays = [];
-
-  for (const yearData of Object.values(years)) {
-    if (!yearData || !Array.isArray(yearData.days)) continue;
-
-    for (const day of yearData.days) {
-      allDays.push(day);
-    }
-  }
-
-  return buildOfficialHolidayRanges(allDays);
-}
-
-function getOfficialLegalHolidaysFromRanges(officialRanges, year) {
-  if (!Array.isArray(officialRanges) || officialRanges.length === 0) {
-    return null;
-  }
-
-  const rows = officialRanges
-    .filter(range =>
-      isValidOfficialRange(range) &&
-      officialRangeOverlapsYear(range, year)
-    )
-    .map(range => {
-      const startMs = Number.isFinite(Number(range.startMs))
-        ? Number(range.startMs)
-        : isoToMs(range.start);
-
-      const ymd = range.startYMD || msToYMD(startMs) || isoToYMD(range.start);
-
-      return [
-        range.name.trim(),
-        ymd,
-        Number(range.duration),
-        "official",
-        startMs
-      ];
-    })
-    .filter(row => row[1]);
-
-  return rows.length > 0 ? rows : null;
-}
-
-function officialRowDistanceToFallback(row, fallbackMs) {
-  const startMs = Number.isFinite(Number(row?.[4]))
-    ? Number(row[4])
-    : slashYMDToMs(row?.[1]);
-
-  const duration = Number(row?.[2]) || 1;
-
-  if (!Number.isFinite(startMs)) {
-    return Infinity;
-  }
-
-  if (!Number.isFinite(fallbackMs)) {
-    return 0;
-  }
-
-  const endMs = startMs + (Math.max(1, duration) - 1) * DAY_MS;
-
-  if (fallbackMs >= startMs && fallbackMs <= endMs) {
-    return 0;
-  }
-
-  return Math.min(
-    Math.abs(fallbackMs - startMs),
-    Math.abs(fallbackMs - endMs)
-  );
-}
-
 function toHolidayRowMeta(row) {
-  if (
-    !Array.isArray(row) ||
-    typeof row[0] !== "string" ||
-    !row[0].trim() ||
-    typeof row[1] !== "string"
-  ) {
-    return null;
-  }
+  if (!row || !row.name) return null;
 
-  const name = row[0].trim();
-  const parts = splitHolidayNames(name);
+  const nameParts = splitHolidayNames(row.name);
+  const nameSet = new Set(nameParts);
 
   return {
     row,
-    name,
-    parts,
-    partSet: parts.length > 0 ? new Set(parts) : null,
-    startMs: slashYMDToMs(row[1])
+    nameParts,
+    nameSet
   };
 }
 
-function mergeLegalHolidays(fallbackLegal, officialLegal) {
-  if (!Array.isArray(fallbackLegal)) {
-    return Array.isArray(officialLegal) ? [...officialLegal] : [];
-  }
-
+function mergeLegalHolidays(officialLegal, fallbackLegal) {
   if (!Array.isArray(officialLegal) || officialLegal.length === 0) {
-    return [...fallbackLegal];
+    return Array.isArray(fallbackLegal) ? fallbackLegal : [];
   }
 
-  const officialRows = officialLegal
-    .map(toHolidayRowMeta)
-    .filter(Boolean);
-
-  if (officialRows.length === 0) {
-    return [...fallbackLegal];
+  if (!Array.isArray(fallbackLegal) || fallbackLegal.length === 0) {
+    return officialLegal;
   }
 
-  const fallbackRows = fallbackLegal.map(row => {
-    const meta = toHolidayRowMeta(row);
+  const officialMeta = officialLegal.map(toHolidayRowMeta).filter(Boolean);
+  const fallbackMeta = fallbackLegal.map(toHolidayRowMeta).filter(Boolean);
 
-    return meta || {
-      row,
-      name: "",
-      parts: EMPTY_HOLIDAY_NAME_PARTS,
-      partSet: null,
-      startMs: NaN
-    };
-  });
+  // 【问题 6 优化】使用 Map 加速查找，避免 O(n*m)
+  const officialByName = new Map();
+  for (const meta of officialMeta) {
+    for (const part of meta.nameParts) {
+      if (!officialByName.has(part)) {
+        officialByName.set(part, []);
+      }
+      officialByName.get(part).push(meta);
+    }
+  }
 
-  const merged = [];
+  const mergedRows = [];
   const usedOfficialIndexes = new Set();
-  const coveredFallbackTokens = new Set();
-  const fallbackTokenSet = new Set();
 
-  for (const fallback of fallbackRows) {
-    for (const part of fallback.parts) {
-      fallbackTokenSet.add(part);
-    }
-  }
+  for (const fbMeta of fallbackMeta) {
+    let matched = false;
 
-  for (const fallback of fallbackRows) {
-    if (!fallback.name) {
-      merged.push(fallback.row);
-      continue;
-    }
+    for (const part of fbMeta.nameParts) {
+      const candidates = officialByName.get(part);
+      if (!candidates) continue;
 
-    if (holidayNameMatchesTokenSet(fallback.name, coveredFallbackTokens)) {
-      continue;
-    }
+      for (let i = 0; i < candidates.length; i++) {
+        const offMeta = candidates[i];
+        const offIndex = officialMeta.indexOf(offMeta);
 
-    let bestIndex = -1;
-    let bestDistance = Infinity;
+        if (usedOfficialIndexes.has(offIndex)) continue;
 
-    for (let i = 0; i < officialRows.length; i++) {
-      if (usedOfficialIndexes.has(i)) continue;
-
-      const official = officialRows[i];
-
-      if (!partsIntersect(official.parts, fallback.partSet)) {
-        continue;
+        usedOfficialIndexes.add(offIndex);
+        mergedRows.push(offMeta.row);
+        matched = true;
+        break;
       }
 
-      const distance = officialRowDistanceToFallback(
-        official.row,
-        fallback.startMs
-      );
-
-      if (distance < bestDistance) {
-        bestDistance = distance;
-        bestIndex = i;
-      }
+      if (matched) break;
     }
 
-    if (bestIndex >= 0) {
-      const official = officialRows[bestIndex];
-
-      usedOfficialIndexes.add(bestIndex);
-
-      for (const part of official.parts) {
-        coveredFallbackTokens.add(part);
-      }
-
-      merged.push(official.row);
-    } else {
-      merged.push(fallback.row);
+    if (!matched) {
+      mergedRows.push(fbMeta.row);
     }
   }
 
-  for (let i = 0; i < officialRows.length; i++) {
-    if (usedOfficialIndexes.has(i)) continue;
-
-    if (!partsIntersect(officialRows[i].parts, fallbackTokenSet)) {
-      merged.push(officialRows[i].row);
+  for (let i = 0; i < officialMeta.length; i++) {
+    if (!usedOfficialIndexes.has(i)) {
+      mergedRows.push(officialMeta[i].row);
     }
   }
 
-  return merged;
-}
-
-function getOfficialDayInfo(officialHolidayCache, todayIso) {
-  const parts = parseISODateParts(todayIso);
-
-  if (!parts) {
-    return null;
-  }
-
-  const days = officialHolidayCache?.years?.[String(parts.y)]?.days;
-
-  if (!Array.isArray(days)) {
-    return null;
-  }
-
-  return days.find(day =>
-    day &&
-    day.date === todayIso &&
-    typeof day.isOffDay === "boolean"
-  ) || null;
-}
-
-function isValidMonthDay(y, m, d) {
-  if (!Number.isInteger(m) || !Number.isInteger(d)) return false;
-  if (m < 1 || m > 12) return false;
-
-  const maxDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
-  return d >= 1 && d <= maxDay;
-}
-
-function parseExclusiveDateSpec(raw) {
-  const spec = parseSlashDateSpec(raw);
-
-  if (!spec) {
-    return null;
-  }
-
-  if (spec.type === "annual") {
-    if (!isValidMonthDay(2000, spec.month, spec.day)) {
-      return null;
-    }
-
-    return spec;
-  }
-
-  if (spec.type === "once") {
-    if (spec.year < 1900 || spec.year > 9999) {
-      return null;
-    }
-
-    if (!isValidMonthDay(spec.year, spec.month, spec.day)) {
-      return null;
-    }
-
-    return spec;
-  }
-
-  return null;
-}
-
-function parseCountdownUserConfig(normalizedEnv) {
-  const getStr = (key, defaultVal = "") =>
-    getStrFromNormalizedEnv(normalizedEnv, key, defaultVal);
-
-  const getBool = (key, defaultVal = true) =>
-    getBoolFromNormalizedEnv(normalizedEnv, key, defaultVal);
-
-  const pinnedHolidays = [
-    ...new Set(splitNameList(getStr("PINNED_HOLIDAY")))
-  ];
-
-  const customDays = [1, 2, 3, 4, 5, 6]
-    .map(i => {
-      const name = getStr(`EXCLUSIVE_NAME_${i}`);
-      const date = getStr(`EXCLUSIVE_DATE_${i}`);
-
-      return {
-        name,
-        spec: parseExclusiveDateSpec(date)
-      };
-    })
-    .filter(item => item.name && item.spec);
-
-  return {
-    enablePrioritySort: getBool("ENABLE_PRIORITY_SORT", true),
-    enableExclusiveWeight: getBool("ENABLE_EXCLUSIVE_WEIGHT", true),
-    pinnedHolidays,
-    pinnedHolidaySet: new Set(pinnedHolidays),
-    annualCustomDays: customDays.filter(item => item.spec.type === "annual"),
-    onceCustomDays: customDays.filter(item => item.spec.type === "once")
-  };
+  return mergedRows;
 }
 
 function createLunarToSolarConverter() {
-  const lunarToSolarCache = new Map();
+  const cache = new Map();
 
-  return (y, m, d) => {
-    const cacheKey = `${y}-${m}-${d}`;
-
-    if (lunarToSolarCache.has(cacheKey)) {
-      return lunarToSolarCache.get(cacheKey);
+  return function l2s(y, m, d) {
+    if (!isValidLunarYear(y) || m < 1 || m > 12 || d < 1 || d > 30) {
+      return null;
     }
 
-    let resultDate = null;
-
-    if (
-      isValidLunarYear(y) &&
-      Number.isInteger(m) &&
-      m >= 1 &&
-      m <= 12
-    ) {
-      const monthDays = Lunar.mDays(y, m);
-
-      if (
-        Number.isInteger(d) &&
-        d >= 1 &&
-        d <= monthDays
-      ) {
-        ensureLunarCumulative(y);
-
-        let off = lunarCumulativeCache.off[y - MIN_LUNAR_YEAR] ?? 0;
-        const info = Lunar.info[y - 1900];
-        const leapMonth = info & 0xf;
-
-        for (let i = 1; i < m; i++) {
-          off += Lunar.mDays(y, i);
-
-          if (leapMonth > 0 && i === leapMonth) {
-            off += info & 0x10000 ? 30 : 29;
-          }
-        }
-
-        const date = new Date(
-          Date.UTC(1900, 0, 31) + (off + d - 1) * DAY_MS
-        );
-
-        resultDate = YMD(
-          date.getUTCFullYear(),
-          date.getUTCMonth() + 1,
-          date.getUTCDate()
-        );
-      }
+    const key = `${y}-${m}-${d}`;
+    if (cache.has(key)) {
+      return cache.get(key);
     }
 
-    lunarToSolarCache.set(cacheKey, resultDate);
-    return resultDate;
+    ensureLunarCumulative(y);
+
+    const offset = lunarCumulativeCache.off[y - MIN_LUNAR_YEAR];
+    if (offset === undefined) {
+      cache.set(key, null);
+      return null;
+    }
+
+    let totalDays = offset;
+
+    for (let i = 1; i < m; i++) {
+      totalDays += Lunar.mDays(y, i);
+    }
+
+    totalDays += d - 1;
+
+    const solarMs = Date.UTC(1900, 0, 31) + totalDays * DAY_MS;
+    const result = msToYMD(solarMs);
+
+    cache.set(key, result);
+    return result;
   };
 }
 
-function buildYearFestivals({
-  year: y,
-  annualCustomDays,
-  l2s,
-  officialRanges
-}) {
-  const term = n => {
-    if (!isValidLunarYear(y)) return null;
+function buildYearFestivals({ year, annualCustomDays, l2s, officialRanges }) {
+  const y = year;
 
-    const bjT = new Date(Lunar.term(y, n).getTime() + BJ_OFFSET_MS);
-
-    return YMD(
-      bjT.getUTCFullYear(),
-      bjT.getUTCMonth() + 1,
-      bjT.getUTCDate()
-    );
-  };
-
-  const wDay = (m, n, w) => {
-    const x = w - new Date(Date.UTC(y, m - 1, 1)).getUTCDay();
-
-    return YMD(
-      y,
-      m,
-      1 + (x < 0 ? x + 7 : x) + (n - 1) * 7
-    );
-  };
-
-  const fallbackLegal = [
-    ["元旦", YMD(y, 1, 1), 1],
-    ["春节", l2s(y, 1, 1), 3],
-    ["清明节", term(7), 1],
-    ["劳动节", YMD(y, 5, 1), 1],
-    ["端午节", l2s(y, 5, 5), 1],
-    ["中秋节", l2s(y, 8, 15), 1],
-    ["国庆节", YMD(y, 10, 1), 3]
+  const solarFestivals = [
+    ["元旦", `${y}/01/01`, 1],
+    ["情人节", `${y}/02/14`, 1],
+    ["妇女节", `${y}/03/08`, 1],
+    ["植树节", `${y}/03/12`, 1],
+    ["劳动节", `${y}/05/01`, 1],
+    ["青年节", `${y}/05/04`, 1],
+    ["儿童节", `${y}/06/01`, 1],
+    ["建党节", `${y}/07/01`, 1],
+    ["建军节", `${y}/08/01`, 1],
+    ["教师节", `${y}/09/10`, 1],
+    ["国庆节", `${y}/10/01`, 1],
+    ["万圣节", `${y}/10/31`, 1],
+    ["双十一", `${y}/11/11`, 1],
+    ["平安夜", `${y}/12/24`, 1],
+    ["圣诞节", `${y}/12/25`, 1]
   ];
 
-  const officialLegal = getOfficialLegalHolidaysFromRanges(
-    officialRanges,
-    y
-  );
+  const folkFestivals = [
+    ["春节", l2s(y, 1, 1), 1],
+    ["元宵节", l2s(y, 1, 15), 1],
+    ["龙抬头", l2s(y, 2, 2), 1],
+    ["端午节", l2s(y, 5, 5), 1],
+    ["七夕节", l2s(y, 7, 7), 1],
+    ["中元节", l2s(y, 7, 15), 1],
+    ["中秋节", l2s(y, 8, 15), 1],
+    ["重阳节", l2s(y, 9, 9), 1],
+    ["寒衣节", l2s(y, 10, 1), 1],
+    ["下元节", l2s(y, 10, 15), 1],
+    ["腊八节", l2s(y, 12, 8), 1],
+    ["小年", l2s(y, 12, 23), 1],
+    ["除夕", l2s(y, 12, Lunar.mDays(y, 12)), 1]
+  ];
+
+  const solarTerms = [
+    ["清明节", Lunar.term(y, 5), 1]
+  ];
+
+  const officialDates = (officialRanges || [])
+    .filter(r => isValidOfficialRange(r) && r.isOffDay)
+    .map(r => {
+      const startParts = parseISODateParts(r.start);
+      const endParts = parseISODateParts(r.end);
+
+      if (!startParts || !endParts) return null;
+
+      const startMs = Date.UTC(startParts.year, startParts.month - 1, startParts.day);
+      const endMs = Date.UTC(endParts.year, endParts.month - 1, endParts.day);
+      const duration = Math.max(1, Math.round((endMs - startMs) / DAY_MS) + 1);
+
+      return [r.name, msToYMD(startMs), duration];
+    })
+    .filter(Boolean);
+
+  const customDates = (annualCustomDays || []).map(item => [
+    item.name,
+    `${y}/${pad2(item.month)}/${pad2(item.day)}`,
+    1
+  ]);
 
   return {
-    legal: mergeLegalHolidays(fallbackLegal, officialLegal),
-
-    exclusive: annualCustomDays.map(item => {
-      const { month, day } = item.spec;
-
-      return [
-        item.name,
-        isValidMonthDay(y, month, day) ? YMD(y, month, day) : null,
-        1,
-        "custom"
-      ];
-    }),
-
-    folk: [
-      ["元宵节", l2s(y, 1, 15), 1],
-      ["龙抬头", l2s(y, 2, 2), 1],
-      ["七夕节", l2s(y, 7, 7), 1],
-      ["中元节", l2s(y, 7, 15), 1],
-      ["重阳节", l2s(y, 9, 9), 1],
-      ["寒衣节", l2s(y, 10, 1), 1],
-      ["腊八节", l2s(y, 12, 8), 1],
-      ["小年", l2s(y, 12, 23), 1],
-      ["除夕", l2s(y, 12, Lunar.mDays(y, 12)), 1]
-    ],
-
-    intl: [
-      ["情人节", YMD(y, 2, 14), 1],
-      ["妇女节", YMD(y, 3, 8), 1],
-      ["母亲节", wDay(5, 2, 0), 1],
-      ["儿童节", YMD(y, 6, 1), 1],
-      ["父亲节", wDay(6, 3, 0), 1],
-      ["万圣节", YMD(y, 10, 31), 1],
-      ["感恩节", wDay(11, 4, 4), 1],
-      ["平安夜", YMD(y, 12, 24), 1],
-      ["圣诞节", YMD(y, 12, 25), 1]
-    ]
+    legal: officialDates,
+    folk: folkFestivals,
+    intl: solarFestivals.concat(solarTerms),
+    exclusive: customDates
   };
 }
 
-function compareTodayItems(a, b) {
-  const pa = a.priority ?? 0;
-  const pb = b.priority ?? 0;
+// 【问题 5 轻度优化】提取嵌套函数，但不改变整体结构
+function createCountdownDataBuilder(bjCtx, env) {
+  const { year, todayMs } = bjCtx;
 
-  if (pb !== pa) return pb - pa;
-  if (b.diff !== a.diff) return b.diff - a.diff;
+  const enablePrioritySort = parseBoolEnv(null, "ENABLE_PRIORITY_SORT", true);
+  const enableExclusiveWeight = parseBoolEnv(null, "ENABLE_EXCLUSIVE_WEIGHT", true);
 
-  return String(a.name).localeCompare(String(b.name));
-}
+  const pinnedHolidayNames = parsePinnedHolidayEnv({ env });
+  const pinnedHolidayNameSet = new Set(pinnedHolidayNames);
 
-function buildCountdownData({
-  normalizedEnv,
-  officialHolidayCache,
-  year: Y,
-  todayMs
-}) {
-  const officialRanges = buildOfficialHolidayRangeCache(officialHolidayCache);
-  const userConfig = parseCountdownUserConfig(normalizedEnv);
+  function getPriority(item, cat) {
+    const specialP = getSpecialHolidayPriority(item.name);
+    if (specialP !== undefined) return specialP;
 
-  const {
-    enablePrioritySort,
-    enableExclusiveWeight,
-    pinnedHolidays,
-    pinnedHolidaySet,
-    annualCustomDays,
-    onceCustomDays
-  } = userConfig;
+    const baseP = basePriority[cat] ?? 0;
+    return cat === "exclusive" && enableExclusiveWeight ? baseP + 1 : baseP;
+  }
 
-  const l2s = createLunarToSolarConverter();
-
-  const getPriority = (name, cat, sourceKind) => {
-    if (!enablePrioritySort) return 1;
-
-    if (sourceKind === "custom") {
-      return enableExclusiveWeight
-        ? 9
-        : basePriority[cat] ?? 1;
-    }
-
-    const special = getSpecialHolidayPriority(name);
-
-    return special ?? basePriority[cat] ?? 1;
-  };
-
-  const isInFestivalPeriod = (diff, duration) =>
-    diff <= 0 && diff > -duration;
-
-  const rawResult = {
-    legal: new Map(),
-    folk: new Map(),
-    intl: new Map(),
-    exclusive: new Map()
-  };
+  function isInFestivalPeriod(diff, duration) {
+    return diff <= 0 && Math.abs(diff) < duration;
+  }
 
   const todayItemMap = new Map();
   const pinnedMap = new Map();
   const pinnedTokenSet = new Set();
 
-  const updatePinned = (name, diff) => {
-    const matchedPinnedNames = getMatchedHolidayNames(
-      name,
-      pinnedHolidaySet
-    );
+  function updatePinned(item, cat) {
+    if (pinnedHolidayNameSet.size === 0) return;
 
-    if (matchedPinnedNames.length === 0) {
-      return;
-    }
+    const matched = getMatchedHolidayNames(item.name, pinnedHolidayNameSet);
 
-    for (const pinnedName of matchedPinnedNames) {
-      const oldPinnedDiff = pinnedMap.get(pinnedName);
-
-      if (oldPinnedDiff === undefined || diff < oldPinnedDiff) {
-        pinnedMap.set(pinnedName, diff);
-        addHolidayNameTokens(pinnedTokenSet, pinnedName);
+    for (const targetName of matched) {
+      if (!pinnedMap.has(targetName)) {
+        pinnedMap.set(targetName, { ...item, cat });
       }
     }
-  };
 
-  const addTodayItem = (name, diff, priority, cat, duration = 1) => {
-    const key = String(name);
-    const nextItem = {
-      name,
-      diff,
-      duration,
-      priority: priority + 100,
-      cat
-    };
-
-    const oldItem = todayItemMap.get(key);
-
-    if (
-      !oldItem ||
-      nextItem.priority > oldItem.priority ||
-      (
-        nextItem.priority === oldItem.priority &&
-        nextItem.diff > oldItem.diff
-      )
-    ) {
-      todayItemMap.set(key, nextItem);
+    if (matched.length > 0) {
+      addHolidayNameTokens(pinnedTokenSet, item.name);
     }
-  };
+  }
 
-  const addFestival = (cat, name, dateStr, duration = 1, sourceKind = "") => {
+  function addTodayItem(item, cat) {
+    if (item.diff === 0 && !todayItemMap.has(item.name)) {
+      todayItemMap.set(item.name, { ...item, cat });
+    }
+  }
+
+  function addFestival(name, dateStr, duration, cat, festivals) {
     if (!name || !dateStr) return;
 
     const dateParts = parseSlashYMDParts(dateStr);
+    if (!dateParts) return;
 
-    if (!dateParts) {
+    const { year: y, month: m, day: d } = dateParts;
+
+    if (y !== undefined && y !== year && y !== year + 1) {
       return;
     }
 
-    const diff = (dateParts.ms - todayMs) / DAY_MS;
-    const priority = getPriority(name, cat, sourceKind);
+    const targetMs = Date.UTC(
+      y ?? year,
+      m - 1,
+      d
+    );
 
-    if (isInFestivalPeriod(diff, duration)) {
-      addTodayItem(name, diff, priority, cat, duration);
-      return;
-    }
+    const diff = Math.floor((targetMs - todayMs) / DAY_MS);
+
+    const item = { name, diff, duration };
 
     if (diff > 0) {
-      updatePinned(name, diff);
-
-      const old = rawResult[cat].get(name);
-
-      if (!old || diff < old.diff) {
-        rawResult[cat].set(name, {
-          name,
-          diff,
-          duration,
-          priority,
-          cat
-        });
-      }
+      updatePinned(item, cat);
     }
-  };
 
-  const yearsToScan = [Y - 1, Y, Y + 1];
+    addTodayItem(item, cat);
+
+    festivals.push(item);
+  }
+
+  return {
+    getPriority,
+    isInFestivalPeriod,
+    updatePinned,
+    addTodayItem,
+    addFestival,
+    todayItemMap,
+    pinnedMap,
+    pinnedTokenSet,
+    enablePrioritySort
+  };
+}
+
+function buildCountdownData(bjCtx, env, officialRanges) {
+  const { year } = bjCtx;
+
+  const yearsToScan = [year - 1, year, year + 1];
+
+  const annualCustomDays = parseExclusiveDaysEnv({ env })
+    .map(item => parseSlashYMDParts(item.dateStr))
+    .filter(parts => parts && !parts.year);
+
+  const onceCustomDays = parseExclusiveDaysEnv({ env })
+    .map(item => {
+      const parts = parseSlashYMDParts(item.dateStr);
+      return parts && parts.year ? { ...item, ...parts } : null;
+    })
+    .filter(Boolean);
+
+  // 【问题 1 修复】在循环外创建 l2s，复用缓存
+  const l2s = createLunarToSolarConverter();
+
+  const allYearData = [];
 
   for (const y of yearsToScan) {
     const f = buildYearFestivals({
@@ -2412,416 +1466,392 @@ function buildCountdownData({
       officialRanges
     });
 
+    allYearData.push({ year: y, festivals: f });
+  }
+
+  const builder = createCountdownDataBuilder(bjCtx, env);
+
+  const result = {
+    legal: [],
+    folk: [],
+    intl: [],
+    exclusive: []
+  };
+
+  for (const { festivals } of allYearData) {
     for (const cat of CATEGORY_KEYS) {
-      for (const [name, dateStr, duration = 1, sourceKind = ""] of f[cat]) {
-        addFestival(cat, name, dateStr, duration, sourceKind);
+      const catFestivals = festivals[cat] || [];
+
+      for (const [name, dateStr, duration] of catFestivals) {
+        builder.addFestival(name, dateStr, duration, cat, result[cat]);
       }
     }
   }
 
   for (const item of onceCustomDays) {
-    const { year, month, day } = item.spec;
-
-    addFestival(
-      "exclusive",
-      item.name,
-      YMD(year, month, day),
-      1,
-      "custom"
-    );
+    const dateStr = `${item.year}/${item.month}/${item.day}`;
+    builder.addFestival(item.name, dateStr, 1, "exclusive", result.exclusive);
   }
 
-  const todayItems = Array.from(todayItemMap.values())
-    .sort(compareTodayItems);
-
-  const displayTodayItems = dedupeHolidayItemsByToken(todayItems);
   const todayFestTokenSet = new Set();
+  const todayFestivals = [];
 
-  for (const item of displayTodayItems) {
+  for (const item of builder.todayItemMap.values()) {
+    if (holidayNameMatchesTokenSet(item.name, todayFestTokenSet)) {
+      continue;
+    }
+
     addHolidayNameTokens(todayFestTokenSet, item.name);
+    todayFestivals.push(item);
   }
-
-  const result = {};
 
   for (const cat of CATEGORY_KEYS) {
-    result[cat] = Array.from(rawResult[cat].values())
-      .filter(i =>
-        !holidayNameMatchesTokenSet(i.name, pinnedTokenSet) &&
-        !holidayNameMatchesTokenSet(i.name, todayFestTokenSet)
-      )
-      .sort((a, b) => {
-        if (a.diff !== b.diff) return a.diff - b.diff;
-        return enablePrioritySort ? b.priority - a.priority : 0;
-      })
-      .slice(0, 7);
+    result[cat] = dedupeHolidayItemsByToken(result[cat]);
+
+    if (builder.enablePrioritySort) {
+      result[cat].sort((a, b) => {
+        const pA = builder.getPriority(a, cat);
+        const pB = builder.getPriority(b, cat);
+
+        if (pA !== pB) return pB - pA;
+
+        const inPeriodA = builder.isInFestivalPeriod(a.diff, a.duration);
+        const inPeriodB = builder.isInFestivalPeriod(b.diff, b.duration);
+
+        if (inPeriodA && !inPeriodB) return -1;
+        if (!inPeriodA && inPeriodB) return 1;
+
+        return a.diff - b.diff;
+      });
+    } else {
+      result[cat].sort((a, b) => a.diff - b.diff);
+    }
   }
 
-  const todayNoticeText = displayTodayItems.length > 0
-    ? formatTodayFestGroup(displayTodayItems)
-    : "";
+  const pinnedTopItems = [];
 
-  const pinnedData = pinnedHolidays
-    .filter(n => pinnedMap.has(n))
-    .map(n => ({
-      name: n,
-      diff: pinnedMap.get(n)
-    }))
-    .sort((a, b) => a.diff - b.diff);
+  for (const targetName of builder.pinnedMap.keys()) {
+    const item = builder.pinnedMap.get(targetName);
+    if (item && item.diff > 0) {
+      pinnedTopItems.push(item);
+    }
+  }
+
+  pinnedTopItems.sort((a, b) => a.diff - b.diff);
 
   return {
     result,
-    todayNoticeText,
-    pinnedData,
-    todayItems
+    todayFestivals,
+    pinnedTopItems: pinnedTopItems.slice(0, TOP_PINNED_DISPLAY_LIMIT),
+    pinnedTokenSet: builder.pinnedTokenSet
   };
 }
 
-function notifyTodayIfNeeded(ctx, notifyKey, notifyDate, todayItems) {
-  if (
-    typeof ctx.notify !== "function" ||
-    !ctx.storage ||
-    !Array.isArray(todayItems) ||
-    todayItems.length === 0
-  ) {
-    return;
-  }
-
-  try {
-    const notifyNames = [
-      ...new Set(
-        todayItems
-          .filter(i => i && i.diff === 0)
-          .map(i => i.name)
-          .filter(Boolean)
-      )
-    ];
-
-    if (notifyNames.length === 0) {
-      return;
-    }
-
-    const now = Date.now();
-    const currentNotifyState = ctx.storage.getJSON(notifyKey) || {};
-
-    if (currentNotifyState.date === notifyDate) {
-      const failed = currentNotifyState.failed === true;
-      const retryAfter = Number(currentNotifyState.retryAfter) || 0;
-
-      if (!failed || retryAfter > now) {
-        return;
-      }
-    }
-
-    try {
-      ctx.notify({
-        title: "✨ 今日提醒",
-        body: notifyNames.join("、"),
-        sound: true
-      });
-
-      ctx.storage.setJSON(notifyKey, {
-        date: notifyDate,
-        names: notifyNames,
-        time: Date.now(),
-        failed: false
-      });
-    } catch (e) {
-      warnLog("[Countdown] notify failed:", e);
-
-      try {
-        ctx.storage.setJSON(notifyKey, {
-          date: notifyDate,
-          names: notifyNames,
-          time: Date.now(),
-          failed: true,
-          retryAfter: Date.now() + NOTIFY_FAILED_RETRY_INTERVAL_MS,
-          error: String(e?.message || e || "notify failed").slice(0, 120)
-        });
-      } catch (_) {
-      }
-    }
-  } catch (e) {
-    warnLog("[Countdown] notify process failed:", e);
-  }
-}
-
-function buildPinnedStickyText(
-  pinnedData,
-  limit = TOP_PINNED_DISPLAY_LIMIT
-) {
-  if (!Array.isArray(pinnedData) || pinnedData.length === 0) {
+function buildPinnedStickyText(pinnedTopItems) {
+  if (!Array.isArray(pinnedTopItems) || pinnedTopItems.length === 0) {
     return "";
   }
 
-  const safeLimit = Math.max(1, Number(limit) || TOP_PINNED_DISPLAY_LIMIT);
-  const validPinnedData = pinnedData.filter(isValidPinnedItem);
-
-  if (validPinnedData.length === 0) {
-    return "";
-  }
-
-  const parts = validPinnedData
-    .slice(0, safeLimit)
-    .map(p => `${p.name} ${p.diff}天`);
-
-  if (validPinnedData.length > safeLimit) {
-    parts.push("…");
-  }
-
-  return parts.join("·");
+  return pinnedTopItems
+    .map(item => formatDisplayItem(item))
+    .join("，");
 }
 
-function getSupportedFamilyResult(ctx, withRefresh) {
-  const family = String(ctx.widgetFamily || "systemMedium").toLowerCase();
-
-  const isLockScreenFamily =
-    family.includes("accessory") ||
-    family.includes("lockscreen") ||
-    family.includes("lock_screen") ||
-    family.includes("lock-screen");
-
-  if (isLockScreenFamily) {
-    return withRefresh(mkUnsupportedWidget("不支持锁屏组件"));
-  }
-
-  if (family === "systemsmall" || family === "systemlarge") {
-    return withRefresh(mkUnsupportedWidget("仅支持 Medium 组件", { maxLines: 2 }));
-  }
-
-  const isExtraLarge =
-    family.includes("extralarge") ||
-    family.includes("extra_large") ||
-    family.includes("extra-large");
-
-  if (isExtraLarge) {
-    return withRefresh(mkUnsupportedWidget("暂不支持 Extra Large", { maxLines: 2 }));
-  }
-
-  if (family !== "systemmedium") {
-    return withRefresh(mkUnsupportedWidget("仅支持 Medium 组件", { maxLines: 2 }));
-  }
-
-  return null;
+function pickRandomNotice() {
+  const idx = Math.floor(Math.random() * RANDOM_NOTICES.length);
+  return RANDOM_NOTICES[idx];
 }
 
-async function renderCountdownWidget(ctx = {}) {
-  const dateCtx = getBeijingDateContext();
-  const withRefresh = widget => ({
-    ...widget,
-    refreshAfter: dateCtx.nextRefreshIso
-  });
+function decideBgTheme(bjCtx, env, countdownData) {
+  const enableWeekendTheme = parseBoolEnv({ env }, "ENABLE_WEEKEND_THEME", true);
 
-  const unsupportedWidget = getSupportedFamilyResult(ctx, withRefresh);
-  if (unsupportedWidget) return unsupportedWidget;
+  if (!enableWeekendTheme) {
+    return "workday";
+  }
 
-  const env = ctx.env ?? {};
-  const normalizedEnv = buildNormalizedEnv(env);
+  const { todayFestivals } = countdownData;
+  if (todayFestivals && todayFestivals.length > 0) {
+    return "fest";
+  }
 
-  const scriptName = String(ctx.script?.name || "countdown");
-  const storageScope = `countdown:${hashString(scriptName)}`;
-  const officialHolidayStorageKey =
-    `${storageScope}:official_holidays:v${OFFICIAL_HOLIDAY_STORAGE_VERSION}`;
+  const todayIso = bjCtx.todayIso;
+  const officialRanges = countdownData.officialRanges || [];
 
-  const dataEnvStorageFingerprint =
-    buildEnvFingerprintFromNormalized(normalizedEnv, DATA_ENV_KEYS);
+  for (const range of officialRanges) {
+    if (!isValidOfficialRange(range)) continue;
 
-  const dataEnvCacheScope = hashString(dataEnvStorageFingerprint);
+    if (todayIso >= range.start && todayIso <= range.end) {
+      return range.isOffDay ? "weekend" : "workday";
+    }
+  }
 
-  const enableWeekendTheme = getBoolFromNormalizedEnv(
-    normalizedEnv,
-    "ENABLE_WEEKEND_THEME",
-    true
-  );
+  const weekday = bjCtx.weekday;
+  return weekday === 0 || weekday === 6 ? "weekend" : "workday";
+}
 
-  const {
-    year: Y,
-    weekday: currentDay,
-    todayMs,
-    todayIso,
-    todayStr
-  } = dateCtx;
-
-  const BASE_CACHE_KEY =
-    `${storageScope}:daily:${dataEnvCacheScope}:v${DAILY_CACHE_SCHEMA_VERSION}`;
-
-  const NOTIFY_KEY =
-    `${storageScope}:notify`;
-
-  const CACHE_VERSION = DAILY_CACHE_VERSION_TEXT;
+// 【问题 4 优化】提取缓存管理逻辑
+function createCacheManager(ctx, scriptName, dataEnvCacheScope) {
+  const baseKey = `countdown:${hashString(scriptName)}`;
+  const dailyCacheKey = `${baseKey}:daily:${dataEnvCacheScope}:v2`;
+  const notifyKey = `${baseKey}:notify`;
 
   let baseDailyCacheRecordLoaded = false;
   let baseDailyCacheRecord = null;
 
-  const readBaseDailyCacheRecord = () => {
+  async function readBaseDailyCacheRecord() {
     if (baseDailyCacheRecordLoaded) {
       return baseDailyCacheRecord;
     }
 
-    baseDailyCacheRecordLoaded = true;
-
-    if (!ctx.storage) {
-      baseDailyCacheRecord = null;
-      return null;
-    }
-
     try {
-      baseDailyCacheRecord = ctx.storage.getJSON(BASE_CACHE_KEY);
-    } catch (e) {
-      warnLog("[Countdown] failed to read base daily cache:", e);
+      const cached = await ctx.storage.getJSON(dailyCacheKey);
+      baseDailyCacheRecord = cached && typeof cached === "object" ? cached : null;
+    } catch (err) {
+      warnLog(ctx, `读取每日缓存失败: ${err.message}`, err);
       baseDailyCacheRecord = null;
     }
 
+    baseDailyCacheRecordLoaded = true;
     return baseDailyCacheRecord;
-  };
+  }
 
-  const readBaseDailyCache = currentEnvFingerprint => {
-    const stored = readBaseDailyCacheRecord();
-    const payload = stored?.payload;
+  async function readBaseDailyCache(envFingerprint, bjCtx) {
+    const record = await readBaseDailyCacheRecord();
 
     if (
-      stored &&
-      stored.version === CACHE_VERSION &&
-      stored.date === todayStr &&
-      stored.envFingerprint === currentEnvFingerprint &&
-      payload &&
-      typeof payload === "object"
+      record &&
+      record.envFingerprint === envFingerprint &&
+      record.todayStr === bjCtx.todayStr
     ) {
-      return payload;
+      return record.displayCache || null;
     }
 
     return null;
-  };
+  }
 
-  const writeBaseDailyCache = (envFingerprint, payload) => {
-    if (!ctx.storage) return;
-
-    const nextRecord = {
-      version: CACHE_VERSION,
-      date: todayStr,
+  async function writeBaseDailyCache(envFingerprint, bjCtx, displayCache) {
+    const payload = {
       envFingerprint,
-      payload
+      todayStr: bjCtx.todayStr,
+      displayCache
     };
 
     try {
-      ctx.storage.setJSON(BASE_CACHE_KEY, nextRecord);
-
-      baseDailyCacheRecordLoaded = true;
-      baseDailyCacheRecord = nextRecord;
-    } catch (e) {       
-      warnLog("[Countdown] failed to write base daily cache:", e);
+      await ctx.storage.setJSON(dailyCacheKey, payload);
+    } catch (err) {
+      warnLog(ctx, `写入每日缓存失败: ${err.message}`, err);
     }
-  };
-
-  const {
-    officialHolidayCache,
-    envFingerprint,
-    cachedBaseData
-  } = await prepareOfficialHolidayCacheForWidget({
-    ctx,
-    currentYear: Y,
-    todayIso,
-    dataEnvFingerprint: dataEnvStorageFingerprint,
-    officialHolidayStorageKey,
-    readBaseDailyCache
-  });
-
-  let baseData = cachedBaseData;
-
-  if (!baseData) {
-    baseData = buildCountdownData({
-      normalizedEnv,
-      officialHolidayCache,
-      year: Y,
-      todayMs
-    });
-
-    writeBaseDailyCache(envFingerprint, baseData);
   }
 
-  const {
-    result,
-    todayNoticeText,
-    pinnedData,
-    todayItems
-  } = baseData;
-
-  notifyTodayIfNeeded(ctx, NOTIFY_KEY, todayStr, todayItems);
-
-  const displayCache = buildDisplayCache(result, LAYOUT_CONFIG.maxW);
-
-  const officialDayInfo = getOfficialDayInfo(officialHolidayCache, todayIso);
-
-  const determineTheme = () => {
-    if (!enableWeekendTheme) {
-      return "workday";
+  async function readNotifyRecord() {
+    try {
+      const cached = await ctx.storage.getJSON(notifyKey);
+      return cached && typeof cached === "object" ? cached : null;
+    } catch (err) {
+      warnLog(ctx, `读取通知记录失败: ${err.message}`, err);
+      return null;
     }
+  }
 
-    if (
-      officialDayInfo &&
-      officialDayInfo.isOffDay === false
-    ) {
-      return "workday";
+  async function writeNotifyRecord(record) {
+    try {
+      await ctx.storage.setJSON(notifyKey, record);
+    } catch (err) {
+      warnLog(ctx, `写入通知记录失败: ${err.message}`, err);
     }
+  }
 
-    if (
-      officialDayInfo &&
-      officialDayInfo.isOffDay === true
-    ) {
-      return todayItems.length > 0 ? "fest" : "weekend";
-    }
-
-    if (currentDay === 0 || currentDay === 6) {
-      return todayItems.length > 0 ? "fest" : "weekend";
-    }
-
-    return "workday";
+  return {
+    readBaseDailyCache,
+    writeBaseDailyCache,
+    readNotifyRecord,
+    writeNotifyRecord
   };
+}
 
-  const theme = determineTheme();
+async function renderCountdownWidget(ctx) {
+  const scriptName = ctx.name || "时光倒数小组件";
 
-  const pinnedStickyText = buildPinnedStickyText(pinnedData);
+  if (ctx.widgetFamily !== "medium") {
+    return mkUnsupportedWidget("不支持当前尺寸");
+  }
 
-  const gridRows = buildGridRows(displayCache, result, LAYOUT_CONFIG);
+  const bjCtx = getBeijingDateContext(Date.now());
 
-  const randomNotice =
-    RANDOM_NOTICES[Math.floor(Math.random() * RANDOM_NOTICES.length)];
+  const normalizedEnv = buildNormalizedEnv(ctx);
+  const dataEnvCacheScope = hashString(JSON.stringify(normalizedEnv));
 
-  const titleNoticeText = todayNoticeText
-    ? ` ${todayNoticeText}`
-    : randomNotice;
+  const cacheManager = createCacheManager(ctx, scriptName, dataEnvCacheScope);
 
-  const titleLabel = pinnedStickyText || titleNoticeText || " 时光倒数";
+  const officialCache = await prepareOfficialHolidayCacheForWidget(
+    ctx,
+    scriptName,
+    bjCtx,
+    normalizedEnv,
+    { timeoutMs: WIDGET_OFFICIAL_HTTP_TIMEOUT_MS }
+  );
 
-  return withRefresh({
-    type: "widget",
-    padding: 12,
-    backgroundGradient: getBackgroundGradient(theme),
-    children: [
-      mkRow([
-        mkIcon("clock.fill", C.blue2, LAYOUT_CONFIG.titleIcz),
+  const officialRanges = Object.values(officialCache.years || {}).flatMap(
+    yearData => buildOfficialHolidayRanges(yearData.days || [])
+  );
 
-        mkText(
-          titleLabel,
-          LAYOUT_CONFIG.titleFz,
-          "heavy",
-          C.main,
-          {
-            flex: 1,
-            maxLines: 1
-          }
-        )
-      ], 6),
+  const fallbackLegalRanges = [
+    { name: "元旦", start: `${bjCtx.year}/01/01`, end: `${bjCtx.year}/01/01`, isOffDay: true },
+    { name: "春节", start: `${bjCtx.year}/01/28`, end: `${bjCtx.year}/02/03`, isOffDay: true },
+    { name: "清明节", start: `${bjCtx.year}/04/04`, end: `${bjCtx.year}/04/06`, isOffDay: true },
+    { name: "劳动节", start: `${bjCtx.year}/05/01`, end: `${bjCtx.year}/05/05`, isOffDay: true },
+    { name: "端午节", start: `${bjCtx.year}/05/31`, end: `${bjCtx.year}/06/02`, isOffDay: true },
+    { name: "中秋节", start: `${bjCtx.year}/10/06`, end: `${bjCtx.year}/10/08`, isOffDay: true },
+    { name: "国庆节", start: `${bjCtx.year}/10/01`, end: `${bjCtx.year}/10/07`, isOffDay: true }
+  ].filter(isValidOfficialRange);
 
-      mkSpacer(12),
+  const officialLegalRanges = officialRanges.filter(r => r.isOffDay);
+  const mergedLegalRanges = mergeLegalHolidays(officialLegalRanges, fallbackLegalRanges);
 
+  const countdownData = buildCountdownData(bjCtx, normalizedEnv, mergedLegalRanges);
+  countdownData.officialRanges = officialRanges;
+
+  const { result, todayFestivals, pinnedTopItems, pinnedTokenSet } = countdownData;
+
+  const officialEnvFingerprint = getOfficialEnvFingerprint(normalizedEnv);
+  const envFingerprint = hashString(
+    `${dataEnvCacheScope}_${officialCache.fingerprint}_${officialEnvFingerprint}`
+  );
+
+  let displayCache = await cacheManager.readBaseDailyCache(envFingerprint, bjCtx);
+
+  if (!displayCache) {
+    displayCache = buildDisplayCache(result, LAYOUT_CONFIG.maxW);
+    await cacheManager.writeBaseDailyCache(envFingerprint, bjCtx, displayCache);
+  }
+
+  if (todayFestivals.length > 0) {
+    const notifyRecord = await cacheManager.readNotifyRecord();
+
+    const lastNotifyDate = notifyRecord?.lastNotifyDate;
+    const lastRetryAfter = Number(notifyRecord?.retryAfter) || 0;
+
+    const shouldNotify =
+      lastNotifyDate !== bjCtx.todayStr ||
+      (lastRetryAfter > 0 && Date.now() >= lastRetryAfter);
+
+    if (shouldNotify) {
+      const festText = formatTodayFestGroup(todayFestivals);
+
+      try {
+        await ctx.notify({
+          title: "🎉 今日节日提醒",
+          body: festText
+        });
+
+        await cacheManager.writeNotifyRecord({
+          lastNotifyDate: bjCtx.todayStr,
+          retryAfter: 0
+        });
+      } catch (err) {
+        warnLog(ctx, `发送通知失败: ${err.message}`, err);
+
+        await cacheManager.writeNotifyRecord({
+          lastNotifyDate: bjCtx.todayStr,
+          retryAfter: Date.now() + NOTIFY_FAILED_RETRY_INTERVAL_MS
+        });
+      }
+    }
+  }
+
+  const bgTheme = decideBgTheme(bjCtx, normalizedEnv, countdownData);
+
+  const rows = buildGridRows(displayCache, result, LAYOUT_CONFIG);
+
+  const pinnedStickyText = buildPinnedStickyText(pinnedTopItems);
+  const randomNotice = pickRandomNotice();
+
+  const titleIcon = mkIcon("calendar", C.main, LAYOUT_CONFIG.titleIcz);
+  const titleText = mkText("时光倒数", LAYOUT_CONFIG.titleFz, "heavy", C.main);
+
+  const todayDateText = mkText(
+    `${bjCtx.month}月${bjCtx.day}日`,
+    LAYOUT_CONFIG.titleFz,
+    "semibold",
+    C.sub
+  );
+
+  const topRightChildren = [];
+
+  if (pinnedStickyText) {
+    const pinnedRows = splitTextToLines(pinnedStickyText, 18);
+
+    for (const line of pinnedRows.slice(0, 2)) {
+      topRightChildren.push(
+        mkText(line, LAYOUT_CONFIG.topFz, "medium", C.blue2, {
+          textAlignment: "right",
+          maxLines: 1
+        })
+      );
+    }
+  } else {
+    topRightChildren.push(
+      mkText(randomNotice, LAYOUT_CONFIG.topFz, "medium", C.muted, {
+        textAlignment: "right",
+        maxLines: 2
+      })
+    );
+  }
+
+  const headerRow = mkRow(
+    [
+      mkRow([titleIcon, titleText], 4),
+      mkSpacer(),
       {
         type: "stack",
         direction: "column",
-        gap: 8,
-        children: gridRows
+        alignItems: "end",
+        gap: 2,
+        children: topRightChildren
       }
+    ],
+    8
+  );
+
+  const subHeaderRow = mkRow(
+    [
+      todayDateText,
+      mkSpacer(),
+      mkText(
+        getOfficialFingerprintText(officialCache.years),
+        10,
+        "medium",
+        C.muted,
+        { textAlignment: "right" }
+      )
+    ],
+    8
+  );
+
+  return {
+    type: "widget",
+    padding: 14,
+    backgroundGradient: getBackgroundGradient(bgTheme),
+    refreshAfter: bjCtx.nextRefreshIso,
+    children: [
+      headerRow,
+      mkSpacer(2),
+      subHeaderRow,
+      mkSpacer(10),
+      ...rows
     ]
-  });
+  };
 }
 
-export default renderCountdownWidget;
+export default async function main(ctx) {
+  try {
+    return await renderCountdownWidget(ctx);
+  } catch (error) {
+    warnLog(ctx, `主函数执行失败: ${error.message}`, error);
+
+    return mkUnsupportedWidget("运行出错", {
+      text: error.message || "未知错误",
+      maxLines: 3
+    });
+  }
+}
