@@ -1775,7 +1775,6 @@ function mergeLegalHolidays(fallbackLegal, officialLegal) {
   const usedOfficialIndexes = new Set();
   const coveredFallbackTokens = new Set();
 
-  // ⭐ 优化 2: 使用 flatMap 简化 Set 构建
   const fallbackTokenSet = new Set(fallbackRows.flatMap(f => f.parts));
 
   for (const fallback of fallbackRows) {
@@ -2048,7 +2047,6 @@ function buildCountdownData({ normalizedEnv, officialHolidayCache, year: Y, toda
     onceCustomDays
   } = userConfig;
 
-  // ⭐ 优化 1: 预计算置顶节日的分割结果
   const pinnedHolidayPartsMap = new Map();
 
   for (const pinnedName of pinnedHolidays) {
@@ -2082,7 +2080,6 @@ function buildCountdownData({ normalizedEnv, officialHolidayCache, year: Y, toda
   const pinnedMap = new Map();
   const pinnedTokenSet = new Set();
 
-  // ⭐ 优化 1: 使用预计算结果优化 updatePinned
   const updatePinned = (name, diff) => {
     const nameParts = splitHolidayNames(name);
     const matched = [];
