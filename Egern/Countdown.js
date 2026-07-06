@@ -356,14 +356,20 @@ function dedupeHolidayItemsByToken(items) {
   const usedTokenSet = new Set();
   const output = [];
 
-  for (const item of items) {
-    if (!item || holidayNameMatchesTokenSet(item.name, usedTokenSet)) {
-      continue;
-    }
-
-    addHolidayNameTokens(usedTokenSet, item.name);
-    output.push(item);
+for (const item of items) {
+  if (!item) continue;
+  
+  const parts = splitHolidayNames(item.name);
+  const hasMatch = parts.some(part => usedTokenSet.has(part));
+  
+  if (hasMatch) continue;
+  
+  for (const part of parts) {
+    usedTokenSet.add(part);
   }
+  
+  output.push(item);
+}
 
   return output;
 }
