@@ -17,12 +17,6 @@ const DEFAULT_SPEED_DATA = {
   timestamp: 0
 };
 
-function getNowMs() {
-  return typeof performance !== 'undefined' && performance.now
-    ? performance.now()
-    : Date.now();
-}
-
 function getPolicy(value) {
   const policy = typeof value === 'string' ? value.trim() : '';
   return policy || DEFAULT_POLICY;
@@ -126,7 +120,7 @@ async function measureSpeed(ctx, url, policy) {
   let reader;
   let completed = false;
   let downloadedBytes = 0;
-  const startTime = getNowMs();
+  const startTime = Date.now();
 
   try {
     const response = await ctx.http.get(url, {
@@ -157,7 +151,7 @@ async function measureSpeed(ctx, url, policy) {
       downloadedBytes += value?.byteLength || value?.length || 0;
     }
 
-    const duration = (getNowMs() - startTime) / 1000;
+    const duration = (Date.now() - startTime) / 1000;
 
     if (downloadedBytes <= 0 || duration < 0.2) {
       return null;
