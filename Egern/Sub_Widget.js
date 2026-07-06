@@ -4,7 +4,7 @@
  * 📝 使用说明
  * 1️⃣ 添加环境变量：
  *
- *    NAME1 = 翻墙                     # 机场名称（自定义）
+ *    NAME1 = 机场名称
  *    URL1 = https://xxx.com/sub...   # 订阅地址（必填）
  *    RESET1 = 1                      # 重置日（可选，每月1日重置）
  *
@@ -407,9 +407,7 @@ async function fetchRemoteForGroup(
   activeSlotCount
 ) {
   try {
-    const allHaveStaleCache = group.states.every((state) =>
-      Boolean(state.cache.stale)
-    );
+    const hasSharedStaleCache = Boolean(findGroupStaleCache(group.states));
     const preferredStrategyIndex = getPreferredStrategyIndex(group.states);
 
     const remote = await fetchRemoteInfo(
@@ -417,7 +415,7 @@ async function fetchRemoteForGroup(
       group.url,
       nowTime,
       deadlineTime,
-      allHaveStaleCache,
+      hasSharedStaleCache,
       activeSlotCount,
       preferredStrategyIndex
     );
@@ -451,24 +449,49 @@ function readCacheWithMigration(
     cacheMemo.set(cacheKey, cache);
   }
 
-  if (cache.fresh || cache.stale || cacheKey === legacyCacheKey) {
+  if (cacheKey === legacyCacheKey) {
     return cache;
   }
 
   const legacyCache = readCache(ctx, legacyCacheKey, nowTime);
+  const currentData = getCacheData(cache);
+  const legacyData = getCacheData(legacyCache);
 
-  if (legacyCache.fresh || legacyCache.stale) {
-    const data = legacyCache.fresh || legacyCache.stale;
-
-    if (saveCache(ctx, cacheKey, data, data.cacheTime)) {
-      safeDeleteCache(ctx, legacyCacheKey);
-      cacheMemo.set(cacheKey, legacyCache);
-    }
-
-    return legacyCache;
+  if (!legacyData) {
+    return cache;
   }
 
+  if (!currentData || isNewerCacheData(legacyData, currentData)) {
+    if (saveCache(ctx, cacheKey, legacyData, legacyData.cacheTime)) {
+      safeDeleteCache(ctx, legacyCacheKey);
+    }
+
+    copyCache(cache, legacyCache);
+    return cache;
+  }
+
+  safeDeleteCache(ctx, legacyCacheKey);
   return cache;
+}
+
+function getCacheData(cache) {
+  return cache?.fresh || cache?.stale || null;
+}
+
+function isNewerCacheData(candidate, current) {
+  const candidateTime = Number(candidate?.cacheTime);
+  const currentTime = Number(current?.cacheTime);
+
+  return (
+    Number.isFinite(candidateTime) &&
+    (!Number.isFinite(currentTime) || candidateTime > currentTime)
+  );
+}
+
+function copyCache(target, source) {
+  target.fresh = source?.fresh || null;
+  target.stale = source?.stale || null;
+  return target;
 }
 
 function readCache(ctx, cacheKey, nowTime) {
@@ -652,7 +675,7 @@ async function requestUserInfoWithStrategy(
 
 function getPreferredStrategyIndex(states) {
   for (const state of states) {
-    const data = state.cache.fresh || state.cache.stale;
+    const data = getCacheData(state.cache);
     const index = Number(data?.strategyIndex);
 
     if (
