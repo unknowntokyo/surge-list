@@ -275,14 +275,39 @@ function splitNameList(value) {
 
 const EMPTY_HOLIDAY_NAME_PARTS = Object.freeze([]);
 
+const splitHolidayNamesCache = new Map();
+const holidayNamePartSetCache = new Map();
+
 function splitHolidayNames(name) {
   const raw = String(name ?? "").trim();
-  return raw ? splitNameList(raw) : EMPTY_HOLIDAY_NAME_PARTS;
+  
+  if (!raw) return EMPTY_HOLIDAY_NAME_PARTS;
+  
+  if (splitHolidayNamesCache.has(raw)) {
+    return splitHolidayNamesCache.get(raw);
+  }
+  
+  const parts = splitNameList(raw);
+  const result = parts.length > 0 ? parts : EMPTY_HOLIDAY_NAME_PARTS;
+  
+  splitHolidayNamesCache.set(raw, result);
+  return result;
 }
 
 function getHolidayNamePartSet(name) {
+  const raw = String(name ?? "").trim();
+  
+  if (!raw) return null;
+  
+  if (holidayNamePartSetCache.has(raw)) {
+    return holidayNamePartSetCache.get(raw);
+  }
+  
   const parts = splitHolidayNames(name);
-  return parts.length > 0 ? new Set(parts) : null;
+  const result = parts.length > 0 ? new Set(parts) : null;
+  
+  holidayNamePartSetCache.set(raw, result);
+  return result;
 }
 
 function partsIntersect(parts, partSet) {
@@ -1104,17 +1129,17 @@ function normalizeOfficialCacheOnRead(cache, sanitize = true) {
     return null;
   }
 
+  if (typeof cache.fingerprint === "string" && cache.fingerprint && !sanitize) {
+    return cache;
+  }
+
   const years = sanitize
     ? sanitizeOfficialYears(cache.years)
     : cache.years;
 
-  const fingerprint = sanitize
-    ? buildOfficialFingerprint(years)
-    : (
-        typeof cache.fingerprint === "string" && cache.fingerprint
-          ? cache.fingerprint
-          : buildOfficialFingerprint(years)
-      );
+  const fingerprint = typeof cache.fingerprint === "string" && cache.fingerprint && !sanitize
+    ? cache.fingerprint
+    : buildOfficialFingerprint(years);
 
   return {
     ...cache,
@@ -1213,10 +1238,6 @@ function getOfficialFingerprintText(cache) {
     return `official=${fp}`;
   }
 
-  if (cache?.years && typeof cache.years === "object") {
-    return `official=${buildOfficialFingerprint(cache.years)}`;
-  }
-
   return "official=none";
 }
 
@@ -1269,10 +1290,14 @@ function normalizeOfficialCachePayload(
     ? oldCache.checkedDate
     : undefined;
 
+  const fingerprint = typeof oldCache?.fingerprint === "string" && oldCache.fingerprint
+    ? oldCache.fingerprint
+    : buildOfficialFingerprint(years);
+
   return {
     version: OFFICIAL_HOLIDAY_STORAGE_VERSION,
     ...(checkedDate ? { checkedDate } : {}),
-    fingerprint: buildOfficialFingerprint(years),
+    fingerprint,
     retryAfterByYear: pruneRetryAfterByYear(
       retryAfterByYearOverride ?? oldCache?.retryAfterByYear,
       currentYear
@@ -1471,10 +1496,12 @@ async function loadOfficialHolidayDaily(
     ? todayIso
     : previousCheckedDate;
 
+  const fingerprint = buildOfficialFingerprint(mergedYears);
+
   const newCache = {
     version: OFFICIAL_HOLIDAY_STORAGE_VERSION,
     ...(checkedDate ? { checkedDate } : {}),
-    fingerprint: buildOfficialFingerprint(mergedYears),
+    fingerprint,
     retryAfterByYear: pruneRetryAfterByYear(
       retryAfterByYear,
       currentYear
@@ -1905,7 +1932,7 @@ function toHolidayRowMeta(row) {
     row,
     name,
     parts,
-    partSet: new Set(parts),
+    partSet: parts.length > 0 ? new Set(parts) : null,
     startMs: slashYMDToMs(row[1])
   };
 }
@@ -2680,8 +2707,8 @@ async function renderCountdownWidget(ctx = {}) {
 
       baseDailyCacheRecordLoaded = true;
       baseDailyCacheRecord = nextRecord;
-    } catch (e) {
-      warnLog("[Countdown] failed to save base daily cache:", e);
+    } catch (e) {       
+      warnLog("[Countdown] failed to write base daily cache:", e);
     }
   };
 
@@ -2718,135 +2745,83 @@ async function renderCountdownWidget(ctx = {}) {
     todayItems
   } = baseData;
 
-  const layoutConfig = LAYOUT_CONFIG;
-  const displayCache = buildDisplayCache(result, layoutConfig.maxW);
-  const stickyText = buildPinnedStickyText(pinnedData);
+  notifyTodayIfNeeded(ctx, NOTIFY_KEY, todayStr, todayItems);
 
-  notifyTodayIfNeeded(
-    ctx,
-    NOTIFY_KEY,
-    todayIso,
-    todayItems
-  );
+  const displayCache = buildDisplayCache(result, LAYOUT_CONFIG.maxW);
 
-  const officialTodayInfo = enableWeekendTheme
-    ? getOfficialDayInfo(officialHolidayCache, todayIso)
-    : null;
+  const officialDayInfo = getOfficialDayInfo(officialHolidayCache, todayIso);
 
-  const isOfficialOffDay = officialTodayInfo?.isOffDay === true;
-  const isOfficialAdjustedWorkday = officialTodayInfo?.isOffDay === false;
+  const determineTheme = () => {
+    if (!enableWeekendTheme) {
+      return "workday";
+    }
 
-  const hasActiveTodayItem =
-    Array.isArray(todayItems) &&
-    todayItems.length > 0;
+    if (
+      officialDayInfo &&
+      officialDayInfo.isOffDay === false
+    ) {
+      return "workday";
+    }
 
-  const themeKey =
-    hasActiveTodayItem
-      ? "fest"
-      : enableWeekendTheme &&
-        (
-          isOfficialOffDay ||
-          (!isOfficialAdjustedWorkday && (currentDay === 0 || currentDay === 6))
-        )
-        ? "weekend"
-        : "workday";
+    if (
+      officialDayInfo &&
+      officialDayInfo.isOffDay === true
+    ) {
+      return todayItems.length > 0 ? "fest" : "weekend";
+    }
 
-  const backgroundGradient = getBackgroundGradient(themeKey);
-  const gridRows = buildGridRows(displayCache, result, layoutConfig);
+    if (currentDay === 0 || currentDay === 6) {
+      return todayItems.length > 0 ? "fest" : "weekend";
+    }
 
-  const rightHeaderElements = [];
-  const topTextOpts = { maxLines: 1, minScale: 0.75 };
+    return "workday";
+  };
 
-  if (todayNoticeText) {
-    rightHeaderElements.push(
-      mkIcon("sparkles", C.purple, layoutConfig.topFz),
-      mkText(todayNoticeText, layoutConfig.topFz, "bold", C.purple, topTextOpts)
-    );
-  } else {
-    rightHeaderElements.push(
-      mkIcon("tortoise", C.blue2, Math.round(layoutConfig.topFz * 1.5)),
-      mkText(
-        RANDOM_NOTICES[Math.floor(Math.random() * RANDOM_NOTICES.length)],
-        layoutConfig.topFz,
-        "medium",
-        C.green,
-        topTextOpts
-      )
-    );
-  }
+  const theme = determineTheme();
 
-  if (stickyText) {
-    rightHeaderElements.push(
-      mkText(" ｜ ", layoutConfig.topFz, "bold", C.red, { maxLines: 1 }),
-      mkText(stickyText, layoutConfig.topFz, "bold", C.red, topTextOpts)
-    );
-  }
+  const pinnedStickyText = buildPinnedStickyText(pinnedData);
+
+  const gridRows = buildGridRows(displayCache, result, LAYOUT_CONFIG);
+
+  const randomNotice =
+    RANDOM_NOTICES[Math.floor(Math.random() * RANDOM_NOTICES.length)];
+
+  const titleNoticeText = todayNoticeText
+    ? ` ${todayNoticeText}`
+    : randomNotice;
+
+  const titleLabel = pinnedStickyText || titleNoticeText || " 时光倒数";
 
   return withRefresh({
     type: "widget",
     padding: 12,
-    backgroundGradient,
+    backgroundGradient: getBackgroundGradient(theme),
     children: [
       mkRow([
-        mkIcon("hourglass.circle.fill", C.main, layoutConfig.titleIcz),
-        mkText("时光倒数", layoutConfig.titleFz, "heavy", C.main),
-        mkSpacer(),
-        mkRow(rightHeaderElements, 4)
+        mkIcon("clock.fill", C.blue2, LAYOUT_CONFIG.titleIcz),
+
+        mkText(
+          titleLabel,
+          LAYOUT_CONFIG.titleFz,
+          "heavy",
+          C.main,
+          {
+            flex: 1,
+            maxLines: 1
+          }
+        )
       ], 6),
 
-      mkSpacer(gridRows.length <= 4 ? 12 : 10),
+      mkSpacer(12),
 
-      ...(
-        gridRows.length > 0
-          ? [{
-              type: "stack",
-              direction: "column",
-              alignItems: "start",
-              gap: gridRows.length <= 4 ? 11 : 8,
-              children: gridRows
-            }]
-          : [
-              mkText(
-                "近期暂无倒计时",
-                layoutConfig.fz,
-                "medium",
-                C.muted
-              )
-            ]
-      ),
-
-      mkSpacer()
+      {
+        type: "stack",
+        direction: "column",
+        gap: 8,
+        children: gridRows
+      }
     ]
   });
 }
 
-export default async function (ctx = {}) {
-  try {
-    return await renderCountdownWidget(ctx || {});
-  } catch (e) {
-    warnLog("[Countdown] widget render failed:", e);
-
-    const dateCtx = getBeijingDateContext();
-
-    return {
-      type: "widget",
-      padding: 12,
-      refreshAfter: dateCtx.nextRefreshIso,
-      backgroundGradient: getBackgroundGradient("workday"),
-      children: [
-        mkRow([
-          mkIcon("exclamationmark.triangle.fill", C.red, 16),
-          mkText("时光倒数加载失败", 14, "heavy", C.main)
-        ], 6),
-        mkSpacer(8),
-        mkText(
-          "请稍后刷新或检查脚本配置",
-          12,
-          "medium",
-          C.sub,
-          { maxLines: 2 }
-        )
-      ]
-    };
-  }
-}
+export default renderCountdownWidget;
