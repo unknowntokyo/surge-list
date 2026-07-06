@@ -334,8 +334,7 @@ function buildSlotState(ctx, slot, now, nowTime) {
   const remainDays = slot.resetDay ? getRemainingDays(slot.resetDay, now) : null;
   const urlHash = hashString(slot.url);
   const cacheKey = `${CACHE_PREFIX}_${urlHash}`;
-  const legacyCacheKey = `${CACHE_PREFIX}_${slot.id}_${urlHash}`;
-  const cache = readCacheWithMigration(ctx, cacheKey, legacyCacheKey, nowTime);
+  const cache = readCache(ctx, cacheKey, nowTime);
 
   return {
     slot,
@@ -379,26 +378,6 @@ async function fetchRemoteForGroup(
       },
     };
   }
-}
-
-function readCacheWithMigration(ctx, cacheKey, legacyCacheKey, nowTime) {
-  const cache = readCache(ctx, cacheKey, nowTime);
-
-  if (cache.fresh || cache.stale || cacheKey === legacyCacheKey) {
-    return cache;
-  }
-
-  const legacyCache = readCache(ctx, legacyCacheKey, nowTime);
-
-  if (legacyCache.fresh || legacyCache.stale) {
-    const data = legacyCache.fresh || legacyCache.stale;
-
-    if (saveCache(ctx, cacheKey, data, data.cacheTime)) {
-      safeDeleteCache(ctx, legacyCacheKey);
-    }
-  }
-
-  return legacyCache;
 }
 
 function readCache(ctx, cacheKey, nowTime) {
