@@ -137,6 +137,7 @@ async function buildWidget(ctx) {
         url: state.slot.url,
         states: [],
         indexes: [],
+        staleCache: null,
       };
       remoteGroupMap.set(state.cacheKey, group);
       remoteGroups.push(group);
@@ -144,21 +145,14 @@ async function buildWidget(ctx) {
 
     group.states.push(state);
     group.indexes.push(i);
+    group.staleCache = pickNewerCacheData(group.staleCache, state.cache.stale);
   }
 
   if (remoteGroups.length) {
-    const remoteGroupCount = remoteGroups.length;
     const remoteGroupResults = await concurrentMap(
       remoteGroups,
       maxConcurrent,
-      (group) =>
-        fetchRemoteForGroup(
-          ctx,
-          group,
-          nowTime,
-          deadlineTime,
-          remoteGroupCount
-        )
+      (group) => fetchRemoteForGroup(ctx, group, nowTime, deadlineTime)
     );
 
     for (const groupResult of remoteGroupResults) {
@@ -171,12 +165,16 @@ async function buildWidget(ctx) {
       if (!group) continue;
 
       if (remote.ok) {
-        saveCache(ctx, group.cacheKey, remote.data);
-
         const dataWithCacheTime = {
           ...remote.data,
           cacheTime: nowTime,
         };
+
+        if (saveCache(ctx, group.cacheKey, remote.data)) {
+          for (const state of group.states) {
+            state.cache.fresh = dataWithCacheTime;
+          }
+        }
 
         for (const index of group.indexes) {
           const state = slotStates[index];
@@ -190,11 +188,11 @@ async function buildWidget(ctx) {
         continue;
       }
 
-      const groupStale = findGroupStaleCache(group.states);
+      const groupStale = group.staleCache;
 
       for (const index of group.indexes) {
         const state = slotStates[index];
-        const stale = state.cache.stale || groupStale;
+        const stale = pickNewerCacheData(groupStale, state.cache.stale);
 
         if (stale) {
           results[index] = buildFallbackResult(
@@ -400,15 +398,9 @@ function buildSlotState(ctx, slot, now, nowTime, cacheMemo) {
   };
 }
 
-async function fetchRemoteForGroup(
-  ctx,
-  group,
-  nowTime,
-  deadlineTime,
-  remoteGroupCount
-) {
+async function fetchRemoteForGroup(ctx, group, nowTime, deadlineTime) {
   try {
-    const hasSharedStaleCache = Boolean(findGroupStaleCache(group.states));
+    const hasSharedStaleCache = Boolean(group.staleCache);
     const preferredStrategyIndex = getPreferredStrategyIndex(group.states);
 
     const remote = await fetchRemoteInfo(
@@ -417,7 +409,6 @@ async function fetchRemoteForGroup(
       nowTime,
       deadlineTime,
       hasSharedStaleCache,
-      remoteGroupCount,
       preferredStrategyIndex
     );
 
@@ -487,6 +478,13 @@ function isNewerCacheData(candidate, current) {
     Number.isFinite(candidateTime) &&
     (!Number.isFinite(currentTime) || candidateTime > currentTime)
   );
+}
+
+function pickNewerCacheData(current, candidate) {
+  if (!current) return candidate || null;
+  if (!candidate) return current;
+
+  return isNewerCacheData(candidate, current) ? candidate : current;
 }
 
 function copyCache(target, source) {
@@ -561,12 +559,22 @@ function saveCache(ctx, cacheKey, data, cacheTime) {
     delete storedData.isFallback;
     delete storedData.cacheAgeText;
 
-    ctx.storage.setJSON(cacheKey, {
+    const payload = {
       time,
       data: storedData,
-    });
+    };
 
-    return true;
+    try {
+      ctx.storage.setJSON(cacheKey, payload);
+      return true;
+    } catch (e) {}
+
+    try {
+      ctx.storage.set(cacheKey, JSON.stringify(payload));
+      return true;
+    } catch (e) {}
+
+    return false;
   } catch (e) {
     return false;
   }
@@ -584,12 +592,10 @@ async function fetchRemoteInfo(
   nowTime,
   deadlineTime,
   hasStaleCache,
-  remoteGroupCount,
   preferredStrategyIndex
 ) {
   let lastErrorMsg = "Unknown";
   const strategyIndexes = getStrategyIndexes(
-    remoteGroupCount,
     hasStaleCache,
     preferredStrategyIndex
   );
@@ -692,21 +698,8 @@ function getPreferredStrategyIndex(states) {
   return null;
 }
 
-function getStrategyIndexes(
-  remoteGroupCount,
-  hasStaleCache,
-  preferredStrategyIndex
-) {
-  const normalLimit =
-    remoteGroupCount > 2
-      ? Math.min(2, STRATEGIES.length)
-      : STRATEGIES.length;
-
-  const maxAttempts = Math.max(
-    1,
-    hasStaleCache ? STRATEGIES.length : normalLimit
-  );
-
+function getStrategyIndexes(hasStaleCache, preferredStrategyIndex) {
+  const maxAttempts = hasStaleCache ? 1 : STRATEGIES.length;
   const indexes = [];
   const usedIndexes = [];
 
@@ -822,16 +815,6 @@ function buildErrorResult(slot, remainDays, errorMsg) {
     errorMsg,
     remainDays,
   };
-}
-
-function findGroupStaleCache(states) {
-  for (const state of states) {
-    if (state.cache.stale) {
-      return state.cache.stale;
-    }
-  }
-
-  return null;
 }
 
 function buildCard(result, isSmallWidget, nowTime) {
