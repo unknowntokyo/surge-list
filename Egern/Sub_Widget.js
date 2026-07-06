@@ -286,9 +286,10 @@ function buildSlots(env) {
     const url = String(env[`URL${i}`] || "").trim();
     if (!url) continue;
 
+    const name = String(env[`NAME${i}`] || "").trim();
     slots.push({
       id: i,
-      name: String(env[`NAME${i}`] || "").trim() || "机场订阅",
+      name: name || "机场订阅",
       url,
       resetDay: parseResetDay(env[`RESET${i}`]),
     });
@@ -924,8 +925,8 @@ function getHeader(headers, name) {
 
   const target = name.toLowerCase();
 
-  for (const key of Object.keys(headers)) {
-    if (key.toLowerCase() === target) {
+  for (const key in headers) {
+    if (headers.hasOwnProperty(key) && key.toLowerCase() === target) {
       return headers[key];
     }
   }
