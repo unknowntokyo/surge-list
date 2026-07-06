@@ -189,20 +189,18 @@ async function buildWidget(ctx) {
         continue;
       }
 
+      const groupStale = findGroupStaleCache(group.states);
+
       for (const index of group.indexes) {
         const state = slotStates[index];
+        const stale = state.cache.stale || groupStale;
 
-        if (state.cache.stale) {
-          results[index] = attachSlotMeta(
-            {
-              ...state.cache.stale,
-              isFallback: true,
-              cacheAgeText: formatCacheAge(
-                nowTime - state.cache.stale.cacheTime
-              ),
-            },
+        if (stale) {
+          results[index] = buildFallbackResult(
+            stale,
             state.slot,
-            state.remainDays
+            state.remainDays,
+            nowTime
           );
         } else {
           results[index] = buildErrorResult(
@@ -385,15 +383,13 @@ function buildSlotState(ctx, slot, now, nowTime, cacheMemo) {
   const cacheKey = `${CACHE_PREFIX}_${urlHash}`;
   const legacyCacheKey = `${CACHE_PREFIX}_${slot.id}_${urlHash}`;
 
-  let cache = cacheMemo.get(cacheKey);
-
-  if (!cache) {
-    cache = readCacheWithMigration(ctx, cacheKey, legacyCacheKey, nowTime);
-
-    if (cache.fresh || cache.stale) {
-      cacheMemo.set(cacheKey, cache);
-    }
-  }
+  const cache = readCacheWithMigration(
+    ctx,
+    cacheKey,
+    legacyCacheKey,
+    nowTime,
+    cacheMemo
+  );
 
   return {
     slot,
@@ -441,8 +437,19 @@ async function fetchRemoteForGroup(
   }
 }
 
-function readCacheWithMigration(ctx, cacheKey, legacyCacheKey, nowTime) {
-  const cache = readCache(ctx, cacheKey, nowTime);
+function readCacheWithMigration(
+  ctx,
+  cacheKey,
+  legacyCacheKey,
+  nowTime,
+  cacheMemo
+) {
+  let cache = cacheMemo.get(cacheKey);
+
+  if (!cache) {
+    cache = readCache(ctx, cacheKey, nowTime);
+    cacheMemo.set(cacheKey, cache);
+  }
 
   if (cache.fresh || cache.stale || cacheKey === legacyCacheKey) {
     return cache;
@@ -455,10 +462,13 @@ function readCacheWithMigration(ctx, cacheKey, legacyCacheKey, nowTime) {
 
     if (saveCache(ctx, cacheKey, data, data.cacheTime)) {
       safeDeleteCache(ctx, legacyCacheKey);
+      cacheMemo.set(cacheKey, legacyCache);
     }
+
+    return legacyCache;
   }
 
-  return legacyCache;
+  return cache;
 }
 
 function readCache(ctx, cacheKey, nowTime) {
@@ -555,17 +565,7 @@ async function fetchRemoteInfo(
     preferredStrategyIndex
   );
 
-  const strategyTargets = strategyIndexes.map((strategyIndex) => {
-    const strategy = STRATEGIES[strategyIndex];
-
-    return {
-      strategy,
-      strategyIndex,
-      requestUrl: buildUrl(url, strategy.flag),
-    };
-  });
-
-  for (const target of strategyTargets) {
+  for (const strategyIndex of strategyIndexes) {
     const timeout = getRequestTimeout(deadlineTime);
 
     if (timeout <= 0) {
@@ -573,11 +573,13 @@ async function fetchRemoteInfo(
       break;
     }
 
+    const strategy = STRATEGIES[strategyIndex];
+    const requestUrl = buildUrl(url, strategy.flag);
     const remote = await requestUserInfoWithStrategy(
       ctx,
-      target.requestUrl,
-      target.strategy,
-      target.strategyIndex,
+      requestUrl,
+      strategy,
+      strategyIndex,
       timeout,
       nowTime
     );
@@ -609,6 +611,7 @@ async function requestUserInfoWithStrategy(
     resp = await ctx.http.get(requestUrl, {
       headers: strategy.ua,
       timeout,
+      credentials: "omit",
     });
 
     const status = Number(resp.status);
@@ -775,6 +778,18 @@ function attachSlotMeta(data, slot, remainDays) {
   };
 }
 
+function buildFallbackResult(data, slot, remainDays, nowTime) {
+  return attachSlotMeta(
+    {
+      ...data,
+      isFallback: true,
+      cacheAgeText: formatCacheAge(nowTime - data.cacheTime),
+    },
+    slot,
+    remainDays
+  );
+}
+
 function buildErrorResult(slot, remainDays, errorMsg) {
   return {
     name: slot.name,
@@ -782,6 +797,16 @@ function buildErrorResult(slot, remainDays, errorMsg) {
     errorMsg,
     remainDays,
   };
+}
+
+function findGroupStaleCache(states) {
+  for (const state of states) {
+    if (state.cache.stale) {
+      return state.cache.stale;
+    }
+  }
+
+  return null;
 }
 
 function buildCard(result, isSmallWidget, nowTime) {
