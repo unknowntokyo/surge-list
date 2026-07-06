@@ -149,10 +149,12 @@ async function buildWidget(ctx) {
   }
 
   if (remoteGroups.length) {
+    const remoteGroupCount = remoteGroups.length;
     const remoteGroupResults = await concurrentMap(
       remoteGroups,
       maxConcurrent,
-      (group) => fetchRemoteForGroup(ctx, group, nowTime, deadlineTime)
+      (group) =>
+        fetchRemoteForGroup(ctx, group, nowTime, deadlineTime, remoteGroupCount)
     );
 
     for (const groupResult of remoteGroupResults) {
@@ -170,11 +172,7 @@ async function buildWidget(ctx) {
           cacheTime: nowTime,
         };
 
-        if (saveCache(ctx, group.cacheKey, remote.data)) {
-          for (const state of group.states) {
-            state.cache.fresh = dataWithCacheTime;
-          }
-        }
+        saveCache(ctx, group.cacheKey, remote.data);
 
         for (const index of group.indexes) {
           const state = slotStates[index];
@@ -192,11 +190,10 @@ async function buildWidget(ctx) {
 
       for (const index of group.indexes) {
         const state = slotStates[index];
-        const stale = pickNewerCacheData(groupStale, state.cache.stale);
 
-        if (stale) {
+        if (groupStale) {
           results[index] = buildFallbackResult(
-            stale,
+            groupStale,
             state.slot,
             state.remainDays,
             nowTime
@@ -398,7 +395,13 @@ function buildSlotState(ctx, slot, now, nowTime, cacheMemo) {
   };
 }
 
-async function fetchRemoteForGroup(ctx, group, nowTime, deadlineTime) {
+async function fetchRemoteForGroup(
+  ctx,
+  group,
+  nowTime,
+  deadlineTime,
+  remoteGroupCount
+) {
   try {
     const hasSharedStaleCache = Boolean(group.staleCache);
     const preferredStrategyIndex = getPreferredStrategyIndex(group.states);
@@ -409,7 +412,8 @@ async function fetchRemoteForGroup(ctx, group, nowTime, deadlineTime) {
       nowTime,
       deadlineTime,
       hasSharedStaleCache,
-      preferredStrategyIndex
+      preferredStrategyIndex,
+      remoteGroupCount
     );
 
     return {
@@ -501,7 +505,7 @@ function readCache(ctx, cacheKey, nowTime) {
     const data = parsed.data;
     const cacheTime = Number(parsed.time ?? data?.updatedAt);
 
-    if (!data || !Number.isFinite(cacheTime)) {
+    if (!isValidCacheData(data) || !Number.isFinite(cacheTime)) {
       safeDeleteCache(ctx, cacheKey);
       return { fresh: null, stale: null };
     }
@@ -539,6 +543,18 @@ function readCache(ctx, cacheKey, nowTime) {
   }
 
   return { fresh: null, stale: null };
+}
+
+function isValidCacheData(data) {
+  return (
+    data &&
+    Number.isFinite(data.used) &&
+    data.used >= 0 &&
+    Number.isFinite(data.totalBytes) &&
+    data.totalBytes > 0 &&
+    Number.isFinite(data.percent) &&
+    data.percent >= 0
+  );
 }
 
 function saveCache(ctx, cacheKey, data, cacheTime) {
@@ -592,12 +608,14 @@ async function fetchRemoteInfo(
   nowTime,
   deadlineTime,
   hasStaleCache,
-  preferredStrategyIndex
+  preferredStrategyIndex,
+  remoteGroupCount
 ) {
   let lastErrorMsg = "Unknown";
   const strategyIndexes = getStrategyIndexes(
     hasStaleCache,
-    preferredStrategyIndex
+    preferredStrategyIndex,
+    remoteGroupCount
   );
 
   for (const strategyIndex of strategyIndexes) {
@@ -698,22 +716,30 @@ function getPreferredStrategyIndex(states) {
   return null;
 }
 
-function getStrategyIndexes(hasStaleCache, preferredStrategyIndex) {
-  const maxAttempts = hasStaleCache ? 1 : STRATEGIES.length;
+function getStrategyIndexes(
+  hasStaleCache,
+  preferredStrategyIndex,
+  remoteGroupCount
+) {
+  const hasPreferred =
+    Number.isInteger(preferredStrategyIndex) &&
+    preferredStrategyIndex >= 0 &&
+    preferredStrategyIndex < STRATEGIES.length;
+
+  const maxAttempts = hasStaleCache
+    ? hasPreferred
+      ? 1
+      : Math.min(2, STRATEGIES.length)
+    : remoteGroupCount > 2
+    ? Math.min(2, STRATEGIES.length)
+    : STRATEGIES.length;
+
   const indexes = [];
   const usedIndexes = [];
 
-  if (preferredStrategyIndex != null) {
-    const preferred = Number(preferredStrategyIndex);
-
-    if (
-      Number.isInteger(preferred) &&
-      preferred >= 0 &&
-      preferred < STRATEGIES.length
-    ) {
-      indexes.push(preferred);
-      usedIndexes[preferred] = true;
-    }
+  if (hasPreferred) {
+    indexes.push(preferredStrategyIndex);
+    usedIndexes[preferredStrategyIndex] = true;
   }
 
   for (let i = 0; i < STRATEGIES.length && indexes.length < maxAttempts; i++) {
