@@ -47,6 +47,7 @@ const CARD_BG_COLOR = { light: "#FFFFFF", dark: "#2B2B2D" };
 const REFRESH_INTERVAL_MS = 60 * 60 * 1000;
 const NETWORK_COOLDOWN_MS = 30 * 60 * 1000;
 const MAX_STALE_MS = 10 * 24 * 60 * 60 * 1000;
+const MAX_FUTURE_CACHE_SKEW_MS = 5 * 60 * 1000;
 
 const SCRIPT_SOFT_TIMEOUT_MS = 8000;
 const REQUEST_TIMEOUT_MS = 2000;
@@ -101,13 +102,12 @@ async function buildWidget(ctx) {
   const widgetFamily = String(ctx.widgetFamily || "systemMedium");
   const isSmallWidget = widgetFamily === "systemSmall";
   const activeSlots = slots.slice(0, getDisplayLimit(widgetFamily));
-  const activeSlotCount = activeSlots.length;
 
   const now = new Date();
   const nowTime = now.getTime();
   const deadlineTime = nowTime + SCRIPT_SOFT_TIMEOUT_MS;
 
-  const maxConcurrent = activeSlotCount > 2 ? 3 : 2;
+  const maxConcurrent = activeSlots.length > 2 ? 3 : 2;
   const cacheMemo = new Map();
   const slotStates = activeSlots.map((slot) =>
     buildSlotState(ctx, slot, now, nowTime, cacheMemo)
@@ -147,6 +147,7 @@ async function buildWidget(ctx) {
   }
 
   if (remoteGroups.length) {
+    const remoteGroupCount = remoteGroups.length;
     const remoteGroupResults = await concurrentMap(
       remoteGroups,
       maxConcurrent,
@@ -156,7 +157,7 @@ async function buildWidget(ctx) {
           group,
           nowTime,
           deadlineTime,
-          activeSlotCount
+          remoteGroupCount
         )
     );
 
@@ -404,7 +405,7 @@ async function fetchRemoteForGroup(
   group,
   nowTime,
   deadlineTime,
-  activeSlotCount
+  remoteGroupCount
 ) {
   try {
     const hasSharedStaleCache = Boolean(findGroupStaleCache(group.states));
@@ -416,7 +417,7 @@ async function fetchRemoteForGroup(
       nowTime,
       deadlineTime,
       hasSharedStaleCache,
-      activeSlotCount,
+      remoteGroupCount,
       preferredStrategyIndex
     );
 
@@ -449,12 +450,12 @@ function readCacheWithMigration(
     cacheMemo.set(cacheKey, cache);
   }
 
-  if (cacheKey === legacyCacheKey) {
+  if (cacheKey === legacyCacheKey || cache.fresh) {
     return cache;
   }
 
-  const legacyCache = readCache(ctx, legacyCacheKey, nowTime);
   const currentData = getCacheData(cache);
+  const legacyCache = readCache(ctx, legacyCacheKey, nowTime);
   const legacyData = getCacheData(legacyCache);
 
   if (!legacyData) {
@@ -507,9 +508,14 @@ function readCache(ctx, cacheKey, nowTime) {
       return { fresh: null, stale: null };
     }
 
-    const age = nowTime - cacheTime;
+    if (cacheTime > nowTime + MAX_FUTURE_CACHE_SKEW_MS) {
+      safeDeleteCache(ctx, cacheKey);
+      return { fresh: null, stale: null };
+    }
 
-    if (age >= 0 && age < NETWORK_COOLDOWN_MS) {
+    const age = Math.max(0, nowTime - cacheTime);
+
+    if (age < NETWORK_COOLDOWN_MS) {
       return {
         fresh: {
           ...data,
@@ -519,7 +525,7 @@ function readCache(ctx, cacheKey, nowTime) {
       };
     }
 
-    if (age >= 0 && age < MAX_STALE_MS) {
+    if (age < MAX_STALE_MS) {
       return {
         fresh: null,
         stale: {
@@ -578,12 +584,12 @@ async function fetchRemoteInfo(
   nowTime,
   deadlineTime,
   hasStaleCache,
-  activeSlotCount,
+  remoteGroupCount,
   preferredStrategyIndex
 ) {
   let lastErrorMsg = "Unknown";
   const strategyIndexes = getStrategyIndexes(
-    activeSlotCount,
+    remoteGroupCount,
     hasStaleCache,
     preferredStrategyIndex
   );
@@ -678,11 +684,7 @@ function getPreferredStrategyIndex(states) {
     const data = getCacheData(state.cache);
     const index = Number(data?.strategyIndex);
 
-    if (
-      Number.isInteger(index) &&
-      index >= 0 &&
-      index < STRATEGIES.length
-    ) {
+    if (Number.isInteger(index) && index >= 0 && index < STRATEGIES.length) {
       return index;
     }
   }
@@ -691,12 +693,12 @@ function getPreferredStrategyIndex(states) {
 }
 
 function getStrategyIndexes(
-  activeSlotCount,
+  remoteGroupCount,
   hasStaleCache,
   preferredStrategyIndex
 ) {
   const normalLimit =
-    activeSlotCount > 2
+    remoteGroupCount > 2
       ? Math.min(2, STRATEGIES.length)
       : STRATEGIES.length;
 
