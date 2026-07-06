@@ -83,7 +83,7 @@ function buildHotRows(hotList) {
       continue;
     }
 
-    const hot = getHotText(item);
+    const hot = toText(item.hot);
 
     if (!hot || isZeroHot(hot)) {
       continue;
@@ -96,10 +96,6 @@ function buildHotRows(hotList) {
   }
 
   return rows;
-}
-
-function getHotText(item) {
-  return toText(item.hot);
 }
 
 function getTitleText(item, rank) {
