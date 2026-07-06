@@ -288,7 +288,6 @@ function buildSlots(env) {
 
     const name = String(env[`NAME${i}`] || "").trim();
     slots.push({
-      id: i,
       name: name || "机场订阅",
       url,
       resetDay: parseResetDay(env[`RESET${i}`]),
