@@ -297,7 +297,8 @@ export default async function(ctx) {
           width: barWidth,
           height: 4,
           backgroundColor: color,
-          borderRadius: 2
+          borderRadius: 2,
+          children: [{ type: 'spacer' }]
         },
         { type: 'spacer' }
       ]
