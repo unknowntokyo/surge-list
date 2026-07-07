@@ -5,7 +5,7 @@
  * ✨ 主要功能：
  * • 尺寸适配：仅支持中号小组件。
  * • 节日计算：内置农历算法数组，支持计算法定节假日、民俗节日、国际节日和专属纪念日倒计时。
- * • 官方假期：法定分类优先使用 NateScarlet/holiday-cn 官方放假数据；缺失时拉取缺失的上一年与当前年数据，过期时刷新当前年数据；失败年份会按重试窗口延后再次请求。
+ * • 官方假期：法定分类优先使用 NateScarlet/holiday-cn 官方放假数据；缺失时拉取缺失的上一年与当前年数据，过期时刷新当前年数据；下一年数据仅在无可用日缓存且进入年底预取窗口时机会性预取；失败年份会按重试窗口延后再次请求。
  * • 时区基准：采用 UTC+8 固定时区进行日期、倒计时和每日刷新时间计算。
  * • 自定义配置：支持通过 Egern 环境变量设置最多 6 个专属纪念日。
  * • 排序与显示：支持按倒数天数及分类优先级排序，支持指定节日跨分类置顶。
@@ -195,6 +195,7 @@ const WIDGET_OFFICIAL_HTTP_TIMEOUT_MS = 1500;
 
 const OFFICIAL_REFRESH_INTERVAL_MS = 3 * DAY_MS;
 const OFFICIAL_FAILED_RETRY_INTERVAL_MS = DAY_MS;
+const OFFICIAL_OPTIONAL_PREFETCH_START_MONTH = 11;
 
 const NOTIFY_FAILED_RETRY_INTERVAL_MS = 10 * 60 * 1000;
 
@@ -305,12 +306,6 @@ function splitHolidayNames(name) {
   return raw ? splitNameList(raw) : EMPTY_HOLIDAY_NAME_PARTS;
 }
 
-function getHolidayNamePartSet(name) {
-  const parts = splitHolidayNames(name);
-
-  return parts.length > 0 ? new Set(parts) : null;
-}
-
 function partsIntersect(parts, partSet) {
   if (
     !Array.isArray(parts) ||
@@ -352,23 +347,6 @@ function getSpecialHolidayPriority(name) {
   }
 
   return maxPriority;
-}
-
-function getMatchedHolidayNames(name, targetNameSet) {
-  if (!(targetNameSet instanceof Set)) return [];
-
-  const nameParts = splitHolidayNames(name);
-  if (nameParts.length === 0) return [];
-
-  const matched = [];
-
-  for (const targetName of targetNameSet) {
-    if (partsIntersect(nameParts, getHolidayNamePartSet(targetName))) {
-      matched.push(targetName);
-    }
-  }
-
-  return matched;
 }
 
 function dedupeHolidayItemsByToken(items) {
@@ -871,7 +849,7 @@ function hashString(str) {
   return (h >>> 0).toString(36);
 }
 
-const DAILY_CACHE_SCHEMA_VERSION = 22;
+const DAILY_CACHE_SCHEMA_VERSION = 23;
 const DAILY_CACHE_VERSION_TEXT = `v${DAILY_CACHE_SCHEMA_VERSION}`;
 
 const warnLog = (...args) => console.warn(...args);
@@ -905,7 +883,7 @@ function sameSortedKeys(a = {}, b = {}) {
 }
 
 function getOfficialFingerprintForCompare(cache) {
-  if (!cache) return "";
+  if (!cache) return "none";
 
   return typeof cache.fingerprint === "string" && cache.fingerprint
     ? cache.fingerprint
@@ -1123,8 +1101,18 @@ function officialRequiredYears(currentYear) {
   return [currentYear - 1, currentYear];
 }
 
+function officialOptionalYears(currentYear) {
+  return [currentYear + 1];
+}
+
 function officialRequestYears(currentYear) {
-  return officialRequiredYears(currentYear);
+  return uniqueFiniteNumbers([...officialRequiredYears(currentYear), ...officialOptionalYears(currentYear)]);
+}
+
+function shouldPrefetchNextOfficialYear(todayIso) {
+  const parts = parseISODateParts(todayIso);
+
+  return parts ? parts.m >= OFFICIAL_OPTIONAL_PREFETCH_START_MONTH : false;
 }
 
 function pruneOfficialYears(years, currentYear) {
@@ -1173,17 +1161,7 @@ function getMissingOfficialYears(yearsData, requestYears) {
 }
 
 function getOfficialFingerprintText(cache) {
-  const fp = typeof cache?.fingerprint === "string" && cache.fingerprint ? cache.fingerprint : "";
-
-  if (fp) {
-    return `official=${fp}`;
-  }
-
-  if (cache?.years && typeof cache.years === "object") {
-    return `official=${buildOfficialFingerprint(cache.years)}`;
-  }
-
-  return "official=none";
+  return `official=${getOfficialFingerprintForCompare(cache)}`;
 }
 
 function getOfficialEnvFingerprint(dataEnvFingerprint, officialCache) {
@@ -1435,27 +1413,66 @@ function resolveOfficialRefreshPlan({
   const years = officialHolidayCache?.years;
   const now = Date.now();
 
+  const canPrefetchOptionalYear =
+    !hasCachedBaseData && shouldPrefetchNextOfficialYear(todayIso);
+
+  const getOptionalYearsToFetch = () => {
+    if (!canPrefetchOptionalYear) {
+      return [];
+    }
+
+    const missingOptionalYears = uniqueFiniteNumbers(
+      getMissingOfficialYears(years, officialOptionalYears(currentYear))
+    );
+
+    return getOfficialFetchableYears(officialHolidayCache, missingOptionalYears, now);
+  };
+
   const missingRequiredYears = uniqueFiniteNumbers(
     getMissingOfficialYears(years, officialRequiredYears(currentYear))
   );
 
   if (missingRequiredYears.length > 0) {
-    const yearsToFetch = getOfficialFetchableYears(officialHolidayCache, missingRequiredYears, now);
+    const requiredYearsToFetch = getOfficialFetchableYears(
+      officialHolidayCache,
+      missingRequiredYears,
+      now
+    );
+
+    const optionalYearsToFetch =
+      requiredYearsToFetch.length > 0 ? getOptionalYearsToFetch() : [];
 
     return {
-      yearsToFetch,
-      shouldBlockRenderForOfficialRefresh: yearsToFetch.length > 0
+      yearsToFetch: uniqueFiniteNumbers([...requiredYearsToFetch, ...optionalYearsToFetch]),
+      shouldBlockRenderForOfficialRefresh: requiredYearsToFetch.length > 0
     };
   }
 
   const cacheIsFresh = isOfficialCacheFresh(officialHolidayCache, todayIso, currentYear);
 
   if (!cacheIsFresh) {
-    const yearsToFetch = getOfficialFetchableYears(officialHolidayCache, [currentYear], now);
+    const currentYearToFetch = getOfficialFetchableYears(
+      officialHolidayCache,
+      [currentYear],
+      now
+    );
+
+    const optionalYearsToFetch =
+      currentYearToFetch.length > 0 ? getOptionalYearsToFetch() : [];
 
     return {
-      yearsToFetch,
-      shouldBlockRenderForOfficialRefresh: yearsToFetch.length > 0 && !hasCachedBaseData
+      yearsToFetch: uniqueFiniteNumbers([...currentYearToFetch, ...optionalYearsToFetch]),
+      shouldBlockRenderForOfficialRefresh:
+        currentYearToFetch.length > 0 && !hasCachedBaseData
+    };
+  }
+
+  const optionalYearsToFetch = getOptionalYearsToFetch();
+
+  if (optionalYearsToFetch.length > 0) {
+    return {
+      yearsToFetch: optionalYearsToFetch,
+      shouldBlockRenderForOfficialRefresh: false
     };
   }
 
@@ -1914,7 +1931,6 @@ function parseCountdownUserConfig(normalizedEnv) {
     enablePrioritySort: getBool("ENABLE_PRIORITY_SORT", true),
     enableExclusiveWeight: getBool("ENABLE_EXCLUSIVE_WEIGHT", true),
     pinnedHolidays,
-    pinnedHolidaySet: new Set(pinnedHolidays),
     annualCustomDays: customDays.filter(item => item.spec.type === "annual"),
     onceCustomDays: customDays.filter(item => item.spec.type === "once")
   };
@@ -2034,6 +2050,73 @@ function compareTodayItems(a, b) {
   return String(a.name).localeCompare(String(b.name));
 }
 
+function createPriorityResolver(enablePrioritySort, enableExclusiveWeight) {
+  return (name, cat, sourceKind) => {
+    if (!enablePrioritySort) return 1;
+
+    if (sourceKind === "custom") {
+      return enableExclusiveWeight ? 9 : basePriority[cat] ?? 1;
+    }
+
+    const special = getSpecialHolidayPriority(name);
+
+    return special ?? basePriority[cat] ?? 1;
+  };
+}
+
+function finalizeCountdownResult({
+  rawResult,
+  todayItemMap,
+  pinnedMap,
+  pinnedHolidays,
+  pinnedTokenSet,
+  enablePrioritySort
+}) {
+  const todayItems = Array.from(todayItemMap.values()).sort(compareTodayItems);
+
+  const displayTodayItems = dedupeHolidayItemsByToken(todayItems);
+  const todayFestTokenSet = new Set();
+
+  for (const item of displayTodayItems) {
+    addHolidayNameTokens(todayFestTokenSet, item.name);
+  }
+
+  const result = {};
+
+  for (const cat of CATEGORY_KEYS) {
+    result[cat] = Array.from(rawResult[cat].values())
+      .filter(
+        i =>
+          !holidayNameMatchesTokenSet(i.name, pinnedTokenSet) &&
+          !holidayNameMatchesTokenSet(i.name, todayFestTokenSet)
+      )
+      .sort((a, b) => {
+        if (a.diff !== b.diff) return a.diff - b.diff;
+
+        return enablePrioritySort ? b.priority - a.priority : 0;
+      })
+      .slice(0, 7);
+  }
+
+  const todayNoticeText =
+    displayTodayItems.length > 0 ? formatTodayFestGroup(displayTodayItems) : "";
+
+  const pinnedData = pinnedHolidays
+    .filter(n => pinnedMap.has(n))
+    .map(n => ({
+      name: n,
+      diff: pinnedMap.get(n)
+    }))
+    .sort((a, b) => a.diff - b.diff);
+
+  return {
+    result,
+    todayNoticeText,
+    pinnedData,
+    todayItems
+  };
+}
+
 function buildCountdownData({ normalizedEnv, officialHolidayCache, year: Y, todayMs }) {
   const officialRanges = buildOfficialHolidayRangeCache(officialHolidayCache);
   const userConfig = parseCountdownUserConfig(normalizedEnv);
@@ -2042,7 +2125,6 @@ function buildCountdownData({ normalizedEnv, officialHolidayCache, year: Y, toda
     enablePrioritySort,
     enableExclusiveWeight,
     pinnedHolidays,
-    pinnedHolidaySet,
     annualCustomDays,
     onceCustomDays
   } = userConfig;
@@ -2055,17 +2137,7 @@ function buildCountdownData({ normalizedEnv, officialHolidayCache, year: Y, toda
 
   const l2s = createLunarToSolarConverter();
 
-  const getPriority = (name, cat, sourceKind) => {
-    if (!enablePrioritySort) return 1;
-
-    if (sourceKind === "custom") {
-      return enableExclusiveWeight ? 9 : basePriority[cat] ?? 1;
-    }
-
-    const special = getSpecialHolidayPriority(name);
-
-    return special ?? basePriority[cat] ?? 1;
-  };
+  const getPriority = createPriorityResolver(enablePrioritySort, enableExclusiveWeight);
 
   const isInFestivalPeriod = (diff, duration) => diff <= 0 && diff > -duration;
 
@@ -2081,14 +2153,13 @@ function buildCountdownData({ normalizedEnv, officialHolidayCache, year: Y, toda
   const pinnedTokenSet = new Set();
 
   const updatePinned = (name, diff) => {
-    const nameParts = splitHolidayNames(name);
+    const namePartSet = new Set(splitHolidayNames(name));
     const matched = [];
 
     for (const pinnedName of pinnedHolidays) {
       const pinnedParts = pinnedHolidayPartsMap.get(pinnedName);
-      const hasIntersection = pinnedParts.some(part => nameParts.includes(part));
 
-      if (hasIntersection) {
+      if (partsIntersect(pinnedParts, namePartSet)) {
         matched.push(pinnedName);
       }
     }
@@ -2185,49 +2256,33 @@ function buildCountdownData({ normalizedEnv, officialHolidayCache, year: Y, toda
     addFestival("exclusive", item.name, YMD(year, month, day), 1, "custom");
   }
 
-  const todayItems = Array.from(todayItemMap.values()).sort(compareTodayItems);
+  return finalizeCountdownResult({
+    rawResult,
+    todayItemMap,
+    pinnedMap,
+    pinnedHolidays,
+    pinnedTokenSet,
+    enablePrioritySort
+  });
+}
 
-  const displayTodayItems = dedupeHolidayItemsByToken(todayItems);
-  const todayFestTokenSet = new Set();
+function isValidCountdownResult(result) {
+  return (
+    result &&
+    typeof result === "object" &&
+    CATEGORY_KEYS.every(key => Array.isArray(result[key]))
+  );
+}
 
-  for (const item of displayTodayItems) {
-    addHolidayNameTokens(todayFestTokenSet, item.name);
-  }
-
-  const result = {};
-
-  for (const cat of CATEGORY_KEYS) {
-    result[cat] = Array.from(rawResult[cat].values())
-      .filter(
-        i =>
-          !holidayNameMatchesTokenSet(i.name, pinnedTokenSet) &&
-          !holidayNameMatchesTokenSet(i.name, todayFestTokenSet)
-      )
-      .sort((a, b) => {
-        if (a.diff !== b.diff) return a.diff - b.diff;
-
-        return enablePrioritySort ? b.priority - a.priority : 0;
-      })
-      .slice(0, 7);
-  }
-
-  const todayNoticeText =
-    displayTodayItems.length > 0 ? formatTodayFestGroup(displayTodayItems) : "";
-
-  const pinnedData = pinnedHolidays
-    .filter(n => pinnedMap.has(n))
-    .map(n => ({
-      name: n,
-      diff: pinnedMap.get(n)
-    }))
-    .sort((a, b) => a.diff - b.diff);
-
-  return {
-    result,
-    todayNoticeText,
-    pinnedData,
-    todayItems
-  };
+function isValidBaseDailyPayload(payload) {
+  return (
+    payload &&
+    typeof payload === "object" &&
+    isValidCountdownResult(payload.result) &&
+    typeof payload.todayNoticeText === "string" &&
+    Array.isArray(payload.pinnedData) &&
+    Array.isArray(payload.todayItems)
+  );
 }
 
 function notifyTodayIfNeeded(ctx, notifyKey, notifyDate, todayItems) {
@@ -2421,8 +2476,7 @@ async function renderCountdownWidget(ctx = {}) {
       stored.version === CACHE_VERSION &&
       stored.date === todayStr &&
       stored.envFingerprint === currentEnvFingerprint &&
-      payload &&
-      typeof payload === "object"
+      isValidBaseDailyPayload(payload)
     ) {
       return payload;
     }
@@ -2431,7 +2485,7 @@ async function renderCountdownWidget(ctx = {}) {
   };
 
   const writeBaseDailyCache = (envFingerprint, payload) => {
-    if (!ctx.storage) return;
+    if (!ctx.storage || !isValidBaseDailyPayload(payload)) return;
 
     const nextRecord = {
       version: CACHE_VERSION,
