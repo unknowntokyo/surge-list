@@ -5,7 +5,7 @@
  * ✨ 主要功能：
  * • 尺寸适配：仅支持中号小组件。
  * • 节日计算：内置农历算法数组，支持计算法定节假日、民俗节日、国际节日和专属纪念日倒计时。
- * • 官方假期：法定分类优先使用 NateScarlet/holiday-cn 官方放假数据；缺失时拉取缺失的上一年与当前年数据，过期时刷新当前年数据；下一年数据仅在无可用日缓存且进入年底预取窗口时机会性预取；失败年份会按重试窗口延后再次请求。
+ * • 官方假期：法定分类优先使用 NateScarlet/holiday-cn 官方放假数据；当前年数据缺失或过期时刷新；年初额外需要上一年数据以覆盖跨年假期；下一年数据仅在无可用日缓存且进入年底预取窗口时机会性预取，且不阻塞渲染；失败年份会按重试窗口延后再次请求。
  * • 时区基准：采用 UTC+8 固定时区进行日期、倒计时和每日刷新时间计算。
  * • 自定义配置：支持通过 Egern 环境变量设置最多 6 个专属纪念日。
  * • 排序与显示：支持按倒数天数及分类优先级排序，支持指定节日跨分类置顶。
@@ -196,6 +196,7 @@ const WIDGET_OFFICIAL_HTTP_TIMEOUT_MS = 1500;
 const OFFICIAL_REFRESH_INTERVAL_MS = 3 * DAY_MS;
 const OFFICIAL_FAILED_RETRY_INTERVAL_MS = DAY_MS;
 const OFFICIAL_OPTIONAL_PREFETCH_START_MONTH = 11;
+const OFFICIAL_REQUIRE_PREVIOUS_YEAR_MONTH = 1;
 
 const NOTIFY_FAILED_RETRY_INTERVAL_MS = 10 * 60 * 1000;
 
@@ -765,9 +766,33 @@ function isValidPinnedItem(item) {
     item &&
     typeof item === "object" &&
     typeof item.name === "string" &&
+    item.name.trim() &&
     typeof item.diff === "number" &&
     Number.isFinite(item.diff)
   );
+}
+
+function isValidCountdownItem(item) {
+  if (
+    !item ||
+    typeof item !== "object" ||
+    typeof item.name !== "string" ||
+    !item.name.trim() ||
+    typeof item.diff !== "number" ||
+    !Number.isFinite(item.diff)
+  ) {
+    return false;
+  }
+
+  if (item.duration !== undefined) {
+    const duration = Number(item.duration);
+
+    if (!Number.isFinite(duration) || duration < 1) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 const OFFICIAL_HOLIDAY_STORAGE_VERSION = 2;
@@ -849,7 +874,7 @@ function hashString(str) {
   return (h >>> 0).toString(36);
 }
 
-const DAILY_CACHE_SCHEMA_VERSION = 23;
+const DAILY_CACHE_SCHEMA_VERSION = 24;
 const DAILY_CACHE_VERSION_TEXT = `v${DAILY_CACHE_SCHEMA_VERSION}`;
 
 const warnLog = (...args) => console.warn(...args);
@@ -1097,16 +1122,31 @@ function readOfficialHolidayCache(ctx, storageKey, options = {}) {
   return null;
 }
 
-function officialRequiredYears(currentYear) {
-  return [currentYear - 1, currentYear];
+function shouldRequirePreviousOfficialYear(todayIso) {
+  const parts = parseISODateParts(todayIso);
+
+  return parts ? parts.m === OFFICIAL_REQUIRE_PREVIOUS_YEAR_MONTH : true;
+}
+
+function officialRequiredYears(currentYear, todayIso) {
+  const years = [currentYear];
+
+  if (shouldRequirePreviousOfficialYear(todayIso)) {
+    years.unshift(currentYear - 1);
+  }
+
+  return years;
 }
 
 function officialOptionalYears(currentYear) {
   return [currentYear + 1];
 }
 
-function officialRequestYears(currentYear) {
-  return uniqueFiniteNumbers([...officialRequiredYears(currentYear), ...officialOptionalYears(currentYear)]);
+function officialRequestYears(currentYear, todayIso) {
+  return uniqueFiniteNumbers([
+    ...officialRequiredYears(currentYear, todayIso),
+    ...officialOptionalYears(currentYear)
+  ]);
 }
 
 function shouldPrefetchNextOfficialYear(todayIso) {
@@ -1115,8 +1155,8 @@ function shouldPrefetchNextOfficialYear(todayIso) {
   return parts ? parts.m >= OFFICIAL_OPTIONAL_PREFETCH_START_MONTH : false;
 }
 
-function pruneOfficialYears(years, currentYear) {
-  const keep = new Set(officialRequestYears(currentYear).map(String));
+function pruneOfficialYears(years, currentYear, todayIso) {
+  const keep = new Set(officialRequestYears(currentYear, todayIso).map(String));
   const pruned = {};
 
   for (const [year, data] of Object.entries(years || {})) {
@@ -1134,8 +1174,8 @@ function pruneOfficialYears(years, currentYear) {
   return pruned;
 }
 
-function pruneRetryAfterByYear(retryAfterByYear, currentYear) {
-  const keep = new Set(officialRequestYears(currentYear).map(String));
+function pruneRetryAfterByYear(retryAfterByYear, currentYear, todayIso) {
+  const keep = new Set(officialRequestYears(currentYear, todayIso).map(String));
   const pruned = {};
   const now = Date.now();
 
@@ -1168,8 +1208,11 @@ function getOfficialEnvFingerprint(dataEnvFingerprint, officialCache) {
   return `${dataEnvFingerprint}|${getOfficialFingerprintText(officialCache)}`;
 }
 
-function isOfficialRequiredReady(yearsData, currentYear) {
-  return getMissingOfficialYears(yearsData, officialRequiredYears(currentYear)).length === 0;
+function isOfficialRequiredReady(yearsData, currentYear, todayIso) {
+  return getMissingOfficialYears(
+    yearsData,
+    officialRequiredYears(currentYear, todayIso)
+  ).length === 0;
 }
 
 function isOfficialCacheFresh(cache, todayIso, currentYear) {
@@ -1177,7 +1220,7 @@ function isOfficialCacheFresh(cache, todayIso, currentYear) {
     return false;
   }
 
-  if (!isOfficialRequiredReady(cache.years, currentYear)) {
+  if (!isOfficialRequiredReady(cache.years, currentYear, todayIso)) {
     return false;
   }
 
@@ -1196,7 +1239,7 @@ function getOfficialFetchableYears(cache, years, now = Date.now()) {
   return uniqueFiniteNumbers(years).filter(year => !isOfficialYearRetryBlocked(cache, year, now));
 }
 
-function normalizeOfficialCachePayload(oldCache, years, currentYear, retryAfterByYearOverride) {
+function normalizeOfficialCachePayload(oldCache, years, currentYear, todayIso, retryAfterByYearOverride) {
   const checkedDate = isValidISODate(oldCache?.checkedDate) ? oldCache.checkedDate : undefined;
 
   return {
@@ -1205,7 +1248,8 @@ function normalizeOfficialCachePayload(oldCache, years, currentYear, retryAfterB
     fingerprint: buildOfficialFingerprint(years),
     retryAfterByYear: pruneRetryAfterByYear(
       retryAfterByYearOverride ?? oldCache?.retryAfterByYear,
-      currentYear
+      currentYear,
+      todayIso
     ),
     years
   };
@@ -1276,10 +1320,14 @@ async function loadOfficialHolidayDaily(ctx, currentYear, todayIso, storageKey, 
     return oldCache;
   }
 
-  const requiredYears = officialRequiredYears(currentYear);
-  const mergedYears = pruneOfficialYears(oldCache?.years || {}, currentYear);
+  const requiredYears = officialRequiredYears(currentYear, todayIso);
+  const mergedYears = pruneOfficialYears(oldCache?.years || {}, currentYear, todayIso);
 
-  const retryAfterByYear = pruneRetryAfterByYear(oldCache?.retryAfterByYear, currentYear);
+  const retryAfterByYear = pruneRetryAfterByYear(
+    oldCache?.retryAfterByYear,
+    currentYear,
+    todayIso
+  );
 
   const now = Date.now();
 
@@ -1316,6 +1364,7 @@ async function loadOfficialHolidayDaily(ctx, currentYear, todayIso, storageKey, 
       oldCache,
       mergedYears,
       currentYear,
+      todayIso,
       retryAfterByYear
     );
 
@@ -1359,7 +1408,7 @@ async function loadOfficialHolidayDaily(ctx, currentYear, todayIso, storageKey, 
     : undefined;
 
   const shouldUpdateCheckedDate =
-    isOfficialRequiredReady(mergedYears, currentYear) &&
+    isOfficialRequiredReady(mergedYears, currentYear, todayIso) &&
     fetchedCurrentYear &&
     successfulFetchYearSet.has(String(currentYear));
 
@@ -1369,7 +1418,7 @@ async function loadOfficialHolidayDaily(ctx, currentYear, todayIso, storageKey, 
     version: OFFICIAL_HOLIDAY_STORAGE_VERSION,
     ...(checkedDate ? { checkedDate } : {}),
     fingerprint: buildOfficialFingerprint(mergedYears),
-    retryAfterByYear: pruneRetryAfterByYear(retryAfterByYear, currentYear),
+    retryAfterByYear: pruneRetryAfterByYear(retryAfterByYear, currentYear, todayIso),
     years: mergedYears
   };
 
@@ -1429,7 +1478,7 @@ function resolveOfficialRefreshPlan({
   };
 
   const missingRequiredYears = uniqueFiniteNumbers(
-    getMissingOfficialYears(years, officialRequiredYears(currentYear))
+    getMissingOfficialYears(years, officialRequiredYears(currentYear, todayIso))
   );
 
   if (missingRequiredYears.length > 0) {
@@ -1480,6 +1529,16 @@ function resolveOfficialRefreshPlan({
     yearsToFetch: [],
     shouldBlockRenderForOfficialRefresh: false
   };
+}
+
+function shouldRefreshOfficialBeforeRender(canRefreshOfficialHoliday, plan) {
+  return Boolean(
+    canRefreshOfficialHoliday &&
+      plan &&
+      Array.isArray(plan.yearsToFetch) &&
+      plan.yearsToFetch.length > 0 &&
+      plan.shouldBlockRenderForOfficialRefresh === true
+  );
 }
 
 async function refreshOfficialCache({
@@ -1541,11 +1600,7 @@ async function prepareOfficialHolidayCacheForWidget({
     hasCachedBaseData: Boolean(cachedBaseData)
   });
 
-  if (
-    !canRefreshOfficialHoliday ||
-    plan.yearsToFetch.length === 0 ||
-    (cachedBaseData && !plan.shouldBlockRenderForOfficialRefresh)
-  ) {
+  if (!shouldRefreshOfficialBeforeRender(canRefreshOfficialHoliday, plan)) {
     return {
       officialHolidayCache,
       envFingerprint,
@@ -2270,7 +2325,9 @@ function isValidCountdownResult(result) {
   return (
     result &&
     typeof result === "object" &&
-    CATEGORY_KEYS.every(key => Array.isArray(result[key]))
+    CATEGORY_KEYS.every(
+      key => Array.isArray(result[key]) && result[key].every(isValidCountdownItem)
+    )
   );
 }
 
@@ -2281,7 +2338,9 @@ function isValidBaseDailyPayload(payload) {
     isValidCountdownResult(payload.result) &&
     typeof payload.todayNoticeText === "string" &&
     Array.isArray(payload.pinnedData) &&
-    Array.isArray(payload.todayItems)
+    payload.pinnedData.every(isValidPinnedItem) &&
+    Array.isArray(payload.todayItems) &&
+    payload.todayItems.every(isValidCountdownItem)
   );
 }
 
