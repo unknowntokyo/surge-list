@@ -965,10 +965,40 @@ function normalizeOfficialDay(day) {
   };
 }
 
+function normalizeOfficialDays(days) {
+  if (!Array.isArray(days) || days.length === 0) {
+    return [];
+  }
+
+  const seen = new Set();
+  const normalizedDays = [];
+
+  for (const rawDay of days) {
+    const day = normalizeOfficialDay(rawDay);
+
+    if (!day) continue;
+
+    const key = `${day.date}|${day.name}|${day.isOffDay ? 1 : 0}`;
+
+    if (seen.has(key)) continue;
+
+    seen.add(key);
+    normalizedDays.push(day);
+  }
+
+  return normalizedDays.sort((a, b) => {
+    if (a.ms !== b.ms) return a.ms - b.ms;
+
+    const nameCompare = a.name.localeCompare(b.name);
+    if (nameCompare !== 0) return nameCompare;
+
+    return Number(b.isOffDay) - Number(a.isOffDay);
+  });
+}
+
 function buildOfficialHolidayRanges(days) {
-  const offDays = (days || [])
-    .map(normalizeOfficialDay)
-    .filter(day => day && day.isOffDay === true)
+  const offDays = normalizeOfficialDays(days)
+    .filter(day => day.isOffDay === true)
     .sort((a, b) => a.ms - b.ms);
 
   const groups = [];
@@ -1016,12 +1046,9 @@ function normalizeHolidayCnYearData(data, year) {
     throw new Error(`official holiday days missing: ${year}`);
   }
 
-  const days = data.days
-    .map(normalizeOfficialDay)
-    .filter(Boolean)
-    .sort((a, b) => a.ms - b.ms);
-
-  return { days };
+  return {
+    days: normalizeOfficialDays(data.days)
+  };
 }
 
 function normalizeCachedOfficialYearData(yearData) {
@@ -1029,10 +1056,7 @@ function normalizeCachedOfficialYearData(yearData) {
     return null;
   }
 
-  const days = yearData.days
-    .map(normalizeOfficialDay)
-    .filter(Boolean)
-    .sort((a, b) => a.ms - b.ms);
+  const days = normalizeOfficialDays(yearData.days);
 
   return days.length > 0 ? { days } : null;
 }
@@ -1306,7 +1330,7 @@ async function loadOfficialHolidayDaily(ctx, currentYear, todayIso, storageKey, 
     throw new Error("official holiday storageKey required");
   }
 
-  const { httpTimeoutMs = HTTP_TIMEOUT_MS, forceYearsToFetch = null } = options || {};
+  const { httpTimeoutMs = HTTP_TIMEOUT_MS, forceYearsToFetch = [] } = options || {};
 
   const hasProvidedOldCache = Object.prototype.hasOwnProperty.call(options || {}, "oldCache");
 
@@ -1320,7 +1344,6 @@ async function loadOfficialHolidayDaily(ctx, currentYear, todayIso, storageKey, 
     return oldCache;
   }
 
-  const requiredYears = officialRequiredYears(currentYear, todayIso);
   const mergedYears = pruneOfficialYears(oldCache?.years || {}, currentYear, todayIso);
 
   const retryAfterByYear = pruneRetryAfterByYear(
@@ -1330,34 +1353,9 @@ async function loadOfficialHolidayDaily(ctx, currentYear, todayIso, storageKey, 
   );
 
   const now = Date.now();
+  const requestedYears = uniqueFiniteNumbers(forceYearsToFetch);
 
-  const cacheForFreshCheck = {
-    ...oldCache,
-    years: mergedYears,
-    retryAfterByYear
-  };
-
-  const requiredFresh = isOfficialCacheFresh(cacheForFreshCheck, todayIso, currentYear);
-
-  const missingRequiredYears = getMissingOfficialYears(mergedYears, requiredYears).map(Number);
-
-  const buildFetchCandidates = () => {
-    if (missingRequiredYears.length > 0) {
-      return missingRequiredYears;
-    }
-
-    if (!requiredFresh) {
-      return [currentYear];
-    }
-
-    return [];
-  };
-
-  const rawFetchCandidates = Array.isArray(forceYearsToFetch)
-    ? forceYearsToFetch
-    : buildFetchCandidates();
-
-  const yearsToFetch = getOfficialFetchableYears({ retryAfterByYear }, rawFetchCandidates, now);
+  const yearsToFetch = getOfficialFetchableYears({ retryAfterByYear }, requestedYears, now);
 
   if (yearsToFetch.length === 0) {
     const normalizedCache = normalizeOfficialCachePayload(
@@ -2172,6 +2170,128 @@ function finalizeCountdownResult({
   };
 }
 
+function createCountdownCollectionState() {
+  const rawResult = {};
+
+  for (const cat of CATEGORY_KEYS) {
+    rawResult[cat] = new Map();
+  }
+
+  return {
+    rawResult,
+    todayItemMap: new Map(),
+    pinnedMap: new Map(),
+    pinnedTokenSet: new Set()
+  };
+}
+
+function buildPinnedHolidayPartsMap(pinnedHolidays) {
+  const pinnedHolidayPartsMap = new Map();
+
+  for (const pinnedName of pinnedHolidays) {
+    pinnedHolidayPartsMap.set(pinnedName, splitHolidayNames(pinnedName));
+  }
+
+  return pinnedHolidayPartsMap;
+}
+
+function addTodayCountdownItem(state, name, diff, priority, cat, duration = 1) {
+  const key = String(name);
+
+  const nextItem = {
+    name,
+    diff,
+    duration,
+    priority: priority + 100,
+    cat
+  };
+
+  const oldItem = state.todayItemMap.get(key);
+
+  if (
+    !oldItem ||
+    nextItem.priority > oldItem.priority ||
+    (nextItem.priority === oldItem.priority && nextItem.diff > oldItem.diff)
+  ) {
+    state.todayItemMap.set(key, nextItem);
+  }
+}
+
+function updatePinnedCountdown(state, collectCtx, name, diff) {
+  const { pinnedHolidays, pinnedHolidayPartsMap } = collectCtx;
+
+  if (!Array.isArray(pinnedHolidays) || pinnedHolidays.length === 0) {
+    return;
+  }
+
+  const namePartSet = new Set(splitHolidayNames(name));
+  const matched = [];
+
+  for (const pinnedName of pinnedHolidays) {
+    const pinnedParts = pinnedHolidayPartsMap.get(pinnedName);
+
+    if (partsIntersect(pinnedParts, namePartSet)) {
+      matched.push(pinnedName);
+    }
+  }
+
+  if (matched.length === 0) {
+    return;
+  }
+
+  for (const pinnedName of matched) {
+    const oldPinnedDiff = state.pinnedMap.get(pinnedName);
+
+    if (oldPinnedDiff === undefined || diff < oldPinnedDiff) {
+      state.pinnedMap.set(pinnedName, diff);
+      addHolidayNameTokens(state.pinnedTokenSet, pinnedName);
+    }
+  }
+}
+
+function addCountdownFestival(
+  state,
+  collectCtx,
+  cat,
+  name,
+  dateStr,
+  duration = 1,
+  sourceKind = ""
+) {
+  if (!name || !dateStr) return;
+
+  const dateParts = parseSlashYMDParts(dateStr);
+
+  if (!dateParts) {
+    return;
+  }
+
+  const diff = (dateParts.ms - collectCtx.todayMs) / DAY_MS;
+  const priority = collectCtx.getPriority(name, cat, sourceKind);
+  const safeDuration = Math.max(1, Number(duration) || 1);
+
+  if (diff <= 0 && diff > -safeDuration) {
+    addTodayCountdownItem(state, name, diff, priority, cat, safeDuration);
+    return;
+  }
+
+  if (diff > 0) {
+    updatePinnedCountdown(state, collectCtx, name, diff);
+
+    const old = state.rawResult[cat].get(name);
+
+    if (!old || diff < old.diff) {
+      state.rawResult[cat].set(name, {
+        name,
+        diff,
+        duration: safeDuration,
+        priority,
+        cat
+      });
+    }
+  }
+}
+
 function buildCountdownData({ normalizedEnv, officialHolidayCache, year: Y, todayMs }) {
   const officialRanges = buildOfficialHolidayRangeCache(officialHolidayCache);
   const userConfig = parseCountdownUserConfig(normalizedEnv);
@@ -2184,108 +2304,16 @@ function buildCountdownData({ normalizedEnv, officialHolidayCache, year: Y, toda
     onceCustomDays
   } = userConfig;
 
-  const pinnedHolidayPartsMap = new Map();
-
-  for (const pinnedName of pinnedHolidays) {
-    pinnedHolidayPartsMap.set(pinnedName, splitHolidayNames(pinnedName));
-  }
-
+  const state = createCountdownCollectionState();
+  const pinnedHolidayPartsMap = buildPinnedHolidayPartsMap(pinnedHolidays);
   const l2s = createLunarToSolarConverter();
-
   const getPriority = createPriorityResolver(enablePrioritySort, enableExclusiveWeight);
 
-  const isInFestivalPeriod = (diff, duration) => diff <= 0 && diff > -duration;
-
-  const rawResult = {
-    legal: new Map(),
-    folk: new Map(),
-    intl: new Map(),
-    exclusive: new Map()
-  };
-
-  const todayItemMap = new Map();
-  const pinnedMap = new Map();
-  const pinnedTokenSet = new Set();
-
-  const updatePinned = (name, diff) => {
-    const namePartSet = new Set(splitHolidayNames(name));
-    const matched = [];
-
-    for (const pinnedName of pinnedHolidays) {
-      const pinnedParts = pinnedHolidayPartsMap.get(pinnedName);
-
-      if (partsIntersect(pinnedParts, namePartSet)) {
-        matched.push(pinnedName);
-      }
-    }
-
-    if (matched.length === 0) {
-      return;
-    }
-
-    for (const pinnedName of matched) {
-      const oldPinnedDiff = pinnedMap.get(pinnedName);
-
-      if (oldPinnedDiff === undefined || diff < oldPinnedDiff) {
-        pinnedMap.set(pinnedName, diff);
-        addHolidayNameTokens(pinnedTokenSet, pinnedName);
-      }
-    }
-  };
-
-  const addTodayItem = (name, diff, priority, cat, duration = 1) => {
-    const key = String(name);
-    const nextItem = {
-      name,
-      diff,
-      duration,
-      priority: priority + 100,
-      cat
-    };
-
-    const oldItem = todayItemMap.get(key);
-
-    if (
-      !oldItem ||
-      nextItem.priority > oldItem.priority ||
-      (nextItem.priority === oldItem.priority && nextItem.diff > oldItem.diff)
-    ) {
-      todayItemMap.set(key, nextItem);
-    }
-  };
-
-  const addFestival = (cat, name, dateStr, duration = 1, sourceKind = "") => {
-    if (!name || !dateStr) return;
-
-    const dateParts = parseSlashYMDParts(dateStr);
-
-    if (!dateParts) {
-      return;
-    }
-
-    const diff = (dateParts.ms - todayMs) / DAY_MS;
-    const priority = getPriority(name, cat, sourceKind);
-
-    if (isInFestivalPeriod(diff, duration)) {
-      addTodayItem(name, diff, priority, cat, duration);
-      return;
-    }
-
-    if (diff > 0) {
-      updatePinned(name, diff);
-
-      const old = rawResult[cat].get(name);
-
-      if (!old || diff < old.diff) {
-        rawResult[cat].set(name, {
-          name,
-          diff,
-          duration,
-          priority,
-          cat
-        });
-      }
-    }
+  const collectCtx = {
+    todayMs,
+    getPriority,
+    pinnedHolidays,
+    pinnedHolidayPartsMap
   };
 
   const yearsToScan = [Y - 1, Y, Y + 1];
@@ -2300,7 +2328,15 @@ function buildCountdownData({ normalizedEnv, officialHolidayCache, year: Y, toda
 
     for (const cat of CATEGORY_KEYS) {
       for (const [name, dateStr, duration = 1, sourceKind = ""] of f[cat]) {
-        addFestival(cat, name, dateStr, duration, sourceKind);
+        addCountdownFestival(
+          state,
+          collectCtx,
+          cat,
+          name,
+          dateStr,
+          duration,
+          sourceKind
+        );
       }
     }
   }
@@ -2308,15 +2344,23 @@ function buildCountdownData({ normalizedEnv, officialHolidayCache, year: Y, toda
   for (const item of onceCustomDays) {
     const { year, month, day } = item.spec;
 
-    addFestival("exclusive", item.name, YMD(year, month, day), 1, "custom");
+    addCountdownFestival(
+      state,
+      collectCtx,
+      "exclusive",
+      item.name,
+      YMD(year, month, day),
+      1,
+      "custom"
+    );
   }
 
   return finalizeCountdownResult({
-    rawResult,
-    todayItemMap,
-    pinnedMap,
+    rawResult: state.rawResult,
+    todayItemMap: state.todayItemMap,
+    pinnedMap: state.pinnedMap,
     pinnedHolidays,
-    pinnedTokenSet,
+    pinnedTokenSet: state.pinnedTokenSet,
     enablePrioritySort
   });
 }
@@ -2485,8 +2529,6 @@ async function renderCountdownWidget(ctx = {}) {
 
   const dataEnvStorageFingerprint = buildEnvFingerprintFromNormalized(normalizedEnv, DATA_ENV_KEYS);
 
-  const dataEnvCacheScope = hashString(dataEnvStorageFingerprint);
-
   const enableWeekendTheme = getBoolFromNormalizedEnv(
     normalizedEnv,
     "ENABLE_WEEKEND_THEME",
@@ -2495,7 +2537,7 @@ async function renderCountdownWidget(ctx = {}) {
 
   const { year: Y, weekday: currentDay, todayMs, todayIso, todayStr } = dateCtx;
 
-  const BASE_CACHE_KEY = `${storageScope}:daily:${dataEnvCacheScope}:v${DAILY_CACHE_SCHEMA_VERSION}`;
+  const BASE_CACHE_KEY = `${storageScope}:daily:v${DAILY_CACHE_SCHEMA_VERSION}`;
 
   const NOTIFY_KEY = `${storageScope}:notify`;
 
