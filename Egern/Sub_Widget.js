@@ -53,6 +53,7 @@ const REQUEST_TIMEOUT_MS = 2000;
 const MIN_REQUEST_TIMEOUT_MS = 500;
 
 const CACHE_PREFIX = "sub_cache";
+const MAX_FATAL_ERROR_TEXT_LENGTH = 120;
 
 const UNITS = ["B", "KB", "MB", "GB", "TB", "PB"];
 const REGEX_USERINFO = /([-\w]+)\s*=\s*([\d.eE+-]+)/g;
@@ -83,6 +84,14 @@ const STRATEGIES = [
 ];
 
 export default async function (ctx) {
+  try {
+    return await main(ctx);
+  } catch (err) {
+    return buildFatalWidget(normalizeFatalError(err));
+  }
+}
+
+async function main(ctx) {
   const env = ctx.env || {};
   const slots = buildSlots(env);
 
@@ -99,8 +108,9 @@ export default async function (ctx) {
   const deadlineTime = nowTime + SCRIPT_SOFT_TIMEOUT_MS;
 
   const maxConcurrent = activeSlotCount > 2 ? 3 : 2;
+  const cacheMemo = new Map();
   const slotStates = activeSlots.map((slot) =>
-    buildSlotState(ctx, slot, now, nowTime)
+    buildSlotState(ctx, slot, now, nowTime, cacheMemo)
   );
 
   const results = new Array(slotStates.length);
@@ -160,7 +170,7 @@ export default async function (ctx) {
       if (!group) continue;
 
       if (remote.ok) {
-        saveCache(ctx, group.cacheKey, remote.data);
+        saveCache(ctx, group.cacheKey, remote.data, nowTime);
 
         const dataWithCacheTime = {
           ...remote.data,
@@ -213,7 +223,7 @@ export default async function (ctx) {
   }
 
   const cardChildren = results.map((result) =>
-    safeBuildCard(result, ctx, nowTime)
+    safeBuildCard(result, widgetFamily, nowTime)
   );
 
   const timeStr =
@@ -298,6 +308,55 @@ function buildSlots(env) {
 }
 
 function buildEmptyWidget() {
+  return buildStatusWidget({
+    icon: "sf-symbol:wifi.slash",
+    iconSize: 32,
+    title: "未配置订阅",
+    titleColor: COLORS.textPrimary,
+    gap: 10,
+  });
+}
+
+function buildFatalWidget(message) {
+  return buildStatusWidget({
+    icon: "sf-symbol:exclamationmark.triangle.fill",
+    iconSize: 28,
+    title: "脚本异常",
+    titleColor: COLORS.accentRed,
+    message: message || "Unknown",
+    gap: 8,
+  });
+}
+
+function buildStatusWidget(options) {
+  const children = [
+    {
+      type: "image",
+      src: options.icon,
+      width: options.iconSize,
+      height: options.iconSize,
+      color: COLORS.accentRed,
+    },
+    {
+      type: "text",
+      text: options.title,
+      font: { size: "headline", weight: "semibold" },
+      textColor: options.titleColor,
+      maxLines: 1,
+    },
+  ];
+
+  if (options.message) {
+    children.push({
+      type: "text",
+      text: options.message,
+      font: { size: "caption2", weight: "medium" },
+      textColor: COLORS.textTertiary,
+      maxLines: 2,
+      textAlign: "center",
+    });
+  }
+
   return {
     type: "widget",
     backgroundColor: WIDGET_BG_COLOR,
@@ -307,33 +366,38 @@ function buildEmptyWidget() {
       {
         type: "stack",
         direction: "column",
-        gap: 10,
+        gap: options.gap,
         alignItems: "center",
-        children: [
-          {
-            type: "image",
-            src: "sf-symbol:wifi.slash",
-            width: 32,
-            height: 32,
-            color: COLORS.accentRed,
-          },
-          {
-            type: "text",
-            text: "未配置订阅",
-            font: { size: "headline", weight: "semibold" },
-            textColor: COLORS.textPrimary,
-          },
-        ],
+        children,
       },
     ],
   };
 }
 
-function buildSlotState(ctx, slot, now, nowTime) {
+function normalizeFatalError(err) {
+  const msg = String(err?.message ?? err ?? "").trim();
+
+  if (!msg) {
+    return "Unknown";
+  }
+
+  if (msg.length <= MAX_FATAL_ERROR_TEXT_LENGTH) {
+    return msg;
+  }
+
+  return `${msg.slice(0, MAX_FATAL_ERROR_TEXT_LENGTH - 1)}…`;
+}
+
+function buildSlotState(ctx, slot, now, nowTime, cacheMemo) {
   const remainDays = slot.resetDay ? getRemainingDays(slot.resetDay, now) : null;
   const urlHash = hashString(slot.url);
   const cacheKey = `${CACHE_PREFIX}_${urlHash}`;
-  const cache = readCache(ctx, cacheKey, nowTime);
+
+  let cache = cacheMemo.get(cacheKey);
+  if (!cache) {
+    cache = readCache(ctx, cacheKey, nowTime);
+    cacheMemo.set(cacheKey, cache);
+  }
 
   return {
     slot,
@@ -603,7 +667,7 @@ function buildErrorResult(slot, remainDays, errorMsg) {
   };
 }
 
-function buildCard(result, ctx, nowTime) {
+function buildCard(result, widgetFamily, nowTime) {
   const { name, error, errorMsg, used, totalBytes } = result;
 
   if (error) {
@@ -726,7 +790,7 @@ function buildCard(result, ctx, nowTime) {
               { type: "spacer" },
             ],
           },
-          ...(ctx.widgetFamily === "systemSmall"
+          ...(widgetFamily === "systemSmall"
             ? []
             : [
                 {
@@ -835,9 +899,9 @@ function getExpireState(expire, nowTime) {
   };
 }
 
-function safeBuildCard(result, ctx, nowTime) {
+function safeBuildCard(result, widgetFamily, nowTime) {
   try {
-    return buildCard(result, ctx, nowTime);
+    return buildCard(result, widgetFamily, nowTime);
   } catch (err) {
     return buildCard(
       {
@@ -845,7 +909,7 @@ function safeBuildCard(result, ctx, nowTime) {
         error: true,
         errorMsg: "Render Error",
       },
-      ctx,
+      widgetFamily,
       nowTime
     );
   }
@@ -898,14 +962,19 @@ function getHeader(headers, name) {
   if (!headers) return "";
 
   if (typeof headers.get === "function") {
-    return headers.get(name) || "";
+    const value = headers.get(name);
+    return Array.isArray(value) ? value.join(", ") : value || "";
   }
 
   const target = name.toLowerCase();
 
   for (const key in headers) {
-    if (headers.hasOwnProperty(key) && key.toLowerCase() === target) {
-      return headers[key];
+    if (
+      Object.prototype.hasOwnProperty.call(headers, key) &&
+      key.toLowerCase() === target
+    ) {
+      const value = headers[key];
+      return Array.isArray(value) ? value.join(", ") : value || "";
     }
   }
 
@@ -1037,16 +1106,7 @@ async function concurrentMap(items, maxConcurrent, fn) {
   const worker = async () => {
     while (index < items.length) {
       const currentIndex = index++;
-
-      try {
-        results[currentIndex] = await fn(items[currentIndex]);
-      } catch (err) {
-        results[currentIndex] = {
-          item: items[currentIndex],
-          error: true,
-          errorMsg: "Fetch Error",
-        };
-      }
+      results[currentIndex] = await fn(items[currentIndex]);
     }
   };
 
