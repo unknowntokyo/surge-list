@@ -494,8 +494,7 @@ async function getSpeedTest(ctx, policy, timeoutMs, packetBytes) {
 
       downloadedBytes += value?.byteLength || value?.length || 0;
     }
-  } catch (e) {
-    console.log('测速失败:', e);
+  } catch {
   } finally {
     if (timeoutId) clearTimeout(timeoutId);
 
@@ -699,7 +698,7 @@ function modResponseBody(ipInfo, speedMbps, ipPureInfo) {
 }
 
 function prepareResponseHeaders(ctx, contentType) {
-  const headers = ctx.response.headers;
+  const headers = new Headers(ctx.response.headers);
 
   if (contentType) {
     headers.set('Content-Type', contentType);

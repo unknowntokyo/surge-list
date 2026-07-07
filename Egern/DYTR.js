@@ -90,16 +90,12 @@ function buildHotRows(hotList) {
     }
 
     const rank = rows.length + 1;
-    const text = getTitleText(item, rank);
+    const text = toText(item.title) || `热榜 ${rank}`;
 
     rows.push(makeHotItem(rank, text, hot));
   }
 
   return rows;
-}
-
-function getTitleText(item, rank) {
-  return toText(item.title) || `热榜 ${rank}`;
 }
 
 function toText(value) {
@@ -229,9 +225,8 @@ function makeError(err) {
   };
 }
 
-function isZeroHot(value) {
-  const text = String(value ?? '').replace(SPACE_RE, '');
-  return ZERO_HOT_RE.test(text);
+function isZeroHot(text) {
+  return ZERO_HOT_RE.test(text.replace(SPACE_RE, ''));
 }
 
 function currentTime() {
