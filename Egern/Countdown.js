@@ -5,7 +5,7 @@
  * ✨ 主要功能：
  * • 尺寸适配：仅支持中号小组件。
  * • 节日计算：内置农历算法数组，支持计算法定节假日、民俗节日、国际节日和专属纪念日倒计时。
- * • 官方假期：法定分类优先使用 NateScarlet/holiday-cn 官方放假数据；当前年数据缺失或过期时刷新；年初额外需要上一年数据以覆盖跨年假期；下一年数据仅在无可用日缓存且进入年底预取窗口时机会性预取，且不阻塞渲染；失败年份会按重试窗口延后再次请求。
+ * • 官方假期：法定分类优先使用 NateScarlet/holiday-cn 官方放假数据；当前年数据缺失或过期时刷新；年初额外需要上一年数据；下一年数据仅在无可用日缓存且进入年底预取窗口时以短超时机会性预取；失败年份会按重试窗口延后再次请求。
  * • 时区基准：采用 UTC+8 固定时区进行日期、倒计时和每日刷新时间计算。
  * • 自定义配置：支持通过 Egern 环境变量设置最多 6 个专属纪念日。
  * • 排序与显示：支持按倒数天数及分类优先级排序，支持指定节日跨分类置顶。
@@ -1529,13 +1529,17 @@ function resolveOfficialRefreshPlan({
   };
 }
 
-function shouldRefreshOfficialBeforeRender(canRefreshOfficialHoliday, plan) {
+function shouldRefreshOfficialBeforeRender(
+  canRefreshOfficialHoliday,
+  plan,
+  hasCachedBaseData = false
+) {
   return Boolean(
     canRefreshOfficialHoliday &&
       plan &&
       Array.isArray(plan.yearsToFetch) &&
       plan.yearsToFetch.length > 0 &&
-      plan.shouldBlockRenderForOfficialRefresh === true
+      (plan.shouldBlockRenderForOfficialRefresh === true || hasCachedBaseData === false)
   );
 }
 
@@ -1598,13 +1602,19 @@ async function prepareOfficialHolidayCacheForWidget({
     hasCachedBaseData: Boolean(cachedBaseData)
   });
 
-  if (!shouldRefreshOfficialBeforeRender(canRefreshOfficialHoliday, plan)) {
-    return {
-      officialHolidayCache,
-      envFingerprint,
-      cachedBaseData
-    };
-  }
+  if (
+  !shouldRefreshOfficialBeforeRender(
+    canRefreshOfficialHoliday,
+    plan,
+    Boolean(cachedBaseData)
+  )
+) {
+  return {
+    officialHolidayCache,
+    envFingerprint,
+    cachedBaseData
+  };
+}
 
   const fallbackEnvFingerprint = envFingerprint;
   const fallbackCachedBaseData = cachedBaseData;
@@ -1910,15 +1920,59 @@ function getOfficialDayInfo(officialHolidayCache, todayIso) {
     return null;
   }
 
-  const days = officialHolidayCache?.years?.[String(parts.y)]?.days;
+  const years = officialHolidayCache?.years;
 
-  if (!Array.isArray(days)) {
+  if (!years || typeof years !== "object") {
     return null;
   }
 
-  return (
-    days.find(day => day && day.date === todayIso && typeof day.isOffDay === "boolean") || null
-  );
+  const findInYear = yearKey => {
+    const days = years?.[String(yearKey)]?.days;
+
+    if (!Array.isArray(days)) {
+      return null;
+    }
+
+    return (
+      days.find(
+        day =>
+          day &&
+          day.date === todayIso &&
+          typeof day.isOffDay === "boolean"
+      ) || null
+    );
+  };
+
+  const checkedYearKeys = new Set();
+  const preferredYearKeys = [
+    String(parts.y),
+    String(parts.y - 1),
+    String(parts.y + 1)
+  ];
+
+  for (const yearKey of preferredYearKeys) {
+    checkedYearKeys.add(yearKey);
+
+    const found = findInYear(yearKey);
+
+    if (found) {
+      return found;
+    }
+  }
+
+  for (const yearKey of Object.keys(years).sort()) {
+    if (checkedYearKeys.has(yearKey)) {
+      continue;
+    }
+
+    const found = findInYear(yearKey);
+
+    if (found) {
+      return found;
+    }
+  }
+
+  return null;
 }
 
 function isValidMonthDay(y, m, d) {
