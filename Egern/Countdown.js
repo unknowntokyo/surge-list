@@ -1590,7 +1590,6 @@ function resolveOfficialRefreshPlan({
       optionalYearsToFetch,
       shouldBlockRenderForOfficialRefresh: false,
       isOptionalOnlyRefresh: true,
-
       shouldRunOptionalRefresh: true
     };
   }
