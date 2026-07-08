@@ -2865,7 +2865,7 @@ async function renderCountdownWidget(ctx = {}) {
 
   const BASE_CACHE_KEY = `${storageScope}:daily:${dataEnvCacheSuffix}:v${DAILY_CACHE_SCHEMA_VERSION}`;
   const NOTIFY_KEY = `${storageScope}:notify:v1`;
-const LEGACY_NOTIFY_KEY = `${storageScope}:notify:${dataEnvCacheSuffix}`;
+  const LEGACY_NOTIFY_KEY = `${storageScope}:notify:${dataEnvCacheSuffix}`;
   const CACHE_VERSION = DAILY_CACHE_VERSION_TEXT;
 
   let baseDailyCacheRecordLoaded = false;
