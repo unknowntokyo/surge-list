@@ -1545,7 +1545,9 @@ function resolveOfficialRefreshPlan({
     );
 
     const currentYearRefreshToFetch =
-      !cacheIsFresh && !missingRequiredYears.includes(currentYear)
+      missingRequiredYearsToFetch.length > 0 &&
+      !cacheIsFresh &&
+      !missingRequiredYears.includes(currentYear)
         ? getOfficialFetchableYears(officialHolidayCache, [currentYear], now)
         : [];
 
@@ -1555,7 +1557,6 @@ function resolveOfficialRefreshPlan({
     ]);
 
     return {
-      yearsToFetch: blockingYearsToFetch,
       blockingYearsToFetch,
       optionalYearsToFetch: [],
       shouldBlockRenderForOfficialRefresh: blockingYearsToFetch.length > 0,
@@ -1571,7 +1572,6 @@ function resolveOfficialRefreshPlan({
     );
 
     return {
-      yearsToFetch: blockingYearsToFetch,
       blockingYearsToFetch,
       optionalYearsToFetch: [],
       shouldBlockRenderForOfficialRefresh:
@@ -1584,7 +1584,6 @@ function resolveOfficialRefreshPlan({
 
   if (optionalYearsToFetch.length > 0) {
     return {
-      yearsToFetch: optionalYearsToFetch,
       blockingYearsToFetch: [],
       optionalYearsToFetch,
       shouldBlockRenderForOfficialRefresh: false,
@@ -1593,7 +1592,6 @@ function resolveOfficialRefreshPlan({
   }
 
   return {
-    yearsToFetch: [],
     blockingYearsToFetch: [],
     optionalYearsToFetch: [],
     shouldBlockRenderForOfficialRefresh: false,
@@ -1714,6 +1712,24 @@ async function prepareOfficialHolidayCacheForWidget({
       envFingerprint,
       cachedBaseData
     };
+  }
+
+  if (
+    canRefreshOfficialHoliday &&
+    plan.optionalOnly === true &&
+    Array.isArray(plan.optionalYearsToFetch) &&
+    plan.optionalYearsToFetch.length > 0
+  ) {
+    officialHolidayCache = await refreshOfficialCache({
+      ctx,
+      officialHolidayStorageKey,
+      currentYear,
+      todayIso,
+      officialHolidayCache,
+      forceYearsToFetch: plan.optionalYearsToFetch
+    });
+
+    ({ envFingerprint, cachedBaseData } = readBaseByCurrentOfficialState());
   }
 
   return {
