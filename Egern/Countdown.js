@@ -1523,23 +1523,11 @@ function resolveOfficialRefreshPlan({
   );
 
   if (missingRequiredYears.length > 0) {
-    const missingRequiredYearsToFetch = getOfficialFetchableYears(
+    const blockingYearsToFetch = getOfficialFetchableYears(
       officialHolidayCache,
       missingRequiredYears,
       now
     );
-
-    const currentYearRefreshToFetch =
-      missingRequiredYearsToFetch.length > 0 &&
-      !cacheIsFresh &&
-      !missingRequiredYears.includes(currentYear)
-        ? getOfficialFetchableYears(officialHolidayCache, [currentYear], now)
-        : [];
-
-    const blockingYearsToFetch = uniqueFiniteNumbers([
-      ...missingRequiredYearsToFetch,
-      ...currentYearRefreshToFetch
-    ]);
 
     return {
       blockingYearsToFetch,
