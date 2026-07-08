@@ -9,6 +9,11 @@ const MB = 1048576;
 const DEFAULT_POLICY = 'DIRECT';
 const DEFAULT_PACKET_MB = 3;
 const TIMEOUT = 8000;
+const FAILED_TEXT = '⚠️ 测速失败';
+
+const BAR_MIN_WIDTH = 30;
+const BAR_MAX_WIDTH = 140;
+const BAR_MAX_SPEED = 120;
 
 const DEFAULT_SPEED_DATA = {
   mbps: 0,
@@ -95,12 +100,8 @@ function getSpeedStyle(mbps, failed) {
 }
 
 function getBarWidth(mbps) {
-  const minWidth = 30;
-  const maxWidth = 140;
-  const maxSpeed = 120;
-
-  const width = minWidth + (mbps / maxSpeed) * (maxWidth - minWidth);
-  return Math.min(Math.max(width, minWidth), maxWidth);
+  const width = BAR_MIN_WIDTH + (mbps / BAR_MAX_SPEED) * (BAR_MAX_WIDTH - BAR_MIN_WIDTH);
+  return Math.min(Math.max(width, BAR_MIN_WIDTH), BAR_MAX_WIDTH);
 }
 
 function loadCachedSpeedData(ctx, cacheKey) {
@@ -195,7 +196,7 @@ export default async function(ctx) {
     speedData = loadCachedSpeedData(ctx, cacheKey);
   }
 
-  const failed = !speedData || speedData.timestamp <= 0 || speedData.duration <= 0;
+  const failed = speedData.timestamp <= 0 || speedData.duration <= 0;
 
   const layout = ctx.widgetFamily === 'systemSmall'
     ? {
@@ -206,7 +207,6 @@ export default async function(ctx) {
         detailFont: 'caption2',
         speedMainFontSize: 32,
         failedMainFontSize: 22,
-        failedText: '⚠️ 测速失败',
         speedUnitSeparator: '\n'
       }
     : {
@@ -217,7 +217,6 @@ export default async function(ctx) {
         detailFont: 'caption1',
         speedMainFontSize: 44,
         failedMainFontSize: 30,
-        failedText: '⚠️ 测速失败',
         speedUnitSeparator: ' '
       };
 
@@ -226,7 +225,7 @@ export default async function(ctx) {
   const timeStr = failed ? '--:--' : formatTime(speedData.timestamp);
 
   const mainText = failed
-    ? layout.failedText
+    ? FAILED_TEXT
     : `${speedData.mbps}${layout.speedUnitSeparator}Mbps`;
 
   const mainFontSize = failed

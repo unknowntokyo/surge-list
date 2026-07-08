@@ -234,7 +234,7 @@ async function main(ctx) {
   return {
     type: "widget",
     backgroundColor: WIDGET_BG_COLOR,
-    padding: [10, 10],
+    padding: [10, 10, 10, 10],
     gap: 6,
     refreshAfter: new Date(nowTime + REFRESH_INTERVAL_MS).toISOString(),
     children: [
@@ -669,7 +669,7 @@ function buildCard(result, widgetFamily, nowTime) {
       direction: "row",
       alignItems: "center",
       gap: 6,
-      padding: [8, 10],
+      padding: [8, 10, 8, 10],
       backgroundColor: COLORS.errorBg,
       borderRadius: 8,
       children: [
@@ -705,7 +705,7 @@ function buildCard(result, widgetFamily, nowTime) {
     type: "stack",
     direction: "column",
     gap: 5,
-    padding: [8, 10],
+    padding: [8, 10, 8, 10],
     backgroundColor: CARD_BG_COLOR,
     borderRadius: 8,
     borderWidth: 1,
@@ -901,6 +901,7 @@ function safeBuildCard(result, widgetFamily, nowTime) {
         name: result?.name || "未知",
         error: true,
         errorMsg: "Render Error",
+        remainDays: result?.remainDays,
       },
       widgetFamily,
       nowTime
