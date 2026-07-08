@@ -1560,8 +1560,8 @@ function resolveOfficialRefreshPlan({
       blockingYearsToFetch,
       optionalYearsToFetch: [],
       shouldBlockRenderForOfficialRefresh: blockingYearsToFetch.length > 0,
-      optionalOnly: false,
-      shouldDeferOptionalRefresh: false
+      isOptionalOnlyRefresh: false,
+      shouldRunOptionalRefresh: false
     };
   }
 
@@ -1577,8 +1577,8 @@ function resolveOfficialRefreshPlan({
       optionalYearsToFetch: [],
       shouldBlockRenderForOfficialRefresh:
         blockingYearsToFetch.length > 0 && !hasCachedBaseData,
-      optionalOnly: false,
-      shouldDeferOptionalRefresh: false
+      isOptionalOnlyRefresh: false,
+      shouldRunOptionalRefresh: false
     };
   }
 
@@ -1589,9 +1589,9 @@ function resolveOfficialRefreshPlan({
       blockingYearsToFetch: [],
       optionalYearsToFetch,
       shouldBlockRenderForOfficialRefresh: false,
-      optionalOnly: true,
+      isOptionalOnlyRefresh: true,
 
-      shouldDeferOptionalRefresh: true
+      shouldRunOptionalRefresh: true
     };
   }
 
@@ -1599,8 +1599,8 @@ function resolveOfficialRefreshPlan({
     blockingYearsToFetch: [],
     optionalYearsToFetch: [],
     shouldBlockRenderForOfficialRefresh: false,
-    optionalOnly: false,
-    shouldDeferOptionalRefresh: false
+    isOptionalOnlyRefresh: false,
+    shouldRunOptionalRefresh: false
   };
 }
 
@@ -1609,7 +1609,7 @@ function shouldRefreshOfficialBeforeRender(
   plan,
   hasCachedBaseData = false
 ) {
-  if (!canRefreshOfficialHoliday || !plan || plan.optionalOnly === true) {
+  if (!canRefreshOfficialHoliday || !plan || plan.isOptionalOnlyRefresh === true) {
     return false;
   }
 
@@ -1729,9 +1729,9 @@ async function prepareOfficialHolidayCacheForWidget({
 
   if (
     canRefreshOfficialHoliday &&
-    plan.optionalOnly === true &&
-    plan.shouldDeferOptionalRefresh === true &&
-    Array.isArray(plan.optionalYearsToFetch) &&
+    plan.isOptionalOnlyRefresh === true &&
+    plan.shouldRunOptionalRefresh === true &&
+  Array.isArray(plan.optionalYearsToFetch) &&
     plan.optionalYearsToFetch.length > 0
   ) {
     officialHolidayCache = await refreshOfficialCache({
