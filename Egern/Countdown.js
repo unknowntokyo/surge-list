@@ -138,26 +138,26 @@ const C = {
   transparent: "#00000000"
 };
 
-const BACKGROUND_GRADIENTS = Object.freeze({
-  workday: Object.freeze({
+const BACKGROUND_GRADIENTS = {
+  workday: {
     type: "linear",
     colors: C.bgWorkday,
     startPoint: { x: 0, y: 0 },
     endPoint: { x: 1, y: 1 }
-  }),
-  weekend: Object.freeze({
+  },
+  weekend: {
     type: "linear",
     colors: C.bgWeekend,
     startPoint: { x: 0, y: 0 },
     endPoint: { x: 1, y: 1 }
-  }),
-  fest: Object.freeze({
+  },
+  fest: {
     type: "linear",
     colors: C.bgFest,
     startPoint: { x: 0, y: 0 },
     endPoint: { x: 1, y: 1 }
-  })
-});
+  }
+};
 
 const getBackgroundGradient = themeKey =>
   BACKGROUND_GRADIENTS[themeKey] || BACKGROUND_GRADIENTS.workday;
@@ -212,7 +212,7 @@ const NAME_LIST_SEPARATOR_RE = /[、，,\/]+/;
 const ANNUAL_SLASH_DATE_RE = /^(\d{1,2})\/(\d{1,2})$/;
 const ONCE_SLASH_DATE_RE = /^(\d{4})\/(\d{1,2})\/(\d{1,2})$/;
 
-const LAYOUT_CONFIG = Object.freeze({
+const LAYOUT_CONFIG = {
   fz: 13.5,
   icz: 13.5,
   lw: 52,
@@ -221,7 +221,7 @@ const LAYOUT_CONFIG = Object.freeze({
   titleFz: 15,
   titleIcz: 16,
   topFz: 12.5
-});
+};
 
 const mkText = (text, size, weight, color, opts = {}) => ({
   type: "text",
@@ -299,7 +299,7 @@ function splitNameList(value) {
     .filter(Boolean);
 }
 
-const EMPTY_HOLIDAY_NAME_PARTS = Object.freeze([]);
+const EMPTY_HOLIDAY_NAME_PARTS = [];
 const HOLIDAY_NAME_PARTS_CACHE = new Map();
 const HOLIDAY_NAME_PARTS_CACHE_LIMIT = 256;
 
@@ -311,7 +311,7 @@ function splitHolidayNames(name) {
   const cached = HOLIDAY_NAME_PARTS_CACHE.get(raw);
   if (cached) return cached;
 
-  const parts = Object.freeze(splitNameList(raw));
+  const parts = splitNameList(raw);
 
   if (HOLIDAY_NAME_PARTS_CACHE.size >= HOLIDAY_NAME_PARTS_CACHE_LIMIT) {
     HOLIDAY_NAME_PARTS_CACHE.clear();
@@ -484,16 +484,15 @@ const splitTextToLines = (str, maxW) => {
   return lines;
 };
 
-function buildDisplayText(result, cat, limit) {
-  return (result?.[cat] || []).slice(0, limit).map(formatDisplayItem).join("，");
-}
-
 function buildDisplayCache(result, maxW = DISPLAY_MAX_WIDTH) {
   const limit = 3;
   const cache = {};
 
   for (const cfg of CATEGORY_CONFIG) {
-    const text = buildDisplayText(result, cfg.key, limit);
+    const text = (result?.[cfg.key] || [])
+      .slice(0, limit)
+      .map(formatDisplayItem)
+      .join("，");
 
     cache[cfg.key] = {
       text,
@@ -570,6 +569,12 @@ function mkUnsupportedWidget(title, textOpts = {}) {
   };
 }
 
+const SOLAR_TERM_INFO = [
+  0, 21208, 42467, 63836, 85337, 107014, 128867, 150921, 173149,
+  195551, 218072, 240693, 263343, 285989, 308563, 331033, 353350,
+  375494, 397447, 419210, 440795, 462224, 483532, 504758
+];
+
 const Lunar = {
   info: [
     0x04bd8, 0x04ae0, 0x0a570, 0x054d5, 0x0d260, 0x0d950, 0x16554, 0x056a0,
@@ -603,12 +608,7 @@ const Lunar = {
   term(y, n) {
     return new Date(
       31556925974.7 * (y - 1900) +
-        [
-          0, 21208, 42467, 63836, 85337, 107014, 128867, 150921, 173149,
-          195551, 218072, 240693, 263343, 285989, 308563, 331033, 353350,
-          375494, 397447, 419210, 440795, 462224, 483532, 504758
-        ][n - 1] *
-          60000 +
+        SOLAR_TERM_INFO[n - 1] * 60000 +
         Date.UTC(1900, 0, 6, 2, 5)
     );
   },
@@ -661,7 +661,6 @@ function ensureLunarCumulative(maxYear) {
   lunarCumulativeCache.maxYear = safeMaxYear;
 }
 
-const MAX_ENV_TEXT_LENGTH = 80;
 const MAX_EXCLUSIVE_NAME_LENGTH = 20;
 const MAX_EXCLUSIVE_DATE_LENGTH = 20;
 const MAX_PINNED_HOLIDAY_TOTAL_LENGTH = 120;
@@ -685,20 +684,12 @@ function truncateByCodePoint(value, maxLength) {
   return out;
 }
 
-function getEnvValueMaxLength(key) {
-  if (EXCLUSIVE_NAME_KEY_RE.test(key)) return MAX_EXCLUSIVE_NAME_LENGTH;
-  if (EXCLUSIVE_DATE_KEY_RE.test(key)) return MAX_EXCLUSIVE_DATE_LENGTH;
-  if (key === "PINNED_HOLIDAY") return MAX_PINNED_HOLIDAY_TOTAL_LENGTH;
-
-  return MAX_ENV_TEXT_LENGTH;
-}
-
 function sanitizeEnvStringValue(key, value) {
   if (value === undefined || value === null) return "";
 
-  const raw = truncateByCodePoint(value, getEnvValueMaxLength(key));
-
   if (key === "PINNED_HOLIDAY") {
+    const raw = truncateByCodePoint(value, MAX_PINNED_HOLIDAY_TOTAL_LENGTH);
+
     return splitNameList(raw)
       .map(v => truncateByCodePoint(v, MAX_PINNED_HOLIDAY_ITEM_LENGTH))
       .filter(Boolean)
@@ -706,10 +697,18 @@ function sanitizeEnvStringValue(key, value) {
       .join(",");
   }
 
-  return raw;
+  if (EXCLUSIVE_NAME_KEY_RE.test(key)) {
+    return truncateByCodePoint(value, MAX_EXCLUSIVE_NAME_LENGTH);
+  }
+
+  if (EXCLUSIVE_DATE_KEY_RE.test(key)) {
+    return truncateByCodePoint(value, MAX_EXCLUSIVE_DATE_LENGTH);
+  }
+
+  return String(value ?? "").trim();
 }
 
-const DATA_ENV_KEYS = Object.freeze([
+const DATA_ENV_KEYS = [
   "ENABLE_PRIORITY_SORT",
   "ENABLE_EXCLUSIVE_WEIGHT",
   "PINNED_HOLIDAY",
@@ -725,11 +724,11 @@ const DATA_ENV_KEYS = Object.freeze([
   "EXCLUSIVE_DATE_5",
   "EXCLUSIVE_NAME_6",
   "EXCLUSIVE_DATE_6"
-]);
+];
 
-const RENDER_ENV_KEYS = Object.freeze(["ENABLE_WEEKEND_THEME"]);
+const RENDER_ENV_KEYS = ["ENABLE_WEEKEND_THEME"];
 
-const CACHE_ENV_KEYS = Object.freeze([...DATA_ENV_KEYS, ...RENDER_ENV_KEYS]);
+const CACHE_ENV_KEYS = [...DATA_ENV_KEYS, ...RENDER_ENV_KEYS];
 
 const CACHE_BOOL_ENV_KEYS = new Set([
   "ENABLE_PRIORITY_SORT",
@@ -794,7 +793,7 @@ function buildNormalizedEnv(env) {
   return normalized;
 }
 
-function buildEnvFingerprintFromNormalized(normalizedEnv, keys = CACHE_ENV_KEYS) {
+function buildEnvFingerprintFromNormalized(normalizedEnv, keys) {
   return keys.map(key => `${key}=${normalizedEnv?.[key] ?? ""}`).join("|");
 }
 
@@ -1156,7 +1155,7 @@ function buildOfficialFingerprint(yearsData, assumeNormalized = false) {
   return hashString(parts.join("|"));
 }
 
-function normalizeOfficialCacheOnRead(cache, sanitize = true) {
+function normalizeOfficialCacheOnRead(cache) {
   if (
     !cache ||
     cache.version !== OFFICIAL_HOLIDAY_STORAGE_VERSION ||
@@ -1166,7 +1165,7 @@ function normalizeOfficialCacheOnRead(cache, sanitize = true) {
     return null;
   }
 
-  if (sanitize && isTrustedOfficialCacheYears(cache.years)) {
+  if (isTrustedOfficialCacheYears(cache.years)) {
     return {
       ...cache,
       fingerprint:
@@ -1177,30 +1176,22 @@ function normalizeOfficialCacheOnRead(cache, sanitize = true) {
     };
   }
 
-  const years = sanitize ? sanitizeOfficialYears(cache.years) : cache.years;
-
-  const fingerprint = sanitize
-    ? buildOfficialFingerprint(years, true)
-    : typeof cache.fingerprint === "string" && cache.fingerprint
-      ? cache.fingerprint
-      : buildOfficialFingerprint(years);
+  const years = sanitizeOfficialYears(cache.years);
 
   return {
     ...cache,
-    fingerprint,
+    fingerprint: buildOfficialFingerprint(years, true),
     years
   };
 }
 
-function readOfficialHolidayCache(ctx, storageKey, options = {}) {
+function readOfficialHolidayCache(ctx, storageKey) {
   if (!storageKey) {
     return null;
   }
 
-  const { sanitize = true } = options || {};
-
   try {
-    return normalizeOfficialCacheOnRead(ctx.storage?.getJSON(storageKey), sanitize);
+    return normalizeOfficialCacheOnRead(ctx.storage?.getJSON(storageKey));
   } catch (e) {
     warnLog("[Countdown] failed to read official holiday cache:", e);
   }
@@ -1341,14 +1332,6 @@ function normalizeOfficialCachePayload(oldCache, years, currentYear, todayIso, r
   };
 }
 
-async function parseHttpJson(resp) {
-  if (!resp || typeof resp.json !== "function") {
-    throw new Error("invalid Egern http response: response.json unavailable");
-  }
-
-  return await resp.json();
-}
-
 function normalizeHttpTimeoutMs(value, fallback = HTTP_TIMEOUT_MS) {
   const n = Number(value);
 
@@ -1382,7 +1365,11 @@ async function fetchOfficialHolidayYear(ctx, year, timeoutMs = HTTP_TIMEOUT_MS) 
     throw new Error(`HTTP ${status}`);
   }
 
-  const data = await parseHttpJson(resp);
+  if (!resp || typeof resp.json !== "function") {
+    throw new Error("invalid Egern http response: response.json unavailable");
+  }
+
+  const data = await resp.json();
 
   return normalizeHolidayCnYearData(data, year);
 }
@@ -2489,21 +2476,14 @@ function updatePinnedCountdown(state, collectCtx, name, diff) {
   }
 
   const nameParts = splitHolidayNames(name);
-  const matched = [];
 
   for (const pinnedName of pinnedHolidays) {
     const pinnedParts = pinnedHolidayPartsMap.get(pinnedName);
 
-    if (partsIntersectArray(pinnedParts, nameParts)) {
-      matched.push(pinnedName);
+    if (!partsIntersectArray(pinnedParts, nameParts)) {
+      continue;
     }
-  }
 
-  if (matched.length === 0) {
-    return;
-  }
-
-  for (const pinnedName of matched) {
     const oldPinnedDiff = state.pinnedMap.get(pinnedName);
 
     if (oldPinnedDiff === undefined || diff < oldPinnedDiff) {
@@ -2801,13 +2781,7 @@ function buildPinnedStickyText(pinnedData, limit = TOP_PINNED_DISPLAY_LIMIT) {
 function getSupportedFamilyResult(ctx, withRefresh) {
   const family = String(ctx.widgetFamily || "systemMedium").toLowerCase();
 
-  const isLockScreenFamily =
-    family.includes("accessory") ||
-    family.includes("lockscreen") ||
-    family.includes("lock_screen") ||
-    family.includes("lock-screen");
-
-  if (isLockScreenFamily) {
+  if (family.startsWith("accessory")) {
     return withRefresh(mkUnsupportedWidget("不支持锁屏组件"));
   }
 
@@ -2815,12 +2789,7 @@ function getSupportedFamilyResult(ctx, withRefresh) {
     return withRefresh(mkUnsupportedWidget("仅支持 Medium 组件", { maxLines: 2 }));
   }
 
-  const isExtraLarge =
-    family.includes("extralarge") ||
-    family.includes("extra_large") ||
-    family.includes("extra-large");
-
-  if (isExtraLarge) {
+  if (family === "systemextralarge") {
     return withRefresh(mkUnsupportedWidget("暂不支持 Extra Large", { maxLines: 2 }));
   }
 
@@ -2862,7 +2831,6 @@ async function renderCountdownWidget(ctx = {}) {
   const BASE_CACHE_KEY = `${storageScope}:daily:${dataEnvCacheSuffix}:v${DAILY_CACHE_SCHEMA_VERSION}`;
   const NOTIFY_KEY = `${storageScope}:notify:v1`;
   const LEGACY_NOTIFY_KEY = `${storageScope}:notify:${dataEnvCacheSuffix}`;
-  const CACHE_VERSION = DAILY_CACHE_VERSION_TEXT;
 
   let baseDailyCacheRecordLoaded = false;
   let baseDailyCacheRecord = null;
@@ -2895,7 +2863,7 @@ async function renderCountdownWidget(ctx = {}) {
 
     if (
       stored &&
-      stored.version === CACHE_VERSION &&
+      stored.version === DAILY_CACHE_VERSION_TEXT &&
       stored.date === todayStr &&
       stored.envFingerprint === currentEnvFingerprint &&
       isValidBaseDailyPayload(payload)
@@ -2910,7 +2878,7 @@ async function renderCountdownWidget(ctx = {}) {
     if (!ctx.storage || !isValidBaseDailyPayload(payload)) return;
 
     const nextRecord = {
-      version: CACHE_VERSION,
+      version: DAILY_CACHE_VERSION_TEXT,
       date: todayStr,
       envFingerprint,
       payload
