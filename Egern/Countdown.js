@@ -1518,11 +1518,11 @@ function resolveOfficialRefreshPlan({
   const now = Date.now();
   const cacheIsFresh = isOfficialCacheFresh(officialHolidayCache, todayIso, currentYear);
 
-  const canPrefetchOptionalYear =
+  const canPlanOptionalYear =
     !hasCachedBaseData && shouldPrefetchNextOfficialYear(todayIso);
 
   const getOptionalYearsToFetch = () => {
-    if (!canPrefetchOptionalYear) {
+    if (!canPlanOptionalYear) {
       return [];
     }
 
@@ -1560,7 +1560,8 @@ function resolveOfficialRefreshPlan({
       blockingYearsToFetch,
       optionalYearsToFetch: [],
       shouldBlockRenderForOfficialRefresh: blockingYearsToFetch.length > 0,
-      optionalOnly: false
+      optionalOnly: false,
+      shouldDeferOptionalRefresh: false
     };
   }
 
@@ -1576,7 +1577,8 @@ function resolveOfficialRefreshPlan({
       optionalYearsToFetch: [],
       shouldBlockRenderForOfficialRefresh:
         blockingYearsToFetch.length > 0 && !hasCachedBaseData,
-      optionalOnly: false
+      optionalOnly: false,
+      shouldDeferOptionalRefresh: false
     };
   }
 
@@ -1587,7 +1589,9 @@ function resolveOfficialRefreshPlan({
       blockingYearsToFetch: [],
       optionalYearsToFetch,
       shouldBlockRenderForOfficialRefresh: false,
-      optionalOnly: true
+      optionalOnly: true,
+
+      shouldDeferOptionalRefresh: true
     };
   }
 
@@ -1595,7 +1599,8 @@ function resolveOfficialRefreshPlan({
     blockingYearsToFetch: [],
     optionalYearsToFetch: [],
     shouldBlockRenderForOfficialRefresh: false,
-    optionalOnly: false
+    optionalOnly: false,
+    shouldDeferOptionalRefresh: false
   };
 }
 
@@ -1604,13 +1609,21 @@ function shouldRefreshOfficialBeforeRender(
   plan,
   hasCachedBaseData = false
 ) {
-  return Boolean(
-    canRefreshOfficialHoliday &&
-      plan &&
-      plan.optionalOnly !== true &&
-      Array.isArray(plan.blockingYearsToFetch) &&
-      plan.blockingYearsToFetch.length > 0 &&
-      (plan.shouldBlockRenderForOfficialRefresh === true || hasCachedBaseData === false)
+  if (!canRefreshOfficialHoliday || !plan || plan.optionalOnly === true) {
+    return false;
+  }
+
+  const blockingYearsToFetch = Array.isArray(plan.blockingYearsToFetch)
+    ? plan.blockingYearsToFetch
+    : [];
+
+  if (blockingYearsToFetch.length === 0) {
+    return false;
+  }
+
+  return (
+    plan.shouldBlockRenderForOfficialRefresh === true ||
+    hasCachedBaseData === false
   );
 }
 
@@ -1717,6 +1730,7 @@ async function prepareOfficialHolidayCacheForWidget({
   if (
     canRefreshOfficialHoliday &&
     plan.optionalOnly === true &&
+    plan.shouldDeferOptionalRefresh === true &&
     Array.isArray(plan.optionalYearsToFetch) &&
     plan.optionalYearsToFetch.length > 0
   ) {
@@ -1730,6 +1744,12 @@ async function prepareOfficialHolidayCacheForWidget({
     });
 
     ({ envFingerprint, cachedBaseData } = readBaseByCurrentOfficialState());
+
+    return {
+      officialHolidayCache,
+      envFingerprint,
+      cachedBaseData
+    };
   }
 
   return {
@@ -2635,7 +2655,7 @@ function isValidBaseDailyPayload(payload) {
   );
 }
 
-function notifyTodayIfNeeded(ctx, notifyKey, notifyDate, todayItems) {
+function notifyTodayIfNeeded(ctx, notifyKey, notifyDate, todayItems, legacyNotifyKey) {
   if (
     typeof ctx.notify !== "function" ||
     !ctx.storage ||
@@ -2644,6 +2664,34 @@ function notifyTodayIfNeeded(ctx, notifyKey, notifyDate, todayItems) {
   ) {
     return;
   }
+
+  const readNotifyState = key => {
+    if (!key) return {};
+
+    try {
+      const value = ctx.storage.getJSON(key);
+
+      return value && typeof value === "object" ? value : {};
+    } catch (e) {
+      warnLog("[Countdown] failed to read notify state:", e);
+
+      return {};
+    }
+  };
+
+  const writeNotifyState = (key, value, errorMessage) => {
+    if (!key) return false;
+
+    try {
+      ctx.storage.setJSON(key, value);
+
+      return true;
+    } catch (e) {
+      warnLog(errorMessage, e);
+
+      return false;
+    }
+  };
 
   try {
     const notifyNames = [
@@ -2660,11 +2708,33 @@ function notifyTodayIfNeeded(ctx, notifyKey, notifyDate, todayItems) {
     }
 
     const now = Date.now();
-    const currentNotifyState = ctx.storage.getJSON(notifyKey) || {};
+    const currentNotifyState = readNotifyState(notifyKey);
+    let matchedNotifyState = currentNotifyState;
 
-    if (currentNotifyState.date === notifyDate) {
-      const failed = currentNotifyState.failed === true;
-      const retryAfter = Number(currentNotifyState.retryAfter) || 0;
+    if (
+      matchedNotifyState.date !== notifyDate &&
+      legacyNotifyKey &&
+      legacyNotifyKey !== notifyKey
+    ) {
+      const legacyNotifyState = readNotifyState(legacyNotifyKey);
+
+      if (legacyNotifyState.date === notifyDate) {
+        matchedNotifyState = legacyNotifyState;
+
+        writeNotifyState(
+          notifyKey,
+          {
+            ...legacyNotifyState,
+            migratedAt: now
+          },
+          "[Countdown] failed to migrate notify state:"
+        );
+      }
+    }
+
+    if (matchedNotifyState.date === notifyDate) {
+      const failed = matchedNotifyState.failed === true;
+      const retryAfter = Number(matchedNotifyState.retryAfter) || 0;
 
       if (!failed || retryAfter > now) {
         return;
@@ -2677,27 +2747,35 @@ function notifyTodayIfNeeded(ctx, notifyKey, notifyDate, todayItems) {
         body: notifyNames.join("、"),
         sound: true
       });
-
-      ctx.storage.setJSON(notifyKey, {
-        date: notifyDate,
-        names: notifyNames,
-        time: Date.now(),
-        failed: false
-      });
     } catch (e) {
       warnLog("[Countdown] notify failed:", e);
 
-      try {
-        ctx.storage.setJSON(notifyKey, {
+      writeNotifyState(
+        notifyKey,
+        {
           date: notifyDate,
           names: notifyNames,
           time: Date.now(),
           failed: true,
           retryAfter: Date.now() + NOTIFY_FAILED_RETRY_INTERVAL_MS,
           error: String(e?.message || e || "notify failed").slice(0, 120)
-        });
-      } catch (_) {}
+        },
+        "[Countdown] failed to save notify failure state:"
+      );
+
+      return;
     }
+
+    writeNotifyState(
+      notifyKey,
+      {
+        date: notifyDate,
+        names: notifyNames,
+        time: Date.now(),
+        failed: false
+      },
+      "[Countdown] failed to save notify success state:"
+    );
   } catch (e) {
     warnLog("[Countdown] notify process failed:", e);
   }
@@ -2786,7 +2864,8 @@ async function renderCountdownWidget(ctx = {}) {
   const { year: Y, weekday: currentDay, todayMs, todayIso, todayStr } = dateCtx;
 
   const BASE_CACHE_KEY = `${storageScope}:daily:${dataEnvCacheSuffix}:v${DAILY_CACHE_SCHEMA_VERSION}`;
-  const NOTIFY_KEY = `${storageScope}:notify:${dataEnvCacheSuffix}`;
+  const NOTIFY_KEY = `${storageScope}:notify:v1`;
+const LEGACY_NOTIFY_KEY = `${storageScope}:notify:${dataEnvCacheSuffix}`;
   const CACHE_VERSION = DAILY_CACHE_VERSION_TEXT;
 
   let baseDailyCacheRecordLoaded = false;
@@ -2880,7 +2959,7 @@ async function renderCountdownWidget(ctx = {}) {
   const displayCache = buildDisplayCache(result, layoutConfig.maxW);
   const stickyText = buildPinnedStickyText(pinnedData);
 
-  notifyTodayIfNeeded(ctx, NOTIFY_KEY, todayIso, todayItems);
+  notifyTodayIfNeeded(ctx, NOTIFY_KEY, todayIso, todayItems, LEGACY_NOTIFY_KEY);
 
   const officialTodayInfo = enableWeekendTheme
     ? getOfficialDayInfo(officialHolidayCache, todayIso)
