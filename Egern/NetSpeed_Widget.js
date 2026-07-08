@@ -50,10 +50,6 @@ function normalizeSpeedData(data) {
   };
 }
 
-function hasValidSpeedData(data) {
-  return !!data && data.timestamp > 0 && data.duration > 0;
-}
-
 function formatTime(timestamp) {
   if (!timestamp) return '--:--';
 
@@ -199,10 +195,9 @@ export default async function(ctx) {
     speedData = loadCachedSpeedData(ctx, cacheKey);
   }
 
-  const failed = !hasValidSpeedData(speedData);
-  const isSmall = ctx.widgetFamily === 'systemSmall';
+  const failed = !speedData || speedData.timestamp <= 0 || speedData.duration <= 0;
 
-  const layout = isSmall
+  const layout = ctx.widgetFamily === 'systemSmall'
     ? {
         padding: 12,
         gap: 8,
@@ -211,7 +206,7 @@ export default async function(ctx) {
         detailFont: 'caption2',
         speedMainFontSize: 32,
         failedMainFontSize: 22,
-        failedText: '⚠️\n测速失败',
+        failedText: '⚠️ 测速失败',
         speedUnitSeparator: '\n'
       }
     : {

@@ -172,7 +172,7 @@ const cityMap = {
   'lyon': '里昂',
   'marseille': '马赛',
   'paris': '巴黎',
-  'strasbourg': '斯特拉斯堡', 
+  'strasbourg': '斯特拉斯堡',
 
   // 加拿大
   'beauharnois': '博阿努瓦',
@@ -225,7 +225,6 @@ function getCityRegex() {
   if (CITY_REGEX_READY) return CITY_REGEX;
 
   const keys = Object.keys(cityMap)
-    .filter(k => k.length > 2)
     .sort((a, b) => b.length - a.length);
 
   CITY_REGEX = keys.length
@@ -255,12 +254,6 @@ function translateCity(text) {
 
   let translated = cityMap[lower];
   if (translated) return translated;
-
-  if (lower.includes('-') || lower.includes('_')) {
-    const simpleKey = lower.replace(/[-_]+/g, ' ');
-    translated = cityMap[simpleKey];
-    if (translated) return translated;
-  }
 
   const key = normalizeCityKey(raw);
   if (!key) return raw;
@@ -329,9 +322,8 @@ function parsePositiveFloat(v, fallback) {
 }
 
 function isSuccessfulResponse(ctx) {
-  const status = ctx.response?.status;
-
-  return typeof status !== 'number' || (status >= 200 && status < 300);
+  const status = ctx.response.status;
+  return status >= 200 && status < 300;
 }
 
 function isJsonLikeResponse(ctx) {
@@ -351,14 +343,6 @@ function isValidIPInfoObject(data) {
 }
 
 async function getIPInfo(ctx) {
-  if (!ctx.response) {
-    return {
-      ipInfo: null,
-      fallbackBody: undefined,
-      passthrough: true
-    };
-  }
-
   if (!isSuccessfulResponse(ctx)) {
     console.log('原始响应状态码非 2xx，跳过改写:', ctx.response.status);
 
@@ -405,7 +389,6 @@ async function getIPInfo(ctx) {
 
     return {
       ipInfo: data,
-      fallbackBody: text,
       passthrough: false
     };
   } catch (e) {
@@ -448,14 +431,11 @@ async function getSpeedTest(ctx, policy, timeoutMs, packetBytes) {
       }
     );
 
-    if (
-      typeof response?.status === 'number' &&
-      (response.status < 200 || response.status >= 300)
-    ) {
+    if (response.status < 200 || response.status >= 300) {
       throw new Error(`HTTP ${response.status}`);
     }
 
-    reader = response?.body?.getReader?.();
+    reader = response.body?.getReader?.();
     if (!reader) throw new Error('Reader Error');
 
     const remainingMs = deadline - now();
@@ -588,14 +568,7 @@ async function getIPPureInfo(ctx, policy) {
       credentials: 'omit'
     });
 
-    if (!res) {
-      return makeIPPureStatus(true, '无响应');
-    }
-
-    if (
-      typeof res.status === 'number' &&
-      (res.status < 200 || res.status >= 300)
-    ) {
+    if (res.status < 200 || res.status >= 300) {
       console.log('IPPure HTTP状态异常:', res.status);
       return makeIPPureStatus(true, `HTTP ${res.status}`);
     }
