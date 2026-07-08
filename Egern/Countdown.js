@@ -1602,7 +1602,7 @@ async function prepareOfficialHolidayCacheForWidget({
     hasCachedBaseData: Boolean(cachedBaseData)
   });
 
-  if (
+ if (
   !shouldRefreshOfficialBeforeRender(
     canRefreshOfficialHoliday,
     plan,
