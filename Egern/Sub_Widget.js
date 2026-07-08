@@ -491,7 +491,7 @@ function saveCache(ctx, cacheKey, data, cacheTime) {
     const time = Number.isFinite(cacheTime) ? cacheTime : Number(data?.updatedAt);
 
     if (!Number.isFinite(time)) {
-      return false;
+      return;
     }
 
     const storedData = {
@@ -509,11 +509,7 @@ function saveCache(ctx, cacheKey, data, cacheTime) {
       time,
       data: storedData,
     });
-
-    return true;
-  } catch (e) {
-    return false;
-  }
+  } catch (e) {}
 }
 
 function safeDeleteCache(ctx, cacheKey) {
@@ -533,11 +529,6 @@ async function fetchRemoteInfo(
   let lastErrorMsg = "Unknown";
   const strategyLimit = getStrategyLimit(activeSlotCount, hasStaleCache);
 
-  const urls = [];
-  for (let i = 0; i < strategyLimit; i++) {
-    urls.push(buildUrl(url, STRATEGIES[i].flag));
-  }
-
   for (let i = 0; i < strategyLimit; i++) {
     const strategy = STRATEGIES[i];
     const timeout = getRequestTimeout(deadlineTime);
@@ -547,8 +538,10 @@ async function fetchRemoteInfo(
       break;
     }
 
+    const requestUrl = buildUrl(url, strategy.flag);
+
     try {
-      const resp = await ctx.http.get(urls[i], {
+      const resp = await ctx.http.get(requestUrl, {
         headers: strategy.ua,
         timeout,
       });
