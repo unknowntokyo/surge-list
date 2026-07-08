@@ -335,6 +335,27 @@ function partsIntersect(parts, partSet) {
   return parts.some(part => partSet.has(part));
 }
 
+function partsIntersectArray(leftParts, rightParts) {
+  if (
+    !Array.isArray(leftParts) ||
+    !Array.isArray(rightParts) ||
+    leftParts.length === 0 ||
+    rightParts.length === 0
+  ) {
+    return false;
+  }
+
+  for (const left of leftParts) {
+    for (const right of rightParts) {
+      if (left === right) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
 function addHolidayNameTokens(targetSet, name) {
   if (!(targetSet instanceof Set)) return;
 
@@ -1008,10 +1029,6 @@ function normalizeOfficialDays(days) {
   });
 }
 
-function buildOfficialHolidayRanges(days) {
-  return buildOfficialHolidayRangesFromNormalizedDays(normalizeOfficialDays(days));
-}
-
 function normalizeHolidayCnYearData(data, year) {
   if (!data || typeof data !== "object") {
     throw new Error(`invalid official holiday data: ${year}`);
@@ -1056,6 +1073,38 @@ function sanitizeOfficialYears(years) {
   }
 
   return sanitized;
+}
+
+function isTrustedOfficialCacheYears(years) {
+  if (!years || typeof years !== "object") {
+    return false;
+  }
+
+  for (const yearData of Object.values(years)) {
+    if (!yearData || typeof yearData !== "object" || !Array.isArray(yearData.days)) {
+      return false;
+    }
+
+    for (const day of yearData.days) {
+      if (
+        !day ||
+        typeof day !== "object" ||
+        typeof day.name !== "string" ||
+        !day.name.trim() ||
+        typeof day.date !== "string" ||
+        !isValidISODate(day.date) ||
+        typeof day.isOffDay !== "boolean"
+      ) {
+        return false;
+      }
+
+      if (day.ms !== undefined && !Number.isFinite(Number(day.ms))) {
+        return false;
+      }
+    }
+  }
+
+  return true;
 }
 
 function getFingerprintDays(yearData, assumeNormalized) {
@@ -1111,6 +1160,17 @@ function normalizeOfficialCacheOnRead(cache, sanitize = true) {
     typeof cache.years !== "object"
   ) {
     return null;
+  }
+
+  if (sanitize && isTrustedOfficialCacheYears(cache.years)) {
+    return {
+      ...cache,
+      fingerprint:
+        typeof cache.fingerprint === "string" && cache.fingerprint
+          ? cache.fingerprint
+          : buildOfficialFingerprint(cache.years, true),
+      years: cache.years
+    };
   }
 
   const years = sanitize ? sanitizeOfficialYears(cache.years) : cache.years;
@@ -1494,30 +1554,28 @@ function resolveOfficialRefreshPlan({
       ...currentYearRefreshToFetch
     ]);
 
-    const optionalYearsToFetch =
-      blockingYearsToFetch.length > 0 ? getOptionalYearsToFetch() : [];
-
     return {
-      yearsToFetch: uniqueFiniteNumbers([...blockingYearsToFetch, ...optionalYearsToFetch]),
+      yearsToFetch: blockingYearsToFetch,
+      blockingYearsToFetch,
+      optionalYearsToFetch: [],
       shouldBlockRenderForOfficialRefresh: blockingYearsToFetch.length > 0,
       optionalOnly: false
     };
   }
 
   if (!cacheIsFresh) {
-    const currentYearToFetch = getOfficialFetchableYears(
+    const blockingYearsToFetch = getOfficialFetchableYears(
       officialHolidayCache,
       [currentYear],
       now
     );
 
-    const optionalYearsToFetch =
-      currentYearToFetch.length > 0 ? getOptionalYearsToFetch() : [];
-
     return {
-      yearsToFetch: uniqueFiniteNumbers([...currentYearToFetch, ...optionalYearsToFetch]),
+      yearsToFetch: blockingYearsToFetch,
+      blockingYearsToFetch,
+      optionalYearsToFetch: [],
       shouldBlockRenderForOfficialRefresh:
-        currentYearToFetch.length > 0 && !hasCachedBaseData,
+        blockingYearsToFetch.length > 0 && !hasCachedBaseData,
       optionalOnly: false
     };
   }
@@ -1527,6 +1585,8 @@ function resolveOfficialRefreshPlan({
   if (optionalYearsToFetch.length > 0) {
     return {
       yearsToFetch: optionalYearsToFetch,
+      blockingYearsToFetch: [],
+      optionalYearsToFetch,
       shouldBlockRenderForOfficialRefresh: false,
       optionalOnly: true
     };
@@ -1534,6 +1594,8 @@ function resolveOfficialRefreshPlan({
 
   return {
     yearsToFetch: [],
+    blockingYearsToFetch: [],
+    optionalYearsToFetch: [],
     shouldBlockRenderForOfficialRefresh: false,
     optionalOnly: false
   };
@@ -1548,8 +1610,8 @@ function shouldRefreshOfficialBeforeRender(
     canRefreshOfficialHoliday &&
       plan &&
       plan.optionalOnly !== true &&
-      Array.isArray(plan.yearsToFetch) &&
-      plan.yearsToFetch.length > 0 &&
+      Array.isArray(plan.blockingYearsToFetch) &&
+      plan.blockingYearsToFetch.length > 0 &&
       (plan.shouldBlockRenderForOfficialRefresh === true || hasCachedBaseData === false)
   );
 }
@@ -1614,12 +1676,39 @@ async function prepareOfficialHolidayCacheForWidget({
   });
 
   if (
-    !shouldRefreshOfficialBeforeRender(
+    shouldRefreshOfficialBeforeRender(
       canRefreshOfficialHoliday,
       plan,
       Boolean(cachedBaseData)
     )
   ) {
+    const fallbackEnvFingerprint = envFingerprint;
+    const fallbackCachedBaseData = cachedBaseData;
+    const oldOfficialFingerprint = getOfficialFingerprintText(officialHolidayCache);
+
+    officialHolidayCache = await refreshOfficialCache({
+      ctx,
+      officialHolidayStorageKey,
+      currentYear,
+      todayIso,
+      officialHolidayCache,
+      forceYearsToFetch: plan.blockingYearsToFetch
+    });
+
+    ({ envFingerprint, cachedBaseData } = readBaseByCurrentOfficialState());
+
+    if (
+      !cachedBaseData &&
+      fallbackCachedBaseData &&
+      getOfficialFingerprintText(officialHolidayCache) === oldOfficialFingerprint
+    ) {
+      return {
+        officialHolidayCache,
+        envFingerprint: fallbackEnvFingerprint,
+        cachedBaseData: fallbackCachedBaseData
+      };
+    }
+
     return {
       officialHolidayCache,
       envFingerprint,
@@ -1627,31 +1716,23 @@ async function prepareOfficialHolidayCacheForWidget({
     };
   }
 
-  const fallbackEnvFingerprint = envFingerprint;
-  const fallbackCachedBaseData = cachedBaseData;
-  const oldOfficialFingerprint = getOfficialFingerprintText(officialHolidayCache);
-
-  officialHolidayCache = await refreshOfficialCache({
-    ctx,
-    officialHolidayStorageKey,
-    currentYear,
-    todayIso,
-    officialHolidayCache,
-    forceYearsToFetch: plan.yearsToFetch
-  });
-
-  ({ envFingerprint, cachedBaseData } = readBaseByCurrentOfficialState());
-
   if (
+    canRefreshOfficialHoliday &&
+    plan.optionalOnly === true &&
     !cachedBaseData &&
-    fallbackCachedBaseData &&
-    getOfficialFingerprintText(officialHolidayCache) === oldOfficialFingerprint
+    Array.isArray(plan.optionalYearsToFetch) &&
+    plan.optionalYearsToFetch.length > 0
   ) {
-    return {
+    officialHolidayCache = await refreshOfficialCache({
+      ctx,
+      officialHolidayStorageKey,
+      currentYear,
+      todayIso,
       officialHolidayCache,
-      envFingerprint: fallbackEnvFingerprint,
-      cachedBaseData: fallbackCachedBaseData
-    };
+      forceYearsToFetch: plan.optionalYearsToFetch
+    });
+
+    ({ envFingerprint, cachedBaseData } = readBaseByCurrentOfficialState());
   }
 
   return {
@@ -2393,13 +2474,13 @@ function updatePinnedCountdown(state, collectCtx, name, diff) {
     return;
   }
 
-  const namePartSet = new Set(splitHolidayNames(name));
+  const nameParts = splitHolidayNames(name);
   const matched = [];
 
   for (const pinnedName of pinnedHolidays) {
     const pinnedParts = pinnedHolidayPartsMap.get(pinnedName);
 
-    if (partsIntersect(pinnedParts, namePartSet)) {
+    if (partsIntersectArray(pinnedParts, nameParts)) {
       matched.push(pinnedName);
     }
   }
@@ -2697,6 +2778,7 @@ async function renderCountdownWidget(ctx = {}) {
   const officialHolidayStorageKey = `${storageScope}:official_holidays:v${OFFICIAL_HOLIDAY_STORAGE_VERSION}`;
 
   const dataEnvStorageFingerprint = buildEnvFingerprintFromNormalized(normalizedEnv, DATA_ENV_KEYS);
+  const dataEnvCacheSuffix = hashString(dataEnvStorageFingerprint);
 
   const enableWeekendTheme = getBoolFromNormalizedEnv(
     normalizedEnv,
@@ -2706,8 +2788,8 @@ async function renderCountdownWidget(ctx = {}) {
 
   const { year: Y, weekday: currentDay, todayMs, todayIso, todayStr } = dateCtx;
 
-  const BASE_CACHE_KEY = `${storageScope}:daily:v${DAILY_CACHE_SCHEMA_VERSION}`;
-  const NOTIFY_KEY = `${storageScope}:notify`;
+  const BASE_CACHE_KEY = `${storageScope}:daily:${dataEnvCacheSuffix}:v${DAILY_CACHE_SCHEMA_VERSION}`;
+  const NOTIFY_KEY = `${storageScope}:notify:${dataEnvCacheSuffix}`;
   const CACHE_VERSION = DAILY_CACHE_VERSION_TEXT;
 
   let baseDailyCacheRecordLoaded = false;
