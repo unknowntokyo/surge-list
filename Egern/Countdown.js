@@ -1716,25 +1716,6 @@ async function prepareOfficialHolidayCacheForWidget({
     };
   }
 
-  if (
-    canRefreshOfficialHoliday &&
-    plan.optionalOnly === true &&
-    !cachedBaseData &&
-    Array.isArray(plan.optionalYearsToFetch) &&
-    plan.optionalYearsToFetch.length > 0
-  ) {
-    officialHolidayCache = await refreshOfficialCache({
-      ctx,
-      officialHolidayStorageKey,
-      currentYear,
-      todayIso,
-      officialHolidayCache,
-      forceYearsToFetch: plan.optionalYearsToFetch
-    });
-
-    ({ envFingerprint, cachedBaseData } = readBaseByCurrentOfficialState());
-  }
-
   return {
     officialHolidayCache,
     envFingerprint,
