@@ -428,6 +428,12 @@ const formatPeriodStr = (label, diff, duration = 1) => {
 
 const formatDisplayItem = item => formatPeriodStr(displayName(item.name), item.diff, item.duration);
 
+const toPublicCountdownItem = item => ({
+  name: item.name,
+  diff: item.diff,
+  duration: Math.max(1, Number(item.duration) || 1)
+});
+
 const formatTodayFestGroup = items => {
   let todayPrefixUsed = false;
 
@@ -484,7 +490,7 @@ function buildDisplayText(result, cat, limit) {
 
 function buildDisplayCache(result, maxW = DISPLAY_MAX_WIDTH) {
   const limit = 3;
-  const cache = { mode: "medium" };
+  const cache = {};
 
   for (const cfg of CATEGORY_CONFIG) {
     const text = buildDisplayText(result, cfg.key, limit);
@@ -498,16 +504,14 @@ function buildDisplayCache(result, maxW = DISPLAY_MAX_WIDTH) {
   return cache;
 }
 
-function buildGridRows(displayCache, result, layoutConfig) {
+function buildGridRows(displayCache, layoutConfig) {
   return CATEGORY_CONFIG.flatMap(cfg => {
-    const cachedLines = displayCache?.[cfg.key]?.lines;
-    const rawText = displayCache?.[cfg.key]?.text ?? buildDisplayText(result, cfg.key, 3);
+    const cached = displayCache?.[cfg.key];
+    const rawText = cached?.text;
 
     if (!rawText) return [];
 
-    const lines = Array.isArray(cachedLines)
-      ? cachedLines
-      : splitTextToLines(rawText, layoutConfig.maxW);
+    const lines = cached.lines || [];
 
     return lines.map((lineStr, idx) => ({
       type: "stack",
@@ -907,7 +911,7 @@ function hashString(str) {
   return (h >>> 0).toString(36);
 }
 
-const DAILY_CACHE_SCHEMA_VERSION = 24;
+const DAILY_CACHE_SCHEMA_VERSION = 25;
 const DAILY_CACHE_VERSION_TEXT = `v${DAILY_CACHE_SCHEMA_VERSION}`;
 
 const warnLog = (...args) => console.warn(...args);
@@ -1498,13 +1502,7 @@ async function safeLoadOfficialHolidayDaily(ctx, currentYear, todayIso, storageK
   } catch (e) {
     warnLog("[Countdown] official holiday load failed, fallback to local/cache:", e);
 
-    try {
-      return readOfficialHolidayCache(ctx, storageKey);
-    } catch (cacheError) {
-      warnLog("[Countdown] failed to read official holiday cache after load failure:", cacheError);
-
-      return null;
-    }
+    return readOfficialHolidayCache(ctx, storageKey);
   }
 }
 
@@ -1727,12 +1725,12 @@ async function prepareOfficialHolidayCacheForWidget({
   }
 
   if (
-  canRefreshOfficialHoliday &&
-  plan.isOptionalOnlyRefresh === true &&
-  plan.shouldRunOptionalRefresh === true &&
-  Array.isArray(plan.optionalYearsToFetch) &&
-  plan.optionalYearsToFetch.length > 0
-) {
+    canRefreshOfficialHoliday &&
+    plan.isOptionalOnlyRefresh === true &&
+    plan.shouldRunOptionalRefresh === true &&
+    Array.isArray(plan.optionalYearsToFetch) &&
+    plan.optionalYearsToFetch.length > 0
+  ) {
     officialHolidayCache = await refreshOfficialCache({
       ctx,
       officialHolidayStorageKey,
@@ -2414,7 +2412,8 @@ function finalizeCountdownResult({
 
         return enablePrioritySort ? b.priority - a.priority : 0;
       })
-      .slice(0, 7);
+      .slice(0, 7)
+      .map(toPublicCountdownItem);
   }
 
   const todayNoticeText =
@@ -2432,7 +2431,7 @@ function finalizeCountdownResult({
     result,
     todayNoticeText,
     pinnedData,
-    todayItems
+    todayItems: todayItems.map(toPublicCountdownItem)
   };
 }
 
@@ -2461,15 +2460,14 @@ function buildPinnedHolidayPartsMap(pinnedHolidays) {
   return pinnedHolidayPartsMap;
 }
 
-function addTodayCountdownItem(state, name, diff, priority, cat, duration = 1) {
+function addTodayCountdownItem(state, name, diff, priority, duration = 1) {
   const key = String(name);
 
   const nextItem = {
     name,
     diff,
     duration,
-    priority: priority + 100,
-    cat
+    priority: priority + 100
   };
 
   const oldItem = state.todayItemMap.get(key);
@@ -2537,7 +2535,7 @@ function addCountdownFestival(
   const safeDuration = Math.max(1, Number(duration) || 1);
 
   if (diff <= 0 && diff > -safeDuration) {
-    addTodayCountdownItem(state, name, diff, priority, cat, safeDuration);
+    addTodayCountdownItem(state, name, diff, priority, safeDuration);
     return;
   }
 
@@ -2551,8 +2549,7 @@ function addCountdownFestival(
         name,
         diff,
         duration: safeDuration,
-        priority,
-        cat
+        priority
       });
     }
   }
@@ -2978,7 +2975,7 @@ async function renderCountdownWidget(ctx = {}) {
       : "workday";
 
   const backgroundGradient = getBackgroundGradient(themeKey);
-  const gridRows = buildGridRows(displayCache, result, layoutConfig);
+  const gridRows = buildGridRows(displayCache, layoutConfig);
 
   const rightHeaderElements = [];
   const topTextOpts = { maxLines: 1, minScale: 0.75 };
