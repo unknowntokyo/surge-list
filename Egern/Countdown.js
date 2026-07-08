@@ -1728,12 +1728,12 @@ async function prepareOfficialHolidayCacheForWidget({
   }
 
   if (
-    canRefreshOfficialHoliday &&
-    plan.isOptionalOnlyRefresh === true &&
-    plan.shouldRunOptionalRefresh === true &&
+  canRefreshOfficialHoliday &&
+  plan.isOptionalOnlyRefresh === true &&
+  plan.shouldRunOptionalRefresh === true &&
   Array.isArray(plan.optionalYearsToFetch) &&
-    plan.optionalYearsToFetch.length > 0
-  ) {
+  plan.optionalYearsToFetch.length > 0
+) {
     officialHolidayCache = await refreshOfficialCache({
       ctx,
       officialHolidayStorageKey,
