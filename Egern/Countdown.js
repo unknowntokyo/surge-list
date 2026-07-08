@@ -300,11 +300,26 @@ function splitNameList(value) {
 }
 
 const EMPTY_HOLIDAY_NAME_PARTS = Object.freeze([]);
+const HOLIDAY_NAME_PARTS_CACHE = new Map();
+const HOLIDAY_NAME_PARTS_CACHE_LIMIT = 256;
 
 function splitHolidayNames(name) {
   const raw = String(name ?? "").trim();
 
-  return raw ? splitNameList(raw) : EMPTY_HOLIDAY_NAME_PARTS;
+  if (!raw) return EMPTY_HOLIDAY_NAME_PARTS;
+
+  const cached = HOLIDAY_NAME_PARTS_CACHE.get(raw);
+  if (cached) return cached;
+
+  const parts = Object.freeze(splitNameList(raw));
+
+  if (HOLIDAY_NAME_PARTS_CACHE.size >= HOLIDAY_NAME_PARTS_CACHE_LIMIT) {
+    HOLIDAY_NAME_PARTS_CACHE.clear();
+  }
+
+  HOLIDAY_NAME_PARTS_CACHE.set(raw, parts);
+
+  return parts;
 }
 
 function partsIntersect(parts, partSet) {
@@ -524,9 +539,7 @@ function mkUnsupportedWidget(title, textOpts = {}) {
     backgroundGradient: getBackgroundGradient("workday"),
     children: [
       mkRow([mkIcon("exclamationmark.triangle.fill", C.red, 16), mkText(title, 14, "heavy", C.main)], 6),
-
       mkSpacer(8),
-
       mkText("请使用桌面 Medium 小组件", 12, "medium", C.sub, textOpts)
     ]
   };
@@ -700,7 +713,6 @@ const CACHE_BOOL_ENV_KEYS = new Set([
 ]);
 
 const BOOL_FALSE_VALUES = new Set(["false", "0", "no", "off", "disabled"]);
-
 const BOOL_TRUE_VALUES = new Set(["true", "1", "yes", "on", "enabled"]);
 
 function parseBoolValue(value, defaultVal = true) {
@@ -997,40 +1009,7 @@ function normalizeOfficialDays(days) {
 }
 
 function buildOfficialHolidayRanges(days) {
-  const offDays = normalizeOfficialDays(days)
-    .filter(day => day.isOffDay === true)
-    .sort((a, b) => a.ms - b.ms);
-
-  const groups = [];
-
-  for (const day of offDays) {
-    const last = groups[groups.length - 1];
-
-    if (last && last.name === day.name && day.ms - last.endMs === DAY_MS) {
-      last.end = day.date;
-      last.endMs = day.ms;
-      last.duration += 1;
-    } else if (!last || last.name !== day.name || last.endMs !== day.ms) {
-      groups.push({
-        name: day.name,
-        start: day.date,
-        end: day.date,
-        startMs: day.ms,
-        endMs: day.ms,
-        duration: 1
-      });
-    }
-  }
-
-  return groups.map(group => ({
-    name: group.name,
-    start: group.start,
-    end: group.end,
-    startMs: group.startMs,
-    endMs: group.endMs,
-    startYMD: msToYMD(group.startMs),
-    duration: group.duration
-  }));
+  return buildOfficialHolidayRangesFromNormalizedDays(normalizeOfficialDays(days));
 }
 
 function normalizeHolidayCnYearData(data, year) {
@@ -1079,7 +1058,26 @@ function sanitizeOfficialYears(years) {
   return sanitized;
 }
 
-function buildOfficialFingerprint(yearsData) {
+function getFingerprintDays(yearData, assumeNormalized) {
+  if (!yearData || typeof yearData !== "object" || !Array.isArray(yearData.days)) {
+    return null;
+  }
+
+  if (!assumeNormalized) {
+    return normalizeCachedOfficialYearData(yearData)?.days || null;
+  }
+
+  return yearData.days.filter(
+    day =>
+      day &&
+      typeof day.date === "string" &&
+      typeof day.name === "string" &&
+      day.name.trim() &&
+      typeof day.isOffDay === "boolean"
+  );
+}
+
+function buildOfficialFingerprint(yearsData, assumeNormalized = false) {
   if (!yearsData || typeof yearsData !== "object") {
     return "none";
   }
@@ -1087,13 +1085,13 @@ function buildOfficialFingerprint(yearsData) {
   const parts = [];
 
   for (const year of Object.keys(yearsData).sort()) {
-    const yearData = normalizeCachedOfficialYearData(yearsData[year]);
+    const days = getFingerprintDays(yearsData[year], assumeNormalized);
 
-    if (!yearData) continue;
+    if (!days || days.length === 0) continue;
 
     parts.push(year);
 
-    for (const day of yearData.days) {
+    for (const day of days) {
       parts.push(`${day.date}:${day.name}:${day.isOffDay ? 1 : 0}`);
     }
   }
@@ -1118,7 +1116,7 @@ function normalizeOfficialCacheOnRead(cache, sanitize = true) {
   const years = sanitize ? sanitizeOfficialYears(cache.years) : cache.years;
 
   const fingerprint = sanitize
-    ? buildOfficialFingerprint(years)
+    ? buildOfficialFingerprint(years, true)
     : typeof cache.fingerprint === "string" && cache.fingerprint
       ? cache.fingerprint
       : buildOfficialFingerprint(years);
@@ -1269,7 +1267,7 @@ function normalizeOfficialCachePayload(oldCache, years, currentYear, todayIso, r
   return {
     version: OFFICIAL_HOLIDAY_STORAGE_VERSION,
     ...(checkedDate ? { checkedDate } : {}),
-    fingerprint: buildOfficialFingerprint(years),
+    fingerprint: buildOfficialFingerprint(years, true),
     retryAfterByYear: pruneRetryAfterByYear(
       retryAfterByYearOverride ?? oldCache?.retryAfterByYear,
       currentYear,
@@ -1394,7 +1392,6 @@ async function loadOfficialHolidayDaily(ctx, currentYear, todayIso, storageKey, 
       successfulFetchYearSet.add(key);
     } else {
       retryAfterByYear[key] = now + OFFICIAL_FAILED_RETRY_INTERVAL_MS;
-
       warnLog("[Countdown] failed to fetch official holiday:", key, result.reason);
     }
   }
@@ -1415,7 +1412,7 @@ async function loadOfficialHolidayDaily(ctx, currentYear, todayIso, storageKey, 
   const newCache = {
     version: OFFICIAL_HOLIDAY_STORAGE_VERSION,
     ...(checkedDate ? { checkedDate } : {}),
-    fingerprint: buildOfficialFingerprint(mergedYears),
+    fingerprint: buildOfficialFingerprint(mergedYears, true),
     retryAfterByYear: pruneRetryAfterByYear(retryAfterByYear, currentYear, todayIso),
     years: mergedYears
   };
@@ -1459,6 +1456,7 @@ function resolveOfficialRefreshPlan({
 }) {
   const years = officialHolidayCache?.years;
   const now = Date.now();
+  const cacheIsFresh = isOfficialCacheFresh(officialHolidayCache, todayIso, currentYear);
 
   const canPrefetchOptionalYear =
     !hasCachedBaseData && shouldPrefetchNextOfficialYear(todayIso);
@@ -1480,22 +1478,31 @@ function resolveOfficialRefreshPlan({
   );
 
   if (missingRequiredYears.length > 0) {
-    const requiredYearsToFetch = getOfficialFetchableYears(
+    const missingRequiredYearsToFetch = getOfficialFetchableYears(
       officialHolidayCache,
       missingRequiredYears,
       now
     );
 
+    const currentYearRefreshToFetch =
+      !cacheIsFresh && !missingRequiredYears.includes(currentYear)
+        ? getOfficialFetchableYears(officialHolidayCache, [currentYear], now)
+        : [];
+
+    const blockingYearsToFetch = uniqueFiniteNumbers([
+      ...missingRequiredYearsToFetch,
+      ...currentYearRefreshToFetch
+    ]);
+
     const optionalYearsToFetch =
-      requiredYearsToFetch.length > 0 ? getOptionalYearsToFetch() : [];
+      blockingYearsToFetch.length > 0 ? getOptionalYearsToFetch() : [];
 
     return {
-      yearsToFetch: uniqueFiniteNumbers([...requiredYearsToFetch, ...optionalYearsToFetch]),
-      shouldBlockRenderForOfficialRefresh: requiredYearsToFetch.length > 0
+      yearsToFetch: uniqueFiniteNumbers([...blockingYearsToFetch, ...optionalYearsToFetch]),
+      shouldBlockRenderForOfficialRefresh: blockingYearsToFetch.length > 0,
+      optionalOnly: false
     };
   }
-
-  const cacheIsFresh = isOfficialCacheFresh(officialHolidayCache, todayIso, currentYear);
 
   if (!cacheIsFresh) {
     const currentYearToFetch = getOfficialFetchableYears(
@@ -1510,7 +1517,8 @@ function resolveOfficialRefreshPlan({
     return {
       yearsToFetch: uniqueFiniteNumbers([...currentYearToFetch, ...optionalYearsToFetch]),
       shouldBlockRenderForOfficialRefresh:
-        currentYearToFetch.length > 0 && !hasCachedBaseData
+        currentYearToFetch.length > 0 && !hasCachedBaseData,
+      optionalOnly: false
     };
   }
 
@@ -1519,13 +1527,15 @@ function resolveOfficialRefreshPlan({
   if (optionalYearsToFetch.length > 0) {
     return {
       yearsToFetch: optionalYearsToFetch,
-      shouldBlockRenderForOfficialRefresh: false
+      shouldBlockRenderForOfficialRefresh: false,
+      optionalOnly: true
     };
   }
 
   return {
     yearsToFetch: [],
-    shouldBlockRenderForOfficialRefresh: false
+    shouldBlockRenderForOfficialRefresh: false,
+    optionalOnly: false
   };
 }
 
@@ -1537,6 +1547,7 @@ function shouldRefreshOfficialBeforeRender(
   return Boolean(
     canRefreshOfficialHoliday &&
       plan &&
+      plan.optionalOnly !== true &&
       Array.isArray(plan.yearsToFetch) &&
       plan.yearsToFetch.length > 0 &&
       (plan.shouldBlockRenderForOfficialRefresh === true || hasCachedBaseData === false)
@@ -1602,19 +1613,19 @@ async function prepareOfficialHolidayCacheForWidget({
     hasCachedBaseData: Boolean(cachedBaseData)
   });
 
- if (
-  !shouldRefreshOfficialBeforeRender(
-    canRefreshOfficialHoliday,
-    plan,
-    Boolean(cachedBaseData)
-  )
-) {
-  return {
-    officialHolidayCache,
-    envFingerprint,
-    cachedBaseData
-  };
-}
+  if (
+    !shouldRefreshOfficialBeforeRender(
+      canRefreshOfficialHoliday,
+      plan,
+      Boolean(cachedBaseData)
+    )
+  ) {
+    return {
+      officialHolidayCache,
+      envFingerprint,
+      cachedBaseData
+    };
+  }
 
   const fallbackEnvFingerprint = envFingerprint;
   const fallbackCachedBaseData = cachedBaseData;
@@ -1737,6 +1748,82 @@ function officialRangeOverlapsYear(range, year) {
   return startMs <= yearEndMs && endMs >= yearStartMs;
 }
 
+function getOfficialDayMs(day) {
+  const ms = Number(day?.ms);
+
+  if (Number.isFinite(ms)) {
+    return ms;
+  }
+
+  return isoToMs(day?.date);
+}
+
+function buildOfficialHolidayRangesFromNormalizedDays(days) {
+  if (!Array.isArray(days) || days.length === 0) {
+    return [];
+  }
+
+  const offDays = [];
+
+  for (const day of days) {
+    if (
+      !day ||
+      day.isOffDay !== true ||
+      typeof day.name !== "string" ||
+      !day.name.trim() ||
+      typeof day.date !== "string"
+    ) {
+      continue;
+    }
+
+    const ms = getOfficialDayMs(day);
+
+    if (!Number.isFinite(ms)) {
+      continue;
+    }
+
+    offDays.push({
+      name: day.name.trim(),
+      date: day.date,
+      isOffDay: true,
+      ms
+    });
+  }
+
+  offDays.sort((a, b) => a.ms - b.ms);
+
+  const groups = [];
+
+  for (const day of offDays) {
+    const last = groups[groups.length - 1];
+
+    if (last && last.name === day.name && day.ms - last.endMs === DAY_MS) {
+      last.end = day.date;
+      last.endMs = day.ms;
+      last.duration += 1;
+    } else if (!last || last.name !== day.name || last.endMs !== day.ms) {
+      groups.push({
+        name: day.name,
+        start: day.date,
+        end: day.date,
+        startMs: day.ms,
+        endMs: day.ms,
+        duration: 1
+      });
+    }
+  }
+
+  return groups.map(group => ({
+    name: group.name,
+    start: group.start,
+    end: group.end,
+    startMs: group.startMs,
+    endMs: group.endMs,
+    startYMD: msToYMD(group.startMs),
+    duration: group.duration
+  }));
+}
+
 function buildOfficialHolidayRangeCache(officialHolidayCache) {
   const years = officialHolidayCache?.years;
 
@@ -1754,7 +1841,7 @@ function buildOfficialHolidayRangeCache(officialHolidayCache) {
     }
   }
 
-  return buildOfficialHolidayRanges(allDays);
+  return buildOfficialHolidayRangesFromNormalizedDays(allDays);
 }
 
 function getOfficialLegalHolidaysFromRanges(officialRanges, year) {
@@ -1822,6 +1909,56 @@ function toHolidayRowMeta(row) {
   };
 }
 
+function buildHolidayRowMetas(rows, keepInvalid = false) {
+  if (!Array.isArray(rows)) {
+    return [];
+  }
+
+  const metas = [];
+
+  for (const row of rows) {
+    const meta = toHolidayRowMeta(row);
+
+    if (meta) {
+      metas.push(meta);
+    } else if (keepInvalid) {
+      metas.push({
+        row,
+        name: "",
+        parts: EMPTY_HOLIDAY_NAME_PARTS,
+        partSet: null,
+        startMs: NaN
+      });
+    }
+  }
+
+  return metas;
+}
+
+function findBestOfficialMatchIndex(officialRows, usedOfficialIndexes, fallback) {
+  let bestIndex = -1;
+  let bestDistance = Infinity;
+
+  for (let i = 0; i < officialRows.length; i++) {
+    if (usedOfficialIndexes.has(i)) continue;
+
+    const official = officialRows[i];
+
+    if (!partsIntersect(official.parts, fallback.partSet)) {
+      continue;
+    }
+
+    const distance = officialRowDistanceToFallback(official.row, fallback.startMs);
+
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      bestIndex = i;
+    }
+  }
+
+  return bestIndex;
+}
+
 function mergeLegalHolidays(fallbackLegal, officialLegal) {
   if (!Array.isArray(fallbackLegal)) {
     return Array.isArray(officialLegal) ? [...officialLegal] : [];
@@ -1831,31 +1968,23 @@ function mergeLegalHolidays(fallbackLegal, officialLegal) {
     return [...fallbackLegal];
   }
 
-  const officialRows = officialLegal.map(toHolidayRowMeta).filter(Boolean);
+  const officialRows = buildHolidayRowMetas(officialLegal);
 
   if (officialRows.length === 0) {
     return [...fallbackLegal];
   }
 
-  const fallbackRows = fallbackLegal.map(row => {
-    const meta = toHolidayRowMeta(row);
-
-    return (
-      meta || {
-        row,
-        name: "",
-        parts: EMPTY_HOLIDAY_NAME_PARTS,
-        partSet: null,
-        startMs: NaN
-      }
-    );
-  });
-
+  const fallbackRows = buildHolidayRowMetas(fallbackLegal, true);
   const merged = [];
   const usedOfficialIndexes = new Set();
   const coveredFallbackTokens = new Set();
+  const fallbackTokenSet = new Set();
 
-  const fallbackTokenSet = new Set(fallbackRows.flatMap(f => f.parts));
+  for (const fallback of fallbackRows) {
+    for (const part of fallback.parts) {
+      fallbackTokenSet.add(part);
+    }
+  }
 
   for (const fallback of fallbackRows) {
     if (!fallback.name) {
@@ -1867,25 +1996,11 @@ function mergeLegalHolidays(fallbackLegal, officialLegal) {
       continue;
     }
 
-    let bestIndex = -1;
-    let bestDistance = Infinity;
-
-    for (let i = 0; i < officialRows.length; i++) {
-      if (usedOfficialIndexes.has(i)) continue;
-
-      const official = officialRows[i];
-
-      if (!partsIntersect(official.parts, fallback.partSet)) {
-        continue;
-      }
-
-      const distance = officialRowDistanceToFallback(official.row, fallback.startMs);
-
-      if (distance < bestDistance) {
-        bestDistance = distance;
-        bestIndex = i;
-      }
-    }
+    const bestIndex = findBestOfficialMatchIndex(
+      officialRows,
+      usedOfficialIndexes,
+      fallback
+    );
 
     if (bestIndex >= 0) {
       const official = officialRows[bestIndex];
@@ -2592,9 +2707,7 @@ async function renderCountdownWidget(ctx = {}) {
   const { year: Y, weekday: currentDay, todayMs, todayIso, todayStr } = dateCtx;
 
   const BASE_CACHE_KEY = `${storageScope}:daily:v${DAILY_CACHE_SCHEMA_VERSION}`;
-
   const NOTIFY_KEY = `${storageScope}:notify`;
-
   const CACHE_VERSION = DAILY_CACHE_VERSION_TEXT;
 
   let baseDailyCacheRecordLoaded = false;
