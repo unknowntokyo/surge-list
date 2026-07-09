@@ -195,7 +195,6 @@ const WIDGET_OFFICIAL_HTTP_TIMEOUT_MS = 1500;
 
 const OFFICIAL_REFRESH_INTERVAL_MS = 3 * DAY_MS;
 const OFFICIAL_FAILED_RETRY_INTERVAL_MS = DAY_MS;
-const OFFICIAL_OPTIONAL_PREFETCH_START_MONTH = 11;
 const OFFICIAL_REQUIRE_PREVIOUS_YEAR_MONTH = 1;
 
 const NOTIFY_FAILED_RETRY_INTERVAL_MS = 10 * 60 * 1000;
@@ -1215,21 +1214,8 @@ function officialRequiredYears(currentYear, todayIso) {
   return years;
 }
 
-function officialOptionalYears(currentYear) {
-  return [currentYear + 1];
-}
-
 function officialRequestYears(currentYear, todayIso) {
-  return uniqueFiniteNumbers([
-    ...officialRequiredYears(currentYear, todayIso),
-    ...officialOptionalYears(currentYear)
-  ]);
-}
-
-function shouldPrefetchNextOfficialYear(todayIso) {
-  const parts = parseISODateParts(todayIso);
-
-  return parts ? parts.m >= OFFICIAL_OPTIONAL_PREFETCH_START_MONTH : false;
+  return uniqueFiniteNumbers(officialRequiredYears(currentYear, todayIso));
 }
 
 function pruneOfficialYears(years, currentYear, todayIso) {
@@ -1503,21 +1489,6 @@ function resolveOfficialRefreshPlan({
   const now = Date.now();
   const cacheIsFresh = isOfficialCacheFresh(officialHolidayCache, todayIso, currentYear);
 
-  const canPlanOptionalYear =
-    !hasCachedBaseData && shouldPrefetchNextOfficialYear(todayIso);
-
-  const getOptionalYearsToFetch = () => {
-    if (!canPlanOptionalYear) {
-      return [];
-    }
-
-    const missingOptionalYears = uniqueFiniteNumbers(
-      getMissingOfficialYears(years, officialOptionalYears(currentYear))
-    );
-
-    return getOfficialFetchableYears(officialHolidayCache, missingOptionalYears, now);
-  };
-
   const missingRequiredYears = uniqueFiniteNumbers(
     getMissingOfficialYears(years, officialRequiredYears(currentYear, todayIso))
   );
@@ -1531,10 +1502,7 @@ function resolveOfficialRefreshPlan({
 
     return {
       blockingYearsToFetch,
-      optionalYearsToFetch: [],
-      shouldBlockRenderForOfficialRefresh: blockingYearsToFetch.length > 0,
-      isOptionalOnlyRefresh: false,
-      shouldRunOptionalRefresh: false
+      shouldBlockRenderForOfficialRefresh: blockingYearsToFetch.length > 0
     };
   }
 
@@ -1547,32 +1515,14 @@ function resolveOfficialRefreshPlan({
 
     return {
       blockingYearsToFetch,
-      optionalYearsToFetch: [],
       shouldBlockRenderForOfficialRefresh:
-        blockingYearsToFetch.length > 0 && !hasCachedBaseData,
-      isOptionalOnlyRefresh: false,
-      shouldRunOptionalRefresh: false
-    };
-  }
-
-  const optionalYearsToFetch = getOptionalYearsToFetch();
-
-  if (optionalYearsToFetch.length > 0) {
-    return {
-      blockingYearsToFetch: [],
-      optionalYearsToFetch,
-      shouldBlockRenderForOfficialRefresh: false,
-      isOptionalOnlyRefresh: true,
-      shouldRunOptionalRefresh: true
+        blockingYearsToFetch.length > 0 && !hasCachedBaseData
     };
   }
 
   return {
     blockingYearsToFetch: [],
-    optionalYearsToFetch: [],
-    shouldBlockRenderForOfficialRefresh: false,
-    isOptionalOnlyRefresh: false,
-    shouldRunOptionalRefresh: false
+    shouldBlockRenderForOfficialRefresh: false
   };
 }
 
@@ -1581,7 +1531,7 @@ function shouldRefreshOfficialBeforeRender(
   plan,
   hasCachedBaseData = false
 ) {
-  if (!canRefreshOfficialHoliday || !plan || plan.isOptionalOnlyRefresh === true) {
+  if (!canRefreshOfficialHoliday || !plan) {
     return false;
   }
 
@@ -1638,6 +1588,40 @@ async function prepareOfficialHolidayCacheForWidget({
 }) {
   let officialHolidayCache = readOfficialHolidayCache(ctx, officialHolidayStorageKey);
 
+  if (officialHolidayCache) {
+    const prunedYears = pruneOfficialYears(
+      officialHolidayCache.years,
+      currentYear,
+      todayIso
+    );
+
+    const prunedRetryAfterByYear = pruneRetryAfterByYear(
+      officialHolidayCache.retryAfterByYear,
+      currentYear,
+      todayIso
+    );
+
+    const prunedOfficialHolidayCache = {
+      ...officialHolidayCache,
+      fingerprint: buildOfficialFingerprint(prunedYears, true),
+      retryAfterByYear: prunedRetryAfterByYear,
+      years: prunedYears
+    };
+
+    try {
+      if (
+        ctx.storage &&
+        shouldSaveOfficialCache(officialHolidayCache, prunedOfficialHolidayCache)
+      ) {
+        ctx.storage.setJSON(officialHolidayStorageKey, prunedOfficialHolidayCache);
+      }
+    } catch (e) {
+      warnLog("[Countdown] failed to prune official holiday cache:", e);
+    }
+
+    officialHolidayCache = prunedOfficialHolidayCache;
+  }
+
   const readBaseByCurrentOfficialState = () => {
     const envFingerprint = getOfficialEnvFingerprint(dataEnvFingerprint, officialHolidayCache);
 
@@ -1691,31 +1675,6 @@ async function prepareOfficialHolidayCacheForWidget({
         cachedBaseData: fallbackCachedBaseData
       };
     }
-
-    return {
-      officialHolidayCache,
-      envFingerprint,
-      cachedBaseData
-    };
-  }
-
-  if (
-    canRefreshOfficialHoliday &&
-    plan.isOptionalOnlyRefresh === true &&
-    plan.shouldRunOptionalRefresh === true &&
-    Array.isArray(plan.optionalYearsToFetch) &&
-    plan.optionalYearsToFetch.length > 0
-  ) {
-    officialHolidayCache = await refreshOfficialCache({
-      ctx,
-      officialHolidayStorageKey,
-      currentYear,
-      todayIso,
-      officialHolidayCache,
-      forceYearsToFetch: plan.optionalYearsToFetch
-    });
-
-    ({ envFingerprint, cachedBaseData } = readBaseByCurrentOfficialState());
 
     return {
       officialHolidayCache,
@@ -1926,7 +1885,7 @@ function getOfficialLegalHolidaysFromRanges(officialRanges, year) {
         ? Number(range.startMs)
         : isoToMs(range.start);
 
-      const ymd = range.startYMD || msToYMD(startMs) || isoToYMD(range.start);
+      const ymd = range.startYMD || msToYMD(startMs);
 
       return [range.name.trim(), ymd, Number(range.duration), "official", startMs];
     })
@@ -2128,28 +2087,7 @@ function getOfficialDayInfo(officialHolidayCache, todayIso) {
     );
   };
 
-  const checkedYearKeys = new Set();
-  const preferredYearKeys = [
-    String(parts.y),
-    String(parts.y - 1),
-    String(parts.y + 1)
-  ];
-
-  for (const yearKey of preferredYearKeys) {
-    checkedYearKeys.add(yearKey);
-
-    const found = findInYear(yearKey);
-
-    if (found) {
-      return found;
-    }
-  }
-
-  for (const yearKey of Object.keys(years).sort()) {
-    if (checkedYearKeys.has(yearKey)) {
-      continue;
-    }
-
+  for (const yearKey of [String(parts.y), String(parts.y - 1)]) {
     const found = findInYear(yearKey);
 
     if (found) {
