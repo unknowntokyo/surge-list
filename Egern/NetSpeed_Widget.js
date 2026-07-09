@@ -112,7 +112,7 @@ function loadCachedSpeedData(ctx, cacheKey) {
   }
 }
 
-async function measureSpeed(ctx, url, policy) {
+async function measureSpeed(ctx, url, policy, packetBytes) {
   let body;
   let reader;
   let completed = false;
@@ -150,6 +150,10 @@ async function measureSpeed(ctx, url, policy) {
       }
 
       downloadedBytes += value?.byteLength || value?.length || 0;
+
+      if (downloadedBytes >= packetBytes) {
+        break;
+      }
     }
 
     const duration = (Date.now() - startTime) / 1000;
@@ -187,7 +191,7 @@ export default async function(ctx) {
   const speedTestUrl = `https://speed.cloudflare.com/__down?bytes=${packetBytes}`;
   const cacheKey = `netspeed_cache_${policy}`;
 
-  const measuredData = await measureSpeed(ctx, speedTestUrl, policy);
+  const measuredData = await measureSpeed(ctx, speedTestUrl, policy, packetBytes);
 
   let speedData;
   if (measuredData) {
