@@ -864,12 +864,6 @@ const isoToMs = iso => {
   return parts ? Date.UTC(parts.y, parts.m - 1, parts.d) : NaN;
 };
 
-const isoToYMD = iso => {
-  const parts = parseISODateParts(iso);
-
-  return parts ? YMD(parts.y, parts.m, parts.d) : null;
-};
-
 function parseSlashYMDParts(raw) {
   const match = String(raw ?? "").trim().match(ONCE_SLASH_DATE_RE);
 
@@ -909,7 +903,7 @@ function hashString(str) {
   return (h >>> 0).toString(36);
 }
 
-const DAILY_CACHE_SCHEMA_VERSION = 25;
+const DAILY_CACHE_SCHEMA_VERSION = 26;
 const DAILY_CACHE_VERSION_TEXT = `v${DAILY_CACHE_SCHEMA_VERSION}`;
 
 const warnLog = (...args) => console.warn(...args);
@@ -2333,7 +2327,11 @@ function finalizeCountdownResult({
     displayTodayItems.length > 0 ? formatTodayFestGroup(displayTodayItems) : "";
 
   const pinnedData = pinnedHolidays
-    .filter(n => pinnedMap.has(n))
+    .filter(
+      n =>
+        pinnedMap.has(n) &&
+        !holidayNameMatchesTokenSet(n, todayFestTokenSet)
+    )
     .map(n => ({
       name: n,
       diff: pinnedMap.get(n)
