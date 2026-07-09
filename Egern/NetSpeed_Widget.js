@@ -139,6 +139,10 @@ async function measureSpeed(ctx, url, policy) {
     }
 
     while (true) {
+      if (Date.now() - startTime >= TIMEOUT) {
+        break;
+      }
+
       const { done, value } = await reader.read();
       if (done) {
         completed = true;

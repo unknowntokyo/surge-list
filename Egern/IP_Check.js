@@ -706,7 +706,14 @@ export default async function(ctx) {
       };
     }
 
-    return;
+    console.log('IP信息读取失败且无可回写原文，返回错误响应');
+    return {
+      headers: prepareResponseHeaders(ctx, 'application/json; charset=utf-8'),
+      body: {
+        error: 'IP信息解析失败',
+        message: '原始响应体已无法安全回写'
+      }
+    };
   }
 
   const showSpeedTest = isEnvOn(env.SHOW_SPEED_TEST);
