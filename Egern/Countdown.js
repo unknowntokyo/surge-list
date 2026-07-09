@@ -438,7 +438,6 @@ const splitTextToLines = (str, maxW) => {
   let line = "";
   let w = 0;
 
-  TEXT_TOKEN_RE.lastIndex = 0;
   const tokens = String(str ?? "").match(TEXT_TOKEN_RE) || [];
 
   for (const token of tokens) {
@@ -2793,6 +2792,7 @@ async function renderCountdownWidget(ctx = {}) {
   const officialHolidayStorageKey = `${storageScope}:official_holidays:v${OFFICIAL_HOLIDAY_STORAGE_VERSION}`;
 
   const dataEnvStorageFingerprint = buildEnvFingerprintFromNormalized(normalizedEnv, DATA_ENV_KEYS);
+
   const dataEnvCacheSuffix = hashString(dataEnvStorageFingerprint);
 
   const enableWeekendTheme = getBoolFromNormalizedEnv(
@@ -2803,7 +2803,7 @@ async function renderCountdownWidget(ctx = {}) {
 
   const { year: Y, weekday: currentDay, todayMs, todayIso, todayStr } = dateCtx;
 
-  const BASE_CACHE_KEY = `${storageScope}:daily:${dataEnvCacheSuffix}:v${DAILY_CACHE_SCHEMA_VERSION}`;
+  const BASE_CACHE_KEY = `${storageScope}:daily:v${DAILY_CACHE_SCHEMA_VERSION}`;
   const NOTIFY_KEY = `${storageScope}:notify:v1`;
   const LEGACY_NOTIFY_KEY = `${storageScope}:notify:${dataEnvCacheSuffix}`;
 
