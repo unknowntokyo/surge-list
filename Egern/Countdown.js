@@ -476,7 +476,7 @@ function buildDisplayCache(result, maxW = DISPLAY_MAX_WIDTH) {
 
     cache[cfg.key] = {
       text,
-      lines: splitTextToLines(text, maxW)
+      lines: text ? splitTextToLines(text, maxW) : []
     };
   }
 
@@ -1956,13 +1956,14 @@ function toHolidayRowMeta(row) {
 
   const name = row[0].trim();
   const parts = splitHolidayNames(name);
+  const startMsFromRow = Number(row[4]);
 
   return {
     row,
     name,
     parts,
     partSet: new Set(parts),
-    startMs: slashYMDToMs(row[1])
+    startMs: Number.isFinite(startMsFromRow) ? startMsFromRow : slashYMDToMs(row[1])
   };
 }
 
@@ -2343,11 +2344,14 @@ function finalizeCountdownResult({
 
   for (const cat of CATEGORY_KEYS) {
     result[cat] = Array.from(rawResult[cat].values())
-      .filter(
-        i =>
-          !holidayNameMatchesTokenSet(i.name, pinnedTokenSet) &&
-          !holidayNameMatchesTokenSet(i.name, todayFestTokenSet)
-      )
+      .filter(i => {
+        const parts = splitHolidayNames(i.name);
+
+        if (partsIntersect(parts, pinnedTokenSet)) return false;
+        if (partsIntersect(parts, todayFestTokenSet)) return false;
+
+        return true;
+      })
       .sort((a, b) => {
         if (a.diff !== b.diff) return a.diff - b.diff;
 
@@ -2361,11 +2365,11 @@ function finalizeCountdownResult({
     displayTodayItems.length > 0 ? formatTodayFestGroup(displayTodayItems) : "";
 
   const pinnedData = pinnedHolidays
-    .filter(
-      n =>
-        pinnedMap.has(n) &&
-        !holidayNameMatchesTokenSet(n, todayFestTokenSet)
-    )
+    .filter(n => {
+      if (!pinnedMap.has(n)) return false;
+
+      return !partsIntersect(splitHolidayNames(n), todayFestTokenSet);
+    })
     .map(n => ({
       name: n,
       diff: pinnedMap.get(n)
@@ -2896,14 +2900,15 @@ async function renderCountdownWidget(ctx = {}) {
 
   notifyTodayIfNeeded(ctx, NOTIFY_KEY, todayIso, todayItems, LEGACY_NOTIFY_KEY);
 
-  const officialTodayInfo = enableWeekendTheme
-    ? getOfficialDayInfo(officialHolidayCache, todayIso)
-    : null;
+  const hasActiveTodayItem = Array.isArray(todayItems) && todayItems.length > 0;
+
+  const officialTodayInfo =
+    enableWeekendTheme && !hasActiveTodayItem
+      ? getOfficialDayInfo(officialHolidayCache, todayIso)
+      : null;
 
   const isOfficialOffDay = officialTodayInfo?.isOffDay === true;
   const isOfficialAdjustedWorkday = officialTodayInfo?.isOffDay === false;
-
-  const hasActiveTodayItem = Array.isArray(todayItems) && todayItems.length > 0;
 
   const themeKey = hasActiveTodayItem
     ? "fest"
