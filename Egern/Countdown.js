@@ -195,7 +195,6 @@ const WIDGET_OFFICIAL_HTTP_TIMEOUT_MS = 1500;
 
 const OFFICIAL_REFRESH_INTERVAL_MS = 3 * DAY_MS;
 const OFFICIAL_FAILED_RETRY_INTERVAL_MS = DAY_MS;
-const OFFICIAL_REQUIRE_PREVIOUS_YEAR_MONTH = 1;
 
 const NOTIFY_FAILED_RETRY_INTERVAL_MS = 10 * 60 * 1000;
 
@@ -1208,12 +1207,6 @@ function readOfficialHolidayCache(ctx, storageKey) {
   return null;
 }
 
-function shouldRequirePreviousOfficialYear(todayIso) {
-  const parts = parseISODateParts(todayIso);
-
-  return parts ? parts.m === OFFICIAL_REQUIRE_PREVIOUS_YEAR_MONTH : true;
-}
-
 function officialRequiredYears(currentYear, todayIso) {
   const parts = parseISODateParts(todayIso);
   if (!parts) return [currentYear];
@@ -2103,25 +2096,25 @@ function getOfficialDayInfo(officialHolidayCache, todayIso) {
     return null;
   }
 
-  const findInYear = yearKey => {
-    const days = years?.[String(yearKey)]?.days;
+  const requiredYears = officialRequiredYears(parts.y, todayIso);
+  const candidateYears = [
+    parts.y,
+    ...requiredYears.filter(year => year !== parts.y)
+  ];
+
+  for (const year of candidateYears) {
+    const days = years[String(year)]?.days;
 
     if (!Array.isArray(days)) {
-      return null;
+      continue;
     }
 
-    return (
-      days.find(
-        day =>
-          day &&
-          day.date === todayIso &&
-          typeof day.isOffDay === "boolean"
-      ) || null
+    const found = days.find(
+      day =>
+        day &&
+        day.date === todayIso &&
+        typeof day.isOffDay === "boolean"
     );
-  };
-
-  for (const yearKey of [String(parts.y), String(parts.y - 1)]) {
-    const found = findInYear(yearKey);
 
     if (found) {
       return found;
