@@ -127,6 +127,15 @@ async function main(ctx) {
   const env = ctx.env || {};
   const slots = buildSlots(env);
 
+  const cacheBucketMemo = new Map();
+
+  // 即使已经删除最后一个订阅，也要清理索引中的旧缓存。
+  syncCacheIndex(
+    ctx,
+    slots,
+    cacheBucketMemo
+  );
+
   if (!slots.length) {
     return buildStatusWidget({
       icon: "sf-symbol:wifi.slash",
@@ -146,9 +155,7 @@ async function main(ctx) {
   const deadlineTime =
     nowTime + SCRIPT_SOFT_TIMEOUT_MS;
 
-  const cacheMemo = new Map();
-
-  syncCacheIndex(ctx, slots);
+  const slotCacheMemo = new Map();
 
   // 所有配置项都读取一次，使未显示的订阅也能清理过期缓存。
   const allSlotStates = slots.map((slot) =>
@@ -157,7 +164,8 @@ async function main(ctx) {
       slot,
       now,
       nowTime,
-      cacheMemo
+      slotCacheMemo,
+      cacheBucketMemo
     )
   );
 
@@ -236,7 +244,8 @@ async function main(ctx) {
           group.cacheId,
           remote.data,
           nowTime,
-          remote.strategyIndex
+          remote.strategyIndex,
+          cacheBucketMemo
         );
 
         const dataWithCacheTime = {
@@ -277,7 +286,6 @@ async function main(ctx) {
         } else {
           results[index] = buildErrorResult(
             state.slot,
-            state.remainDays,
             remote.errorMsg || "Unknown"
           );
         }
@@ -291,7 +299,6 @@ async function main(ctx) {
 
       results[i] = buildErrorResult(
         state.slot,
-        state.remainDays,
         "Fetch Error"
       );
     }
@@ -415,6 +422,7 @@ function getWidgetLayout(widgetFamily, count) {
 
 function buildSlots(env) {
   const slots = [];
+  const descriptorMemo = new Map();
 
   for (let i = 1; i <= 5; i++) {
     const url = String(
@@ -429,12 +437,22 @@ function buildSlots(env) {
       env[`NAME${i}`] || ""
     ).trim();
 
+    let descriptor =
+      descriptorMemo.get(url);
+
+    if (!descriptor) {
+      descriptor = getCacheDescriptor(url);
+      descriptorMemo.set(url, descriptor);
+    }
+
     slots.push({
       name: name || "机场订阅",
       url,
       resetDay: parseResetDay(
         env[`RESET${i}`]
       ),
+      cacheKey: descriptor.key,
+      cacheId: descriptor.id,
     });
   }
 
@@ -523,148 +541,483 @@ function buildSlotState(
   slot,
   now,
   nowTime,
-  cacheMemo
+  slotCacheMemo,
+  cacheBucketMemo
 ) {
   const remainDays = slot.resetDay
     ? getRemainingDays(slot.resetDay, now)
     : null;
 
-  const descriptor = getCacheDescriptor(
-    slot.url
-  );
-
-  let cache = cacheMemo.get(slot.url);
+  let cache =
+    slotCacheMemo.get(slot.url);
 
   if (!cache) {
     cache = readCache(
       ctx,
-      descriptor.key,
-      descriptor.id,
-      nowTime
+      slot.cacheKey,
+      slot.cacheId,
+      nowTime,
+      cacheBucketMemo
     );
 
-    cacheMemo.set(slot.url, cache);
+    slotCacheMemo.set(
+      slot.url,
+      cache
+    );
   }
 
   return {
     slot,
     remainDays,
-    cacheKey: descriptor.key,
-    cacheId: descriptor.id,
+    cacheKey: slot.cacheKey,
+    cacheId: slot.cacheId,
     cache,
   };
 }
 
-function syncCacheIndex(ctx, slots) {
-  const current = new Map();
+function syncCacheIndex(
+  ctx,
+  slots,
+  cacheBucketMemo
+) {
+  const currentEntries =
+    buildCacheIndexEntries(slots);
+
+  const previousState =
+    readCacheIndex(ctx);
+
+  // 读取失败时无法安全判断哪些缓存需要删除。
+  if (!previousState.ok) {
+    return;
+  }
+
+  if (
+    previousState.valid &&
+    cacheIndexEntriesEqual(
+      previousState.entries,
+      currentEntries
+    )
+  ) {
+    return;
+  }
+
+  const previousMap = new Map(
+    previousState.entries.map(
+      (entry) => [
+        entry.key,
+        entry.ids,
+      ]
+    )
+  );
+
+  const currentMap = new Map(
+    currentEntries.map(
+      (entry) => [
+        entry.key,
+        entry.ids,
+      ]
+    )
+  );
+
+  let cleanupSucceeded = true;
+
+  for (
+    const entry of previousState.entries
+  ) {
+    if (currentMap.has(entry.key)) {
+      continue;
+    }
+
+    if (
+      !deleteCacheBucket(
+        ctx,
+        entry.key,
+        cacheBucketMemo
+      )
+    ) {
+      cleanupSucceeded = false;
+    }
+  }
+
+  for (const entry of currentEntries) {
+    const previousIds =
+      previousMap.get(entry.key);
+
+    if (
+      previousIds &&
+      stringArraysEqual(
+        previousIds,
+        entry.ids
+      )
+    ) {
+      continue;
+    }
+
+    if (
+      !pruneCacheBucket(
+        ctx,
+        entry.key,
+        new Set(entry.ids),
+        cacheBucketMemo
+      )
+    ) {
+      cleanupSucceeded = false;
+    }
+  }
+
+  // 清理未全部成功时不推进索引，
+  // 保留下次运行时的重试依据。
+  if (!cleanupSucceeded) {
+    return;
+  }
+
+  if (!currentEntries.length) {
+    safeDeleteCache(
+      ctx,
+      CACHE_INDEX_KEY
+    );
+    return;
+  }
+
+  try {
+    ctx.storage.setJSON(
+      CACHE_INDEX_KEY,
+      {
+        version: CACHE_VERSION,
+        entries: currentEntries,
+      }
+    );
+  } catch (e) {}
+}
+
+function buildCacheIndexEntries(slots) {
+  const entryMap = new Map();
 
   for (const slot of slots) {
-    const descriptor = getCacheDescriptor(
-      slot.url
-    );
-
-    let ids = current.get(descriptor.key);
+    let ids =
+      entryMap.get(slot.cacheKey);
 
     if (!ids) {
       ids = new Set();
-      current.set(descriptor.key, ids);
+      entryMap.set(
+        slot.cacheKey,
+        ids
+      );
     }
 
-    ids.add(descriptor.id);
+    ids.add(slot.cacheId);
   }
 
-  let previousKeys = [];
+  return cacheIndexEntriesFromMap(
+    entryMap
+  );
+}
+
+function cacheIndexEntriesFromMap(
+  entryMap
+) {
+  return Array.from(
+    entryMap,
+    ([key, ids]) => ({
+      key,
+      ids: Array.from(ids).sort(),
+    })
+  ).sort((a, b) =>
+    a.key < b.key
+      ? -1
+      : a.key > b.key
+        ? 1
+        : 0
+  );
+}
+
+function readCacheIndex(ctx) {
+  let previous;
 
   try {
-    const previous = ctx.storage.getJSON(
-      CACHE_INDEX_KEY
+    previous =
+      ctx.storage.getJSON(
+        CACHE_INDEX_KEY
+      );
+  } catch (e) {
+    return {
+      ok: false,
+      valid: false,
+      entries: [],
+    };
+  }
+
+  if (previous == null) {
+    return {
+      ok: true,
+      valid: true,
+      entries: [],
+    };
+  }
+
+  if (
+    previous.version !== CACHE_VERSION
+  ) {
+    return {
+      ok: true,
+      valid: false,
+      entries: [],
+    };
+  }
+
+  const entries =
+    normalizeCacheIndexEntries(
+      previous.entries
     );
 
+  return entries
+    ? {
+        ok: true,
+        valid: true,
+        entries,
+      }
+    : {
+        ok: true,
+        valid: false,
+        entries: [],
+      };
+}
+
+function normalizeCacheIndexEntries(
+  entries
+) {
+  if (!Array.isArray(entries)) {
+    return null;
+  }
+
+  const entryMap = new Map();
+
+  for (const entry of entries) {
     if (
-      previous &&
-      previous.version === CACHE_VERSION &&
-      Array.isArray(previous.entries)
+      !entry ||
+      typeof entry.key !== "string" ||
+      !Array.isArray(entry.ids)
     ) {
-      previousKeys = previous.entries
-        .map((entry) => entry?.key)
-        .filter(
-          (key) => typeof key === "string"
-        );
+      return null;
     }
-  } catch (e) {}
 
-  const currentKeys = new Set(
-    current.keys()
+    let ids =
+      entryMap.get(entry.key);
+
+    if (!ids) {
+      ids = new Set();
+      entryMap.set(
+        entry.key,
+        ids
+      );
+    }
+
+    for (const id of entry.ids) {
+      if (typeof id !== "string") {
+        return null;
+      }
+
+      ids.add(id);
+    }
+
+    if (!ids.size) {
+      return null;
+    }
+  }
+
+  return cacheIndexEntriesFromMap(
+    entryMap
   );
+}
 
-  for (const key of previousKeys) {
-    if (!currentKeys.has(key)) {
-      safeDeleteCache(ctx, key);
+function cacheIndexEntriesEqual(
+  a,
+  b
+) {
+  if (a.length !== b.length) {
+    return false;
+  }
+
+  for (let i = 0; i < a.length; i++) {
+    if (
+      a[i].key !== b[i].key ||
+      !stringArraysEqual(
+        a[i].ids,
+        b[i].ids
+      )
+    ) {
+      return false;
     }
   }
 
-  for (const [key, ids] of current) {
-    pruneCacheBucket(ctx, key, ids);
+  return true;
+}
+
+function stringArraysEqual(a, b) {
+  if (a.length !== b.length) {
+    return false;
   }
+
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function readCacheBucket(
+  ctx,
+  cacheKey,
+  cacheBucketMemo
+) {
+  if (
+    cacheBucketMemo.has(cacheKey)
+  ) {
+    return cacheBucketMemo.get(
+      cacheKey
+    );
+  }
+
+  let cached;
 
   try {
-    ctx.storage.setJSON(CACHE_INDEX_KEY, {
-      version: CACHE_VERSION,
-      entries: Array.from(
-        current,
-        ([key, ids]) => ({
-          key,
-          ids: Array.from(ids),
-        })
-      ),
-    });
-  } catch (e) {}
+    cached = {
+      ok: true,
+      bucket:
+        ctx.storage.getJSON(cacheKey),
+    };
+  } catch (e) {
+    cached = {
+      ok: false,
+      bucket: null,
+    };
+  }
+
+  cacheBucketMemo.set(
+    cacheKey,
+    cached
+  );
+
+  return cached;
+}
+
+function setCacheBucketMemo(
+  cacheBucketMemo,
+  cacheKey,
+  bucket
+) {
+  cacheBucketMemo.set(
+    cacheKey,
+    {
+      ok: true,
+      bucket,
+    }
+  );
+}
+
+function isValidCacheBucket(bucket) {
+  return (
+    bucket &&
+    bucket.version === CACHE_VERSION &&
+    Array.isArray(bucket.entries)
+  );
+}
+
+function deleteCacheBucket(
+  ctx,
+  cacheKey,
+  cacheBucketMemo
+) {
+  const deleted =
+    safeDeleteCache(ctx, cacheKey);
+
+  if (deleted) {
+    setCacheBucketMemo(
+      cacheBucketMemo,
+      cacheKey,
+      null
+    );
+  }
+
+  return deleted;
 }
 
 function pruneCacheBucket(
   ctx,
   cacheKey,
-  validIds
+  validIds,
+  cacheBucketMemo
 ) {
+  const cached = readCacheBucket(
+    ctx,
+    cacheKey,
+    cacheBucketMemo
+  );
+
+  // 读取失败时不能确认缓存无效。
+  if (!cached.ok) {
+    return false;
+  }
+
+  const bucket = cached.bucket;
+
+  if (!bucket) {
+    return true;
+  }
+
+  if (!isValidCacheBucket(bucket)) {
+    return deleteCacheBucket(
+      ctx,
+      cacheKey,
+      cacheBucketMemo
+    );
+  }
+
+  const entries = bucket.entries.filter(
+    (entry) =>
+      entry &&
+      typeof entry.id === "string" &&
+      validIds.has(entry.id)
+  );
+
+  if (!entries.length) {
+    return deleteCacheBucket(
+      ctx,
+      cacheKey,
+      cacheBucketMemo
+    );
+  }
+
+  if (
+    entries.length ===
+    bucket.entries.length
+  ) {
+    return true;
+  }
+
+  const nextBucket = {
+    version: CACHE_VERSION,
+    entries,
+  };
+
   try {
-    const bucket = ctx.storage.getJSON(
-      cacheKey
+    ctx.storage.setJSON(
+      cacheKey,
+      nextBucket
     );
 
-    if (!bucket) {
-      return;
-    }
-
-    if (
-      bucket.version !== CACHE_VERSION ||
-      !Array.isArray(bucket.entries)
-    ) {
-      safeDeleteCache(ctx, cacheKey);
-      return;
-    }
-
-    const entries = bucket.entries.filter(
-      (entry) =>
-        entry &&
-        typeof entry.id === "string" &&
-        validIds.has(entry.id)
+    setCacheBucketMemo(
+      cacheBucketMemo,
+      cacheKey,
+      nextBucket
     );
 
-    if (!entries.length) {
-      safeDeleteCache(ctx, cacheKey);
-      return;
-    }
-
-    if (
-      entries.length !== bucket.entries.length
-    ) {
-      ctx.storage.setJSON(cacheKey, {
-        version: CACHE_VERSION,
-        entries,
-      });
-    }
+    return true;
   } catch (e) {
-    safeDeleteCache(ctx, cacheKey);
+    // 写回失败时保留原缓存桶。
+    return false;
   }
 }
 
@@ -701,106 +1054,117 @@ function readCache(
   ctx,
   cacheKey,
   cacheId,
-  nowTime
+  nowTime,
+  cacheBucketMemo
 ) {
-  try {
-    const bucket = ctx.storage.getJSON(
-      cacheKey
-    );
+  const cached = readCacheBucket(
+    ctx,
+    cacheKey,
+    cacheBucketMemo
+  );
 
-    if (!bucket) {
-      return {
-        fresh: null,
-        stale: null,
-      };
-    }
-
-    if (
-      bucket.version !== CACHE_VERSION ||
-      !Array.isArray(bucket.entries)
-    ) {
-      safeDeleteCache(ctx, cacheKey);
-
-      return {
-        fresh: null,
-        stale: null,
-      };
-    }
-
-    const entry = bucket.entries.find(
-      (item) =>
-        item &&
-        item.id === cacheId
-    );
-
-    if (!entry) {
-      return {
-        fresh: null,
-        stale: null,
-      };
-    }
-
-    const data = entry.data;
-    const cacheTime = Number(entry.time);
-    const strategyIndex =
-      normalizeStrategyIndex(
-        entry.strategyIndex
-      );
-
-    if (
-      !data ||
-      !Number.isFinite(cacheTime)
-    ) {
-      removeCacheEntry(
-        ctx,
-        cacheKey,
-        cacheId,
-        bucket
-      );
-
-      return {
-        fresh: null,
-        stale: null,
-      };
-    }
-
-    const age = nowTime - cacheTime;
-
-    const cachedData = {
-      ...data,
-      cacheTime,
-      strategyIndex,
+  if (!cached.ok) {
+    return {
+      fresh: null,
+      stale: null,
     };
+  }
 
-    if (
-      age >= 0 &&
-      age < NETWORK_COOLDOWN_MS
-    ) {
-      return {
-        fresh: cachedData,
-        stale: null,
-      };
-    }
+  const bucket = cached.bucket;
 
-    if (
-      age >= 0 &&
-      age < MAX_STALE_MS
-    ) {
-      return {
-        fresh: null,
-        stale: cachedData,
-      };
-    }
+  if (!bucket) {
+    return {
+      fresh: null,
+      stale: null,
+    };
+  }
 
+  if (!isValidCacheBucket(bucket)) {
+    deleteCacheBucket(
+      ctx,
+      cacheKey,
+      cacheBucketMemo
+    );
+
+    return {
+      fresh: null,
+      stale: null,
+    };
+  }
+
+  const entry = bucket.entries.find(
+    (item) =>
+      item &&
+      item.id === cacheId
+  );
+
+  if (!entry) {
+    return {
+      fresh: null,
+      stale: null,
+    };
+  }
+
+  const data = entry.data;
+  const cacheTime = Number(entry.time);
+  const strategyIndex =
+    normalizeStrategyIndex(
+      entry.strategyIndex
+    );
+
+  if (
+    !data ||
+    !Number.isFinite(cacheTime)
+  ) {
     removeCacheEntry(
       ctx,
       cacheKey,
       cacheId,
-      bucket
+      bucket,
+      cacheBucketMemo
     );
-  } catch (e) {
-    safeDeleteCache(ctx, cacheKey);
+
+    return {
+      fresh: null,
+      stale: null,
+    };
   }
+
+  const age = nowTime - cacheTime;
+
+  const cachedData = {
+    ...data,
+    cacheTime,
+    strategyIndex,
+  };
+
+  if (
+    age >= 0 &&
+    age < NETWORK_COOLDOWN_MS
+  ) {
+    return {
+      fresh: cachedData,
+      stale: null,
+    };
+  }
+
+  if (
+    age >= 0 &&
+    age < MAX_STALE_MS
+  ) {
+    return {
+      fresh: null,
+      stale: cachedData,
+    };
+  }
+
+  removeCacheEntry(
+    ctx,
+    cacheKey,
+    cacheId,
+    bucket,
+    cacheBucketMemo
+  );
 
   return {
     fresh: null,
@@ -814,48 +1178,63 @@ function saveCache(
   cacheId,
   data,
   cacheTime,
-  strategyIndex
+  strategyIndex,
+  cacheBucketMemo
 ) {
+  const time = Number(cacheTime);
+
+  if (!Number.isFinite(time)) {
+    return;
+  }
+
+  const cached = readCacheBucket(
+    ctx,
+    cacheKey,
+    cacheBucketMemo
+  );
+
+  // 读取失败时不覆盖可能仍然有效的原缓存。
+  if (!cached.ok) {
+    return;
+  }
+
+  let entries = [];
+  const current = cached.bucket;
+
+  if (isValidCacheBucket(current)) {
+    entries = current.entries.filter(
+      (entry) =>
+        entry &&
+        entry.id !== cacheId
+    );
+  }
+
+  entries.push({
+    id: cacheId,
+    time,
+    strategyIndex:
+      normalizeStrategyIndex(
+        strategyIndex
+      ),
+    data,
+  });
+
+  const nextBucket = {
+    version: CACHE_VERSION,
+    entries,
+  };
+
   try {
-    const time = Number(cacheTime);
+    ctx.storage.setJSON(
+      cacheKey,
+      nextBucket
+    );
 
-    if (!Number.isFinite(time)) {
-      return;
-    }
-
-    let entries = [];
-
-    try {
-      const current =
-        ctx.storage.getJSON(cacheKey);
-
-      if (
-        current &&
-        current.version === CACHE_VERSION &&
-        Array.isArray(current.entries)
-      ) {
-        entries = current.entries.filter(
-          (entry) =>
-            entry &&
-            entry.id !== cacheId
-        );
-      }
-    } catch (e) {}
-
-    entries.push({
-      id: cacheId,
-      time,
-      strategyIndex:
-        normalizeStrategyIndex(
-          strategyIndex
-        ),
-      data,
-    });
-
-    ctx.storage.setJSON(cacheKey, {
-      version: CACHE_VERSION,
-      entries,
-    });
+    setCacheBucketMemo(
+      cacheBucketMemo,
+      cacheKey,
+      nextBucket
+    );
   } catch (e) {}
 }
 
@@ -863,40 +1242,61 @@ function removeCacheEntry(
   ctx,
   cacheKey,
   cacheId,
-  bucket
+  bucket,
+  cacheBucketMemo
 ) {
-  try {
-    if (
-      !bucket ||
-      bucket.version !== CACHE_VERSION ||
-      !Array.isArray(bucket.entries)
-    ) {
-      safeDeleteCache(ctx, cacheKey);
-      return;
-    }
+  if (!isValidCacheBucket(bucket)) {
+    return deleteCacheBucket(
+      ctx,
+      cacheKey,
+      cacheBucketMemo
+    );
+  }
 
-    const entries = bucket.entries.filter(
-      (entry) =>
-        entry &&
-        entry.id !== cacheId
+  const entries = bucket.entries.filter(
+    (entry) =>
+      entry &&
+      entry.id !== cacheId
+  );
+
+  if (!entries.length) {
+    return deleteCacheBucket(
+      ctx,
+      cacheKey,
+      cacheBucketMemo
+    );
+  }
+
+  const nextBucket = {
+    version: CACHE_VERSION,
+    entries,
+  };
+
+  try {
+    ctx.storage.setJSON(
+      cacheKey,
+      nextBucket
     );
 
-    if (!entries.length) {
-      safeDeleteCache(ctx, cacheKey);
-      return;
-    }
+    setCacheBucketMemo(
+      cacheBucketMemo,
+      cacheKey,
+      nextBucket
+    );
 
-    ctx.storage.setJSON(cacheKey, {
-      version: CACHE_VERSION,
-      entries,
-    });
-  } catch (e) {}
+    return true;
+  } catch (e) {
+    return false;
+  }
 }
 
 function safeDeleteCache(ctx, cacheKey) {
   try {
     ctx.storage.delete(cacheKey);
-  } catch (e) {}
+    return true;
+  } catch (e) {
+    return false;
+  }
 }
 
 async function fetchRemoteInfo(
@@ -912,7 +1312,10 @@ async function fetchRemoteInfo(
       preferredStrategyIndex
     );
 
-  for (const strategyIndex of strategyIndexes) {
+  for (
+    const strategyIndex
+    of strategyIndexes
+  ) {
     const strategy =
       STRATEGIES[strategyIndex];
 
@@ -929,8 +1332,10 @@ async function fetchRemoteInfo(
       strategy.flag
     );
 
+    let resp = null;
+
     try {
-      const resp = await ctx.http.get(
+      resp = await ctx.http.get(
         requestUrl,
         {
           headers: strategy.ua,
@@ -938,14 +1343,14 @@ async function fetchRemoteInfo(
         }
       );
 
-      const status = Number(resp.status);
+      const status = Number(
+        resp.status
+      );
 
       const userInfoHeader =
         resp.headers.get(
           "subscription-userinfo"
         ) || "";
-
-      cancelResponseBody(resp);
 
       if (
         Number.isFinite(status) &&
@@ -975,6 +1380,8 @@ async function fetchRemoteInfo(
     } catch (err) {
       lastErrorMsg =
         normalizeRequestError(err);
+    } finally {
+      await cancelResponseBody(resp);
     }
   }
 
@@ -1021,7 +1428,7 @@ function normalizeStrategyIndex(value) {
     : null;
 }
 
-function cancelResponseBody(resp) {
+async function cancelResponseBody(resp) {
   try {
     const body = resp?.body;
 
@@ -1029,14 +1436,7 @@ function cancelResponseBody(resp) {
       body &&
       typeof body.cancel === "function"
     ) {
-      const result = body.cancel();
-
-      if (
-        result &&
-        typeof result.catch === "function"
-      ) {
-        result.catch(() => {});
-      }
+      await body.cancel();
     }
   } catch (e) {}
 }
@@ -1119,14 +1519,12 @@ function attachSlotMeta(
 
 function buildErrorResult(
   slot,
-  remainDays,
   errorMsg
 ) {
   return {
     name: slot.name,
     error: true,
     errorMsg,
-    remainDays,
   };
 }
 
@@ -1518,8 +1916,6 @@ function safeBuildCard(
           result?.name || "未知",
         error: true,
         errorMsg: "Render Error",
-        remainDays:
-          result?.remainDays,
       },
       widgetFamily,
       nowTime,
@@ -1867,15 +2263,18 @@ async function concurrentMap(
 }
 
 function getCacheDescriptor(url) {
+  const primaryHash =
+    hashStringSeed(
+      url,
+      2166136261
+    );
+
   return {
     key:
-      `${CACHE_PREFIX}_${hashString(url)}`,
+      `${CACHE_PREFIX}_${primaryHash}`,
     id: [
       url.length.toString(36),
-      hashStringSeed(
-        url,
-        2166136261
-      ),
+      primaryHash,
       hashStringSeed(
         url,
         2246822507
@@ -1886,13 +2285,6 @@ function getCacheDescriptor(url) {
       ),
     ].join("_"),
   };
-}
-
-function hashString(str) {
-  return hashStringSeed(
-    str,
-    2166136261
-  );
 }
 
 function hashStringSeed(str, seed) {
