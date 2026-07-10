@@ -5,9 +5,10 @@
  * 2、下行测速数据量 SPEED_TEST_PACKET，默认为 3MB
  */
 
-const MB = 1048576;
+const MB = 1000000;
 const DEFAULT_POLICY = 'DIRECT';
 const DEFAULT_PACKET_MB = 3;
+const MAX_PACKET_MB = 100;
 const TIMEOUT = 8000;
 const FAILED_TEXT = '⚠️ 测速失败';
 
@@ -28,13 +29,24 @@ function getPolicy(value) {
 }
 
 function getPacketBytes(value) {
-  const mb = parseFloat(value);
-  if (!Number.isFinite(mb) || mb <= 0) {
+  const normalizedValue = typeof value === 'string' ? value.trim() : value;
+  const mb = Number(normalizedValue);
+
+  if (!Number.isFinite(mb) || mb <= 0 || mb > MAX_PACKET_MB) {
     return DEFAULT_PACKET_MB * MB;
   }
 
   const bytes = Math.floor(mb * MB);
-  return bytes > 0 ? bytes : DEFAULT_PACKET_MB * MB;
+
+  if (
+    !Number.isSafeInteger(bytes) ||
+    bytes <= 0 ||
+    bytes > MAX_PACKET_MB * MB
+  ) {
+    return DEFAULT_PACKET_MB * MB;
+  }
+
+  return bytes;
 }
 
 function normalizeSpeedData(data) {
