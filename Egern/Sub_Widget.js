@@ -17,18 +17,21 @@
  *    - 本脚本读取大写键名 NAME1、URL1、RESET1 等
  *    - 至少需要配置 URL1 才能显示
  *    - 订阅地址需要包含完整的 token
- *    - 小组件请求系统约 1 小时后刷新
+ *    - 目标刷新时间设置为约 1 小时后，实际执行时间由系统决定
  *    - 自动适配系统深色/浅色模式
  *
  * 4. 功能说明：
  *    - 最多支持配置 5 个机场
  *    - 中小尺寸组件显示前 2 个机场，大尺寸显示 5 个机场
+ *    - 大尺寸显示 5 个机场时自动使用紧凑布局
  *    - 同一订阅 30 分钟内直接返回缓存，不重复请求网络
  *    - 单个订阅失败不会影响其他订阅刷新
  *    - 断网或订阅异常时，10 天内的旧缓存可兜底显示
  *    - 超过 10 天的旧缓存会被删除并显示失败
+ *    - 删除或替换订阅后会清理对应缓存
  *    - 记忆上次成功的订阅请求策略，下次刷新时优先使用
- *    - 缓存使用完整 URL 校验，避免哈希碰撞导致数据串用
+ *    - 缓存不保存完整订阅 URL/token
+ *    - 使用缓存键和多重 URL 指纹降低碰撞导致的数据串用风险
  */
 
 const COLORS = {
@@ -44,8 +47,15 @@ const COLORS = {
   progressBg: { light: "#E8E8EA", dark: "#48484A" },
 };
 
-const WIDGET_BG_COLOR = { light: "#FFFFFF", dark: "#2C2C2E" };
-const CARD_BG_COLOR = { light: "#FFFFFF", dark: "#2B2B2D" };
+const WIDGET_BG_COLOR = {
+  light: "#FFFFFF",
+  dark: "#2C2C2E",
+};
+
+const CARD_BG_COLOR = {
+  light: "#FFFFFF",
+  dark: "#2B2B2D",
+};
 
 const REFRESH_INTERVAL_MS = 60 * 60 * 1000;
 const NETWORK_COOLDOWN_MS = 30 * 60 * 1000;
@@ -56,12 +66,23 @@ const REQUEST_TIMEOUT_MS = 2000;
 const MIN_REQUEST_TIMEOUT_MS = 500;
 
 const CACHE_PREFIX = "sub_cache";
-const CACHE_VERSION = 2;
+const CACHE_VERSION = 3;
+const CACHE_INDEX_KEY =
+  `${CACHE_PREFIX}_index_v${CACHE_VERSION}`;
+
 const MAX_FATAL_ERROR_TEXT_LENGTH = 120;
 
 const UNITS = ["B", "KB", "MB", "GB", "TB", "PB"];
-const REGEX_USERINFO = /([-\w]+)\s*=\s*([\d.eE+-]+)/g;
-const USERINFO_KEYS = new Set(["upload", "download", "total", "expire"]);
+
+const REGEX_USERINFO =
+  /([-\w]+)\s*=\s*([\d.eE+-]+)/g;
+
+const USERINFO_KEYS = new Set([
+  "upload",
+  "download",
+  "total",
+  "expire",
+]);
 
 const STRATEGIES = [
   {
@@ -116,19 +137,37 @@ async function main(ctx) {
     });
   }
 
-  const widgetFamily = String(ctx.widgetFamily || "systemMedium");
-  const activeSlots = slots.slice(0, getDisplayLimit(widgetFamily));
+  const widgetFamily = String(
+    ctx.widgetFamily || "systemMedium"
+  );
 
   const now = new Date();
   const nowTime = now.getTime();
-  const deadlineTime = nowTime + SCRIPT_SOFT_TIMEOUT_MS;
+  const deadlineTime =
+    nowTime + SCRIPT_SOFT_TIMEOUT_MS;
 
-  const maxConcurrent = activeSlots.length > 2 ? 3 : 2;
   const cacheMemo = new Map();
 
-  const slotStates = activeSlots.map((slot) =>
-    buildSlotState(ctx, slot, now, nowTime, cacheMemo)
+  syncCacheIndex(ctx, slots);
+
+  // 所有配置项都读取一次，使未显示的订阅也能清理过期缓存。
+  const allSlotStates = slots.map((slot) =>
+    buildSlotState(
+      ctx,
+      slot,
+      now,
+      nowTime,
+      cacheMemo
+    )
   );
+
+  const slotStates = allSlotStates.slice(
+    0,
+    getDisplayLimit(widgetFamily)
+  );
+
+  const maxConcurrent =
+    slotStates.length > 2 ? 3 : 2;
 
   const results = new Array(slotStates.length);
   const remoteGroups = [];
@@ -151,11 +190,13 @@ async function main(ctx) {
     if (!group) {
       group = {
         cacheKey: state.cacheKey,
+        cacheId: state.cacheId,
         url: state.slot.url,
         indexes: [],
-        preferredStrategyIndex: normalizeStrategyIndex(
-          state.cache.stale?.strategyIndex
-        ),
+        preferredStrategyIndex:
+          normalizeStrategyIndex(
+            state.cache.stale?.strategyIndex
+          ),
       };
 
       remoteGroupMap.set(state.slot.url, group);
@@ -166,13 +207,15 @@ async function main(ctx) {
   }
 
   if (remoteGroups.length) {
-    const remoteGroupCount = remoteGroups.length;
-
     const remoteGroupResults = await concurrentMap(
       remoteGroups,
       maxConcurrent,
       (group) =>
-        fetchRemoteForGroup(ctx, group, deadlineTime, remoteGroupCount)
+        fetchRemoteForGroup(
+          ctx,
+          group,
+          deadlineTime
+        )
     );
 
     for (const groupResult of remoteGroupResults) {
@@ -182,13 +225,15 @@ async function main(ctx) {
         errorMsg: "Fetch Error",
       };
 
-      if (!group) continue;
+      if (!group) {
+        continue;
+      }
 
       if (remote.ok) {
         saveCache(
           ctx,
           group.cacheKey,
-          group.url,
+          group.cacheId,
           remote.data,
           nowTime,
           remote.strategyIndex
@@ -222,7 +267,8 @@ async function main(ctx) {
               ...state.cache.stale,
               isFallback: true,
               cacheAgeText: formatCacheAge(
-                nowTime - state.cache.stale.cacheTime
+                nowTime -
+                  state.cache.stale.cacheTime
               ),
             },
             state.slot,
@@ -251,8 +297,18 @@ async function main(ctx) {
     }
   }
 
+  const layout = getWidgetLayout(
+    widgetFamily,
+    results.length
+  );
+
   const cardChildren = results.map((result) =>
-    safeBuildCard(result, widgetFamily, nowTime)
+    safeBuildCard(
+      result,
+      widgetFamily,
+      nowTime,
+      layout
+    )
   );
 
   const timeStr =
@@ -263,9 +319,11 @@ async function main(ctx) {
   return {
     type: "widget",
     backgroundColor: WIDGET_BG_COLOR,
-    padding: [10, 10, 10, 10],
-    gap: 6,
-    refreshAfter: new Date(nowTime + REFRESH_INTERVAL_MS).toISOString(),
+    padding: layout.widgetPadding,
+    gap: layout.widgetGap,
+    refreshAfter: new Date(
+      nowTime + REFRESH_INTERVAL_MS
+    ).toISOString(),
     children: [
       {
         type: "stack",
@@ -275,7 +333,8 @@ async function main(ctx) {
         children: [
           {
             type: "image",
-            src: "sf-symbol:gauge.with.dots.needle.67percent",
+            src:
+              "sf-symbol:gauge.with.dots.needle.67percent",
             width: 16,
             height: 16,
             color: COLORS.accentGreen,
@@ -283,10 +342,15 @@ async function main(ctx) {
           {
             type: "text",
             text: "SubInfo",
-            font: { size: "subheadline", weight: "bold" },
+            font: {
+              size: "subheadline",
+              weight: "bold",
+            },
             textColor: COLORS.textPrimary,
           },
-          { type: "spacer" },
+          {
+            type: "spacer",
+          },
           {
             type: "image",
             src: "sf-symbol:arrow.clockwise",
@@ -297,7 +361,10 @@ async function main(ctx) {
           {
             type: "text",
             text: timeStr,
-            font: { size: "caption2", weight: "medium" },
+            font: {
+              size: "caption2",
+              weight: "medium",
+            },
             textColor: COLORS.textTertiary,
           },
         ],
@@ -305,7 +372,7 @@ async function main(ctx) {
       {
         type: "stack",
         direction: "column",
-        gap: 10,
+        gap: layout.cardsGap,
         children: cardChildren,
       },
     ],
@@ -319,19 +386,55 @@ function getDisplayLimit(widgetFamily) {
     : 2;
 }
 
+function getWidgetLayout(widgetFamily, count) {
+  const compact =
+    count > 2 &&
+    (widgetFamily === "systemLarge" ||
+      widgetFamily === "systemExtraLarge");
+
+  if (compact) {
+    return {
+      widgetPadding: [8, 10, 8, 10],
+      widgetGap: 4,
+      cardsGap: 5,
+      cardPadding: [5, 8, 5, 8],
+      cardGap: 3,
+      progressHeight: 4,
+    };
+  }
+
+  return {
+    widgetPadding: [10, 10, 10, 10],
+    widgetGap: 6,
+    cardsGap: 10,
+    cardPadding: [8, 10, 8, 10],
+    cardGap: 5,
+    progressHeight: 5,
+  };
+}
+
 function buildSlots(env) {
   const slots = [];
 
   for (let i = 1; i <= 5; i++) {
-    const url = String(env[`URL${i}`] || "").trim();
-    if (!url) continue;
+    const url = String(
+      env[`URL${i}`] || ""
+    ).trim();
 
-    const name = String(env[`NAME${i}`] || "").trim();
+    if (!url) {
+      continue;
+    }
+
+    const name = String(
+      env[`NAME${i}`] || ""
+    ).trim();
 
     slots.push({
       name: name || "机场订阅",
       url,
-      resetDay: parseResetDay(env[`RESET${i}`]),
+      resetDay: parseResetDay(
+        env[`RESET${i}`]
+      ),
     });
   }
 
@@ -350,7 +453,10 @@ function buildStatusWidget(options) {
     {
       type: "text",
       text: options.title,
-      font: { size: "headline", weight: "semibold" },
+      font: {
+        size: "headline",
+        weight: "semibold",
+      },
       textColor: options.titleColor,
       maxLines: 1,
     },
@@ -360,7 +466,10 @@ function buildStatusWidget(options) {
     children.push({
       type: "text",
       text: options.message,
-      font: { size: "caption2", weight: "medium" },
+      font: {
+        size: "caption2",
+        weight: "medium",
+      },
       textColor: COLORS.textTertiary,
       maxLines: 2,
       textAlign: "center",
@@ -371,7 +480,9 @@ function buildStatusWidget(options) {
     type: "widget",
     backgroundColor: WIDGET_BG_COLOR,
     padding: 16,
-    refreshAfter: new Date(Date.now() + REFRESH_INTERVAL_MS).toISOString(),
+    refreshAfter: new Date(
+      Date.now() + REFRESH_INTERVAL_MS
+    ).toISOString(),
     children: [
       {
         type: "stack",
@@ -385,55 +496,189 @@ function buildStatusWidget(options) {
 }
 
 function normalizeFatalError(err) {
-  const msg = String(err?.message ?? err ?? "").trim();
+  const msg = String(
+    err?.message ?? err ?? ""
+  ).trim();
 
   if (!msg) {
     return "Unknown";
   }
 
-  if (msg.length <= MAX_FATAL_ERROR_TEXT_LENGTH) {
+  if (
+    msg.length <= MAX_FATAL_ERROR_TEXT_LENGTH
+  ) {
     return msg;
   }
 
-  return `${msg.slice(0, MAX_FATAL_ERROR_TEXT_LENGTH - 1)}…`;
+  return (
+    msg.slice(
+      0,
+      MAX_FATAL_ERROR_TEXT_LENGTH - 1
+    ) + "…"
+  );
 }
 
-function buildSlotState(ctx, slot, now, nowTime, cacheMemo) {
+function buildSlotState(
+  ctx,
+  slot,
+  now,
+  nowTime,
+  cacheMemo
+) {
   const remainDays = slot.resetDay
     ? getRemainingDays(slot.resetDay, now)
     : null;
 
-  const urlHash = hashString(slot.url);
-  const cacheKey = `${CACHE_PREFIX}_${urlHash}`;
+  const descriptor = getCacheDescriptor(
+    slot.url
+  );
 
   let cache = cacheMemo.get(slot.url);
 
   if (!cache) {
-    cache = readCache(ctx, cacheKey, slot.url, nowTime);
+    cache = readCache(
+      ctx,
+      descriptor.key,
+      descriptor.id,
+      nowTime
+    );
+
     cacheMemo.set(slot.url, cache);
   }
 
   return {
     slot,
     remainDays,
-    cacheKey,
+    cacheKey: descriptor.key,
+    cacheId: descriptor.id,
     cache,
   };
+}
+
+function syncCacheIndex(ctx, slots) {
+  const current = new Map();
+
+  for (const slot of slots) {
+    const descriptor = getCacheDescriptor(
+      slot.url
+    );
+
+    let ids = current.get(descriptor.key);
+
+    if (!ids) {
+      ids = new Set();
+      current.set(descriptor.key, ids);
+    }
+
+    ids.add(descriptor.id);
+  }
+
+  let previousKeys = [];
+
+  try {
+    const previous = ctx.storage.getJSON(
+      CACHE_INDEX_KEY
+    );
+
+    if (
+      previous &&
+      previous.version === CACHE_VERSION &&
+      Array.isArray(previous.entries)
+    ) {
+      previousKeys = previous.entries
+        .map((entry) => entry?.key)
+        .filter(
+          (key) => typeof key === "string"
+        );
+    }
+  } catch (e) {}
+
+  const currentKeys = new Set(
+    current.keys()
+  );
+
+  for (const key of previousKeys) {
+    if (!currentKeys.has(key)) {
+      safeDeleteCache(ctx, key);
+    }
+  }
+
+  for (const [key, ids] of current) {
+    pruneCacheBucket(ctx, key, ids);
+  }
+
+  try {
+    ctx.storage.setJSON(CACHE_INDEX_KEY, {
+      version: CACHE_VERSION,
+      entries: Array.from(
+        current,
+        ([key, ids]) => ({
+          key,
+          ids: Array.from(ids),
+        })
+      ),
+    });
+  } catch (e) {}
+}
+
+function pruneCacheBucket(
+  ctx,
+  cacheKey,
+  validIds
+) {
+  try {
+    const bucket = ctx.storage.getJSON(
+      cacheKey
+    );
+
+    if (!bucket) {
+      return;
+    }
+
+    if (
+      bucket.version !== CACHE_VERSION ||
+      !Array.isArray(bucket.entries)
+    ) {
+      safeDeleteCache(ctx, cacheKey);
+      return;
+    }
+
+    const entries = bucket.entries.filter(
+      (entry) =>
+        entry &&
+        typeof entry.id === "string" &&
+        validIds.has(entry.id)
+    );
+
+    if (!entries.length) {
+      safeDeleteCache(ctx, cacheKey);
+      return;
+    }
+
+    if (
+      entries.length !== bucket.entries.length
+    ) {
+      ctx.storage.setJSON(cacheKey, {
+        version: CACHE_VERSION,
+        entries,
+      });
+    }
+  } catch (e) {
+    safeDeleteCache(ctx, cacheKey);
+  }
 }
 
 async function fetchRemoteForGroup(
   ctx,
   group,
-  deadlineTime,
-  remoteGroupCount
+  deadlineTime
 ) {
   try {
     const remote = await fetchRemoteInfo(
       ctx,
       group.url,
       deadlineTime,
-      group.preferredStrategyIndex,
-      remoteGroupCount
+      group.preferredStrategyIndex
     );
 
     return {
@@ -445,18 +690,29 @@ async function fetchRemoteForGroup(
       group,
       remote: {
         ok: false,
-        errorMsg: normalizeRequestError(err),
+        errorMsg:
+          normalizeRequestError(err),
       },
     };
   }
 }
 
-function readCache(ctx, cacheKey, url, nowTime) {
+function readCache(
+  ctx,
+  cacheKey,
+  cacheId,
+  nowTime
+) {
   try {
-    const bucket = ctx.storage.getJSON(cacheKey);
+    const bucket = ctx.storage.getJSON(
+      cacheKey
+    );
 
     if (!bucket) {
-      return { fresh: null, stale: null };
+      return {
+        fresh: null,
+        stale: null,
+      };
     }
 
     if (
@@ -464,24 +720,48 @@ function readCache(ctx, cacheKey, url, nowTime) {
       !Array.isArray(bucket.entries)
     ) {
       safeDeleteCache(ctx, cacheKey);
-      return { fresh: null, stale: null };
+
+      return {
+        fresh: null,
+        stale: null,
+      };
     }
 
     const entry = bucket.entries.find(
-      (item) => item && item.url === url
+      (item) =>
+        item &&
+        item.id === cacheId
     );
 
     if (!entry) {
-      return { fresh: null, stale: null };
+      return {
+        fresh: null,
+        stale: null,
+      };
     }
 
     const data = entry.data;
     const cacheTime = Number(entry.time);
-    const strategyIndex = normalizeStrategyIndex(entry.strategyIndex);
+    const strategyIndex =
+      normalizeStrategyIndex(
+        entry.strategyIndex
+      );
 
-    if (!data || !Number.isFinite(cacheTime)) {
-      removeCacheEntry(ctx, cacheKey, url, bucket);
-      return { fresh: null, stale: null };
+    if (
+      !data ||
+      !Number.isFinite(cacheTime)
+    ) {
+      removeCacheEntry(
+        ctx,
+        cacheKey,
+        cacheId,
+        bucket
+      );
+
+      return {
+        fresh: null,
+        stale: null,
+      };
     }
 
     const age = nowTime - cacheTime;
@@ -492,33 +772,46 @@ function readCache(ctx, cacheKey, url, nowTime) {
       strategyIndex,
     };
 
-    if (age >= 0 && age < NETWORK_COOLDOWN_MS) {
+    if (
+      age >= 0 &&
+      age < NETWORK_COOLDOWN_MS
+    ) {
       return {
         fresh: cachedData,
         stale: null,
       };
     }
 
-    if (age >= 0 && age < MAX_STALE_MS) {
+    if (
+      age >= 0 &&
+      age < MAX_STALE_MS
+    ) {
       return {
         fresh: null,
         stale: cachedData,
       };
     }
 
-    removeCacheEntry(ctx, cacheKey, url, bucket);
+    removeCacheEntry(
+      ctx,
+      cacheKey,
+      cacheId,
+      bucket
+    );
   } catch (e) {
-
     safeDeleteCache(ctx, cacheKey);
   }
 
-  return { fresh: null, stale: null };
+  return {
+    fresh: null,
+    stale: null,
+  };
 }
 
 function saveCache(
   ctx,
   cacheKey,
-  url,
+  cacheId,
   data,
   cacheTime,
   strategyIndex
@@ -533,7 +826,8 @@ function saveCache(
     let entries = [];
 
     try {
-      const current = ctx.storage.getJSON(cacheKey);
+      const current =
+        ctx.storage.getJSON(cacheKey);
 
       if (
         current &&
@@ -541,15 +835,20 @@ function saveCache(
         Array.isArray(current.entries)
       ) {
         entries = current.entries.filter(
-          (entry) => entry && entry.url !== url
+          (entry) =>
+            entry &&
+            entry.id !== cacheId
         );
       }
     } catch (e) {}
 
     entries.push({
-      url,
+      id: cacheId,
       time,
-      strategyIndex: normalizeStrategyIndex(strategyIndex),
+      strategyIndex:
+        normalizeStrategyIndex(
+          strategyIndex
+        ),
       data,
     });
 
@@ -560,7 +859,12 @@ function saveCache(
   } catch (e) {}
 }
 
-function removeCacheEntry(ctx, cacheKey, url, bucket) {
+function removeCacheEntry(
+  ctx,
+  cacheKey,
+  cacheId,
+  bucket
+) {
   try {
     if (
       !bucket ||
@@ -572,7 +876,9 @@ function removeCacheEntry(ctx, cacheKey, url, bucket) {
     }
 
     const entries = bucket.entries.filter(
-      (entry) => entry && entry.url !== url
+      (entry) =>
+        entry &&
+        entry.id !== cacheId
     );
 
     if (!entries.length) {
@@ -597,36 +903,47 @@ async function fetchRemoteInfo(
   ctx,
   url,
   deadlineTime,
-  preferredStrategyIndex,
-  remoteGroupCount
+  preferredStrategyIndex
 ) {
   let lastErrorMsg = "Unknown";
 
-  const strategyIndexes = getStrategyIndexes(
-    preferredStrategyIndex,
-    remoteGroupCount
-  );
+  const strategyIndexes =
+    getStrategyIndexes(
+      preferredStrategyIndex
+    );
 
   for (const strategyIndex of strategyIndexes) {
-    const strategy = STRATEGIES[strategyIndex];
-    const timeout = getRequestTimeout(deadlineTime);
+    const strategy =
+      STRATEGIES[strategyIndex];
+
+    const timeout =
+      getRequestTimeout(deadlineTime);
 
     if (timeout <= 0) {
       lastErrorMsg = "Timeout";
       break;
     }
 
-    const requestUrl = buildUrl(url, strategy.flag);
+    const requestUrl = buildUrl(
+      url,
+      strategy.flag
+    );
 
     try {
-      const resp = await ctx.http.get(requestUrl, {
-        headers: strategy.ua,
-        timeout,
-      });
+      const resp = await ctx.http.get(
+        requestUrl,
+        {
+          headers: strategy.ua,
+          timeout,
+        }
+      );
 
       const status = Number(resp.status);
+
       const userInfoHeader =
-        resp.headers.get("subscription-userinfo") || "";
+        resp.headers.get(
+          "subscription-userinfo"
+        ) || "";
 
       cancelResponseBody(resp);
 
@@ -638,9 +955,15 @@ async function fetchRemoteInfo(
         continue;
       }
 
-      const info = parseUserInfo(userInfoHeader);
+      const info = parseUserInfo(
+        userInfoHeader
+      );
 
-      if (info && Number.isFinite(info.total) && info.total > 0) {
+      if (
+        info &&
+        Number.isFinite(info.total) &&
+        info.total > 0
+      ) {
         return {
           ok: true,
           strategyIndex,
@@ -650,7 +973,8 @@ async function fetchRemoteInfo(
 
       lastErrorMsg = "No Data";
     } catch (err) {
-      lastErrorMsg = normalizeRequestError(err);
+      lastErrorMsg =
+        normalizeRequestError(err);
     }
   }
 
@@ -661,28 +985,30 @@ async function fetchRemoteInfo(
 }
 
 function getStrategyIndexes(
-  preferredStrategyIndex,
-  remoteGroupCount
+  preferredStrategyIndex
 ) {
-  const preferred = normalizeStrategyIndex(preferredStrategyIndex);
+  const preferred =
+    normalizeStrategyIndex(
+      preferredStrategyIndex
+    );
+
   const indexes = [];
 
   if (preferred != null) {
     indexes.push(preferred);
   }
 
-  for (let i = 0; i < STRATEGIES.length; i++) {
+  for (
+    let i = 0;
+    i < STRATEGIES.length;
+    i++
+  ) {
     if (i !== preferred) {
       indexes.push(i);
     }
   }
 
-  const limit =
-    remoteGroupCount > 2
-      ? Math.min(2, indexes.length)
-      : indexes.length;
-
-  return indexes.slice(0, limit);
+  return indexes;
 }
 
 function normalizeStrategyIndex(value) {
@@ -699,10 +1025,16 @@ function cancelResponseBody(resp) {
   try {
     const body = resp?.body;
 
-    if (body && typeof body.cancel === "function") {
+    if (
+      body &&
+      typeof body.cancel === "function"
+    ) {
       const result = body.cancel();
 
-      if (result && typeof result.catch === "function") {
+      if (
+        result &&
+        typeof result.catch === "function"
+      ) {
         result.catch(() => {});
       }
     }
@@ -710,19 +1042,30 @@ function cancelResponseBody(resp) {
 }
 
 function getRequestTimeout(deadlineTime) {
-  const remaining = deadlineTime - Date.now() - 100;
+  const remaining =
+    deadlineTime - Date.now() - 100;
 
-  if (remaining < MIN_REQUEST_TIMEOUT_MS) {
+  if (
+    remaining < MIN_REQUEST_TIMEOUT_MS
+  ) {
     return 0;
   }
 
-  return Math.min(REQUEST_TIMEOUT_MS, remaining);
+  return Math.min(
+    REQUEST_TIMEOUT_MS,
+    remaining
+  );
 }
 
 function normalizeRequestError(err) {
-  const msg = String(err?.message ?? err ?? "").toLowerCase();
+  const msg = String(
+    err?.message ?? err ?? ""
+  ).toLowerCase();
 
-  if (msg.includes("timeout") || msg.includes("timed out")) {
+  if (
+    msg.includes("timeout") ||
+    msg.includes("timed out")
+  ) {
     return "Timeout";
   }
 
@@ -734,23 +1077,39 @@ function normalizeRequestError(err) {
 }
 
 function buildSuccessResult(info) {
-  const upload = Math.max(0, info.upload || 0);
-  const download = Math.max(0, info.download || 0);
+  const upload = Math.max(
+    0,
+    info.upload || 0
+  );
+
+  const download = Math.max(
+    0,
+    info.download || 0
+  );
+
   const used = upload + download;
   const totalBytes = info.total;
 
   return {
     used,
     totalBytes,
-    percent: totalBytes > 0 ? (used / totalBytes) * 100 : 0,
+    percent:
+      totalBytes > 0
+        ? (used / totalBytes) * 100
+        : 0,
     expire:
-      Number.isFinite(info.expire) && info.expire > 0
+      Number.isFinite(info.expire) &&
+      info.expire > 0
         ? info.expire
         : null,
   };
 }
 
-function attachSlotMeta(data, slot, remainDays) {
+function attachSlotMeta(
+  data,
+  slot,
+  remainDays
+) {
   return {
     ...data,
     name: slot.name,
@@ -758,7 +1117,11 @@ function attachSlotMeta(data, slot, remainDays) {
   };
 }
 
-function buildErrorResult(slot, remainDays, errorMsg) {
+function buildErrorResult(
+  slot,
+  remainDays,
+  errorMsg
+) {
   return {
     name: slot.name,
     error: true,
@@ -767,8 +1130,19 @@ function buildErrorResult(slot, remainDays, errorMsg) {
   };
 }
 
-function buildCard(result, widgetFamily, nowTime) {
-  const { name, error, errorMsg, used, totalBytes } = result;
+function buildCard(
+  result,
+  widgetFamily,
+  nowTime,
+  layout
+) {
+  const {
+    name,
+    error,
+    errorMsg,
+    used,
+    totalBytes,
+  } = result;
 
   if (error) {
     return {
@@ -776,13 +1150,14 @@ function buildCard(result, widgetFamily, nowTime) {
       direction: "row",
       alignItems: "center",
       gap: 6,
-      padding: [8, 10, 8, 10],
+      padding: layout.cardPadding,
       backgroundColor: COLORS.errorBg,
       borderRadius: 8,
       children: [
         {
           type: "image",
-          src: "sf-symbol:exclamationmark.circle.fill",
+          src:
+            "sf-symbol:exclamationmark.circle.fill",
           width: 12,
           height: 12,
           color: COLORS.accentRed,
@@ -790,29 +1165,42 @@ function buildCard(result, widgetFamily, nowTime) {
         {
           type: "text",
           text: name,
-          font: { size: "caption2", weight: "semibold" },
+          font: {
+            size: "caption2",
+            weight: "semibold",
+          },
           textColor: COLORS.accentRed,
           flex: 1,
           maxLines: 1,
+          minScale: 0.7,
         },
         {
           type: "text",
-          text: `失败 | ${errorMsg || "异常"}`,
-          font: { size: "caption2", weight: "bold" },
+          text:
+            `失败 | ${errorMsg || "异常"}`,
+          font: {
+            size: "caption2",
+            weight: "bold",
+          },
           textColor: COLORS.accentRed,
           maxLines: 1,
+          minScale: 0.7,
         },
       ],
     };
   }
 
-  const displayState = getCardDisplayState(result, nowTime);
+  const displayState =
+    getCardDisplayState(
+      result,
+      nowTime
+    );
 
   return {
     type: "stack",
     direction: "column",
-    gap: 5,
-    padding: [8, 10, 8, 10],
+    gap: layout.cardGap,
+    padding: layout.cardPadding,
     backgroundColor: CARD_BG_COLOR,
     borderRadius: 8,
     borderWidth: 1,
@@ -829,21 +1217,35 @@ function buildCard(result, widgetFamily, nowTime) {
             src: "sf-symbol:circle.fill",
             width: 6,
             height: 6,
-            color: displayState.dotColor,
+            color:
+              displayState.dotColor,
           },
           {
             type: "text",
-            text: displayState.displayName,
-            font: { size: "caption2", weight: "semibold" },
-            textColor: COLORS.textPrimary,
+            text:
+              displayState.displayName,
+            font: {
+              size: "caption2",
+              weight: "semibold",
+            },
+            textColor:
+              COLORS.textPrimary,
             flex: 1,
             maxLines: 1,
+            minScale: 0.65,
           },
           {
             type: "text",
-            text: `${Math.round(displayState.displayPercent)}%`,
-            font: { size: "caption2", weight: "bold" },
-            textColor: displayState.statusColor,
+            text:
+              `${Math.round(
+                displayState.displayPercent
+              )}%`,
+            font: {
+              size: "caption2",
+              weight: "bold",
+            },
+            textColor:
+              displayState.statusColor,
             maxLines: 1,
           },
         ],
@@ -851,24 +1253,32 @@ function buildCard(result, widgetFamily, nowTime) {
       {
         type: "stack",
         direction: "row",
-        height: 5,
+        height: layout.progressHeight,
         borderRadius: 3,
         children: [
           {
             type: "stack",
-            flex: Math.max(displayState.progressPercent, 0.01),
-            height: 5,
-            backgroundColor: displayState.statusColor,
+            flex: Math.max(
+              displayState.progressPercent,
+              0.01
+            ),
+            height:
+              layout.progressHeight,
+            backgroundColor:
+              displayState.statusColor,
             borderRadius: 3,
           },
           {
             type: "stack",
             flex: Math.max(
-              100 - displayState.progressPercent,
+              100 -
+                displayState.progressPercent,
               0.01
             ),
-            height: 5,
-            backgroundColor: COLORS.progressBg,
+            height:
+              layout.progressHeight,
+            backgroundColor:
+              COLORS.progressBg,
             borderRadius: 3,
           },
         ],
@@ -885,25 +1295,44 @@ function buildCard(result, widgetFamily, nowTime) {
             children: [
               {
                 type: "text",
-                text: `${formatBytes(used)}/${formatBytes(totalBytes)}`,
-                font: { size: "caption2", weight: "medium" },
-                textColor: COLORS.textSecondary,
+                text:
+                  `${formatBytes(
+                    used
+                  )}/${formatBytes(
+                    totalBytes
+                  )}`,
+                font: {
+                  size: "caption2",
+                  weight: "medium",
+                },
+                textColor:
+                  COLORS.textSecondary,
                 maxLines: 1,
+                minScale: 0.65,
               },
-              { type: "spacer" },
+              {
+                type: "spacer",
+              },
             ],
           },
-          ...(widgetFamily === "systemSmall"
+          ...(widgetFamily ===
+          "systemSmall"
             ? []
             : [
                 {
                   type: "text",
-                  text: displayState.expireText,
-                  font: { size: "caption2", weight: "medium" },
-                  textColor: displayState.isExpired
-                    ? COLORS.accentRed
-                    : COLORS.textTertiary,
+                  text:
+                    displayState.expireText,
+                  font: {
+                    size: "caption2",
+                    weight: "medium",
+                  },
+                  textColor:
+                    displayState.isExpired
+                      ? COLORS.accentRed
+                      : COLORS.textTertiary,
                   maxLines: 1,
+                  minScale: 0.65,
                 },
               ]),
           {
@@ -911,15 +1340,26 @@ function buildCard(result, widgetFamily, nowTime) {
             direction: "row",
             flex: 1,
             children: [
-              { type: "spacer" },
+              {
+                type: "spacer",
+              },
               {
                 type: "text",
-                text: `剩${formatBytes(
-                  Math.max(0, totalBytes - used)
-                )}`,
-                font: { size: "caption2", weight: "semibold" },
-                textColor: displayState.statusColor,
+                text:
+                  `剩${formatBytes(
+                    Math.max(
+                      0,
+                      totalBytes - used
+                    )
+                  )}`,
+                font: {
+                  size: "caption2",
+                  weight: "semibold",
+                },
+                textColor:
+                  displayState.statusColor,
                 maxLines: 1,
+                minScale: 0.65,
               },
             ],
           },
@@ -929,15 +1369,26 @@ function buildCard(result, widgetFamily, nowTime) {
   };
 }
 
-function getCardDisplayState(result, nowTime) {
-  const safePercent = Number.isFinite(result.percent)
+function getCardDisplayState(
+  result,
+  nowTime
+) {
+  const safePercent = Number.isFinite(
+    result.percent
+  )
     ? result.percent
     : 0;
 
-  let statusColor = getUsageColor(safePercent);
+  let statusColor =
+    getUsageColor(safePercent);
 
-  const expireState = getExpireState(result.expire, nowTime);
-  const isExpired = expireState.isExpired;
+  const expireState = getExpireState(
+    result.expire,
+    nowTime
+  );
+
+  const isExpired =
+    expireState.isExpired;
 
   if (isExpired) {
     statusColor = COLORS.accentRed;
@@ -945,7 +1396,10 @@ function getCardDisplayState(result, nowTime) {
 
   let expireText = expireState.text;
 
-  if (!isExpired && result.remainDays != null) {
+  if (
+    !isExpired &&
+    result.remainDays != null
+  ) {
     expireText =
       result.remainDays === 0
         ? "今天重置"
@@ -959,33 +1413,60 @@ function getCardDisplayState(result, nowTime) {
         ? COLORS.accentRed
         : statusColor,
     displayName: result.isFallback
-      ? `${result.name} · ${result.cacheAgeText || "缓存"}`
+      ? `${result.name} · ${
+          result.cacheAgeText || "缓存"
+        }`
       : result.name,
-    displayPercent: Math.max(0, safePercent),
-    progressPercent: Math.min(Math.max(safePercent, 0), 100),
+    displayPercent: Math.max(
+      0,
+      safePercent
+    ),
+    progressPercent: Math.min(
+      Math.max(safePercent, 0),
+      100
+    ),
     expireText,
     isExpired,
   };
 }
 
 function getUsageColor(percent) {
-  if (percent >= 95) return COLORS.accentRed;
-  if (percent >= 80) return COLORS.accentOrange;
-  if (percent >= 50) return COLORS.accentPurple;
+  if (percent >= 95) {
+    return COLORS.accentRed;
+  }
+
+  if (percent >= 80) {
+    return COLORS.accentOrange;
+  }
+
+  if (percent >= 50) {
+    return COLORS.accentPurple;
+  }
+
   return COLORS.accentGreen;
 }
 
-function getExpireState(expire, nowTime) {
+function getExpireState(
+  expire,
+  nowTime
+) {
   const rawExpire = Number(expire);
 
-  if (!Number.isFinite(rawExpire) || rawExpire <= 0) {
+  if (
+    !Number.isFinite(rawExpire) ||
+    rawExpire <= 0
+  ) {
     return {
       text: "永久有效",
       isExpired: false,
     };
   }
 
-  const expireMs = rawExpire < 1e12 ? rawExpire * 1000 : rawExpire;
+  const expireMs =
+    rawExpire < 1e12
+      ? rawExpire * 1000
+      : rawExpire;
+
   const d = new Date(expireMs);
   const expireTime = d.getTime();
 
@@ -1004,80 +1485,135 @@ function getExpireState(expire, nowTime) {
   }
 
   return {
-    text: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
-      2,
-      "0"
-    )}-${String(d.getDate()).padStart(2, "0")}`,
+    text:
+      `${d.getFullYear()}-` +
+      `${String(
+        d.getMonth() + 1
+      ).padStart(2, "0")}-` +
+      String(d.getDate()).padStart(
+        2,
+        "0"
+      ),
     isExpired: false,
   };
 }
 
-function safeBuildCard(result, widgetFamily, nowTime) {
+function safeBuildCard(
+  result,
+  widgetFamily,
+  nowTime,
+  layout
+) {
   try {
-    return buildCard(result, widgetFamily, nowTime);
+    return buildCard(
+      result,
+      widgetFamily,
+      nowTime,
+      layout
+    );
   } catch (err) {
     return buildCard(
       {
-        name: result?.name || "未知",
+        name:
+          result?.name || "未知",
         error: true,
         errorMsg: "Render Error",
-        remainDays: result?.remainDays,
+        remainDays:
+          result?.remainDays,
       },
       widgetFamily,
-      nowTime
+      nowTime,
+      layout
     );
   }
 }
 
 function buildUrl(base, flag) {
-  if (!flag) return base;
+  if (!flag) {
+    return base;
+  }
 
   try {
     const u = new URL(base);
-    u.searchParams.set("flag", flag);
+
+    u.searchParams.set(
+      "flag",
+      flag
+    );
+
     return u.toString();
   } catch (e) {
-    const hashIndex = base.indexOf("#");
-    const urlPart =
-      hashIndex >= 0 ? base.slice(0, hashIndex) : base;
-    const hashPart =
-      hashIndex >= 0 ? base.slice(hashIndex) : "";
+    const hashIndex =
+      base.indexOf("#");
 
-    const queryIndex = urlPart.indexOf("?");
+    const urlPart =
+      hashIndex >= 0
+        ? base.slice(0, hashIndex)
+        : base;
+
+    const hashPart =
+      hashIndex >= 0
+        ? base.slice(hashIndex)
+        : "";
+
+    const queryIndex =
+      urlPart.indexOf("?");
+
     const path =
       queryIndex >= 0
         ? urlPart.slice(0, queryIndex)
         : urlPart;
+
     const query =
       queryIndex >= 0
         ? urlPart.slice(queryIndex + 1)
         : "";
 
-    const params = query.split("&").filter(isNonFlagParam);
-    params.push(`flag=${encodeURIComponent(flag)}`);
+    const params = query
+      .split("&")
+      .filter(isNonFlagParam);
 
-    return `${path}?${params.join("&")}${hashPart}`;
+    params.push(
+      `flag=${encodeURIComponent(flag)}`
+    );
+
+    return (
+      `${path}?${params.join("&")}` +
+      hashPart
+    );
   }
 }
 
 function isNonFlagParam(param) {
-  if (!param) return false;
-
-  const eqIndex = param.indexOf("=");
-  const rawKey =
-    eqIndex >= 0 ? param.slice(0, eqIndex) : param;
-
-  if (rawKey.toLowerCase() === "flag") {
+  if (!param) {
     return false;
   }
 
-  if (rawKey.includes("%") || rawKey.includes("+")) {
+  const eqIndex = param.indexOf("=");
+
+  const rawKey =
+    eqIndex >= 0
+      ? param.slice(0, eqIndex)
+      : param;
+
+  if (
+    rawKey.toLowerCase() === "flag"
+  ) {
+    return false;
+  }
+
+  if (
+    rawKey.includes("%") ||
+    rawKey.includes("+")
+  ) {
     try {
       const key = decodeURIComponent(
         rawKey.replace(/\+/g, "%20")
       );
 
-      return key.toLowerCase() !== "flag";
+      return (
+        key.toLowerCase() !== "flag"
+      );
     } catch (e) {}
   }
 
@@ -1085,19 +1621,30 @@ function isNonFlagParam(param) {
 }
 
 function parseUserInfo(header) {
-  if (header == null) return null;
+  if (header == null) {
+    return null;
+  }
 
   header = String(header);
 
-  if (!header.trim()) return null;
+  if (!header.trim()) {
+    return null;
+  }
 
   const info = {};
+
   REGEX_USERINFO.lastIndex = 0;
 
   let match;
 
-  while ((match = REGEX_USERINFO.exec(header)) !== null) {
-    const key = String(match[1] || "").toLowerCase();
+  while (
+    (match =
+      REGEX_USERINFO.exec(header)) !==
+    null
+  ) {
+    const key = String(
+      match[1] || ""
+    ).toLowerCase();
 
     if (!USERINFO_KEYS.has(key)) {
       continue;
@@ -1105,23 +1652,34 @@ function parseUserInfo(header) {
 
     const val = Number(match[2]);
 
-    if (Number.isFinite(val) && val >= 0) {
+    if (
+      Number.isFinite(val) &&
+      val >= 0
+    ) {
       info[key] = val;
     }
   }
 
-  return Object.keys(info).length ? info : null;
+  return Object.keys(info).length
+    ? info
+    : null;
 }
 
 function formatBytes(bytes) {
-  if (!Number.isFinite(bytes) || bytes <= 0) {
+  if (
+    !Number.isFinite(bytes) ||
+    bytes <= 0
+  ) {
     return "0B";
   }
 
   let i = 0;
   let value = bytes;
 
-  while (value >= 1024 && i < UNITS.length - 1) {
+  while (
+    value >= 1024 &&
+    i < UNITS.length - 1
+  ) {
     value /= 1024;
     i++;
   }
@@ -1131,7 +1689,10 @@ function formatBytes(bytes) {
       ? Math.round(value)
       : Number(value.toFixed(1));
 
-  if (displayValue >= 1024 && i < UNITS.length - 1) {
+  if (
+    displayValue >= 1024 &&
+    i < UNITS.length - 1
+  ) {
     displayValue = 1;
     i++;
   }
@@ -1140,41 +1701,67 @@ function formatBytes(bytes) {
 }
 
 function formatCacheAge(ms) {
-  if (!Number.isFinite(ms) || ms < 0) {
+  if (
+    !Number.isFinite(ms) ||
+    ms < 0
+  ) {
     return "缓存";
   }
 
-  const minutes = Math.max(1, Math.floor(ms / 60000));
+  const minutes = Math.max(
+    1,
+    Math.floor(ms / 60000)
+  );
 
   if (minutes < 60) {
     return `缓存${minutes}分`;
   }
 
-  const hours = Math.floor(minutes / 60);
+  const hours = Math.floor(
+    minutes / 60
+  );
 
   if (hours < 24) {
     return `缓存${hours}小时`;
   }
 
-  const days = Math.floor(hours / 24);
+  const days = Math.floor(
+    hours / 24
+  );
+
   return `缓存${days}天`;
 }
 
 function getMonthDays(year, month) {
-  return new Date(year, month + 1, 0).getDate();
+  return new Date(
+    year,
+    month + 1,
+    0
+  ).getDate();
 }
 
-function getRemainingDays(resetDay, now) {
-  const currentYear = now.getFullYear();
-  const currentMonth = now.getMonth();
-  const currentDate = now.getDate();
+function getRemainingDays(
+  resetDay,
+  now
+) {
+  const currentYear =
+    now.getFullYear();
+
+  const currentMonth =
+    now.getMonth();
+
+  const currentDate =
+    now.getDate();
 
   let targetYear = currentYear;
   let targetMonth = currentMonth;
 
   let safeDay = Math.min(
     resetDay,
-    getMonthDays(targetYear, targetMonth)
+    getMonthDays(
+      targetYear,
+      targetMonth
+    )
   );
 
   if (currentDate > safeDay) {
@@ -1187,42 +1774,73 @@ function getRemainingDays(resetDay, now) {
 
     safeDay = Math.min(
       resetDay,
-      getMonthDays(targetYear, targetMonth)
+      getMonthDays(
+        targetYear,
+        targetMonth
+      )
     );
   }
 
   const diffMs =
-    Date.UTC(targetYear, targetMonth, safeDay) -
-    Date.UTC(currentYear, currentMonth, currentDate);
+    Date.UTC(
+      targetYear,
+      targetMonth,
+      safeDay
+    ) -
+    Date.UTC(
+      currentYear,
+      currentMonth,
+      currentDate
+    );
 
-  return Math.max(0, Math.ceil(diffMs / 86400000));
+  return Math.max(
+    0,
+    Math.ceil(diffMs / 86400000)
+  );
 }
 
 function parseResetDay(value) {
-  if (value == null) return null;
+  if (value == null) {
+    return null;
+  }
 
   const raw = String(value).trim();
 
-  if (!raw) return null;
+  if (!raw) {
+    return null;
+  }
 
   const num = Number(raw);
 
-  return Number.isInteger(num) && num >= 1 && num <= 31
+  return Number.isInteger(num) &&
+    num >= 1 &&
+    num <= 31
     ? num
     : null;
 }
 
-async function concurrentMap(items, maxConcurrent, fn) {
-  if (!Array.isArray(items) || !items.length) {
+async function concurrentMap(
+  items,
+  maxConcurrent,
+  fn
+) {
+  if (
+    !Array.isArray(items) ||
+    !items.length
+  ) {
     return [];
   }
 
-  const results = new Array(items.length);
+  const results = new Array(
+    items.length
+  );
 
   const workerCount = Math.max(
     1,
     Math.min(
-      Math.floor(Number(maxConcurrent)) || 1,
+      Math.floor(
+        Number(maxConcurrent)
+      ) || 1,
       items.length
     )
   );
@@ -1232,24 +1850,67 @@ async function concurrentMap(items, maxConcurrent, fn) {
   const worker = async () => {
     while (index < items.length) {
       const currentIndex = index++;
-      results[currentIndex] = await fn(items[currentIndex]);
+
+      results[currentIndex] =
+        await fn(items[currentIndex]);
     }
   };
 
   await Promise.all(
-    Array.from({ length: workerCount }, worker)
+    Array.from(
+      { length: workerCount },
+      worker
+    )
   );
 
   return results;
 }
 
+function getCacheDescriptor(url) {
+  return {
+    key:
+      `${CACHE_PREFIX}_${hashString(url)}`,
+    id: [
+      url.length.toString(36),
+      hashStringSeed(
+        url,
+        2166136261
+      ),
+      hashStringSeed(
+        url,
+        2246822507
+      ),
+      hashStringSeed(
+        url,
+        3266489909
+      ),
+    ].join("_"),
+  };
+}
+
 function hashString(str) {
-  let h = 2166136261;
+  return hashStringSeed(
+    str,
+    2166136261
+  );
+}
+
+function hashStringSeed(str, seed) {
+  let h = seed >>> 0;
 
   for (let i = 0; i < str.length; i++) {
     h ^= str.charCodeAt(i);
-    h = Math.imul(h, 16777619);
+    h = Math.imul(
+      h,
+      16777619
+    );
   }
+
+  h ^= h >>> 16;
+  h = Math.imul(h, 2246822507);
+  h ^= h >>> 13;
+  h = Math.imul(h, 3266489909);
+  h ^= h >>> 16;
 
   return (h >>> 0).toString(36);
 }
