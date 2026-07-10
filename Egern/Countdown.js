@@ -1026,7 +1026,7 @@ function normalizeHolidayCnYearData(data, year) {
   }
 
   return {
-    days: normalizeOfficialDays(data.days)
+    days
   };
 }
 
