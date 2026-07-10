@@ -129,8 +129,7 @@ async function main(ctx) {
 
   const cacheBucketMemo = new Map();
 
-  // 即使已经删除最后一个订阅，也要清理索引中的旧缓存。
-  syncCacheIndex(
+  const cacheIndexReady = syncCacheIndex(
     ctx,
     slots,
     cacheBucketMemo
@@ -157,7 +156,6 @@ async function main(ctx) {
 
   const slotCacheMemo = new Map();
 
-  // 所有配置项都读取一次，使未显示的订阅也能清理过期缓存。
   const allSlotStates = slots.map((slot) =>
     buildSlotState(
       ctx,
@@ -238,15 +236,17 @@ async function main(ctx) {
       }
 
       if (remote.ok) {
-        saveCache(
-          ctx,
-          group.cacheKey,
-          group.cacheId,
-          remote.data,
-          nowTime,
-          remote.strategyIndex,
-          cacheBucketMemo
-        );
+        if (cacheIndexReady) {
+          saveCache(
+            ctx,
+            group.cacheKey,
+            group.cacheId,
+            remote.data,
+            nowTime,
+            remote.strategyIndex,
+            cacheBucketMemo
+          );
+        }
 
         const dataWithCacheTime = {
           ...remote.data,
@@ -586,9 +586,8 @@ function syncCacheIndex(
   const previousState =
     readCacheIndex(ctx);
 
-  // 读取失败时无法安全判断哪些缓存需要删除。
   if (!previousState.ok) {
-    return;
+    return false;
   }
 
   if (
@@ -598,7 +597,7 @@ function syncCacheIndex(
       currentEntries
     )
   ) {
-    return;
+    return true;
   }
 
   const previousMap = new Map(
@@ -665,18 +664,15 @@ function syncCacheIndex(
     }
   }
 
-  // 清理未全部成功时不推进索引，
-  // 保留下次运行时的重试依据。
   if (!cleanupSucceeded) {
-    return;
+    return false;
   }
 
   if (!currentEntries.length) {
-    safeDeleteCache(
+    return safeDeleteCache(
       ctx,
       CACHE_INDEX_KEY
     );
-    return;
   }
 
   try {
@@ -687,7 +683,11 @@ function syncCacheIndex(
         entries: currentEntries,
       }
     );
-  } catch (e) {}
+
+    return true;
+  } catch (e) {
+    return false;
+  }
 }
 
 function buildCacheIndexEntries(slots) {
@@ -956,7 +956,6 @@ function pruneCacheBucket(
     cacheBucketMemo
   );
 
-  // 读取失败时不能确认缓存无效。
   if (!cached.ok) {
     return false;
   }
@@ -1016,7 +1015,6 @@ function pruneCacheBucket(
 
     return true;
   } catch (e) {
-    // 写回失败时保留原缓存桶。
     return false;
   }
 }
@@ -1193,7 +1191,6 @@ function saveCache(
     cacheBucketMemo
   );
 
-  // 读取失败时不覆盖可能仍然有效的原缓存。
   if (!cached.ok) {
     return;
   }
