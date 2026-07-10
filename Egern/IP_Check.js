@@ -451,12 +451,8 @@ async function getSpeedTest(ctx, policy, timeoutMs, packetBytes) {
       }, Math.max(1, Math.ceil(remainingMs)));
     });
 
-    timeoutPromise.catch(() => {});
-
     while (true) {
       const readPromise = reader.read();
-
-      readPromise.catch(() => {});
 
       const { done, value } = await Promise.race([
         readPromise,
