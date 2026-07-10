@@ -1,39 +1,30 @@
 /**
  * 机场订阅流量监控小组件
  *
- * 使用说明：
- * 1. 添加环境变量：
+ * 环境变量：
  *
- *    NAME1 = 翻墙
- *    URL1 = https://xxx.com/sub...
- *    RESET1 = 1
+ * NAME1 = 翻墙
+ * URL1 = https://xxx.com/sub...
+ * RESET1 = 1
  *
- * 2. 参数说明：
- *    - NAME1-5：机场名称，显示在卡片上（可选，否则显示"机场订阅"）
- *    - URL1-5：订阅地址，从机场后台复制（至少配置一项）
- *    - RESET1-5：流量重置日，1-31 的整数（可选）
+ * 参数：
+ * - NAME1-5：机场名称，可选
+ * - URL1-5：订阅地址，至少配置一项
+ * - RESET1-5：流量重置日，1-31，可选
  *
- * 3. 注意事项：
- *    - 本脚本读取大写键名 NAME1、URL1、RESET1 等
- *    - 至少需要配置 URL1-5 中的任意一项才能显示
- *    - 订阅地址需要包含完整的 token
- *    - 目标刷新时间设置为约 1 小时后，实际执行时间由系统决定
- *    - 自动适配系统深色/浅色模式
+ * 功能：
+ * - 最多支持 5 个机场
+ * - 中小尺寸显示前 2 个，大尺寸显示 5 个
+ * - 30 分钟内使用新鲜缓存
+ * - 网络失败时使用 10 天内旧缓存
+ * - 自动清理删除或替换订阅产生的缓存
+ * - 记忆上次成功的订阅请求策略
+ * - 缓存不保存完整订阅 URL/token
+ * - 订阅请求不携带 Egern Cookie
  *
- * 4. 功能说明：
- *    - 最多支持配置 5 个机场
- *    - 中小尺寸组件显示前 2 个机场，大尺寸显示 5 个机场
- *    - 大尺寸显示 3 个及以上机场时自动使用紧凑布局
- *    - 同一订阅 30 分钟内直接返回缓存，不重复请求网络
- *    - 单个订阅失败不会影响其他订阅刷新
- *    - 断网或订阅异常时，10 天内的旧缓存可兜底显示
- *    - 超过 10 天的旧缓存会被删除并显示失败
- *    - 删除或替换订阅后会清理对应缓存
- *    - 缓存删除失败时保留索引记录，下次运行继续清理
- *    - 记忆上次成功的订阅请求策略，下次刷新时优先使用
- *    - 缓存不保存完整订阅 URL/token
- *    - 使用缓存键和多重 URL 指纹降低碰撞导致的数据串用风险
- *    - 订阅请求不携带 Egern Cookie
+ * 缓存说明：
+ * - 缓存索引仅接受 v5，不读取或迁移 v4 及更早索引
+ * - 流量缓存桶继续使用当前 v3 数据格式
  */
 
 const COLORS = {
@@ -103,14 +94,10 @@ const REQUEST_TIMEOUT_MS = 2000;
 const MIN_REQUEST_TIMEOUT_MS = 500;
 
 const CACHE_PREFIX = "sub_cache";
-const CACHE_VERSION = 3;
-
+const CACHE_BUCKET_VERSION = 3;
+const CACHE_INDEX_VERSION = 5;
 const CACHE_INDEX_KEY =
   `${CACHE_PREFIX}__index`;
-
-const LEGACY_CACHE_INDEX_KEYS = [
-  `${CACHE_PREFIX}_index_v3`,
-];
 
 const MAX_FATAL_ERROR_TEXT_LENGTH = 120;
 
@@ -136,7 +123,7 @@ const USERINFO_KEYS = new Set([
 const STRATEGIES = [
   {
     flag: "meta",
-    ua: {
+    headers: {
       "User-Agent": "mihomo/1.19.3",
       Accept:
         "application/x-yaml,text/plain,*/*",
@@ -144,7 +131,7 @@ const STRATEGIES = [
   },
   {
     flag: "clash",
-    ua: {
+    headers: {
       "User-Agent": "Clash/1.18.0",
       Accept:
         "application/x-yaml,text/plain,*/*",
@@ -152,7 +139,7 @@ const STRATEGIES = [
   },
   {
     flag: null,
-    ua: {
+    headers: {
       "User-Agent":
         "clash-verge-rev/2.3.1",
       Accept:
@@ -178,9 +165,7 @@ export default async function (ctx) {
 }
 
 async function main(ctx) {
-  const env = ctx.env || {};
-  const slots = buildSlots(env);
-
+  const slots = buildSlots(ctx.env);
   const cacheBucketMemo = new Map();
 
   syncCacheIndex(
@@ -199,20 +184,28 @@ async function main(ctx) {
     });
   }
 
-  const widgetFamily = String(
-    ctx.widgetFamily || "systemMedium"
-  );
+  const widgetFamily =
+    ctx.widgetFamily ??
+    "systemMedium";
 
-  const now = new Date();
-  const nowTime = now.getTime();
+  const isLarge =
+    widgetFamily ===
+      "systemLarge" ||
+    widgetFamily ===
+      "systemExtraLarge";
+
+  const nowTime = Date.now();
+  const now = new Date(nowTime);
 
   const deadlineTime =
-    nowTime + SCRIPT_SOFT_TIMEOUT_MS;
+    nowTime +
+    SCRIPT_SOFT_TIMEOUT_MS;
 
   const cacheMemo = new Map();
 
-  const allSlotStates = slots.map(
-    (slot) =>
+  const slotStates = slots
+    .slice(0, isLarge ? 5 : 2)
+    .map((slot) =>
       buildSlotState(
         ctx,
         slot,
@@ -221,55 +214,58 @@ async function main(ctx) {
         cacheMemo,
         cacheBucketMemo
       )
-  );
-
-  const slotStates = allSlotStates.slice(
-    0,
-    getDisplayLimit(widgetFamily)
-  );
+    );
 
   const maxConcurrent =
-    slotStates.length > 2 ? 3 : 2;
+    slotStates.length > 2
+      ? 3
+      : 2;
 
-  const results = new Array(
-    slotStates.length
-  );
+  const results =
+    new Array(
+      slotStates.length
+    );
 
   const remoteGroups = [];
-  const remoteGroupMap = new Map();
+  const remoteGroupMap =
+    new Map();
 
   for (
     let i = 0;
     i < slotStates.length;
     i++
   ) {
-    const state = slotStates[i];
+    const state =
+      slotStates[i];
 
     if (state.cache.fresh) {
-      results[i] = attachSlotMeta(
-        state.cache.fresh,
-        state.slot,
-        state.remainDays
-      );
+      results[i] =
+        attachSlotMeta(
+          state.cache.fresh,
+          state.slot,
+          state.remainDays
+        );
 
       continue;
     }
 
-    let group = remoteGroupMap.get(
-      state.slot.url
-    );
+    let group =
+      remoteGroupMap.get(
+        state.slot.url
+      );
 
     if (!group) {
       group = {
-        cacheKey: state.cacheKey,
-        cacheId: state.cacheId,
+        cacheKey:
+          state.slot.cacheKey,
+        cacheId:
+          state.slot.cacheId,
         url: state.slot.url,
         indexes: [],
         preferredStrategyIndex:
-          normalizeStrategyIndex(
-            state.cache.stale
-              ?.strategyIndex
-          ),
+          state.cache.stale
+            ?.strategyIndex ??
+          null,
       };
 
       remoteGroupMap.set(
@@ -297,21 +293,11 @@ async function main(ctx) {
       );
 
     for (
-      const groupResult of
-        remoteGroupResults
+      const {
+        group,
+        remote,
+      } of remoteGroupResults
     ) {
-      const group = groupResult?.group;
-
-      const remote =
-        groupResult?.remote || {
-          ok: false,
-          errorMsg: "Fetch Error",
-        };
-
-      if (!group) {
-        continue;
-      }
-
       if (remote.ok) {
         saveCache(
           ctx,
@@ -319,25 +305,20 @@ async function main(ctx) {
           group.cacheId,
           remote.data,
           nowTime,
-          remote.strategyIndex
+          remote.strategyIndex,
+          cacheBucketMemo
         );
 
-        const dataWithCacheTime = {
-          ...remote.data,
-          cacheTime: nowTime,
-          strategyIndex:
-            remote.strategyIndex,
-        };
-
         for (
-          const index of group.indexes
+          const index of
+            group.indexes
         ) {
           const state =
             slotStates[index];
 
           results[index] =
             attachSlotMeta(
-              dataWithCacheTime,
+              remote.data,
               state.slot,
               state.remainDays
             );
@@ -347,9 +328,11 @@ async function main(ctx) {
       }
 
       for (
-        const index of group.indexes
+        const index of
+          group.indexes
       ) {
-        const state = slotStates[index];
+        const state =
+          slotStates[index];
 
         if (state.cache.stale) {
           results[index] =
@@ -360,7 +343,8 @@ async function main(ctx) {
                 cacheAgeText:
                   formatCacheAge(
                     nowTime -
-                      state.cache.stale
+                      state.cache
+                        .stale
                         .cacheTime
                   ),
               },
@@ -371,70 +355,52 @@ async function main(ctx) {
           results[index] =
             buildErrorResult(
               state.slot,
-              state.remainDays,
-              remote.errorMsg ||
-                "Unknown"
+              remote.errorMsg
             );
         }
       }
     }
   }
 
-  for (
-    let i = 0;
-    i < results.length;
-    i++
-  ) {
-    if (!results[i]) {
-      const state = slotStates[i];
+  const layout =
+    getWidgetLayout(
+      isLarge,
+      results.length
+    );
 
-      results[i] = buildErrorResult(
-        state.slot,
-        state.remainDays,
-        "Fetch Error"
-      );
-    }
-  }
-
-  const layout = getWidgetLayout(
-    widgetFamily,
-    results.length
-  );
-
-  const cardChildren = results.map(
-    (result) =>
+  const cardChildren =
+    results.map((result) =>
       safeBuildCard(
         result,
         widgetFamily,
         nowTime,
         layout
       )
-  );
+    );
 
   const timeStr =
-    String(now.getHours()).padStart(
-      2,
-      "0"
-    ) +
+    String(
+      now.getHours()
+    ).padStart(2, "0") +
     ":" +
-    String(now.getMinutes()).padStart(
-      2,
-      "0"
-    );
+    String(
+      now.getMinutes()
+    ).padStart(2, "0");
 
   return {
     type: "widget",
-    backgroundColor: WIDGET_BG_COLOR,
-    padding: layout.widgetPadding,
+    backgroundColor:
+      WIDGET_BG_COLOR,
+    padding:
+      layout.widgetPadding,
     gap: layout.widgetGap,
     refreshAfter: new Date(
-      nowTime + REFRESH_INTERVAL_MS
+      nowTime +
+        REFRESH_INTERVAL_MS
     ).toISOString(),
     children: [
       {
         type: "stack",
-        direction: "row",
-        alignItems: "center",
         gap: 6,
         children: [
           {
@@ -450,7 +416,8 @@ async function main(ctx) {
             type: "text",
             text: "SubInfo",
             font: {
-              size: "subheadline",
+              size:
+                "subheadline",
               weight: "bold",
             },
             textColor:
@@ -484,68 +451,36 @@ async function main(ctx) {
         type: "stack",
         direction: "column",
         gap: layout.cardsGap,
-        children: cardChildren,
+        children:
+          cardChildren,
       },
     ],
   };
 }
 
-function getDisplayLimit(widgetFamily) {
-  return widgetFamily ===
-    "systemLarge" ||
-    widgetFamily ===
-      "systemExtraLarge"
-    ? 5
-    : 2;
-}
-
 function getWidgetLayout(
-  widgetFamily,
+  isLarge,
   count
 ) {
-  const compact =
-    count > 2 &&
-    (widgetFamily ===
-      "systemLarge" ||
-      widgetFamily ===
-        "systemExtraLarge");
-
-  if (compact) {
+  if (
+    isLarge &&
+    count > 2
+  ) {
     return {
-      widgetPadding: [
-        8,
-        10,
-        8,
-        10,
-      ],
+      widgetPadding: [8, 10],
       widgetGap: 4,
       cardsGap: 5,
-      cardPadding: [
-        5,
-        8,
-        5,
-        8,
-      ],
+      cardPadding: [5, 8],
       cardGap: 3,
       progressHeight: 4,
     };
   }
 
   return {
-    widgetPadding: [
-      10,
-      10,
-      10,
-      10,
-    ],
+    widgetPadding: 10,
     widgetGap: 6,
     cardsGap: 10,
-    cardPadding: [
-      8,
-      10,
-      8,
-      10,
-    ],
+    cardPadding: [8, 10],
     cardGap: 5,
     progressHeight: 5,
   };
@@ -553,9 +488,15 @@ function getWidgetLayout(
 
 function buildSlots(env) {
   const slots = [];
+  const descriptorMemo =
+    new Map();
 
-  for (let i = 1; i <= 5; i++) {
-    const url = String(
+  for (
+    let i = 1;
+    i <= 5;
+    i++
+  ) {
+    const url = (
       env[`URL${i}`] || ""
     ).trim();
 
@@ -563,23 +504,45 @@ function buildSlots(env) {
       continue;
     }
 
-    const name = String(
+    const name = (
       env[`NAME${i}`] || ""
     ).trim();
 
+    let descriptor =
+      descriptorMemo.get(url);
+
+    if (!descriptor) {
+      descriptor =
+        getCacheDescriptor(url);
+
+      descriptorMemo.set(
+        url,
+        descriptor
+      );
+    }
+
     slots.push({
-      name: name || "机场订阅",
+      name:
+        name ||
+        "机场订阅",
       url,
-      resetDay: parseResetDay(
-        env[`RESET${i}`]
-      ),
+      resetDay:
+        parseResetDay(
+          env[`RESET${i}`]
+        ),
+      cacheKey:
+        descriptor.key,
+      cacheId:
+        descriptor.id,
     });
   }
 
   return slots;
 }
 
-function buildStatusWidget(options) {
+function buildStatusWidget(
+  options
+) {
   const children = [
     {
       type: "image",
@@ -595,7 +558,8 @@ function buildStatusWidget(options) {
         size: "headline",
         weight: "semibold",
       },
-      textColor: options.titleColor,
+      textColor:
+        options.titleColor,
       maxLines: 1,
     },
   ];
@@ -617,7 +581,8 @@ function buildStatusWidget(options) {
 
   return {
     type: "widget",
-    backgroundColor: WIDGET_BG_COLOR,
+    backgroundColor:
+      WIDGET_BG_COLOR,
     padding: 16,
     refreshAfter: new Date(
       Date.now() +
@@ -628,16 +593,19 @@ function buildStatusWidget(options) {
         type: "stack",
         direction: "column",
         gap: options.gap,
-        alignItems: "center",
         children,
       },
     ],
   };
 }
 
-function normalizeFatalError(err) {
+function normalizeFatalError(
+  err
+) {
   const msg = String(
-    err?.message ?? err ?? ""
+    err?.message ??
+      err ??
+      ""
   ).trim();
 
   if (!msg) {
@@ -668,116 +636,110 @@ function buildSlotState(
   cacheMemo,
   cacheBucketMemo
 ) {
-  const remainDays = slot.resetDay
-    ? getRemainingDays(
-        slot.resetDay,
-        now
-      )
-    : null;
+  const remainDays =
+    slot.resetDay
+      ? getRemainingDays(
+          slot.resetDay,
+          now
+        )
+      : null;
 
-  const descriptor =
-    getCacheDescriptor(slot.url);
-
-  let cache = cacheMemo.get(
-    slot.url
-  );
+  let cache =
+    cacheMemo.get(
+      slot.url
+    );
 
   if (!cache) {
     cache = readCache(
       ctx,
-      descriptor.key,
-      descriptor.id,
+      slot.cacheKey,
+      slot.cacheId,
       nowTime,
       cacheBucketMemo
     );
 
-    cacheMemo.set(slot.url, cache);
+    cacheMemo.set(
+      slot.url,
+      cache
+    );
   }
 
   return {
     slot,
     remainDays,
-    cacheKey: descriptor.key,
-    cacheId: descriptor.id,
     cache,
   };
 }
 
+/**
+ * 同步当前订阅配置与缓存索引。
+ *
+ * 配置签名未变化时：
+ * - 不读取全部缓存桶
+ * - 只重试清理待删除的缓存键
+ *
+ * 配置签名变化时：
+ * - 清理已经删除的缓存键
+ * - 修剪当前缓存桶中的无效 URL 指纹
+ *
+ * 仅接受 v5 索引，不读取或迁移旧索引。
+ */
 function syncCacheIndex(
   ctx,
   slots,
   cacheBucketMemo
 ) {
-  const current = new Map();
+  const current =
+    new Map();
 
   for (const slot of slots) {
-    const descriptor =
-      getCacheDescriptor(slot.url);
-
-    let ids = current.get(
-      descriptor.key
-    );
+    let ids =
+      current.get(
+        slot.cacheKey
+      );
 
     if (!ids) {
       ids = new Set();
 
       current.set(
-        descriptor.key,
+        slot.cacheKey,
         ids
       );
     }
 
-    ids.add(descriptor.id);
+    ids.add(
+      slot.cacheId
+    );
   }
 
-  const stableIndexState =
+  const currentSignature =
+    buildCacheConfigSignature(
+      current
+    );
+
+  const storedIndexState =
     safeReadStoredJSON(
       ctx,
       CACHE_INDEX_KEY
     );
 
-  const legacyIndexStates =
-    LEGACY_CACHE_INDEX_KEYS.map(
-      (key) => ({
-        key,
-        state:
-          safeReadStoredJSON(
-            ctx,
-            key
-          ),
-      })
-    );
+  const previousIndex =
+    storedIndexState.ok
+      ? normalizeCacheIndex(
+          storedIndexState.value
+        )
+      : null;
 
-  const previousKeys = new Set();
-
-  if (stableIndexState.ok) {
-    collectCacheIndexKeys(
-      stableIndexState.value,
-      previousKeys
-    );
-  }
-
-  for (
-    const item of
-      legacyIndexStates
-  ) {
-    if (item.state.ok) {
-      collectCacheIndexKeys(
-        item.state.value,
-        previousKeys
-      );
-    }
-  }
-
-  const currentKeys = new Set(
-    current.keys()
-  );
+  const previousKeys =
+    previousIndex?.keys ?? [];
 
   const pendingDeleteKeys =
     new Set();
 
-  for (const key of previousKeys) {
-    if (currentKeys.has(key)) {
+  for (
+    const key of previousKeys
+  ) {
+    if (current.has(key)) {
       continue;
     }
 
@@ -787,252 +749,243 @@ function syncCacheIndex(
         key
       )
     ) {
-      pendingDeleteKeys.add(key);
-    }
-  }
-
-  for (
-    const [key, ids] of current
-  ) {
-    pruneCacheBucket(
-      ctx,
-      key,
-      ids,
-      cacheBucketMemo
-    );
-  }
-
-  const nextEntries =
-    new Map(current);
-
-  for (
-    const key of pendingDeleteKeys
-  ) {
-    if (!nextEntries.has(key)) {
-      nextEntries.set(
-        key,
-        new Set()
+      pendingDeleteKeys.add(
+        key
       );
     }
   }
 
-  const nextIndex =
-    buildCacheIndex(nextEntries);
+  const configChanged =
+    previousIndex
+      ?.signature !==
+    currentSignature;
 
-  let stableIndexReady =
-    stableIndexState.ok &&
-    isSameCacheIndex(
-      stableIndexState.value,
-      nextIndex
+  let currentBucketsReady =
+    true;
+
+  if (configChanged) {
+    for (
+      const [key, ids] of
+        current
+    ) {
+      if (
+        !pruneCacheBucket(
+          ctx,
+          key,
+          ids,
+          cacheBucketMemo
+        )
+      ) {
+        currentBucketsReady =
+          false;
+      }
+    }
+  }
+
+  const nextKeys =
+    new Set(
+      current.keys()
+    );
+
+  for (
+    const key of
+      pendingDeleteKeys
+  ) {
+    nextKeys.add(key);
+  }
+
+  const nextIndex =
+    buildCacheIndex(
+      nextKeys,
+      currentBucketsReady
+        ? currentSignature
+        : null
     );
 
   if (
-    stableIndexState.ok &&
-    !stableIndexReady
+    storedIndexState.ok &&
+    !isSameCacheIndex(
+      previousIndex,
+      nextIndex
+    )
   ) {
     try {
       ctx.storage.setJSON(
         CACHE_INDEX_KEY,
         nextIndex
       );
-
-      stableIndexReady = true;
     } catch (e) {
     }
   }
-
-  if (stableIndexReady) {
-    for (
-      const item of
-        legacyIndexStates
-    ) {
-      if (
-        item.state.ok &&
-        item.state.value != null
-      ) {
-        safeDeleteCache(
-          ctx,
-          item.key
-        );
-      }
-    }
-  }
 }
 
-function buildCacheIndex(current) {
-  const entries = Array.from(
-    current,
-    ([key, ids]) => ({
-      key,
-      ids: Array.from(ids).sort(
-        compareStrings
-      ),
-    })
-  ).sort((a, b) =>
-    compareStrings(a.key, b.key)
-  );
-
+function buildCacheIndex(
+  keys,
+  signature
+) {
   return {
-    version: CACHE_VERSION,
-    entries,
+    version:
+      CACHE_INDEX_VERSION,
+    keys: Array.from(
+      keys
+    ).sort(),
+    signature,
   };
 }
 
-function normalizeCacheIndex(index) {
+function normalizeCacheIndex(
+  index
+) {
   if (
     !index ||
     index.version !==
-      CACHE_VERSION ||
-    !Array.isArray(index.entries)
+      CACHE_INDEX_VERSION ||
+    !Array.isArray(
+      index.keys
+    )
   ) {
     return null;
   }
 
-  const normalized = new Map();
+  const keys = new Set();
 
-  for (const entry of index.entries) {
+  for (
+    const key of index.keys
+  ) {
     if (
-      !entry ||
-      !isCacheBucketKey(entry.key) ||
-      !Array.isArray(entry.ids)
+      !isCacheBucketKey(key)
     ) {
       return null;
     }
 
-    let ids = normalized.get(
-      entry.key
-    );
-
-    if (!ids) {
-      ids = new Set();
-
-      normalized.set(
-        entry.key,
-        ids
-      );
-    }
-
-    for (const id of entry.ids) {
-      if (typeof id !== "string") {
-        return null;
-      }
-
-      ids.add(id);
-    }
+    keys.add(key);
   }
 
-  return buildCacheIndex(normalized);
+  let signature = null;
+
+  if (index.signature != null) {
+    if (
+      typeof index.signature !==
+        "string" ||
+      !/^[0-9a-z]+_[0-9a-z]+$/.test(
+        index.signature
+      )
+    ) {
+      return null;
+    }
+
+    signature =
+      index.signature;
+  }
+
+  return {
+    keys: Array.from(
+      keys
+    ).sort(),
+    signature,
+  };
 }
 
 function isSameCacheIndex(
   previous,
   next
 ) {
-  const normalizedPrevious =
-    normalizeCacheIndex(previous);
-
-  if (!normalizedPrevious) {
-    return false;
-  }
-
   if (
-    normalizedPrevious.entries
-      .length !==
-    next.entries.length
+    !previous ||
+    previous.signature !==
+      next.signature ||
+    previous.keys.length !==
+      next.keys.length
   ) {
     return false;
   }
 
   for (
     let i = 0;
-    i < next.entries.length;
+    i < next.keys.length;
     i++
   ) {
-    const previousEntry =
-      normalizedPrevious.entries[i];
-
-    const nextEntry =
-      next.entries[i];
-
     if (
-      previousEntry.key !==
-        nextEntry.key ||
-      previousEntry.ids.length !==
-        nextEntry.ids.length
+      previous.keys[i] !==
+      next.keys[i]
     ) {
       return false;
-    }
-
-    for (
-      let j = 0;
-      j < nextEntry.ids.length;
-      j++
-    ) {
-      if (
-        previousEntry.ids[j] !==
-        nextEntry.ids[j]
-      ) {
-        return false;
-      }
     }
   }
 
   return true;
 }
 
-function collectCacheIndexKeys(
-  index,
-  target
+function buildCacheConfigSignature(
+  current
 ) {
-  if (
-    !index ||
-    !Array.isArray(index.entries)
-  ) {
-    return;
-  }
+  const parts = [];
 
-  for (const entry of index.entries) {
-    const key = entry?.key;
+  const keys = Array.from(
+    current.keys()
+  ).sort();
 
-    if (isCacheBucketKey(key)) {
-      target.add(key);
+  for (const key of keys) {
+    parts.push(key);
+
+    const ids = Array.from(
+      current.get(key)
+    ).sort();
+
+    for (const id of ids) {
+      parts.push(id);
     }
   }
+
+  const source =
+    parts.join("|");
+
+  return (
+    hashStringSeed(
+      source,
+      2166136261
+    ) +
+    "_" +
+    hashStringSeed(
+      source,
+      2246822507
+    )
+  );
 }
 
-function isCacheBucketKey(key) {
-  if (typeof key !== "string") {
+function isCacheBucketKey(
+  key
+) {
+  if (
+    typeof key !==
+    "string"
+  ) {
     return false;
   }
 
   const prefix =
     `${CACHE_PREFIX}_`;
 
-  if (!key.startsWith(prefix)) {
+  if (
+    !key.startsWith(
+      prefix
+    )
+  ) {
     return false;
   }
 
-  const suffix = key.slice(
-    prefix.length
-  );
+  const suffix =
+    key.slice(
+      prefix.length
+    );
 
   return (
     suffix.length >= 1 &&
     suffix.length <= 7 &&
-    /^[0-9a-z]+$/.test(suffix)
+    /^[0-9a-z]+$/.test(
+      suffix
+    )
   );
-}
-
-function compareStrings(a, b) {
-  if (a < b) {
-    return -1;
-  }
-
-  if (a > b) {
-    return 1;
-  }
-
-  return 0;
 }
 
 function safeReadStoredJSON(
@@ -1043,12 +996,13 @@ function safeReadStoredJSON(
     return {
       ok: true,
       value:
-        ctx.storage.getJSON(key),
+        ctx.storage.getJSON(
+          key
+        ),
     };
   } catch (e) {
     return {
       ok: false,
-      value: null,
     };
   }
 }
@@ -1058,7 +1012,9 @@ function tryDeleteIndexedCache(
   cacheKey
 ) {
   try {
-    ctx.storage.delete(cacheKey);
+    ctx.storage.delete(
+      cacheKey
+    );
   } catch (e) {
     return false;
   }
@@ -1080,7 +1036,9 @@ function readCacheBucket(
   cacheBucketMemo
 ) {
   if (
-    cacheBucketMemo.has(cacheKey)
+    cacheBucketMemo.has(
+      cacheKey
+    )
   ) {
     return cacheBucketMemo.get(
       cacheKey
@@ -1100,7 +1058,6 @@ function readCacheBucket(
   } catch (e) {
     state = {
       ok: false,
-      bucket: null,
     };
   }
 
@@ -1126,6 +1083,52 @@ function rememberCacheBucket(
   );
 }
 
+function writeCacheBucket(
+  ctx,
+  cacheKey,
+  bucket,
+  cacheBucketMemo
+) {
+  try {
+    ctx.storage.setJSON(
+      cacheKey,
+      bucket
+    );
+  } catch (e) {
+    return false;
+  }
+
+  rememberCacheBucket(
+    cacheBucketMemo,
+    cacheKey,
+    bucket
+  );
+
+  return true;
+}
+
+function deleteCacheBucket(
+  ctx,
+  cacheKey,
+  cacheBucketMemo
+) {
+  try {
+    ctx.storage.delete(
+      cacheKey
+    );
+  } catch (e) {
+    return false;
+  }
+
+  rememberCacheBucket(
+    cacheBucketMemo,
+    cacheKey,
+    null
+  );
+
+  return true;
+}
+
 function pruneCacheBucket(
   ctx,
   cacheKey,
@@ -1140,33 +1143,28 @@ function pruneCacheBucket(
     );
 
   if (!cacheState.ok) {
-    return;
+    return false;
   }
 
   const bucket =
     cacheState.bucket;
 
   if (!bucket) {
-    return;
+    return true;
   }
 
   if (
     bucket.version !==
-      CACHE_VERSION ||
-    !Array.isArray(bucket.entries)
+      CACHE_BUCKET_VERSION ||
+    !Array.isArray(
+      bucket.entries
+    )
   ) {
-    safeDeleteCache(
+    return deleteCacheBucket(
       ctx,
-      cacheKey
-    );
-
-    rememberCacheBucket(
-      cacheBucketMemo,
       cacheKey,
-      null
+      cacheBucketMemo
     );
-
-    return;
   }
 
   const entries =
@@ -1175,81 +1173,36 @@ function pruneCacheBucket(
         entry &&
         typeof entry.id ===
           "string" &&
-        validIds.has(entry.id)
+        validIds.has(
+          entry.id
+        )
     );
 
   if (!entries.length) {
-    safeDeleteCache(
+    return deleteCacheBucket(
       ctx,
-      cacheKey
-    );
-
-    rememberCacheBucket(
-      cacheBucketMemo,
       cacheKey,
-      null
+      cacheBucketMemo
     );
-
-    return;
   }
 
   if (
     entries.length ===
     bucket.entries.length
   ) {
-    return;
+    return true;
   }
 
-  const nextBucket = {
-    version: CACHE_VERSION,
-    entries,
-  };
-
-  try {
-    ctx.storage.setJSON(
-      cacheKey,
-      nextBucket
-    );
-  } catch (e) {
-  }
-
-  rememberCacheBucket(
-    cacheBucketMemo,
+  return writeCacheBucket(
+    ctx,
     cacheKey,
-    nextBucket
+    {
+      version:
+        CACHE_BUCKET_VERSION,
+      entries,
+    },
+    cacheBucketMemo
   );
-}
-
-async function fetchRemoteForGroup(
-  ctx,
-  group,
-  deadlineTime
-) {
-  try {
-    const remote =
-      await fetchRemoteInfo(
-        ctx,
-        group.url,
-        deadlineTime,
-        group.preferredStrategyIndex
-      );
-
-    return {
-      group,
-      remote,
-    };
-  } catch (err) {
-    return {
-      group,
-      remote: {
-        ok: false,
-        errorMsg:
-          normalizeRequestError(
-            err
-          ),
-      },
-    };
-  }
 }
 
 function emptyCacheResult() {
@@ -1286,90 +1239,40 @@ function readCache(
 
   if (
     bucket.version !==
-      CACHE_VERSION ||
-    !Array.isArray(bucket.entries)
+      CACHE_BUCKET_VERSION ||
+    !Array.isArray(
+      bucket.entries
+    )
   ) {
-    safeDeleteCache(
+    deleteCacheBucket(
       ctx,
-      cacheKey
-    );
-
-    rememberCacheBucket(
-      cacheBucketMemo,
       cacheKey,
-      null
+      cacheBucketMemo
     );
 
     return emptyCacheResult();
   }
 
-  try {
-    const entry =
-      bucket.entries.find(
-        (item) =>
-          item &&
-          item.id === cacheId
-      );
-
-    if (!entry) {
-      return emptyCacheResult();
-    }
-
-    const data = entry.data;
-
-    const cacheTime = Number(
-      entry.time
+  const entry =
+    bucket.entries.find(
+      (item) =>
+        item &&
+        item.id === cacheId
     );
 
-    const strategyIndex =
-      normalizeStrategyIndex(
-        entry.strategyIndex
-      );
+  if (!entry) {
+    return emptyCacheResult();
+  }
 
-    if (
-      !data ||
-      !Number.isFinite(cacheTime)
-    ) {
-      removeCacheEntry(
-        ctx,
-        cacheKey,
-        cacheId,
-        bucket,
-        cacheBucketMemo
-      );
+  const cacheTime =
+    Number(entry.time);
 
-      return emptyCacheResult();
-    }
-
-    const age =
-      nowTime - cacheTime;
-
-    const cachedData = {
-      ...data,
-      cacheTime,
-      strategyIndex,
-    };
-
-    if (
-      age >= 0 &&
-      age < NETWORK_COOLDOWN_MS
-    ) {
-      return {
-        fresh: cachedData,
-        stale: null,
-      };
-    }
-
-    if (
-      age >= 0 &&
-      age < MAX_STALE_MS
-    ) {
-      return {
-        fresh: null,
-        stale: cachedData,
-      };
-    }
-
+  if (
+    !entry.data ||
+    !Number.isFinite(
+      cacheTime
+    )
+  ) {
     removeCacheEntry(
       ctx,
       cacheKey,
@@ -1377,10 +1280,52 @@ function readCache(
       bucket,
       cacheBucketMemo
     );
-  } catch (e) {
+
+    return emptyCacheResult();
   }
 
-  return emptyCacheResult();
+  const age =
+    nowTime -
+    cacheTime;
+
+  if (
+    age < 0 ||
+    age >= MAX_STALE_MS
+  ) {
+    removeCacheEntry(
+      ctx,
+      cacheKey,
+      cacheId,
+      bucket,
+      cacheBucketMemo
+    );
+
+    return emptyCacheResult();
+  }
+
+  const cachedData = {
+    ...entry.data,
+    cacheTime,
+    strategyIndex:
+      normalizeStrategyIndex(
+        entry.strategyIndex
+      ),
+  };
+
+  if (
+    age <
+    NETWORK_COOLDOWN_MS
+  ) {
+    return {
+      fresh: cachedData,
+      stale: null,
+    };
+  }
+
+  return {
+    fresh: null,
+    stale: cachedData,
+  };
 }
 
 function saveCache(
@@ -1389,61 +1334,81 @@ function saveCache(
   cacheId,
   data,
   cacheTime,
-  strategyIndex
+  strategyIndex,
+  cacheBucketMemo
 ) {
-  const time = Number(cacheTime);
+  let cacheState =
+    readCacheBucket(
+      ctx,
+      cacheKey,
+      cacheBucketMemo
+    );
 
-  if (!Number.isFinite(time)) {
-    return;
-  }
+  /*
+   * 正常路径直接使用内存中的缓存桶。
+   * 仅在本轮首次读取失败时重试一次 Storage。
+   */
+  if (!cacheState.ok) {
+    try {
+      const bucket =
+        ctx.storage.getJSON(
+          cacheKey
+        );
 
-  let current;
-
-  try {
-    current =
-      ctx.storage.getJSON(
-        cacheKey
+      rememberCacheBucket(
+        cacheBucketMemo,
+        cacheKey,
+        bucket
       );
-  } catch (e) {
-    return;
+
+      cacheState = {
+        ok: true,
+        bucket,
+      };
+    } catch (e) {
+      return;
+    }
   }
+
+  const current =
+    cacheState.bucket;
 
   let entries = [];
 
   if (
     current &&
     current.version ===
-      CACHE_VERSION &&
-    Array.isArray(current.entries)
+      CACHE_BUCKET_VERSION &&
+    Array.isArray(
+      current.entries
+    )
   ) {
     entries =
       current.entries.filter(
         (entry) =>
           entry &&
-          entry.id !== cacheId
+          entry.id !==
+            cacheId
       );
   }
 
   entries.push({
     id: cacheId,
-    time,
-    strategyIndex:
-      normalizeStrategyIndex(
-        strategyIndex
-      ),
+    time: cacheTime,
+    strategyIndex,
     data,
   });
 
-  try {
-    ctx.storage.setJSON(
-      cacheKey,
-      {
-        version: CACHE_VERSION,
-        entries,
-      }
-    );
-  } catch (e) {
-  }
+  writeCacheBucket(
+    ctx,
+    cacheKey,
+    {
+      version:
+        CACHE_BUCKET_VERSION,
+      entries,
+    },
+    cacheBucketMemo
+  );
 }
 
 function removeCacheEntry(
@@ -1456,18 +1421,15 @@ function removeCacheEntry(
   if (
     !bucket ||
     bucket.version !==
-      CACHE_VERSION ||
-    !Array.isArray(bucket.entries)
+      CACHE_BUCKET_VERSION ||
+    !Array.isArray(
+      bucket.entries
+    )
   ) {
-    safeDeleteCache(
+    deleteCacheBucket(
       ctx,
-      cacheKey
-    );
-
-    rememberCacheBucket(
-      cacheBucketMemo,
       cacheKey,
-      null
+      cacheBucketMemo
     );
 
     return;
@@ -1481,47 +1443,56 @@ function removeCacheEntry(
     );
 
   if (!entries.length) {
-    safeDeleteCache(
+    deleteCacheBucket(
       ctx,
-      cacheKey
-    );
-
-    rememberCacheBucket(
-      cacheBucketMemo,
       cacheKey,
-      null
+      cacheBucketMemo
     );
 
     return;
   }
 
-  const nextBucket = {
-    version: CACHE_VERSION,
-    entries,
-  };
-
-  try {
-    ctx.storage.setJSON(
-      cacheKey,
-      nextBucket
-    );
-  } catch (e) {
-  }
-
-  rememberCacheBucket(
-    cacheBucketMemo,
+  writeCacheBucket(
+    ctx,
     cacheKey,
-    nextBucket
+    {
+      version:
+        CACHE_BUCKET_VERSION,
+      entries,
+    },
+    cacheBucketMemo
   );
 }
 
-function safeDeleteCache(
+async function fetchRemoteForGroup(
   ctx,
-  cacheKey
+  group,
+  deadlineTime
 ) {
   try {
-    ctx.storage.delete(cacheKey);
-  } catch (e) {
+    const remote =
+      await fetchRemoteInfo(
+        ctx,
+        group.url,
+        deadlineTime,
+        group.preferredStrategyIndex
+      );
+
+    return {
+      group,
+      remote,
+    };
+  } catch (err) {
+    return {
+      group,
+      remote: {
+        ok: false,
+        errorMsg:
+          normalizeRequestError(
+            err
+          ),
+      },
+    };
   }
 }
 
@@ -1531,7 +1502,8 @@ async function fetchRemoteInfo(
   deadlineTime,
   preferredStrategyIndex
 ) {
-  let lastErrorMsg = "Unknown";
+  let lastErrorMsg =
+    "Unknown";
 
   const strategyIndexes =
     getStrategyIndexes(
@@ -1542,50 +1514,54 @@ async function fetchRemoteInfo(
     const strategyIndex of
       strategyIndexes
   ) {
-    const strategy =
-      STRATEGIES[strategyIndex];
-
     const timeout =
       getRequestTimeout(
         deadlineTime
       );
 
     if (timeout <= 0) {
-      lastErrorMsg = "Timeout";
+      lastErrorMsg =
+        "Timeout";
+
       break;
     }
 
-    const requestUrl = buildUrl(
-      url,
-      strategy.flag
-    );
+    const strategy =
+      STRATEGIES[
+        strategyIndex
+      ];
 
     try {
       const resp =
         await ctx.http.get(
-          requestUrl,
+          buildUrl(
+            url,
+            strategy.flag
+          ),
           {
-            headers: strategy.ua,
+            headers:
+              strategy.headers,
             timeout,
-            credentials: "omit",
+            credentials:
+              "omit",
           }
         );
 
-      const status = Number(
-        resp.status
-      );
+      const status =
+        resp.status;
 
       const userInfoHeader =
         resp.headers.get(
           "subscription-userinfo"
-        ) || "";
+        );
 
-      cancelResponseBody(resp);
+      cancelResponseBody(
+        resp
+      );
 
       if (
-        Number.isFinite(status) &&
-        (status < 200 ||
-          status >= 300)
+        status < 200 ||
+        status >= 300
       ) {
         lastErrorMsg =
           `HTTP ${status}`;
@@ -1593,17 +1569,12 @@ async function fetchRemoteInfo(
         continue;
       }
 
-      const info = parseUserInfo(
-        userInfoHeader
-      );
+      const info =
+        parseUserInfo(
+          userInfoHeader
+        );
 
-      if (
-        info &&
-        Number.isFinite(
-          info.total
-        ) &&
-        info.total > 0
-      ) {
+      if (info?.total > 0) {
         return {
           ok: true,
           strategyIndex,
@@ -1614,31 +1585,35 @@ async function fetchRemoteInfo(
         };
       }
 
-      lastErrorMsg = "No Data";
+      lastErrorMsg =
+        "No Data";
     } catch (err) {
       lastErrorMsg =
-        normalizeRequestError(err);
+        normalizeRequestError(
+          err
+        );
     }
   }
 
   return {
     ok: false,
-    errorMsg: lastErrorMsg,
+    errorMsg:
+      lastErrorMsg,
   };
 }
 
 function getStrategyIndexes(
   preferredStrategyIndex
 ) {
-  const preferred =
-    normalizeStrategyIndex(
-      preferredStrategyIndex
-    );
-
   const indexes = [];
 
-  if (preferred != null) {
-    indexes.push(preferred);
+  if (
+    preferredStrategyIndex !=
+    null
+  ) {
+    indexes.push(
+      preferredStrategyIndex
+    );
   }
 
   for (
@@ -1646,7 +1621,10 @@ function getStrategyIndexes(
     i < STRATEGIES.length;
     i++
   ) {
-    if (i !== preferred) {
+    if (
+      i !==
+      preferredStrategyIndex
+    ) {
       indexes.push(i);
     }
   }
@@ -1662,50 +1640,55 @@ function normalizeStrategyIndex(
   }
 
   if (
-    typeof value !== "number" &&
-    typeof value !== "string"
+    typeof value !==
+      "number" &&
+    typeof value !==
+      "string"
   ) {
     return null;
   }
 
   if (
-    typeof value === "string" &&
+    typeof value ===
+      "string" &&
     !value.trim()
   ) {
     return null;
   }
 
-  const index = Number(value);
+  const index =
+    Number(value);
 
   return (
-    Number.isInteger(index) &&
+    Number.isInteger(
+      index
+    ) &&
     index >= 0 &&
-    index < STRATEGIES.length
+    index <
+      STRATEGIES.length
       ? index
       : null
   );
 }
 
-function cancelResponseBody(resp) {
+function cancelResponseBody(
+  resp
+) {
   try {
-    const body = resp?.body;
+    const result =
+      resp.body?.cancel?.();
 
     if (
-      body &&
-      typeof body.cancel ===
+      result &&
+      typeof result.catch ===
         "function"
     ) {
-      const result = body.cancel();
-
-      if (
-        result &&
-        typeof result.catch ===
-          "function"
-      ) {
-        result.catch(() => {});
-      }
+      result.catch(
+        () => {}
+      );
     }
-  } catch (e) {}
+  } catch (e) {
+  }
 }
 
 function getRequestTimeout(
@@ -1729,51 +1712,111 @@ function getRequestTimeout(
   );
 }
 
-function normalizeRequestError(err) {
+function normalizeRequestError(
+  err
+) {
   const msg = String(
-    err?.message ?? err ?? ""
+    err?.message ??
+      err ??
+      ""
   ).toLowerCase();
 
   if (
-    msg.includes("timeout") ||
-    msg.includes("timed out")
+    msg.includes(
+      "timeout"
+    ) ||
+    msg.includes(
+      "timed out"
+    )
   ) {
     return "Timeout";
   }
 
-  if (msg.includes("dns")) {
+  if (
+    msg.includes("dns")
+  ) {
     return "DNS Error";
   }
 
   return "Network";
 }
 
-function buildSuccessResult(info) {
-  const upload = Math.max(
-    0,
-    info.upload || 0
-  );
+function parseUserInfo(
+  header
+) {
+  if (
+    header == null ||
+    !header.trim()
+  ) {
+    return null;
+  }
 
-  const download = Math.max(
-    0,
-    info.download || 0
-  );
+  const info = {};
+  let found = false;
 
-  const used = upload + download;
-  const totalBytes = info.total;
+  REGEX_USERINFO.lastIndex =
+    0;
+
+  let match;
+
+  while (
+    (match =
+      REGEX_USERINFO.exec(
+        header
+      )) !== null
+  ) {
+    const key =
+      match[1].toLowerCase();
+
+    if (
+      !USERINFO_KEYS.has(
+        key
+      )
+    ) {
+      continue;
+    }
+
+    const value =
+      Number(match[2]);
+
+    if (
+      Number.isFinite(
+        value
+      ) &&
+      value >= 0
+    ) {
+      info[key] = value;
+      found = true;
+    }
+  }
+
+  return found
+    ? info
+    : null;
+}
+
+function buildSuccessResult(
+  info
+) {
+  const upload =
+    info.upload ?? 0;
+
+  const download =
+    info.download ?? 0;
+
+  const used =
+    upload + download;
+
+  const totalBytes =
+    info.total;
 
   return {
     used,
     totalBytes,
     percent:
-      totalBytes > 0
-        ? (used / totalBytes) *
-          100
-        : 0,
+      (used / totalBytes) *
+      100,
     expire:
-      Number.isFinite(
-        info.expire
-      ) &&
       info.expire > 0
         ? info.expire
         : null,
@@ -1794,14 +1837,12 @@ function attachSlotMeta(
 
 function buildErrorResult(
   slot,
-  remainDays,
   errorMsg
 ) {
   return {
     name: slot.name,
     error: true,
     errorMsg,
-    remainDays,
   };
 }
 
@@ -1822,8 +1863,6 @@ function buildCard(
   if (error) {
     return {
       type: "stack",
-      direction: "row",
-      alignItems: "center",
       gap: 6,
       padding:
         layout.cardPadding,
@@ -1857,7 +1896,8 @@ function buildCard(
           type: "text",
           text:
             `失败 | ${
-              errorMsg || "异常"
+              errorMsg ||
+              "异常"
             }`,
           font: {
             size: "caption2",
@@ -1882,17 +1922,17 @@ function buildCard(
     type: "stack",
     direction: "column",
     gap: layout.cardGap,
-    padding: layout.cardPadding,
+    padding:
+      layout.cardPadding,
     backgroundColor:
       CARD_BG_COLOR,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: COLORS.divider,
+    borderColor:
+      COLORS.divider,
     children: [
       {
         type: "stack",
-        direction: "row",
-        alignItems: "center",
         gap: 5,
         children: [
           {
@@ -1902,7 +1942,8 @@ function buildCard(
             width: 6,
             height: 6,
             color:
-              displayState.dotColor,
+              displayState
+                .dotColor,
           },
           {
             type: "text",
@@ -1911,7 +1952,8 @@ function buildCard(
                 .displayName,
             font: {
               size: "caption2",
-              weight: "semibold",
+              weight:
+                "semibold",
             },
             textColor:
               COLORS.textPrimary,
@@ -1939,7 +1981,6 @@ function buildCard(
       },
       {
         type: "stack",
-        direction: "row",
         height:
           layout.progressHeight,
         borderRadius: 3,
@@ -1976,36 +2017,25 @@ function buildCard(
       },
       {
         type: "stack",
-        direction: "row",
-        alignItems: "center",
         children: [
           {
-            type: "stack",
-            direction: "row",
+            type: "text",
+            text:
+              `${formatBytes(
+                used
+              )}/${formatBytes(
+                totalBytes
+              )}`,
+            font: {
+              size: "caption2",
+              weight: "medium",
+            },
+            textColor:
+              COLORS
+                .textSecondary,
             flex: 1,
-            children: [
-              {
-                type: "text",
-                text:
-                  `${formatBytes(
-                    used
-                  )}/${formatBytes(
-                    totalBytes
-                  )}`,
-                font: {
-                  size: "caption2",
-                  weight: "medium",
-                },
-                textColor:
-                  COLORS
-                    .textSecondary,
-                maxLines: 1,
-                minScale: 0.65,
-              },
-              {
-                type: "spacer",
-              },
-            ],
+            maxLines: 1,
+            minScale: 0.65,
           },
           ...(widgetFamily ===
           "systemSmall"
@@ -2017,8 +2047,10 @@ function buildCard(
                     displayState
                       .expireText,
                   font: {
-                    size: "caption2",
-                    weight: "medium",
+                    size:
+                      "caption2",
+                    weight:
+                      "medium",
                   },
                   textColor:
                     displayState
@@ -2032,40 +2064,61 @@ function buildCard(
                 },
               ]),
           {
-            type: "stack",
-            direction: "row",
+            type: "text",
+            text:
+              `剩${formatBytes(
+                Math.max(
+                  0,
+                  totalBytes -
+                    used
+                )
+              )}`,
+            font: {
+              size: "caption2",
+              weight: "semibold",
+            },
+            textColor:
+              displayState
+                .statusColor,
             flex: 1,
-            children: [
-              {
-                type: "spacer",
-              },
-              {
-                type: "text",
-                text:
-                  `剩${formatBytes(
-                    Math.max(
-                      0,
-                      totalBytes -
-                        used
-                    )
-                  )}`,
-                font: {
-                  size: "caption2",
-                  weight:
-                    "semibold",
-                },
-                textColor:
-                  displayState
-                    .statusColor,
-                maxLines: 1,
-                minScale: 0.65,
-              },
-            ],
+            textAlign: "right",
+            maxLines: 1,
+            minScale: 0.65,
           },
         ],
       },
     ],
   };
+}
+
+function safeBuildCard(
+  result,
+  widgetFamily,
+  nowTime,
+  layout
+) {
+  try {
+    return buildCard(
+      result,
+      widgetFamily,
+      nowTime,
+      layout
+    );
+  } catch (err) {
+    return buildCard(
+      {
+        name:
+          result?.name ||
+          "未知",
+        error: true,
+        errorMsg:
+          "Render Error",
+      },
+      widgetFamily,
+      nowTime,
+      layout
+    );
+  }
 }
 
 function getCardDisplayState(
@@ -2080,7 +2133,9 @@ function getCardDisplayState(
       : 0;
 
   let statusColor =
-    getUsageColor(safePercent);
+    getUsageColor(
+      safePercent
+    );
 
   const expireState =
     getExpireState(
@@ -2109,6 +2164,12 @@ function getCardDisplayState(
         : `${result.remainDays}天后重置`;
   }
 
+  const displayPercent =
+    Math.max(
+      0,
+      safePercent
+    );
+
   return {
     statusColor,
     dotColor:
@@ -2123,23 +2184,20 @@ function getCardDisplayState(
             "缓存"
           }`
         : result.name,
-    displayPercent: Math.max(
-      0,
-      safePercent
-    ),
-    progressPercent: Math.min(
-      Math.max(
-        safePercent,
-        0
+    displayPercent,
+    progressPercent:
+      Math.min(
+        displayPercent,
+        100
       ),
-      100
-    ),
     expireText,
     isExpired,
   };
 }
 
-function getUsageColor(percent) {
+function getUsageColor(
+  percent
+) {
   if (percent >= 95) {
     return COLORS.accentRed;
   }
@@ -2179,8 +2237,11 @@ function getExpireState(
       ? rawExpire * 1000
       : rawExpire;
 
-  const d = new Date(expireMs);
-  const expireTime = d.getTime();
+  const date =
+    new Date(expireMs);
+
+  const expireTime =
+    date.getTime();
 
   if (
     !Number.isFinite(
@@ -2193,7 +2254,9 @@ function getExpireState(
     };
   }
 
-  if (expireTime < nowTime) {
+  if (
+    expireTime < nowTime
+  ) {
     return {
       text: "已过期",
       isExpired: true,
@@ -2202,50 +2265,21 @@ function getExpireState(
 
   return {
     text:
-      `${d.getFullYear()}-` +
+      `${date.getFullYear()}-` +
       `${String(
-        d.getMonth() + 1
+        date.getMonth() + 1
       ).padStart(2, "0")}-` +
       String(
-        d.getDate()
+        date.getDate()
       ).padStart(2, "0"),
     isExpired: false,
   };
 }
 
-function safeBuildCard(
-  result,
-  widgetFamily,
-  nowTime,
-  layout
+function buildUrl(
+  base,
+  flag
 ) {
-  try {
-    return buildCard(
-      result,
-      widgetFamily,
-      nowTime,
-      layout
-    );
-  } catch (err) {
-    return buildCard(
-      {
-        name:
-          result?.name ||
-          "未知",
-        error: true,
-        errorMsg:
-          "Render Error",
-        remainDays:
-          result?.remainDays,
-      },
-      widgetFamily,
-      nowTime,
-      layout
-    );
-  }
-}
-
-function buildUrl(base, flag) {
   if (!flag) {
     return base;
   }
@@ -2255,12 +2289,17 @@ function buildUrl(base, flag) {
 
   const urlPart =
     hashIndex >= 0
-      ? base.slice(0, hashIndex)
+      ? base.slice(
+          0,
+          hashIndex
+        )
       : base;
 
   const hashPart =
     hashIndex >= 0
-      ? base.slice(hashIndex)
+      ? base.slice(
+          hashIndex
+        )
       : "";
 
   const queryIndex =
@@ -2268,7 +2307,10 @@ function buildUrl(base, flag) {
 
   const path =
     queryIndex >= 0
-      ? urlPart.slice(0, queryIndex)
+      ? urlPart.slice(
+          0,
+          queryIndex
+        )
       : urlPart;
 
   const query =
@@ -2280,21 +2322,25 @@ function buildUrl(base, flag) {
 
   const params = query
     .split("&")
-    .filter(isNonFlagParam);
+    .filter(
+      isNonFlagParam
+    );
 
   params.push(
-    `flag=${encodeURIComponent(
-      flag
-    )}`
+    `flag=${flag}`
   );
 
   return (
-    `${path}?${params.join("&")}` +
+    `${path}?${params.join(
+      "&"
+    )}` +
     hashPart
   );
 }
 
-function isNonFlagParam(param) {
+function isNonFlagParam(
+  param
+) {
   if (!param) {
     return false;
   }
@@ -2304,7 +2350,10 @@ function isNonFlagParam(param) {
 
   const rawKey =
     eqIndex >= 0
-      ? param.slice(0, eqIndex)
+      ? param.slice(
+          0,
+          eqIndex
+        )
       : param;
 
   if (
@@ -2328,7 +2377,8 @@ function isNonFlagParam(param) {
         );
 
       return (
-        decodedKey.toLowerCase() !==
+        decodedKey
+          .toLowerCase() !==
         "flag"
       );
     } catch (e) {
@@ -2338,94 +2388,57 @@ function isNonFlagParam(param) {
   return true;
 }
 
-function parseUserInfo(header) {
-  if (header == null) {
-    return null;
-  }
-
-  header = String(header);
-
-  if (!header.trim()) {
-    return null;
-  }
-
-  const info = {};
-
-  REGEX_USERINFO.lastIndex = 0;
-
-  let match;
-
-  while (
-    (match =
-      REGEX_USERINFO.exec(
-        header
-      )) !== null
-  ) {
-    const key = String(
-      match[1] || ""
-    ).toLowerCase();
-
-    if (
-      !USERINFO_KEYS.has(key)
-    ) {
-      continue;
-    }
-
-    const val = Number(match[2]);
-
-    if (
-      Number.isFinite(val) &&
-      val >= 0
-    ) {
-      info[key] = val;
-    }
-  }
-
-  return Object.keys(info).length
-    ? info
-    : null;
-}
-
-function formatBytes(bytes) {
+function formatBytes(
+  bytes
+) {
   if (
-    !Number.isFinite(bytes) ||
+    !Number.isFinite(
+      bytes
+    ) ||
     bytes <= 0
   ) {
     return "0B";
   }
 
-  let i = 0;
+  let unitIndex = 0;
   let value = bytes;
 
   while (
     value >= 1024 &&
-    i < UNITS.length - 1
+    unitIndex <
+      UNITS.length - 1
   ) {
     value /= 1024;
-    i++;
+    unitIndex++;
   }
 
   let displayValue =
-    value >= 10 || i === 0
+    value >= 10 ||
+    unitIndex === 0
       ? Math.round(value)
-      : Number(
-          value.toFixed(1)
-        );
+      : Math.round(
+          value * 10
+        ) / 10;
 
   if (
     displayValue >= 1024 &&
-    i < UNITS.length - 1
+    unitIndex <
+      UNITS.length - 1
   ) {
     displayValue = 1;
-    i++;
+    unitIndex++;
   }
 
   return (
-    `${displayValue}${UNITS[i]}`
+    `${displayValue}${
+      UNITS[unitIndex]
+    }`
   );
 }
 
-function formatCacheAge(ms) {
+function formatCacheAge(
+  ms
+) {
   if (
     !Number.isFinite(ms) ||
     ms < 0
@@ -2433,28 +2446,32 @@ function formatCacheAge(ms) {
     return "缓存";
   }
 
-  const minutes = Math.max(
-    1,
-    Math.floor(ms / 60000)
-  );
+  const minutes =
+    Math.max(
+      1,
+      Math.floor(
+        ms / 60000
+      )
+    );
 
   if (minutes < 60) {
     return `缓存${minutes}分`;
   }
 
-  const hours = Math.floor(
-    minutes / 60
-  );
+  const hours =
+    Math.floor(
+      minutes / 60
+    );
 
   if (hours < 24) {
     return `缓存${hours}小时`;
   }
 
-  const days = Math.floor(
-    hours / 24
+  return (
+    `缓存${Math.floor(
+      hours / 24
+    )}天`
   );
-
-  return `缓存${days}天`;
 }
 
 function getMonthDays(
@@ -2487,29 +2504,35 @@ function getRemainingDays(
   let targetMonth =
     currentMonth;
 
-  let safeDay = Math.min(
-    resetDay,
-    getMonthDays(
-      targetYear,
-      targetMonth
-    )
-  );
-
-  if (currentDate > safeDay) {
-    targetMonth += 1;
-
-    if (targetMonth > 11) {
-      targetMonth = 0;
-      targetYear += 1;
-    }
-
-    safeDay = Math.min(
+  let safeDay =
+    Math.min(
       resetDay,
       getMonthDays(
         targetYear,
         targetMonth
       )
     );
+
+  if (
+    currentDate > safeDay
+  ) {
+    targetMonth++;
+
+    if (
+      targetMonth > 11
+    ) {
+      targetMonth = 0;
+      targetYear++;
+    }
+
+    safeDay =
+      Math.min(
+        resetDay,
+        getMonthDays(
+          targetYear,
+          targetMonth
+        )
+      );
   }
 
   const diffMs =
@@ -2532,25 +2555,26 @@ function getRemainingDays(
   );
 }
 
-function parseResetDay(value) {
-  if (value == null) {
-    return null;
-  }
-
+function parseResetDay(
+  value
+) {
   const raw =
-    String(value).trim();
+    value?.trim();
 
   if (!raw) {
     return null;
   }
 
-  const num = Number(raw);
+  const number =
+    Number(raw);
 
   return (
-    Number.isInteger(num) &&
-    num >= 1 &&
-    num <= 31
-      ? num
+    Number.isInteger(
+      number
+    ) &&
+    number >= 1 &&
+    number <= 31
+      ? number
       : null
   );
 }
@@ -2560,45 +2584,47 @@ async function concurrentMap(
   maxConcurrent,
   fn
 ) {
-  if (
-    !Array.isArray(items) ||
-    !items.length
-  ) {
+  if (!items.length) {
     return [];
   }
 
-  const results = new Array(
-    items.length
-  );
-
-  const workerCount = Math.max(
-    1,
-    Math.min(
-      Math.floor(
-        Number(maxConcurrent)
-      ) || 1,
+  const results =
+    new Array(
       items.length
-    )
-  );
+    );
 
-  let index = 0;
+  const workerCount =
+    Math.min(
+      maxConcurrent,
+      items.length
+    );
 
-  const worker = async () => {
-    while (index < items.length) {
-      const currentIndex =
-        index++;
+  let nextIndex = 0;
 
-      results[currentIndex] =
-        await fn(
-          items[currentIndex]
+  const worker =
+    async () => {
+      while (
+        nextIndex <
+        items.length
+      ) {
+        const currentIndex =
+          nextIndex++;
+
+        results[
+          currentIndex
+        ] = await fn(
+          items[
+            currentIndex
+          ]
         );
-    }
-  };
+      }
+    };
 
   await Promise.all(
     Array.from(
       {
-        length: workerCount,
+        length:
+          workerCount,
       },
       worker
     )
@@ -2607,17 +2633,28 @@ async function concurrentMap(
   return results;
 }
 
-function getCacheDescriptor(url) {
+/**
+ * 主哈希同时用于缓存键和第一个 URL 指纹，
+ * 避免使用相同 seed 重复遍历 URL。
+ */
+function getCacheDescriptor(
+  url
+) {
+  const primaryHash =
+    hashStringSeed(
+      url,
+      2166136261
+    );
+
   return {
     key:
       `${CACHE_PREFIX}_` +
-      hashString(url),
+      primaryHash,
     id: [
-      url.length.toString(36),
-      hashStringSeed(
-        url,
-        2166136261
+      url.length.toString(
+        36
       ),
+      primaryHash,
       hashStringSeed(
         url,
         2246822507
@@ -2630,49 +2667,44 @@ function getCacheDescriptor(url) {
   };
 }
 
-function hashString(str) {
-  return hashStringSeed(
-    str,
-    2166136261
-  );
-}
-
 function hashStringSeed(
-  str,
+  string,
   seed
 ) {
-  let h = seed >>> 0;
+  let hash =
+    seed >>> 0;
 
   for (
     let i = 0;
-    i < str.length;
+    i < string.length;
     i++
   ) {
-    h ^= str.charCodeAt(i);
+    hash ^=
+      string.charCodeAt(i);
 
-    h = Math.imul(
-      h,
+    hash = Math.imul(
+      hash,
       16777619
     );
   }
 
-  h ^= h >>> 16;
+  hash ^= hash >>> 16;
 
-  h = Math.imul(
-    h,
+  hash = Math.imul(
+    hash,
     2246822507
   );
 
-  h ^= h >>> 13;
+  hash ^= hash >>> 13;
 
-  h = Math.imul(
-    h,
+  hash = Math.imul(
+    hash,
     3266489909
   );
 
-  h ^= h >>> 16;
+  hash ^= hash >>> 16;
 
   return (
-    h >>> 0
+    hash >>> 0
   ).toString(36);
 }
