@@ -219,7 +219,9 @@ function makeError(err) {
         font: {
           size: 'body'
         },
-        textColor: colors.primary
+        textColor: colors.primary,
+        maxLines: 3,
+        minScale: 0.7
       }
     ]
   };
