@@ -1215,13 +1215,18 @@ function shouldRequirePreviousOfficialYear(todayIso) {
 }
 
 function officialRequiredYears(currentYear, todayIso) {
-  const years = [currentYear];
+  const parts = parseISODateParts(todayIso);
+  if (!parts) return [currentYear];
 
-  if (shouldRequirePreviousOfficialYear(todayIso)) {
-    years.unshift(currentYear - 1);
+  if (parts.m === 1) {
+    return [currentYear - 1, currentYear];
   }
 
-  return years;
+  if (parts.m === 12) {
+    return [currentYear, currentYear + 1];
+  }
+
+  return [currentYear];
 }
 
 function officialRequestYears(currentYear, todayIso) {
