@@ -10,12 +10,12 @@
  *
  * 2. 参数说明：
  *    - NAME1-5：机场名称，显示在卡片上（可选，否则显示"机场订阅"）
- *    - URL1-5：订阅地址，从机场后台复制（必填）
+ *    - URL1-5：订阅地址，从机场后台复制（至少配置一项）
  *    - RESET1-5：流量重置日，1-31 的整数（可选）
  *
  * 3. 注意事项：
  *    - 本脚本读取大写键名 NAME1、URL1、RESET1 等
- *    - 至少需要配置 URL1 才能显示
+ *    - 至少需要配置 URL1-5 中的任意一项才能显示
  *    - 订阅地址需要包含完整的 token
  *    - 目标刷新时间设置为约 1 小时后，实际执行时间由系统决定
  *    - 自动适配系统深色/浅色模式
@@ -23,28 +23,60 @@
  * 4. 功能说明：
  *    - 最多支持配置 5 个机场
  *    - 中小尺寸组件显示前 2 个机场，大尺寸显示 5 个机场
- *    - 大尺寸显示 5 个机场时自动使用紧凑布局
+ *    - 大尺寸显示 3 个及以上机场时自动使用紧凑布局
  *    - 同一订阅 30 分钟内直接返回缓存，不重复请求网络
  *    - 单个订阅失败不会影响其他订阅刷新
  *    - 断网或订阅异常时，10 天内的旧缓存可兜底显示
  *    - 超过 10 天的旧缓存会被删除并显示失败
  *    - 删除或替换订阅后会清理对应缓存
+ *    - 缓存删除失败时保留索引记录，下次运行继续清理
  *    - 记忆上次成功的订阅请求策略，下次刷新时优先使用
  *    - 缓存不保存完整订阅 URL/token
  *    - 使用缓存键和多重 URL 指纹降低碰撞导致的数据串用风险
+ *    - 订阅请求不携带 Egern Cookie
  */
 
 const COLORS = {
-  textPrimary: { light: "#000000", dark: "#FFFFFF" },
-  textSecondary: { light: "#555555", dark: "#EBEBF5" },
-  textTertiary: { light: "#888888", dark: "#8E8E93" },
-  accentGreen: { light: "#34C759", dark: "#30D158" },
-  accentOrange: { light: "#FF9500", dark: "#FF9F0A" },
-  accentRed: { light: "#FF3B30", dark: "#FF453A" },
-  accentPurple: { light: "#D14FE2", dark: "#CA31E1" },
-  divider: { light: "#E5E5EA", dark: "#48484A" },
-  errorBg: { light: "#FFF5F5", dark: "#3B1F1F" },
-  progressBg: { light: "#E8E8EA", dark: "#48484A" },
+  textPrimary: {
+    light: "#000000",
+    dark: "#FFFFFF",
+  },
+  textSecondary: {
+    light: "#555555",
+    dark: "#EBEBF5",
+  },
+  textTertiary: {
+    light: "#888888",
+    dark: "#8E8E93",
+  },
+  accentGreen: {
+    light: "#34C759",
+    dark: "#30D158",
+  },
+  accentOrange: {
+    light: "#FF9500",
+    dark: "#FF9F0A",
+  },
+  accentRed: {
+    light: "#FF3B30",
+    dark: "#FF453A",
+  },
+  accentPurple: {
+    light: "#D14FE2",
+    dark: "#CA31E1",
+  },
+  divider: {
+    light: "#E5E5EA",
+    dark: "#48484A",
+  },
+  errorBg: {
+    light: "#FFF5F5",
+    dark: "#3B1F1F",
+  },
+  progressBg: {
+    light: "#E8E8EA",
+    dark: "#48484A",
+  },
 };
 
 const WIDGET_BG_COLOR = {
@@ -57,9 +89,14 @@ const CARD_BG_COLOR = {
   dark: "#2B2B2D",
 };
 
-const REFRESH_INTERVAL_MS = 60 * 60 * 1000;
-const NETWORK_COOLDOWN_MS = 30 * 60 * 1000;
-const MAX_STALE_MS = 10 * 24 * 60 * 60 * 1000;
+const REFRESH_INTERVAL_MS =
+  60 * 60 * 1000;
+
+const NETWORK_COOLDOWN_MS =
+  30 * 60 * 1000;
+
+const MAX_STALE_MS =
+  10 * 24 * 60 * 60 * 1000;
 
 const SCRIPT_SOFT_TIMEOUT_MS = 8000;
 const REQUEST_TIMEOUT_MS = 2000;
@@ -67,12 +104,24 @@ const MIN_REQUEST_TIMEOUT_MS = 500;
 
 const CACHE_PREFIX = "sub_cache";
 const CACHE_VERSION = 3;
+
 const CACHE_INDEX_KEY =
-  `${CACHE_PREFIX}_index_v${CACHE_VERSION}`;
+  `${CACHE_PREFIX}__index`;
+
+const LEGACY_CACHE_INDEX_KEYS = [
+  `${CACHE_PREFIX}_index_v3`,
+];
 
 const MAX_FATAL_ERROR_TEXT_LENGTH = 120;
 
-const UNITS = ["B", "KB", "MB", "GB", "TB", "PB"];
+const UNITS = [
+  "B",
+  "KB",
+  "MB",
+  "GB",
+  "TB",
+  "PB",
+];
 
 const REGEX_USERINFO =
   /([-\w]+)\s*=\s*([\d.eE+-]+)/g;
@@ -89,21 +138,25 @@ const STRATEGIES = [
     flag: "meta",
     ua: {
       "User-Agent": "mihomo/1.19.3",
-      Accept: "application/x-yaml,text/plain,*/*",
+      Accept:
+        "application/x-yaml,text/plain,*/*",
     },
   },
   {
     flag: "clash",
     ua: {
       "User-Agent": "Clash/1.18.0",
-      Accept: "application/x-yaml,text/plain,*/*",
+      Accept:
+        "application/x-yaml,text/plain,*/*",
     },
   },
   {
     flag: null,
     ua: {
-      "User-Agent": "clash-verge-rev/2.3.1",
-      Accept: "application/x-yaml,text/plain,*/*",
+      "User-Agent":
+        "clash-verge-rev/2.3.1",
+      Accept:
+        "application/x-yaml,text/plain,*/*",
     },
   },
 ];
@@ -113,7 +166,8 @@ export default async function (ctx) {
     return await main(ctx);
   } catch (err) {
     return buildStatusWidget({
-      icon: "sf-symbol:exclamationmark.triangle.fill",
+      icon:
+        "sf-symbol:exclamationmark.triangle.fill",
       iconSize: 28,
       title: "脚本异常",
       titleColor: COLORS.accentRed,
@@ -126,6 +180,14 @@ export default async function (ctx) {
 async function main(ctx) {
   const env = ctx.env || {};
   const slots = buildSlots(env);
+
+  const cacheBucketMemo = new Map();
+
+  syncCacheIndex(
+    ctx,
+    slots,
+    cacheBucketMemo
+  );
 
   if (!slots.length) {
     return buildStatusWidget({
@@ -143,22 +205,22 @@ async function main(ctx) {
 
   const now = new Date();
   const nowTime = now.getTime();
+
   const deadlineTime =
     nowTime + SCRIPT_SOFT_TIMEOUT_MS;
 
   const cacheMemo = new Map();
 
-  syncCacheIndex(ctx, slots);
-
-  // 所有配置项都读取一次，使未显示的订阅也能清理过期缓存。
-  const allSlotStates = slots.map((slot) =>
-    buildSlotState(
-      ctx,
-      slot,
-      now,
-      nowTime,
-      cacheMemo
-    )
+  const allSlotStates = slots.map(
+    (slot) =>
+      buildSlotState(
+        ctx,
+        slot,
+        now,
+        nowTime,
+        cacheMemo,
+        cacheBucketMemo
+      )
   );
 
   const slotStates = allSlotStates.slice(
@@ -169,11 +231,18 @@ async function main(ctx) {
   const maxConcurrent =
     slotStates.length > 2 ? 3 : 2;
 
-  const results = new Array(slotStates.length);
+  const results = new Array(
+    slotStates.length
+  );
+
   const remoteGroups = [];
   const remoteGroupMap = new Map();
 
-  for (let i = 0; i < slotStates.length; i++) {
+  for (
+    let i = 0;
+    i < slotStates.length;
+    i++
+  ) {
     const state = slotStates[i];
 
     if (state.cache.fresh) {
@@ -182,10 +251,13 @@ async function main(ctx) {
         state.slot,
         state.remainDays
       );
+
       continue;
     }
 
-    let group = remoteGroupMap.get(state.slot.url);
+    let group = remoteGroupMap.get(
+      state.slot.url
+    );
 
     if (!group) {
       group = {
@@ -195,11 +267,16 @@ async function main(ctx) {
         indexes: [],
         preferredStrategyIndex:
           normalizeStrategyIndex(
-            state.cache.stale?.strategyIndex
+            state.cache.stale
+              ?.strategyIndex
           ),
       };
 
-      remoteGroupMap.set(state.slot.url, group);
+      remoteGroupMap.set(
+        state.slot.url,
+        group
+      );
+
       remoteGroups.push(group);
     }
 
@@ -207,23 +284,29 @@ async function main(ctx) {
   }
 
   if (remoteGroups.length) {
-    const remoteGroupResults = await concurrentMap(
-      remoteGroups,
-      maxConcurrent,
-      (group) =>
-        fetchRemoteForGroup(
-          ctx,
-          group,
-          deadlineTime
-        )
-    );
+    const remoteGroupResults =
+      await concurrentMap(
+        remoteGroups,
+        maxConcurrent,
+        (group) =>
+          fetchRemoteForGroup(
+            ctx,
+            group,
+            deadlineTime
+          )
+      );
 
-    for (const groupResult of remoteGroupResults) {
+    for (
+      const groupResult of
+        remoteGroupResults
+    ) {
       const group = groupResult?.group;
-      const remote = groupResult?.remote || {
-        ok: false,
-        errorMsg: "Fetch Error",
-      };
+
+      const remote =
+        groupResult?.remote || {
+          ok: false,
+          errorMsg: "Fetch Error",
+        };
 
       if (!group) {
         continue;
@@ -242,50 +325,66 @@ async function main(ctx) {
         const dataWithCacheTime = {
           ...remote.data,
           cacheTime: nowTime,
-          strategyIndex: remote.strategyIndex,
+          strategyIndex:
+            remote.strategyIndex,
         };
 
-        for (const index of group.indexes) {
-          const state = slotStates[index];
+        for (
+          const index of group.indexes
+        ) {
+          const state =
+            slotStates[index];
 
-          results[index] = attachSlotMeta(
-            dataWithCacheTime,
-            state.slot,
-            state.remainDays
-          );
+          results[index] =
+            attachSlotMeta(
+              dataWithCacheTime,
+              state.slot,
+              state.remainDays
+            );
         }
 
         continue;
       }
 
-      for (const index of group.indexes) {
+      for (
+        const index of group.indexes
+      ) {
         const state = slotStates[index];
 
         if (state.cache.stale) {
-          results[index] = attachSlotMeta(
-            {
-              ...state.cache.stale,
-              isFallback: true,
-              cacheAgeText: formatCacheAge(
-                nowTime -
-                  state.cache.stale.cacheTime
-              ),
-            },
-            state.slot,
-            state.remainDays
-          );
+          results[index] =
+            attachSlotMeta(
+              {
+                ...state.cache.stale,
+                isFallback: true,
+                cacheAgeText:
+                  formatCacheAge(
+                    nowTime -
+                      state.cache.stale
+                        .cacheTime
+                  ),
+              },
+              state.slot,
+              state.remainDays
+            );
         } else {
-          results[index] = buildErrorResult(
-            state.slot,
-            state.remainDays,
-            remote.errorMsg || "Unknown"
-          );
+          results[index] =
+            buildErrorResult(
+              state.slot,
+              state.remainDays,
+              remote.errorMsg ||
+                "Unknown"
+            );
         }
       }
     }
   }
 
-  for (let i = 0; i < results.length; i++) {
+  for (
+    let i = 0;
+    i < results.length;
+    i++
+  ) {
     if (!results[i]) {
       const state = slotStates[i];
 
@@ -302,19 +401,26 @@ async function main(ctx) {
     results.length
   );
 
-  const cardChildren = results.map((result) =>
-    safeBuildCard(
-      result,
-      widgetFamily,
-      nowTime,
-      layout
-    )
+  const cardChildren = results.map(
+    (result) =>
+      safeBuildCard(
+        result,
+        widgetFamily,
+        nowTime,
+        layout
+      )
   );
 
   const timeStr =
-    String(now.getHours()).padStart(2, "0") +
+    String(now.getHours()).padStart(
+      2,
+      "0"
+    ) +
     ":" +
-    String(now.getMinutes()).padStart(2, "0");
+    String(now.getMinutes()).padStart(
+      2,
+      "0"
+    );
 
   return {
     type: "widget",
@@ -337,7 +443,8 @@ async function main(ctx) {
               "sf-symbol:gauge.with.dots.needle.67percent",
             width: 16,
             height: 16,
-            color: COLORS.accentGreen,
+            color:
+              COLORS.accentGreen,
           },
           {
             type: "text",
@@ -346,17 +453,20 @@ async function main(ctx) {
               size: "subheadline",
               weight: "bold",
             },
-            textColor: COLORS.textPrimary,
+            textColor:
+              COLORS.textPrimary,
           },
           {
             type: "spacer",
           },
           {
             type: "image",
-            src: "sf-symbol:arrow.clockwise",
+            src:
+              "sf-symbol:arrow.clockwise",
             width: 10,
             height: 10,
-            color: COLORS.textTertiary,
+            color:
+              COLORS.textTertiary,
           },
           {
             type: "text",
@@ -365,7 +475,8 @@ async function main(ctx) {
               size: "caption2",
               weight: "medium",
             },
-            textColor: COLORS.textTertiary,
+            textColor:
+              COLORS.textTertiary,
           },
         ],
       },
@@ -380,34 +491,61 @@ async function main(ctx) {
 }
 
 function getDisplayLimit(widgetFamily) {
-  return widgetFamily === "systemLarge" ||
-    widgetFamily === "systemExtraLarge"
+  return widgetFamily ===
+    "systemLarge" ||
+    widgetFamily ===
+      "systemExtraLarge"
     ? 5
     : 2;
 }
 
-function getWidgetLayout(widgetFamily, count) {
+function getWidgetLayout(
+  widgetFamily,
+  count
+) {
   const compact =
     count > 2 &&
-    (widgetFamily === "systemLarge" ||
-      widgetFamily === "systemExtraLarge");
+    (widgetFamily ===
+      "systemLarge" ||
+      widgetFamily ===
+        "systemExtraLarge");
 
   if (compact) {
     return {
-      widgetPadding: [8, 10, 8, 10],
+      widgetPadding: [
+        8,
+        10,
+        8,
+        10,
+      ],
       widgetGap: 4,
       cardsGap: 5,
-      cardPadding: [5, 8, 5, 8],
+      cardPadding: [
+        5,
+        8,
+        5,
+        8,
+      ],
       cardGap: 3,
       progressHeight: 4,
     };
   }
 
   return {
-    widgetPadding: [10, 10, 10, 10],
+    widgetPadding: [
+      10,
+      10,
+      10,
+      10,
+    ],
     widgetGap: 6,
     cardsGap: 10,
-    cardPadding: [8, 10, 8, 10],
+    cardPadding: [
+      8,
+      10,
+      8,
+      10,
+    ],
     cardGap: 5,
     progressHeight: 5,
   };
@@ -470,7 +608,8 @@ function buildStatusWidget(options) {
         size: "caption2",
         weight: "medium",
       },
-      textColor: COLORS.textTertiary,
+      textColor:
+        COLORS.textTertiary,
       maxLines: 2,
       textAlign: "center",
     });
@@ -481,7 +620,8 @@ function buildStatusWidget(options) {
     backgroundColor: WIDGET_BG_COLOR,
     padding: 16,
     refreshAfter: new Date(
-      Date.now() + REFRESH_INTERVAL_MS
+      Date.now() +
+        REFRESH_INTERVAL_MS
     ).toISOString(),
     children: [
       {
@@ -505,7 +645,8 @@ function normalizeFatalError(err) {
   }
 
   if (
-    msg.length <= MAX_FATAL_ERROR_TEXT_LENGTH
+    msg.length <=
+    MAX_FATAL_ERROR_TEXT_LENGTH
   ) {
     return msg;
   }
@@ -513,7 +654,8 @@ function normalizeFatalError(err) {
   return (
     msg.slice(
       0,
-      MAX_FATAL_ERROR_TEXT_LENGTH - 1
+      MAX_FATAL_ERROR_TEXT_LENGTH -
+        1
     ) + "…"
   );
 }
@@ -523,24 +665,30 @@ function buildSlotState(
   slot,
   now,
   nowTime,
-  cacheMemo
+  cacheMemo,
+  cacheBucketMemo
 ) {
   const remainDays = slot.resetDay
-    ? getRemainingDays(slot.resetDay, now)
+    ? getRemainingDays(
+        slot.resetDay,
+        now
+      )
     : null;
 
-  const descriptor = getCacheDescriptor(
+  const descriptor =
+    getCacheDescriptor(slot.url);
+
+  let cache = cacheMemo.get(
     slot.url
   );
-
-  let cache = cacheMemo.get(slot.url);
 
   if (!cache) {
     cache = readCache(
       ctx,
       descriptor.key,
       descriptor.id,
-      nowTime
+      nowTime,
+      cacheBucketMemo
     );
 
     cacheMemo.set(slot.url, cache);
@@ -555,117 +703,521 @@ function buildSlotState(
   };
 }
 
-function syncCacheIndex(ctx, slots) {
+function syncCacheIndex(
+  ctx,
+  slots,
+  cacheBucketMemo
+) {
   const current = new Map();
 
   for (const slot of slots) {
-    const descriptor = getCacheDescriptor(
-      slot.url
-    );
+    const descriptor =
+      getCacheDescriptor(slot.url);
 
-    let ids = current.get(descriptor.key);
+    let ids = current.get(
+      descriptor.key
+    );
 
     if (!ids) {
       ids = new Set();
-      current.set(descriptor.key, ids);
+
+      current.set(
+        descriptor.key,
+        ids
+      );
     }
 
     ids.add(descriptor.id);
   }
 
-  let previousKeys = [];
-
-  try {
-    const previous = ctx.storage.getJSON(
+  const stableIndexState =
+    safeReadStoredJSON(
+      ctx,
       CACHE_INDEX_KEY
     );
 
-    if (
-      previous &&
-      previous.version === CACHE_VERSION &&
-      Array.isArray(previous.entries)
-    ) {
-      previousKeys = previous.entries
-        .map((entry) => entry?.key)
-        .filter(
-          (key) => typeof key === "string"
-        );
+  const legacyIndexStates =
+    LEGACY_CACHE_INDEX_KEYS.map(
+      (key) => ({
+        key,
+        state:
+          safeReadStoredJSON(
+            ctx,
+            key
+          ),
+      })
+    );
+
+  const previousKeys = new Set();
+
+  if (stableIndexState.ok) {
+    collectCacheIndexKeys(
+      stableIndexState.value,
+      previousKeys
+    );
+  }
+
+  for (
+    const item of
+      legacyIndexStates
+  ) {
+    if (item.state.ok) {
+      collectCacheIndexKeys(
+        item.state.value,
+        previousKeys
+      );
     }
-  } catch (e) {}
+  }
 
   const currentKeys = new Set(
     current.keys()
   );
 
+  const pendingDeleteKeys =
+    new Set();
+
   for (const key of previousKeys) {
-    if (!currentKeys.has(key)) {
-      safeDeleteCache(ctx, key);
+    if (currentKeys.has(key)) {
+      continue;
+    }
+
+    if (
+      !tryDeleteIndexedCache(
+        ctx,
+        key
+      )
+    ) {
+      pendingDeleteKeys.add(key);
     }
   }
 
-  for (const [key, ids] of current) {
-    pruneCacheBucket(ctx, key, ids);
+  for (
+    const [key, ids] of current
+  ) {
+    pruneCacheBucket(
+      ctx,
+      key,
+      ids,
+      cacheBucketMemo
+    );
+  }
+
+  const nextEntries =
+    new Map(current);
+
+  for (
+    const key of pendingDeleteKeys
+  ) {
+    if (!nextEntries.has(key)) {
+      nextEntries.set(
+        key,
+        new Set()
+      );
+    }
+  }
+
+  const nextIndex =
+    buildCacheIndex(nextEntries);
+
+  let stableIndexReady =
+    stableIndexState.ok &&
+    isSameCacheIndex(
+      stableIndexState.value,
+      nextIndex
+    );
+
+  if (
+    stableIndexState.ok &&
+    !stableIndexReady
+  ) {
+    try {
+      ctx.storage.setJSON(
+        CACHE_INDEX_KEY,
+        nextIndex
+      );
+
+      stableIndexReady = true;
+    } catch (e) {
+    }
+  }
+
+  if (stableIndexReady) {
+    for (
+      const item of
+        legacyIndexStates
+    ) {
+      if (
+        item.state.ok &&
+        item.state.value != null
+      ) {
+        safeDeleteCache(
+          ctx,
+          item.key
+        );
+      }
+    }
+  }
+}
+
+function buildCacheIndex(current) {
+  const entries = Array.from(
+    current,
+    ([key, ids]) => ({
+      key,
+      ids: Array.from(ids).sort(
+        compareStrings
+      ),
+    })
+  ).sort((a, b) =>
+    compareStrings(a.key, b.key)
+  );
+
+  return {
+    version: CACHE_VERSION,
+    entries,
+  };
+}
+
+function normalizeCacheIndex(index) {
+  if (
+    !index ||
+    index.version !==
+      CACHE_VERSION ||
+    !Array.isArray(index.entries)
+  ) {
+    return null;
+  }
+
+  const normalized = new Map();
+
+  for (const entry of index.entries) {
+    if (
+      !entry ||
+      !isCacheBucketKey(entry.key) ||
+      !Array.isArray(entry.ids)
+    ) {
+      return null;
+    }
+
+    let ids = normalized.get(
+      entry.key
+    );
+
+    if (!ids) {
+      ids = new Set();
+
+      normalized.set(
+        entry.key,
+        ids
+      );
+    }
+
+    for (const id of entry.ids) {
+      if (typeof id !== "string") {
+        return null;
+      }
+
+      ids.add(id);
+    }
+  }
+
+  return buildCacheIndex(normalized);
+}
+
+function isSameCacheIndex(
+  previous,
+  next
+) {
+  const normalizedPrevious =
+    normalizeCacheIndex(previous);
+
+  if (!normalizedPrevious) {
+    return false;
+  }
+
+  if (
+    normalizedPrevious.entries
+      .length !==
+    next.entries.length
+  ) {
+    return false;
+  }
+
+  for (
+    let i = 0;
+    i < next.entries.length;
+    i++
+  ) {
+    const previousEntry =
+      normalizedPrevious.entries[i];
+
+    const nextEntry =
+      next.entries[i];
+
+    if (
+      previousEntry.key !==
+        nextEntry.key ||
+      previousEntry.ids.length !==
+        nextEntry.ids.length
+    ) {
+      return false;
+    }
+
+    for (
+      let j = 0;
+      j < nextEntry.ids.length;
+      j++
+    ) {
+      if (
+        previousEntry.ids[j] !==
+        nextEntry.ids[j]
+      ) {
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+
+function collectCacheIndexKeys(
+  index,
+  target
+) {
+  if (
+    !index ||
+    !Array.isArray(index.entries)
+  ) {
+    return;
+  }
+
+  for (const entry of index.entries) {
+    const key = entry?.key;
+
+    if (isCacheBucketKey(key)) {
+      target.add(key);
+    }
+  }
+}
+
+function isCacheBucketKey(key) {
+  if (typeof key !== "string") {
+    return false;
+  }
+
+  const prefix =
+    `${CACHE_PREFIX}_`;
+
+  if (!key.startsWith(prefix)) {
+    return false;
+  }
+
+  const suffix = key.slice(
+    prefix.length
+  );
+
+  return (
+    suffix.length >= 1 &&
+    suffix.length <= 7 &&
+    /^[0-9a-z]+$/.test(suffix)
+  );
+}
+
+function compareStrings(a, b) {
+  if (a < b) {
+    return -1;
+  }
+
+  if (a > b) {
+    return 1;
+  }
+
+  return 0;
+}
+
+function safeReadStoredJSON(
+  ctx,
+  key
+) {
+  try {
+    return {
+      ok: true,
+      value:
+        ctx.storage.getJSON(key),
+    };
+  } catch (e) {
+    return {
+      ok: false,
+      value: null,
+    };
+  }
+}
+
+function tryDeleteIndexedCache(
+  ctx,
+  cacheKey
+) {
+  try {
+    ctx.storage.delete(cacheKey);
+  } catch (e) {
+    return false;
   }
 
   try {
-    ctx.storage.setJSON(CACHE_INDEX_KEY, {
-      version: CACHE_VERSION,
-      entries: Array.from(
-        current,
-        ([key, ids]) => ({
-          key,
-          ids: Array.from(ids),
-        })
-      ),
-    });
-  } catch (e) {}
+    return (
+      ctx.storage.getJSON(
+        cacheKey
+      ) == null
+    );
+  } catch (e) {
+    return false;
+  }
+}
+
+function readCacheBucket(
+  ctx,
+  cacheKey,
+  cacheBucketMemo
+) {
+  if (
+    cacheBucketMemo.has(cacheKey)
+  ) {
+    return cacheBucketMemo.get(
+      cacheKey
+    );
+  }
+
+  let state;
+
+  try {
+    state = {
+      ok: true,
+      bucket:
+        ctx.storage.getJSON(
+          cacheKey
+        ),
+    };
+  } catch (e) {
+    state = {
+      ok: false,
+      bucket: null,
+    };
+  }
+
+  cacheBucketMemo.set(
+    cacheKey,
+    state
+  );
+
+  return state;
+}
+
+function rememberCacheBucket(
+  cacheBucketMemo,
+  cacheKey,
+  bucket
+) {
+  cacheBucketMemo.set(
+    cacheKey,
+    {
+      ok: true,
+      bucket,
+    }
+  );
 }
 
 function pruneCacheBucket(
   ctx,
   cacheKey,
-  validIds
+  validIds,
+  cacheBucketMemo
 ) {
-  try {
-    const bucket = ctx.storage.getJSON(
+  const cacheState =
+    readCacheBucket(
+      ctx,
+      cacheKey,
+      cacheBucketMemo
+    );
+
+  if (!cacheState.ok) {
+    return;
+  }
+
+  const bucket =
+    cacheState.bucket;
+
+  if (!bucket) {
+    return;
+  }
+
+  if (
+    bucket.version !==
+      CACHE_VERSION ||
+    !Array.isArray(bucket.entries)
+  ) {
+    safeDeleteCache(
+      ctx,
       cacheKey
     );
 
-    if (!bucket) {
-      return;
-    }
+    rememberCacheBucket(
+      cacheBucketMemo,
+      cacheKey,
+      null
+    );
 
-    if (
-      bucket.version !== CACHE_VERSION ||
-      !Array.isArray(bucket.entries)
-    ) {
-      safeDeleteCache(ctx, cacheKey);
-      return;
-    }
+    return;
+  }
 
-    const entries = bucket.entries.filter(
+  const entries =
+    bucket.entries.filter(
       (entry) =>
         entry &&
-        typeof entry.id === "string" &&
+        typeof entry.id ===
+          "string" &&
         validIds.has(entry.id)
     );
 
-    if (!entries.length) {
-      safeDeleteCache(ctx, cacheKey);
-      return;
-    }
+  if (!entries.length) {
+    safeDeleteCache(
+      ctx,
+      cacheKey
+    );
 
-    if (
-      entries.length !== bucket.entries.length
-    ) {
-      ctx.storage.setJSON(cacheKey, {
-        version: CACHE_VERSION,
-        entries,
-      });
-    }
-  } catch (e) {
-    safeDeleteCache(ctx, cacheKey);
+    rememberCacheBucket(
+      cacheBucketMemo,
+      cacheKey,
+      null
+    );
+
+    return;
   }
+
+  if (
+    entries.length ===
+    bucket.entries.length
+  ) {
+    return;
+  }
+
+  const nextBucket = {
+    version: CACHE_VERSION,
+    entries,
+  };
+
+  try {
+    ctx.storage.setJSON(
+      cacheKey,
+      nextBucket
+    );
+  } catch (e) {
+  }
+
+  rememberCacheBucket(
+    cacheBucketMemo,
+    cacheKey,
+    nextBucket
+  );
 }
 
 async function fetchRemoteForGroup(
@@ -674,12 +1226,13 @@ async function fetchRemoteForGroup(
   deadlineTime
 ) {
   try {
-    const remote = await fetchRemoteInfo(
-      ctx,
-      group.url,
-      deadlineTime,
-      group.preferredStrategyIndex
-    );
+    const remote =
+      await fetchRemoteInfo(
+        ctx,
+        group.url,
+        deadlineTime,
+        group.preferredStrategyIndex
+      );
 
     return {
       group,
@@ -691,57 +1244,83 @@ async function fetchRemoteForGroup(
       remote: {
         ok: false,
         errorMsg:
-          normalizeRequestError(err),
+          normalizeRequestError(
+            err
+          ),
       },
     };
   }
+}
+
+function emptyCacheResult() {
+  return {
+    fresh: null,
+    stale: null,
+  };
 }
 
 function readCache(
   ctx,
   cacheKey,
   cacheId,
-  nowTime
+  nowTime,
+  cacheBucketMemo
 ) {
-  try {
-    const bucket = ctx.storage.getJSON(
+  const cacheState =
+    readCacheBucket(
+      ctx,
+      cacheKey,
+      cacheBucketMemo
+    );
+
+  if (!cacheState.ok) {
+    return emptyCacheResult();
+  }
+
+  const bucket =
+    cacheState.bucket;
+
+  if (!bucket) {
+    return emptyCacheResult();
+  }
+
+  if (
+    bucket.version !==
+      CACHE_VERSION ||
+    !Array.isArray(bucket.entries)
+  ) {
+    safeDeleteCache(
+      ctx,
       cacheKey
     );
 
-    if (!bucket) {
-      return {
-        fresh: null,
-        stale: null,
-      };
-    }
-
-    if (
-      bucket.version !== CACHE_VERSION ||
-      !Array.isArray(bucket.entries)
-    ) {
-      safeDeleteCache(ctx, cacheKey);
-
-      return {
-        fresh: null,
-        stale: null,
-      };
-    }
-
-    const entry = bucket.entries.find(
-      (item) =>
-        item &&
-        item.id === cacheId
+    rememberCacheBucket(
+      cacheBucketMemo,
+      cacheKey,
+      null
     );
 
+    return emptyCacheResult();
+  }
+
+  try {
+    const entry =
+      bucket.entries.find(
+        (item) =>
+          item &&
+          item.id === cacheId
+      );
+
     if (!entry) {
-      return {
-        fresh: null,
-        stale: null,
-      };
+      return emptyCacheResult();
     }
 
     const data = entry.data;
-    const cacheTime = Number(entry.time);
+
+    const cacheTime = Number(
+      entry.time
+    );
+
     const strategyIndex =
       normalizeStrategyIndex(
         entry.strategyIndex
@@ -755,16 +1334,15 @@ function readCache(
         ctx,
         cacheKey,
         cacheId,
-        bucket
+        bucket,
+        cacheBucketMemo
       );
 
-      return {
-        fresh: null,
-        stale: null,
-      };
+      return emptyCacheResult();
     }
 
-    const age = nowTime - cacheTime;
+    const age =
+      nowTime - cacheTime;
 
     const cachedData = {
       ...data,
@@ -796,16 +1374,13 @@ function readCache(
       ctx,
       cacheKey,
       cacheId,
-      bucket
+      bucket,
+      cacheBucketMemo
     );
   } catch (e) {
-    safeDeleteCache(ctx, cacheKey);
   }
 
-  return {
-    fresh: null,
-    stale: null,
-  };
+  return emptyCacheResult();
 }
 
 function saveCache(
@@ -816,87 +1391,138 @@ function saveCache(
   cacheTime,
   strategyIndex
 ) {
+  const time = Number(cacheTime);
+
+  if (!Number.isFinite(time)) {
+    return;
+  }
+
+  let current;
+
   try {
-    const time = Number(cacheTime);
+    current =
+      ctx.storage.getJSON(
+        cacheKey
+      );
+  } catch (e) {
+    return;
+  }
 
-    if (!Number.isFinite(time)) {
-      return;
-    }
+  let entries = [];
 
-    let entries = [];
+  if (
+    current &&
+    current.version ===
+      CACHE_VERSION &&
+    Array.isArray(current.entries)
+  ) {
+    entries =
+      current.entries.filter(
+        (entry) =>
+          entry &&
+          entry.id !== cacheId
+      );
+  }
 
-    try {
-      const current =
-        ctx.storage.getJSON(cacheKey);
+  entries.push({
+    id: cacheId,
+    time,
+    strategyIndex:
+      normalizeStrategyIndex(
+        strategyIndex
+      ),
+    data,
+  });
 
-      if (
-        current &&
-        current.version === CACHE_VERSION &&
-        Array.isArray(current.entries)
-      ) {
-        entries = current.entries.filter(
-          (entry) =>
-            entry &&
-            entry.id !== cacheId
-        );
+  try {
+    ctx.storage.setJSON(
+      cacheKey,
+      {
+        version: CACHE_VERSION,
+        entries,
       }
-    } catch (e) {}
-
-    entries.push({
-      id: cacheId,
-      time,
-      strategyIndex:
-        normalizeStrategyIndex(
-          strategyIndex
-        ),
-      data,
-    });
-
-    ctx.storage.setJSON(cacheKey, {
-      version: CACHE_VERSION,
-      entries,
-    });
-  } catch (e) {}
+    );
+  } catch (e) {
+  }
 }
 
 function removeCacheEntry(
   ctx,
   cacheKey,
   cacheId,
-  bucket
+  bucket,
+  cacheBucketMemo
 ) {
-  try {
-    if (
-      !bucket ||
-      bucket.version !== CACHE_VERSION ||
-      !Array.isArray(bucket.entries)
-    ) {
-      safeDeleteCache(ctx, cacheKey);
-      return;
-    }
+  if (
+    !bucket ||
+    bucket.version !==
+      CACHE_VERSION ||
+    !Array.isArray(bucket.entries)
+  ) {
+    safeDeleteCache(
+      ctx,
+      cacheKey
+    );
 
-    const entries = bucket.entries.filter(
+    rememberCacheBucket(
+      cacheBucketMemo,
+      cacheKey,
+      null
+    );
+
+    return;
+  }
+
+  const entries =
+    bucket.entries.filter(
       (entry) =>
         entry &&
         entry.id !== cacheId
     );
 
-    if (!entries.length) {
-      safeDeleteCache(ctx, cacheKey);
-      return;
-    }
+  if (!entries.length) {
+    safeDeleteCache(
+      ctx,
+      cacheKey
+    );
 
-    ctx.storage.setJSON(cacheKey, {
-      version: CACHE_VERSION,
-      entries,
-    });
-  } catch (e) {}
+    rememberCacheBucket(
+      cacheBucketMemo,
+      cacheKey,
+      null
+    );
+
+    return;
+  }
+
+  const nextBucket = {
+    version: CACHE_VERSION,
+    entries,
+  };
+
+  try {
+    ctx.storage.setJSON(
+      cacheKey,
+      nextBucket
+    );
+  } catch (e) {
+  }
+
+  rememberCacheBucket(
+    cacheBucketMemo,
+    cacheKey,
+    nextBucket
+  );
 }
 
-function safeDeleteCache(ctx, cacheKey) {
+function safeDeleteCache(
+  ctx,
+  cacheKey
+) {
   try {
     ctx.storage.delete(cacheKey);
-  } catch (e) {}
+  } catch (e) {
+  }
 }
 
 async function fetchRemoteInfo(
@@ -912,12 +1538,17 @@ async function fetchRemoteInfo(
       preferredStrategyIndex
     );
 
-  for (const strategyIndex of strategyIndexes) {
+  for (
+    const strategyIndex of
+      strategyIndexes
+  ) {
     const strategy =
       STRATEGIES[strategyIndex];
 
     const timeout =
-      getRequestTimeout(deadlineTime);
+      getRequestTimeout(
+        deadlineTime
+      );
 
     if (timeout <= 0) {
       lastErrorMsg = "Timeout";
@@ -930,15 +1561,19 @@ async function fetchRemoteInfo(
     );
 
     try {
-      const resp = await ctx.http.get(
-        requestUrl,
-        {
-          headers: strategy.ua,
-          timeout,
-        }
-      );
+      const resp =
+        await ctx.http.get(
+          requestUrl,
+          {
+            headers: strategy.ua,
+            timeout,
+            credentials: "omit",
+          }
+        );
 
-      const status = Number(resp.status);
+      const status = Number(
+        resp.status
+      );
 
       const userInfoHeader =
         resp.headers.get(
@@ -949,9 +1584,12 @@ async function fetchRemoteInfo(
 
       if (
         Number.isFinite(status) &&
-        (status < 200 || status >= 300)
+        (status < 200 ||
+          status >= 300)
       ) {
-        lastErrorMsg = `HTTP ${status}`;
+        lastErrorMsg =
+          `HTTP ${status}`;
+
         continue;
       }
 
@@ -961,13 +1599,18 @@ async function fetchRemoteInfo(
 
       if (
         info &&
-        Number.isFinite(info.total) &&
+        Number.isFinite(
+          info.total
+        ) &&
         info.total > 0
       ) {
         return {
           ok: true,
           strategyIndex,
-          data: buildSuccessResult(info),
+          data:
+            buildSuccessResult(
+              info
+            ),
         };
       }
 
@@ -1011,14 +1654,36 @@ function getStrategyIndexes(
   return indexes;
 }
 
-function normalizeStrategyIndex(value) {
+function normalizeStrategyIndex(
+  value
+) {
+  if (value == null) {
+    return null;
+  }
+
+  if (
+    typeof value !== "number" &&
+    typeof value !== "string"
+  ) {
+    return null;
+  }
+
+  if (
+    typeof value === "string" &&
+    !value.trim()
+  ) {
+    return null;
+  }
+
   const index = Number(value);
 
-  return Number.isInteger(index) &&
+  return (
+    Number.isInteger(index) &&
     index >= 0 &&
     index < STRATEGIES.length
-    ? index
-    : null;
+      ? index
+      : null
+  );
 }
 
 function cancelResponseBody(resp) {
@@ -1027,13 +1692,15 @@ function cancelResponseBody(resp) {
 
     if (
       body &&
-      typeof body.cancel === "function"
+      typeof body.cancel ===
+        "function"
     ) {
       const result = body.cancel();
 
       if (
         result &&
-        typeof result.catch === "function"
+        typeof result.catch ===
+          "function"
       ) {
         result.catch(() => {});
       }
@@ -1041,12 +1708,17 @@ function cancelResponseBody(resp) {
   } catch (e) {}
 }
 
-function getRequestTimeout(deadlineTime) {
+function getRequestTimeout(
+  deadlineTime
+) {
   const remaining =
-    deadlineTime - Date.now() - 100;
+    deadlineTime -
+    Date.now() -
+    100;
 
   if (
-    remaining < MIN_REQUEST_TIMEOUT_MS
+    remaining <
+    MIN_REQUEST_TIMEOUT_MS
   ) {
     return 0;
   }
@@ -1095,10 +1767,13 @@ function buildSuccessResult(info) {
     totalBytes,
     percent:
       totalBytes > 0
-        ? (used / totalBytes) * 100
+        ? (used / totalBytes) *
+          100
         : 0,
     expire:
-      Number.isFinite(info.expire) &&
+      Number.isFinite(
+        info.expire
+      ) &&
       info.expire > 0
         ? info.expire
         : null,
@@ -1150,8 +1825,10 @@ function buildCard(
       direction: "row",
       alignItems: "center",
       gap: 6,
-      padding: layout.cardPadding,
-      backgroundColor: COLORS.errorBg,
+      padding:
+        layout.cardPadding,
+      backgroundColor:
+        COLORS.errorBg,
       borderRadius: 8,
       children: [
         {
@@ -1160,7 +1837,8 @@ function buildCard(
             "sf-symbol:exclamationmark.circle.fill",
           width: 12,
           height: 12,
-          color: COLORS.accentRed,
+          color:
+            COLORS.accentRed,
         },
         {
           type: "text",
@@ -1169,7 +1847,8 @@ function buildCard(
             size: "caption2",
             weight: "semibold",
           },
-          textColor: COLORS.accentRed,
+          textColor:
+            COLORS.accentRed,
           flex: 1,
           maxLines: 1,
           minScale: 0.7,
@@ -1177,12 +1856,15 @@ function buildCard(
         {
           type: "text",
           text:
-            `失败 | ${errorMsg || "异常"}`,
+            `失败 | ${
+              errorMsg || "异常"
+            }`,
           font: {
             size: "caption2",
             weight: "bold",
           },
-          textColor: COLORS.accentRed,
+          textColor:
+            COLORS.accentRed,
           maxLines: 1,
           minScale: 0.7,
         },
@@ -1201,7 +1883,8 @@ function buildCard(
     direction: "column",
     gap: layout.cardGap,
     padding: layout.cardPadding,
-    backgroundColor: CARD_BG_COLOR,
+    backgroundColor:
+      CARD_BG_COLOR,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: COLORS.divider,
@@ -1214,7 +1897,8 @@ function buildCard(
         children: [
           {
             type: "image",
-            src: "sf-symbol:circle.fill",
+            src:
+              "sf-symbol:circle.fill",
             width: 6,
             height: 6,
             color:
@@ -1223,7 +1907,8 @@ function buildCard(
           {
             type: "text",
             text:
-              displayState.displayName,
+              displayState
+                .displayName,
             font: {
               size: "caption2",
               weight: "semibold",
@@ -1238,14 +1923,16 @@ function buildCard(
             type: "text",
             text:
               `${Math.round(
-                displayState.displayPercent
+                displayState
+                  .displayPercent
               )}%`,
             font: {
               size: "caption2",
               weight: "bold",
             },
             textColor:
-              displayState.statusColor,
+              displayState
+                .statusColor,
             maxLines: 1,
           },
         ],
@@ -1253,26 +1940,30 @@ function buildCard(
       {
         type: "stack",
         direction: "row",
-        height: layout.progressHeight,
+        height:
+          layout.progressHeight,
         borderRadius: 3,
         children: [
           {
             type: "stack",
             flex: Math.max(
-              displayState.progressPercent,
+              displayState
+                .progressPercent,
               0.01
             ),
             height:
               layout.progressHeight,
             backgroundColor:
-              displayState.statusColor,
+              displayState
+                .statusColor,
             borderRadius: 3,
           },
           {
             type: "stack",
             flex: Math.max(
               100 -
-                displayState.progressPercent,
+                displayState
+                  .progressPercent,
               0.01
             ),
             height:
@@ -1306,7 +1997,8 @@ function buildCard(
                   weight: "medium",
                 },
                 textColor:
-                  COLORS.textSecondary,
+                  COLORS
+                    .textSecondary,
                 maxLines: 1,
                 minScale: 0.65,
               },
@@ -1322,15 +2014,19 @@ function buildCard(
                 {
                   type: "text",
                   text:
-                    displayState.expireText,
+                    displayState
+                      .expireText,
                   font: {
                     size: "caption2",
                     weight: "medium",
                   },
                   textColor:
-                    displayState.isExpired
-                      ? COLORS.accentRed
-                      : COLORS.textTertiary,
+                    displayState
+                      .isExpired
+                      ? COLORS
+                          .accentRed
+                      : COLORS
+                          .textTertiary,
                   maxLines: 1,
                   minScale: 0.65,
                 },
@@ -1349,15 +2045,18 @@ function buildCard(
                   `剩${formatBytes(
                     Math.max(
                       0,
-                      totalBytes - used
+                      totalBytes -
+                        used
                     )
                   )}`,
                 font: {
                   size: "caption2",
-                  weight: "semibold",
+                  weight:
+                    "semibold",
                 },
                 textColor:
-                  displayState.statusColor,
+                  displayState
+                    .statusColor,
                 maxLines: 1,
                 minScale: 0.65,
               },
@@ -1373,28 +2072,32 @@ function getCardDisplayState(
   result,
   nowTime
 ) {
-  const safePercent = Number.isFinite(
-    result.percent
-  )
-    ? result.percent
-    : 0;
+  const safePercent =
+    Number.isFinite(
+      result.percent
+    )
+      ? result.percent
+      : 0;
 
   let statusColor =
     getUsageColor(safePercent);
 
-  const expireState = getExpireState(
-    result.expire,
-    nowTime
-  );
+  const expireState =
+    getExpireState(
+      result.expire,
+      nowTime
+    );
 
   const isExpired =
     expireState.isExpired;
 
   if (isExpired) {
-    statusColor = COLORS.accentRed;
+    statusColor =
+      COLORS.accentRed;
   }
 
-  let expireText = expireState.text;
+  let expireText =
+    expireState.text;
 
   if (
     !isExpired &&
@@ -1409,20 +2112,26 @@ function getCardDisplayState(
   return {
     statusColor,
     dotColor:
-      result.isFallback || isExpired
+      result.isFallback ||
+      isExpired
         ? COLORS.accentRed
         : statusColor,
-    displayName: result.isFallback
-      ? `${result.name} · ${
-          result.cacheAgeText || "缓存"
-        }`
-      : result.name,
+    displayName:
+      result.isFallback
+        ? `${result.name} · ${
+            result.cacheAgeText ||
+            "缓存"
+          }`
+        : result.name,
     displayPercent: Math.max(
       0,
       safePercent
     ),
     progressPercent: Math.min(
-      Math.max(safePercent, 0),
+      Math.max(
+        safePercent,
+        0
+      ),
       100
     ),
     expireText,
@@ -1450,10 +2159,13 @@ function getExpireState(
   expire,
   nowTime
 ) {
-  const rawExpire = Number(expire);
+  const rawExpire =
+    Number(expire);
 
   if (
-    !Number.isFinite(rawExpire) ||
+    !Number.isFinite(
+      rawExpire
+    ) ||
     rawExpire <= 0
   ) {
     return {
@@ -1470,7 +2182,11 @@ function getExpireState(
   const d = new Date(expireMs);
   const expireTime = d.getTime();
 
-  if (!Number.isFinite(expireTime)) {
+  if (
+    !Number.isFinite(
+      expireTime
+    )
+  ) {
     return {
       text: "有效期未知",
       isExpired: false,
@@ -1490,10 +2206,9 @@ function getExpireState(
       `${String(
         d.getMonth() + 1
       ).padStart(2, "0")}-` +
-      String(d.getDate()).padStart(
-        2,
-        "0"
-      ),
+      String(
+        d.getDate()
+      ).padStart(2, "0"),
     isExpired: false,
   };
 }
@@ -1515,9 +2230,11 @@ function safeBuildCard(
     return buildCard(
       {
         name:
-          result?.name || "未知",
+          result?.name ||
+          "未知",
         error: true,
-        errorMsg: "Render Error",
+        errorMsg:
+          "Render Error",
         remainDays:
           result?.remainDays,
       },
@@ -1533,55 +2250,48 @@ function buildUrl(base, flag) {
     return base;
   }
 
-  try {
-    const u = new URL(base);
+  const hashIndex =
+    base.indexOf("#");
 
-    u.searchParams.set(
-      "flag",
+  const urlPart =
+    hashIndex >= 0
+      ? base.slice(0, hashIndex)
+      : base;
+
+  const hashPart =
+    hashIndex >= 0
+      ? base.slice(hashIndex)
+      : "";
+
+  const queryIndex =
+    urlPart.indexOf("?");
+
+  const path =
+    queryIndex >= 0
+      ? urlPart.slice(0, queryIndex)
+      : urlPart;
+
+  const query =
+    queryIndex >= 0
+      ? urlPart.slice(
+          queryIndex + 1
+        )
+      : "";
+
+  const params = query
+    .split("&")
+    .filter(isNonFlagParam);
+
+  params.push(
+    `flag=${encodeURIComponent(
       flag
-    );
+    )}`
+  );
 
-    return u.toString();
-  } catch (e) {
-    const hashIndex =
-      base.indexOf("#");
-
-    const urlPart =
-      hashIndex >= 0
-        ? base.slice(0, hashIndex)
-        : base;
-
-    const hashPart =
-      hashIndex >= 0
-        ? base.slice(hashIndex)
-        : "";
-
-    const queryIndex =
-      urlPart.indexOf("?");
-
-    const path =
-      queryIndex >= 0
-        ? urlPart.slice(0, queryIndex)
-        : urlPart;
-
-    const query =
-      queryIndex >= 0
-        ? urlPart.slice(queryIndex + 1)
-        : "";
-
-    const params = query
-      .split("&")
-      .filter(isNonFlagParam);
-
-    params.push(
-      `flag=${encodeURIComponent(flag)}`
-    );
-
-    return (
-      `${path}?${params.join("&")}` +
-      hashPart
-    );
-  }
+  return (
+    `${path}?${params.join("&")}` +
+    hashPart
+  );
 }
 
 function isNonFlagParam(param) {
@@ -1589,7 +2299,8 @@ function isNonFlagParam(param) {
     return false;
   }
 
-  const eqIndex = param.indexOf("=");
+  const eqIndex =
+    param.indexOf("=");
 
   const rawKey =
     eqIndex >= 0
@@ -1597,7 +2308,8 @@ function isNonFlagParam(param) {
       : param;
 
   if (
-    rawKey.toLowerCase() === "flag"
+    rawKey.toLowerCase() ===
+    "flag"
   ) {
     return false;
   }
@@ -1607,14 +2319,20 @@ function isNonFlagParam(param) {
     rawKey.includes("+")
   ) {
     try {
-      const key = decodeURIComponent(
-        rawKey.replace(/\+/g, "%20")
-      );
+      const decodedKey =
+        decodeURIComponent(
+          rawKey.replace(
+            /\+/g,
+            "%20"
+          )
+        );
 
       return (
-        key.toLowerCase() !== "flag"
+        decodedKey.toLowerCase() !==
+        "flag"
       );
-    } catch (e) {}
+    } catch (e) {
+    }
   }
 
   return true;
@@ -1639,14 +2357,17 @@ function parseUserInfo(header) {
 
   while (
     (match =
-      REGEX_USERINFO.exec(header)) !==
-    null
+      REGEX_USERINFO.exec(
+        header
+      )) !== null
   ) {
     const key = String(
       match[1] || ""
     ).toLowerCase();
 
-    if (!USERINFO_KEYS.has(key)) {
+    if (
+      !USERINFO_KEYS.has(key)
+    ) {
       continue;
     }
 
@@ -1687,7 +2408,9 @@ function formatBytes(bytes) {
   let displayValue =
     value >= 10 || i === 0
       ? Math.round(value)
-      : Number(value.toFixed(1));
+      : Number(
+          value.toFixed(1)
+        );
 
   if (
     displayValue >= 1024 &&
@@ -1697,7 +2420,9 @@ function formatBytes(bytes) {
     i++;
   }
 
-  return `${displayValue}${UNITS[i]}`;
+  return (
+    `${displayValue}${UNITS[i]}`
+  );
 }
 
 function formatCacheAge(ms) {
@@ -1732,7 +2457,10 @@ function formatCacheAge(ms) {
   return `缓存${days}天`;
 }
 
-function getMonthDays(year, month) {
+function getMonthDays(
+  year,
+  month
+) {
   return new Date(
     year,
     month + 1,
@@ -1753,8 +2481,11 @@ function getRemainingDays(
   const currentDate =
     now.getDate();
 
-  let targetYear = currentYear;
-  let targetMonth = currentMonth;
+  let targetYear =
+    currentYear;
+
+  let targetMonth =
+    currentMonth;
 
   let safeDay = Math.min(
     resetDay,
@@ -1795,7 +2526,9 @@ function getRemainingDays(
 
   return Math.max(
     0,
-    Math.ceil(diffMs / 86400000)
+    Math.ceil(
+      diffMs / 86400000
+    )
   );
 }
 
@@ -1804,7 +2537,8 @@ function parseResetDay(value) {
     return null;
   }
 
-  const raw = String(value).trim();
+  const raw =
+    String(value).trim();
 
   if (!raw) {
     return null;
@@ -1812,11 +2546,13 @@ function parseResetDay(value) {
 
   const num = Number(raw);
 
-  return Number.isInteger(num) &&
+  return (
+    Number.isInteger(num) &&
     num >= 1 &&
     num <= 31
-    ? num
-    : null;
+      ? num
+      : null
+  );
 }
 
 async function concurrentMap(
@@ -1849,16 +2585,21 @@ async function concurrentMap(
 
   const worker = async () => {
     while (index < items.length) {
-      const currentIndex = index++;
+      const currentIndex =
+        index++;
 
       results[currentIndex] =
-        await fn(items[currentIndex]);
+        await fn(
+          items[currentIndex]
+        );
     }
   };
 
   await Promise.all(
     Array.from(
-      { length: workerCount },
+      {
+        length: workerCount,
+      },
       worker
     )
   );
@@ -1869,7 +2610,8 @@ async function concurrentMap(
 function getCacheDescriptor(url) {
   return {
     key:
-      `${CACHE_PREFIX}_${hashString(url)}`,
+      `${CACHE_PREFIX}_` +
+      hashString(url),
     id: [
       url.length.toString(36),
       hashStringSeed(
@@ -1895,11 +2637,19 @@ function hashString(str) {
   );
 }
 
-function hashStringSeed(str, seed) {
+function hashStringSeed(
+  str,
+  seed
+) {
   let h = seed >>> 0;
 
-  for (let i = 0; i < str.length; i++) {
+  for (
+    let i = 0;
+    i < str.length;
+    i++
+  ) {
     h ^= str.charCodeAt(i);
+
     h = Math.imul(
       h,
       16777619
@@ -1907,10 +2657,22 @@ function hashStringSeed(str, seed) {
   }
 
   h ^= h >>> 16;
-  h = Math.imul(h, 2246822507);
+
+  h = Math.imul(
+    h,
+    2246822507
+  );
+
   h ^= h >>> 13;
-  h = Math.imul(h, 3266489909);
+
+  h = Math.imul(
+    h,
+    3266489909
+  );
+
   h ^= h >>> 16;
 
-  return (h >>> 0).toString(36);
+  return (
+    h >>> 0
+  ).toString(36);
 }
