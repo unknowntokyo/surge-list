@@ -121,10 +121,6 @@ const C = {
     { light: "#F4F8FF", dark: "#111827" },
     { light: "#E6F2FF", dark: "#0B0F19" }
   ],
-  bgFest: [
-    { light: "#FFFFFF", dark: "#1C1C1E" },
-    { light: "#F2F2F7", dark: "#0C0C0E" }
-  ],
   main: { light: "#1C1C1E", dark: "#FFFFFF" },
   sub: { light: "#48484A", dark: "#D1D1D6" },
   muted: { light: "#8E8E93", dark: "#8E8E93" },
@@ -148,12 +144,6 @@ const BACKGROUND_GRADIENTS = {
   weekend: {
     type: "linear",
     colors: C.bgWeekend,
-    startPoint: { x: 0, y: 0 },
-    endPoint: { x: 1, y: 1 }
-  },
-  fest: {
-    type: "linear",
-    colors: C.bgFest,
     startPoint: { x: 0, y: 0 },
     endPoint: { x: 1, y: 1 }
   }
@@ -839,9 +829,12 @@ function buildNormalizedEnv(env) {
 }
 
 function buildEnvFingerprintFromNormalized(normalizedEnv, keys) {
-  return keys
-    .map(key => `${key}=${normalizedEnv?.[key] ?? ""}`)
-    .join("|");
+  return JSON.stringify(
+    keys.map(key => [
+      key,
+      normalizedEnv?.[key] ?? ""
+    ])
+  );
 }
 
 function isValidPinnedItem(item) {
@@ -1779,25 +1772,15 @@ async function loadOfficialHolidayDaily(
     }
   }
 
-  const newCache = {
-    version: OFFICIAL_HOLIDAY_STORAGE_VERSION,
-    fingerprint: buildOfficialFingerprint(
+  const newCache =
+    normalizeOfficialCachePayload(
+      oldCache,
       mergedYears,
-      true
-    ),
-    checkedDateByYear: pruneCheckedDateByYear(
-      checkedDateByYear,
       currentYear,
       todayIso,
-      mergedYears
-    ),
-    retryAfterByYear: pruneRetryAfterByYear(
       retryAfterByYear,
-      currentYear,
-      todayIso
-    ),
-    years: mergedYears
-  };
+      checkedDateByYear
+    );
 
   try {
     if (shouldSaveOfficialCache(oldCache, newCache)) {
@@ -2832,15 +2815,7 @@ function parseCountdownUserConfig(normalizedEnv) {
 }
 
 function createLunarToSolarConverter() {
-  const lunarToSolarCache = new Map();
-
   return (y, m, d) => {
-    const cacheKey = `${y}-${m}-${d}`;
-
-    if (lunarToSolarCache.has(cacheKey)) {
-      return lunarToSolarCache.get(cacheKey);
-    }
-
     let resultDate = null;
 
     if (
@@ -2889,11 +2864,6 @@ function createLunarToSolarConverter() {
         );
       }
     }
-
-    lunarToSolarCache.set(
-      cacheKey,
-      resultDate
-    );
 
     return resultDate;
   };
@@ -3480,8 +3450,7 @@ function notifyTodayIfNeeded(
   ctx,
   notifyKey,
   notifyDate,
-  todayItems,
-  legacyNotifyKey
+  todayItems
 ) {
   if (
     typeof ctx.notify !== "function" ||
@@ -3550,48 +3519,16 @@ function notifyTodayIfNeeded(
     const currentNotifyState =
       readNotifyState(notifyKey);
 
-    let matchedNotifyState =
-      currentNotifyState;
-
     if (
-      matchedNotifyState.date !==
-        notifyDate &&
-      legacyNotifyKey &&
-      legacyNotifyKey !== notifyKey
-    ) {
-      const legacyNotifyState =
-        readNotifyState(
-          legacyNotifyKey
-        );
-
-      if (
-        legacyNotifyState.date ===
-        notifyDate
-      ) {
-        matchedNotifyState =
-          legacyNotifyState;
-
-        writeNotifyState(
-          notifyKey,
-          {
-            ...legacyNotifyState,
-            migratedAt: now
-          },
-          "[Countdown] failed to migrate notify state:"
-        );
-      }
-    }
-
-    if (
-      matchedNotifyState.date ===
+      currentNotifyState.date ===
       notifyDate
     ) {
       const failed =
-        matchedNotifyState.failed === true;
+        currentNotifyState.failed === true;
 
       const retryAfter =
         Number(
-          matchedNotifyState.retryAfter
+          currentNotifyState.retryAfter
         ) || 0;
 
       if (!failed || retryAfter > now) {
@@ -3807,14 +3744,11 @@ async function renderCountdownWidget(
 
   const BASE_CACHE_KEY =
     `${storageScope}:daily:` +
-    `v${DAILY_CACHE_SCHEMA_VERSION}`;
+    `v${DAILY_CACHE_SCHEMA_VERSION}:` +
+    dataEnvCacheSuffix;
 
   const NOTIFY_KEY =
     `${storageScope}:notify:v1`;
-
-  const LEGACY_NOTIFY_KEY =
-    `${storageScope}:notify:` +
-    dataEnvCacheSuffix;
 
   let baseDailyCacheRecordLoaded =
     false;
@@ -3969,8 +3903,7 @@ async function renderCountdownWidget(
     ctx,
     NOTIFY_KEY,
     todayIso,
-    todayItems,
-    LEGACY_NOTIFY_KEY
+    todayItems
   );
 
   const hasActiveTodayItem =
