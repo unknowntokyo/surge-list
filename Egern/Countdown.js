@@ -80,9 +80,6 @@
  *   EXCLUSIVE_DATE_1: "5/20"
  *   EXCLUSIVE_NAME_2: "纪念日"
  *   EXCLUSIVE_DATE_2: "2026/10/1"
- *
- * 🔗 作者: https://github.com/jnlaoshu/MySelf/tree/1c35eedff4e052e7dc4e9d87105e32f2490617cf/Egern/Widget
- * ⏱️ 更新时间: 2026.04.01 01:40
  * =======================================
  */
 
