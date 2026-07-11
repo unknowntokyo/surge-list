@@ -246,7 +246,8 @@ const mkIcon = (src, color, size = 13) => ({
   height: size
 });
 
-const mkSpacer = length => (length != null ? { type: "spacer", length } : { type: "spacer" });
+const mkSpacer = length =>
+  length != null ? { type: "spacer", length } : { type: "spacer" };
 
 const pad2 = n => String(n).padStart(2, "0");
 const YMD = (y, m, d) => `${y}/${pad2(m)}/${pad2(d)}`;
@@ -260,7 +261,8 @@ function getBeijingDateContext(nowMs = Date.now()) {
   const todayMs = Date.UTC(year, month - 1, day);
   const todayIso = `${year}-${pad2(month)}-${pad2(day)}`;
   const todayStr = `${year}_${month}_${day}`;
-  const nextRefreshMs = Date.UTC(year, month - 1, day + 1, 0, 1) - BJ_OFFSET_MS;
+  const nextRefreshMs =
+    Date.UTC(year, month - 1, day + 1, 0, 1) - BJ_OFFSET_MS;
 
   return {
     year,
@@ -279,7 +281,11 @@ const msToYMD = ms => {
 
   const date = new Date(ms);
 
-  return YMD(date.getUTCFullYear(), date.getUTCMonth() + 1, date.getUTCDate());
+  return YMD(
+    date.getUTCFullYear(),
+    date.getUTCMonth() + 1,
+    date.getUTCDate()
+  );
 };
 
 const DISPLAY_NAME_MAP = {
@@ -350,13 +356,16 @@ function holidayNameMatchesTokenSet(name, tokenSet) {
 function getSpecialHolidayPriority(name) {
   const names = splitHolidayNames(name);
 
-  let maxPriority = Number.isFinite(specialPriority[name]) ? specialPriority[name] : undefined;
+  let maxPriority = Number.isFinite(specialPriority[name])
+    ? specialPriority[name]
+    : undefined;
 
   for (const n of names) {
     const p = specialPriority[n];
 
     if (Number.isFinite(p)) {
-      maxPriority = maxPriority === undefined ? p : Math.max(maxPriority, p);
+      maxPriority =
+        maxPriority === undefined ? p : Math.max(maxPriority, p);
     }
   }
 
@@ -397,13 +406,16 @@ const formatPeriodStr = (label, diff, duration = 1) => {
   if (diff < 0 && total > 1) {
     const dayIndex = Math.floor(Math.abs(diff)) + 1;
 
-    return dayIndex >= total ? `${label}最后一天` : `${label}第${dayIndex}天`;
+    return dayIndex >= total
+      ? `${label}最后一天`
+      : `${label}第${dayIndex}天`;
   }
 
   return `${label} ${diff}天`;
 };
 
-const formatDisplayItem = item => formatPeriodStr(displayName(item.name), item.diff, item.duration);
+const formatDisplayItem = item =>
+  formatPeriodStr(displayName(item.name), item.diff, item.duration);
 
 const toPublicCountdownItem = item => ({
   name: item.name,
@@ -441,7 +453,11 @@ const splitTextToLines = (str, maxW) => {
 
   for (const token of tokens) {
     const tw =
-      token.length > 1 ? token.length * 1.1 : token.charCodeAt(0) > 255 ? 2 : 1.1;
+      token.length > 1
+        ? token.length * 1.1
+        : token.charCodeAt(0) > 255
+          ? 2
+          : 1.1;
 
     if (w + tw > maxW && line) {
       const cleaned = line.replace(LINE_TRIM_RE, "");
@@ -540,7 +556,13 @@ function mkUnsupportedWidget(title, textOpts = {}) {
     padding: 12,
     backgroundGradient: getBackgroundGradient("workday"),
     children: [
-      mkRow([mkIcon("exclamationmark.triangle.fill", C.red, 16), mkText(title, 14, "heavy", C.main)], 6),
+      mkRow(
+        [
+          mkIcon("exclamationmark.triangle.fill", C.red, 16),
+          mkText(title, 14, "heavy", C.main)
+        ],
+        6
+      ),
       mkSpacer(8),
       mkText("请使用桌面 Medium 小组件", 12, "medium", C.sub, textOpts)
     ]
@@ -555,32 +577,35 @@ const SOLAR_TERM_INFO = [
 
 const Lunar = {
   info: [
-    0x04bd8, 0x04ae0, 0x0a570, 0x054d5, 0x0d260, 0x0d950, 0x16554, 0x056a0,
-    0x09ad0, 0x055d2, 0x04ae0, 0x0a5b6, 0x0a4d0, 0x0d250, 0x1d255, 0x0b540,
-    0x0d6a0, 0x0ada2, 0x095b0, 0x14977, 0x04970, 0x0a4b0, 0x0b4b5, 0x06a50,
-    0x06d40, 0x1ab54, 0x02b60, 0x09570, 0x052f2, 0x04970, 0x06566, 0x0d4a0,
-    0x0ea50, 0x06e95, 0x05ad0, 0x02b60, 0x186e3, 0x092e0, 0x1c8d7, 0x0c950,
-    0x0d4a0, 0x1d8a6, 0x0b550, 0x056a0, 0x1a5b4, 0x025d0, 0x092d0, 0x0d2b2,
-    0x0a950, 0x0b557, 0x06ca0, 0x0b550, 0x15355, 0x04da0, 0x0a5b0, 0x14573,
-    0x052b0, 0x0a9a8, 0x0e950, 0x06aa0, 0x0aea6, 0x0ab50, 0x04b60, 0x0aae4,
-    0x0a570, 0x05260, 0x0f263, 0x0d950, 0x05b57, 0x056a0, 0x096d0, 0x04dd5,
-    0x04ad0, 0x0a4d0, 0x0d4d4, 0x0d250, 0x0d558, 0x0b540, 0x0b6a0, 0x195a6,
-    0x095b0, 0x049b0, 0x0a974, 0x0a4b0, 0x0b27a, 0x06a50, 0x06d40, 0x0af46,
-    0x0ab60, 0x09570, 0x04af5, 0x04970, 0x064b0, 0x074a3, 0x0ea50, 0x06b58,
-    0x05ac0, 0x0ab60, 0x096d5, 0x092e0, 0x0c960, 0x0d954, 0x0d4a0, 0x0da50,
-    0x07552, 0x056a0, 0x0abb7, 0x025d0, 0x092d0, 0x0cab5, 0x0a950, 0x0b4a0,
-    0x0baa4, 0x0ad50, 0x055d9, 0x04ba0, 0x0a5b0, 0x15176, 0x052b0, 0x0a930,
-    0x07954, 0x06aa0, 0x0ad50, 0x05b52, 0x04b60, 0x0a6e6, 0x0a4e0, 0x0d260,
-    0x0ea65, 0x0d530, 0x05aa0, 0x076a3, 0x096d0, 0x04afb, 0x04ad0, 0x0a4d0,
-    0x1d0b6, 0x0d250, 0x0d520, 0x0dd45, 0x0b5a0, 0x056d0, 0x055b2, 0x049b0,
-    0x0a577, 0x0a4b0, 0x0aa50, 0x1b255, 0x06d20, 0x0ada0, 0x14b63, 0x09370,
-    0x049f8, 0x04970, 0x064b0, 0x168a6, 0x0ea50, 0x06b20, 0x1a6c4, 0x0aae0,
-    0x092e0, 0x0d2e3, 0x0c960, 0x0d557, 0x0d4a0, 0x0da50, 0x05d55, 0x056a0,
-    0x0a6d0, 0x055d4, 0x052d0, 0x0a9b8, 0x0a950, 0x0b4a0, 0x0b6a6, 0x0ad50,
-    0x055a0, 0x0aba4, 0x0a5b0, 0x052b0, 0x0b273, 0x06930, 0x07337, 0x06aa0,
-    0x0ad50, 0x14b55, 0x04b60, 0x0a570, 0x054e4, 0x0d160, 0x0e968, 0x0d520,
-    0x0daa0, 0x16aa6, 0x056d0, 0x04ae0, 0x0a9d4, 0x0a2d0, 0x0d150, 0x0f252,
-    0x0d520
+    0x04bd8, 0x04ae0, 0x0a570, 0x054d5, 0x0d260, 0x0d950, 0x16554,
+    0x056a0, 0x09ad0, 0x055d2, 0x04ae0, 0x0a5b6, 0x0a4d0, 0x0d250,
+    0x1d255, 0x0b540, 0x0d6a0, 0x0ada2, 0x095b0, 0x14977, 0x04970,
+    0x0a4b0, 0x0b4b5, 0x06a50, 0x06d40, 0x1ab54, 0x02b60, 0x09570,
+    0x052f2, 0x04970, 0x06566, 0x0d4a0, 0x0ea50, 0x06e95, 0x05ad0,
+    0x02b60, 0x186e3, 0x092e0, 0x1c8d7, 0x0c950, 0x0d4a0, 0x1d8a6,
+    0x0b550, 0x056a0, 0x1a5b4, 0x025d0, 0x092d0, 0x0d2b2, 0x0a950,
+    0x0b557, 0x06ca0, 0x0b550, 0x15355, 0x04da0, 0x0a5b0, 0x14573,
+    0x052b0, 0x0a9a8, 0x0e950, 0x06aa0, 0x0aea6, 0x0ab50, 0x04b60,
+    0x0aae4, 0x0a570, 0x05260, 0x0f263, 0x0d950, 0x05b57, 0x056a0,
+    0x096d0, 0x04dd5, 0x04ad0, 0x0a4d0, 0x0d4d4, 0x0d250, 0x0d558,
+    0x0b540, 0x0b6a0, 0x195a6, 0x095b0, 0x049b0, 0x0a974, 0x0a4b0,
+    0x0b27a, 0x06a50, 0x06d40, 0x0af46, 0x0ab60, 0x09570, 0x04af5,
+    0x04970, 0x064b0, 0x074a3, 0x0ea50, 0x06b58, 0x05ac0, 0x0ab60,
+    0x096d5, 0x092e0, 0x0c960, 0x0d954, 0x0d4a0, 0x0da50, 0x07552,
+    0x056a0, 0x0abb7, 0x025d0, 0x092d0, 0x0cab5, 0x0a950, 0x0b4a0,
+    0x0baa4, 0x0ad50, 0x055d9, 0x04ba0, 0x0a5b0, 0x15176, 0x052b0,
+    0x0a930, 0x07954, 0x06aa0, 0x0ad50, 0x05b52, 0x04b60, 0x0a6e6,
+    0x0a4e0, 0x0d260, 0x0ea65, 0x0d530, 0x05aa0, 0x076a3, 0x096d0,
+    0x04afb, 0x04ad0, 0x0a4d0, 0x1d0b6, 0x0d250, 0x0d520, 0x0dd45,
+    0x0b5a0, 0x056d0, 0x055b2, 0x049b0, 0x0a577, 0x0a4b0, 0x0aa50,
+    0x1b255, 0x06d20, 0x0ada0, 0x14b63, 0x09370, 0x049f8, 0x04970,
+    0x064b0, 0x168a6, 0x0ea50, 0x06b20, 0x1a6c4, 0x0aae0, 0x092e0,
+    0x0d2e3, 0x0c960, 0x0d557, 0x0d4a0, 0x0da50, 0x05d55, 0x056a0,
+    0x0a6d0, 0x055d4, 0x052d0, 0x0a9b8, 0x0a950, 0x0b4a0, 0x0b6a6,
+    0x0ad50, 0x055a0, 0x0aba4, 0x0a5b0, 0x052b0, 0x0b273, 0x06930,
+    0x07337, 0x06aa0, 0x0ad50, 0x14b55, 0x04b60, 0x0a570, 0x054e4,
+    0x0d160, 0x0e968, 0x0d520, 0x0daa0, 0x16aa6, 0x056d0, 0x04ae0,
+    0x0a9d4, 0x0a2d0, 0x0d150, 0x0f252, 0x0d520
   ],
 
   term(y, n) {
@@ -601,7 +626,10 @@ const Lunar = {
       s += info & i ? 1 : 0;
     }
 
-    return s + ((info & 0xf) ? ((info & 0x10000) ? 30 : 29) : 0);
+    return (
+      s +
+      ((info & 0xf) ? ((info & 0x10000) ? 30 : 29) : 0)
+    );
   },
 
   mDays(y, m) {
@@ -615,7 +643,11 @@ const MIN_LUNAR_YEAR = 1900;
 const MAX_LUNAR_YEAR = 1900 + Lunar.info.length - 1;
 
 function isValidLunarYear(y) {
-  return Number.isInteger(y) && y >= MIN_LUNAR_YEAR && y <= MAX_LUNAR_YEAR;
+  return (
+    Number.isInteger(y) &&
+    y >= MIN_LUNAR_YEAR &&
+    y <= MAX_LUNAR_YEAR
+  );
 }
 
 let lunarCumulativeCache = {
@@ -631,8 +663,13 @@ function ensureLunarCumulative(maxYear) {
     return;
   }
 
-  for (let y = lunarCumulativeCache.maxYear + 1; y <= safeMaxYear; y++) {
-    lunarCumulativeCache.off[y - MIN_LUNAR_YEAR] = lunarCumulativeCache.nextOffset;
+  for (
+    let y = lunarCumulativeCache.maxYear + 1;
+    y <= safeMaxYear;
+    y++
+  ) {
+    lunarCumulativeCache.off[y - MIN_LUNAR_YEAR] =
+      lunarCumulativeCache.nextOffset;
     lunarCumulativeCache.nextOffset += Lunar.lDays(y);
   }
 
@@ -666,10 +703,15 @@ function sanitizeEnvStringValue(key, value) {
   if (value === undefined || value === null) return "";
 
   if (key === "PINNED_HOLIDAY") {
-    const raw = truncateByCodePoint(value, MAX_PINNED_HOLIDAY_TOTAL_LENGTH);
+    const raw = truncateByCodePoint(
+      value,
+      MAX_PINNED_HOLIDAY_TOTAL_LENGTH
+    );
 
     return splitNameList(raw)
-      .map(v => truncateByCodePoint(v, MAX_PINNED_HOLIDAY_ITEM_LENGTH))
+      .map(v =>
+        truncateByCodePoint(v, MAX_PINNED_HOLIDAY_ITEM_LENGTH)
+      )
       .filter(Boolean)
       .slice(0, MAX_PINNED_HOLIDAY_COUNT)
       .join(",");
@@ -714,11 +756,28 @@ const CACHE_BOOL_ENV_KEYS = new Set([
   "ENABLE_WEEKEND_THEME"
 ]);
 
-const BOOL_FALSE_VALUES = new Set(["false", "0", "no", "off", "disabled"]);
-const BOOL_TRUE_VALUES = new Set(["true", "1", "yes", "on", "enabled"]);
+const BOOL_FALSE_VALUES = new Set([
+  "false",
+  "0",
+  "no",
+  "off",
+  "disabled"
+]);
+
+const BOOL_TRUE_VALUES = new Set([
+  "true",
+  "1",
+  "yes",
+  "on",
+  "enabled"
+]);
 
 function parseBoolValue(value, defaultVal = true) {
-  if (value === undefined || value === null || String(value).trim() === "") {
+  if (
+    value === undefined ||
+    value === null ||
+    String(value).trim() === ""
+  ) {
     return defaultVal;
   }
 
@@ -730,7 +789,11 @@ function parseBoolValue(value, defaultVal = true) {
   return defaultVal;
 }
 
-function getBoolFromNormalizedEnv(normalizedEnv, key, defaultVal = true) {
+function getBoolFromNormalizedEnv(
+  normalizedEnv,
+  key,
+  defaultVal = true
+) {
   const value = normalizedEnv?.[key];
 
   if (value === undefined || value === "") {
@@ -743,7 +806,11 @@ function getBoolFromNormalizedEnv(normalizedEnv, key, defaultVal = true) {
   return parseBoolValue(value, defaultVal);
 }
 
-function getStrFromNormalizedEnv(normalizedEnv, key, defaultVal = "") {
+function getStrFromNormalizedEnv(
+  normalizedEnv,
+  key,
+  defaultVal = ""
+) {
   const value = normalizedEnv?.[key];
 
   if (value === undefined || value === "") {
@@ -772,7 +839,9 @@ function buildNormalizedEnv(env) {
 }
 
 function buildEnvFingerprintFromNormalized(normalizedEnv, keys) {
-  return keys.map(key => `${key}=${normalizedEnv?.[key] ?? ""}`).join("|");
+  return keys
+    .map(key => `${key}=${normalizedEnv?.[key] ?? ""}`)
+    .join("|");
 }
 
 function isValidPinnedItem(item) {
@@ -809,7 +878,7 @@ function isValidCountdownItem(item) {
   return true;
 }
 
-const OFFICIAL_HOLIDAY_STORAGE_VERSION = 2;
+const OFFICIAL_HOLIDAY_STORAGE_VERSION = 3;
 
 function parseISODateParts(date) {
   const match = String(date ?? "").match(ISO_DATE_RE);
@@ -844,7 +913,9 @@ const isoToMs = iso => {
 };
 
 function parseSlashYMDParts(raw) {
-  const match = String(raw ?? "").trim().match(ONCE_SLASH_DATE_RE);
+  const match = String(raw ?? "")
+    .trim()
+    .match(ONCE_SLASH_DATE_RE);
 
   if (!match) {
     return null;
@@ -940,14 +1011,22 @@ function shouldSaveOfficialCache(oldCache, newCache) {
   return (
     oldCache.version !== newCache.version ||
     oldFingerprint !== newFingerprint ||
-    oldCache.checkedDate !== newCache.checkedDate ||
+    !shallowObjectEqual(
+      oldCache.checkedDateByYear || {},
+      newCache.checkedDateByYear || {}
+    ) ||
     !sameSortedKeys(oldCache.years || {}, newCache.years || {}) ||
-    !shallowObjectEqual(oldCache.retryAfterByYear || {}, newCache.retryAfterByYear || {})
+    !shallowObjectEqual(
+      oldCache.retryAfterByYear || {},
+      newCache.retryAfterByYear || {}
+    )
   );
 }
 
 function uniqueFiniteNumbers(arr) {
-  return [...new Set((arr || []).map(Number))].filter(Number.isFinite);
+  return [...new Set((arr || []).map(Number))].filter(
+    Number.isFinite
+  );
 }
 
 function normalizeOfficialDay(day) {
@@ -994,7 +1073,8 @@ function normalizeOfficialDays(days) {
 
     if (!day) continue;
 
-    const key = `${day.date}|${day.name}|${day.isOffDay ? 1 : 0}`;
+    const key =
+      `${day.date}|${day.name}|${day.isOffDay ? 1 : 0}`;
 
     if (seen.has(key)) continue;
 
@@ -1018,7 +1098,9 @@ function normalizeHolidayCnYearData(data, year) {
   }
 
   if (Number(data.year) !== Number(year)) {
-    throw new Error(`official holiday year mismatch: expected ${year}, got ${data.year}`);
+    throw new Error(
+      `official holiday year mismatch: expected ${year}, got ${data.year}`
+    );
   }
 
   if (!Array.isArray(data.days)) {
@@ -1028,7 +1110,9 @@ function normalizeHolidayCnYearData(data, year) {
   const days = normalizeOfficialDays(data.days);
 
   if (days.length === 0) {
-    throw new Error(`official holiday days invalid or empty: ${year}`);
+    throw new Error(
+      `official holiday days invalid or empty: ${year}`
+    );
   }
 
   return {
@@ -1049,7 +1133,11 @@ function isNormalizedOfficialDay(day) {
 }
 
 function isNormalizedOfficialYearData(yearData) {
-  if (!yearData || typeof yearData !== "object" || !Array.isArray(yearData.days)) {
+  if (
+    !yearData ||
+    typeof yearData !== "object" ||
+    !Array.isArray(yearData.days)
+  ) {
     return false;
   }
 
@@ -1061,7 +1149,11 @@ function isNormalizedOfficialYearData(yearData) {
 }
 
 function normalizeCachedOfficialYearData(yearData) {
-  if (!yearData || typeof yearData !== "object" || !Array.isArray(yearData.days)) {
+  if (
+    !yearData ||
+    typeof yearData !== "object" ||
+    !Array.isArray(yearData.days)
+  ) {
     return null;
   }
 
@@ -1098,7 +1190,11 @@ function isTrustedOfficialCacheYears(years) {
   }
 
   for (const yearData of Object.values(years)) {
-    if (!yearData || typeof yearData !== "object" || !Array.isArray(yearData.days)) {
+    if (
+      !yearData ||
+      typeof yearData !== "object" ||
+      !Array.isArray(yearData.days)
+    ) {
       return false;
     }
 
@@ -1115,7 +1211,10 @@ function isTrustedOfficialCacheYears(years) {
         return false;
       }
 
-      if (day.ms !== undefined && !Number.isFinite(Number(day.ms))) {
+      if (
+        day.ms !== undefined &&
+        !Number.isFinite(Number(day.ms))
+      ) {
         return false;
       }
     }
@@ -1125,12 +1224,18 @@ function isTrustedOfficialCacheYears(years) {
 }
 
 function getFingerprintDays(yearData, assumeNormalized) {
-  if (!yearData || typeof yearData !== "object" || !Array.isArray(yearData.days)) {
+  if (
+    !yearData ||
+    typeof yearData !== "object" ||
+    !Array.isArray(yearData.days)
+  ) {
     return null;
   }
 
   if (!assumeNormalized) {
-    return normalizeCachedOfficialYearData(yearData)?.days || null;
+    return (
+      normalizeCachedOfficialYearData(yearData)?.days || null
+    );
   }
 
   return yearData.days.filter(
@@ -1143,7 +1248,10 @@ function getFingerprintDays(yearData, assumeNormalized) {
   );
 }
 
-function buildOfficialFingerprint(yearsData, assumeNormalized = false) {
+function buildOfficialFingerprint(
+  yearsData,
+  assumeNormalized = false
+) {
   if (!yearsData || typeof yearsData !== "object") {
     return "none";
   }
@@ -1151,14 +1259,19 @@ function buildOfficialFingerprint(yearsData, assumeNormalized = false) {
   const parts = [];
 
   for (const year of Object.keys(yearsData).sort()) {
-    const days = getFingerprintDays(yearsData[year], assumeNormalized);
+    const days = getFingerprintDays(
+      yearsData[year],
+      assumeNormalized
+    );
 
     if (!days || days.length === 0) continue;
 
     parts.push(year);
 
     for (const day of days) {
-      parts.push(`${day.date}:${day.name}:${day.isOffDay ? 1 : 0}`);
+      parts.push(
+        `${day.date}:${day.name}:${day.isOffDay ? 1 : 0}`
+      );
     }
   }
 
@@ -1167,6 +1280,35 @@ function buildOfficialFingerprint(yearsData, assumeNormalized = false) {
   }
 
   return hashString(parts.join("|"));
+}
+
+function sanitizeOfficialCheckedDateByYear(checkedDateByYear) {
+  const sanitized = {};
+
+  if (
+    !checkedDateByYear ||
+    typeof checkedDateByYear !== "object" ||
+    Array.isArray(checkedDateByYear)
+  ) {
+    return sanitized;
+  }
+
+  for (const [year, checkedDate] of Object.entries(
+    checkedDateByYear
+  )) {
+    const numericYear = Number(year);
+
+    if (
+      !Number.isInteger(numericYear) ||
+      !isValidISODate(checkedDate)
+    ) {
+      continue;
+    }
+
+    sanitized[String(numericYear)] = checkedDate;
+  }
+
+  return sanitized;
 }
 
 function normalizeOfficialCacheOnRead(cache) {
@@ -1179,11 +1321,17 @@ function normalizeOfficialCacheOnRead(cache) {
     return null;
   }
 
+  const checkedDateByYear = sanitizeOfficialCheckedDateByYear(
+    cache.checkedDateByYear
+  );
+
   if (isTrustedOfficialCacheYears(cache.years)) {
     return {
       ...cache,
+      checkedDateByYear,
       fingerprint:
-        typeof cache.fingerprint === "string" && cache.fingerprint
+        typeof cache.fingerprint === "string" &&
+        cache.fingerprint
           ? cache.fingerprint
           : buildOfficialFingerprint(cache.years, true),
       years: cache.years
@@ -1194,6 +1342,7 @@ function normalizeOfficialCacheOnRead(cache) {
 
   return {
     ...cache,
+    checkedDateByYear,
     fingerprint: buildOfficialFingerprint(years, true),
     years
   };
@@ -1205,9 +1354,14 @@ function readOfficialHolidayCache(ctx, storageKey) {
   }
 
   try {
-    return normalizeOfficialCacheOnRead(ctx.storage?.getJSON(storageKey));
+    return normalizeOfficialCacheOnRead(
+      ctx.storage?.getJSON(storageKey)
+    );
   } catch (e) {
-    warnLog("[Countdown] failed to read official holiday cache:", e);
+    warnLog(
+      "[Countdown] failed to read official holiday cache:",
+      e
+    );
   }
 
   return null;
@@ -1229,11 +1383,16 @@ function officialRequiredYears(currentYear, todayIso) {
 }
 
 function officialRequestYears(currentYear, todayIso) {
-  return uniqueFiniteNumbers(officialRequiredYears(currentYear, todayIso));
+  return uniqueFiniteNumbers(
+    officialRequiredYears(currentYear, todayIso)
+  );
 }
 
 function pruneOfficialYears(years, currentYear, todayIso) {
-  const keep = new Set(officialRequestYears(currentYear, todayIso).map(String));
+  const keep = new Set(
+    officialRequestYears(currentYear, todayIso).map(String)
+  );
+
   const pruned = {};
 
   for (const [year, data] of Object.entries(years || {})) {
@@ -1251,15 +1410,61 @@ function pruneOfficialYears(years, currentYear, todayIso) {
   return pruned;
 }
 
-function pruneRetryAfterByYear(retryAfterByYear, currentYear, todayIso) {
-  const keep = new Set(officialRequestYears(currentYear, todayIso).map(String));
+function hasOfficialYearData(yearsData, year) {
+  const days = yearsData?.[String(year)]?.days;
+
+  return Array.isArray(days) && days.length > 0;
+}
+
+function pruneCheckedDateByYear(
+  checkedDateByYear,
+  currentYear,
+  todayIso,
+  yearsData
+) {
+  const keep = new Set(
+    officialRequestYears(currentYear, todayIso).map(String)
+  );
+
+  const pruned = {};
+
+  for (const [year, checkedDate] of Object.entries(
+    checkedDateByYear || {}
+  )) {
+    if (
+      keep.has(String(year)) &&
+      isValidISODate(checkedDate) &&
+      hasOfficialYearData(yearsData, year)
+    ) {
+      pruned[String(year)] = checkedDate;
+    }
+  }
+
+  return pruned;
+}
+
+function pruneRetryAfterByYear(
+  retryAfterByYear,
+  currentYear,
+  todayIso
+) {
+  const keep = new Set(
+    officialRequestYears(currentYear, todayIso).map(String)
+  );
+
   const pruned = {};
   const now = Date.now();
 
-  for (const [year, value] of Object.entries(retryAfterByYear || {})) {
+  for (const [year, value] of Object.entries(
+    retryAfterByYear || {}
+  )) {
     const time = Number(value);
 
-    if (keep.has(year) && Number.isFinite(time) && time > now) {
+    if (
+      keep.has(year) &&
+      Number.isFinite(time) &&
+      time > now
+    ) {
       pruned[year] = time;
     }
   }
@@ -1267,64 +1472,127 @@ function pruneRetryAfterByYear(retryAfterByYear, currentYear, todayIso) {
   return pruned;
 }
 
-function hasOfficialYearData(yearsData, year) {
-  const days = yearsData?.[String(year)]?.days;
-
-  return Array.isArray(days) && days.length > 0;
-}
-
 function getMissingOfficialYears(yearsData, requestYears) {
-  return requestYears.map(String).filter(year => !hasOfficialYearData(yearsData, year));
+  return requestYears
+    .map(String)
+    .filter(year => !hasOfficialYearData(yearsData, year));
 }
 
 function getOfficialFingerprintText(cache) {
   return `official=${getOfficialFingerprintForCompare(cache)}`;
 }
 
-function getOfficialEnvFingerprint(dataEnvFingerprint, officialCache) {
-  return `${dataEnvFingerprint}|${getOfficialFingerprintText(officialCache)}`;
+function getOfficialEnvFingerprint(
+  dataEnvFingerprint,
+  officialCache
+) {
+  return `${dataEnvFingerprint}|${getOfficialFingerprintText(
+    officialCache
+  )}`;
 }
 
-function isOfficialRequiredReady(yearsData, currentYear, todayIso) {
-  return getMissingOfficialYears(
-    yearsData,
-    officialRequiredYears(currentYear, todayIso)
-  ).length === 0;
+function isOfficialRequiredReady(
+  yearsData,
+  currentYear,
+  todayIso
+) {
+  return (
+    getMissingOfficialYears(
+      yearsData,
+      officialRequiredYears(currentYear, todayIso)
+    ).length === 0
+  );
 }
 
-function isOfficialCacheFresh(cache, todayIso, currentYear) {
-  if (!cache || !isValidISODate(cache.checkedDate) || !isValidISODate(todayIso)) {
+function isOfficialYearCacheFresh(cache, todayIso, year) {
+  if (
+    !cache ||
+    !isValidISODate(todayIso) ||
+    !hasOfficialYearData(cache.years, year)
+  ) {
     return false;
   }
 
-  if (!isOfficialRequiredReady(cache.years, currentYear, todayIso)) {
+  const checkedDate =
+    cache.checkedDateByYear?.[String(year)];
+
+  if (!isValidISODate(checkedDate)) {
     return false;
   }
 
-  const age = isoToMs(todayIso) - isoToMs(cache.checkedDate);
+  const age = isoToMs(todayIso) - isoToMs(checkedDate);
 
   return age >= 0 && age < OFFICIAL_REFRESH_INTERVAL_MS;
 }
 
-function isOfficialYearRetryBlocked(cache, year, now = Date.now()) {
-  const retryAt = Number(cache?.retryAfterByYear?.[String(year)]);
+function isOfficialCacheFresh(
+  cache,
+  todayIso,
+  currentYear
+) {
+  if (
+    !cache ||
+    !isValidISODate(todayIso) ||
+    !isOfficialRequiredReady(
+      cache.years,
+      currentYear,
+      todayIso
+    )
+  ) {
+    return false;
+  }
+
+  return officialRequiredYears(
+    currentYear,
+    todayIso
+  ).every(year =>
+    isOfficialYearCacheFresh(cache, todayIso, year)
+  );
+}
+
+function isOfficialYearRetryBlocked(
+  cache,
+  year,
+  now = Date.now()
+) {
+  const retryAt = Number(
+    cache?.retryAfterByYear?.[String(year)]
+  );
 
   return Number.isFinite(retryAt) && retryAt > now;
 }
 
-function getOfficialFetchableYears(cache, years, now = Date.now()) {
-  return uniqueFiniteNumbers(years).filter(year => !isOfficialYearRetryBlocked(cache, year, now));
+function getOfficialFetchableYears(
+  cache,
+  years,
+  now = Date.now()
+) {
+  return uniqueFiniteNumbers(years).filter(
+    year => !isOfficialYearRetryBlocked(cache, year, now)
+  );
 }
 
-function normalizeOfficialCachePayload(oldCache, years, currentYear, todayIso, retryAfterByYearOverride) {
-  const checkedDate = isValidISODate(oldCache?.checkedDate) ? oldCache.checkedDate : undefined;
-
+function normalizeOfficialCachePayload(
+  oldCache,
+  years,
+  currentYear,
+  todayIso,
+  retryAfterByYearOverride,
+  checkedDateByYearOverride
+) {
   return {
     version: OFFICIAL_HOLIDAY_STORAGE_VERSION,
-    ...(checkedDate ? { checkedDate } : {}),
     fingerprint: buildOfficialFingerprint(years, true),
+    checkedDateByYear: pruneCheckedDateByYear(
+      checkedDateByYearOverride ??
+        oldCache?.checkedDateByYear,
+      currentYear,
+      todayIso,
+      years
+    ),
     retryAfterByYear: pruneRetryAfterByYear(
-      retryAfterByYearOverride ?? oldCache?.retryAfterByYear,
+      retryAfterByYearOverride ??
+        oldCache?.retryAfterByYear,
       currentYear,
       todayIso
     ),
@@ -1332,7 +1600,10 @@ function normalizeOfficialCachePayload(oldCache, years, currentYear, todayIso, r
   };
 }
 
-function normalizeHttpTimeoutMs(value, fallback = HTTP_TIMEOUT_MS) {
+function normalizeHttpTimeoutMs(
+  value,
+  fallback = HTTP_TIMEOUT_MS
+) {
   const n = Number(value);
 
   if (!Number.isFinite(n)) {
@@ -1342,13 +1613,19 @@ function normalizeHttpTimeoutMs(value, fallback = HTTP_TIMEOUT_MS) {
   return Math.max(500, Math.min(n, HTTP_TIMEOUT_MS));
 }
 
-async function fetchOfficialHolidayYear(ctx, year, timeoutMs = HTTP_TIMEOUT_MS) {
+async function fetchOfficialHolidayYear(
+  ctx,
+  year,
+  timeoutMs = HTTP_TIMEOUT_MS
+) {
   if (!ctx.http || typeof ctx.http.get !== "function") {
     throw new Error("ctx.http unavailable");
   }
 
   const requestTimeoutMs = normalizeHttpTimeoutMs(timeoutMs);
-  const url = `https://raw.githubusercontent.com/NateScarlet/holiday-cn/master/${year}.json`;
+  const url =
+    `https://raw.githubusercontent.com/` +
+    `NateScarlet/holiday-cn/master/${year}.json`;
 
   const resp = await ctx.http.get(url, {
     timeout: requestTimeoutMs,
@@ -1366,7 +1643,9 @@ async function fetchOfficialHolidayYear(ctx, year, timeoutMs = HTTP_TIMEOUT_MS) 
   }
 
   if (!resp || typeof resp.json !== "function") {
-    throw new Error("invalid Egern http response: response.json unavailable");
+    throw new Error(
+      "invalid Egern http response: response.json unavailable"
+    );
   }
 
   const data = await resp.json();
@@ -1374,26 +1653,51 @@ async function fetchOfficialHolidayYear(ctx, year, timeoutMs = HTTP_TIMEOUT_MS) 
   return normalizeHolidayCnYearData(data, year);
 }
 
-async function loadOfficialHolidayDaily(ctx, currentYear, todayIso, storageKey, options = {}) {
+async function loadOfficialHolidayDaily(
+  ctx,
+  currentYear,
+  todayIso,
+  storageKey,
+  options = {}
+) {
   if (!storageKey) {
     throw new Error("official holiday storageKey required");
   }
 
-  const { httpTimeoutMs = HTTP_TIMEOUT_MS, forceYearsToFetch = [] } = options || {};
+  const {
+    httpTimeoutMs = HTTP_TIMEOUT_MS,
+    forceYearsToFetch = []
+  } = options || {};
 
-  const hasProvidedOldCache = Object.prototype.hasOwnProperty.call(options || {}, "oldCache");
+  const hasProvidedOldCache =
+    Object.prototype.hasOwnProperty.call(
+      options || {},
+      "oldCache"
+    );
 
   const oldCache = hasProvidedOldCache
     ? options.oldCache
     : readOfficialHolidayCache(ctx, storageKey);
 
-  const requestTimeoutMs = normalizeHttpTimeoutMs(httpTimeoutMs);
+  const requestTimeoutMs =
+    normalizeHttpTimeoutMs(httpTimeoutMs);
 
   if (!ctx.http || !ctx.storage) {
     return oldCache;
   }
 
-  const mergedYears = pruneOfficialYears(oldCache?.years || {}, currentYear, todayIso);
+  const mergedYears = pruneOfficialYears(
+    oldCache?.years || {},
+    currentYear,
+    todayIso
+  );
+
+  const checkedDateByYear = pruneCheckedDateByYear(
+    oldCache?.checkedDateByYear,
+    currentYear,
+    todayIso,
+    mergedYears
+  );
 
   const retryAfterByYear = pruneRetryAfterByYear(
     oldCache?.retryAfterByYear,
@@ -1402,35 +1706,57 @@ async function loadOfficialHolidayDaily(ctx, currentYear, todayIso, storageKey, 
   );
 
   const now = Date.now();
-  const requestedYears = uniqueFiniteNumbers(forceYearsToFetch);
+  const requestedYears =
+    uniqueFiniteNumbers(forceYearsToFetch);
 
-  const yearsToFetch = getOfficialFetchableYears({ retryAfterByYear }, requestedYears, now);
+  const yearsToFetch = getOfficialFetchableYears(
+    { retryAfterByYear },
+    requestedYears,
+    now
+  );
 
   if (yearsToFetch.length === 0) {
-    const normalizedCache = normalizeOfficialCachePayload(
-      oldCache,
-      mergedYears,
-      currentYear,
-      todayIso,
-      retryAfterByYear
-    );
+    const normalizedCache =
+      normalizeOfficialCachePayload(
+        oldCache,
+        mergedYears,
+        currentYear,
+        todayIso,
+        retryAfterByYear,
+        checkedDateByYear
+      );
 
     try {
-      if (shouldSaveOfficialCache(oldCache, normalizedCache)) {
-        ctx.storage.setJSON(storageKey, normalizedCache);
+      if (
+        shouldSaveOfficialCache(
+          oldCache,
+          normalizedCache
+        )
+      ) {
+        ctx.storage.setJSON(
+          storageKey,
+          normalizedCache
+        );
       }
     } catch (e) {
-      warnLog("[Countdown] failed to save normalized official holiday cache:", e);
+      warnLog(
+        "[Countdown] failed to save normalized official holiday cache:",
+        e
+      );
     }
 
     return normalizedCache;
   }
 
   const results = await Promise.allSettled(
-    yearsToFetch.map(year => fetchOfficialHolidayYear(ctx, year, requestTimeoutMs))
+    yearsToFetch.map(year =>
+      fetchOfficialHolidayYear(
+        ctx,
+        year,
+        requestTimeoutMs
+      )
+    )
   );
-
-  const successfulFetchYearSet = new Set();
 
   for (let i = 0; i < results.length; i++) {
     const result = results[i];
@@ -1439,32 +1765,37 @@ async function loadOfficialHolidayDaily(ctx, currentYear, todayIso, storageKey, 
 
     if (result.status === "fulfilled") {
       mergedYears[key] = result.value;
+      checkedDateByYear[key] = todayIso;
       delete retryAfterByYear[key];
-      successfulFetchYearSet.add(key);
     } else {
-      retryAfterByYear[key] = now + OFFICIAL_FAILED_RETRY_INTERVAL_MS;
-      warnLog("[Countdown] failed to fetch official holiday:", key, result.reason);
+      retryAfterByYear[key] =
+        now + OFFICIAL_FAILED_RETRY_INTERVAL_MS;
+
+      warnLog(
+        "[Countdown] failed to fetch official holiday:",
+        key,
+        result.reason
+      );
     }
   }
 
-  const fetchedCurrentYear = yearsToFetch.includes(currentYear);
-
-  const previousCheckedDate = isValidISODate(oldCache?.checkedDate)
-    ? oldCache.checkedDate
-    : undefined;
-
-  const shouldUpdateCheckedDate =
-    isOfficialRequiredReady(mergedYears, currentYear, todayIso) &&
-    fetchedCurrentYear &&
-    successfulFetchYearSet.has(String(currentYear));
-
-  const checkedDate = shouldUpdateCheckedDate ? todayIso : previousCheckedDate;
-
   const newCache = {
     version: OFFICIAL_HOLIDAY_STORAGE_VERSION,
-    ...(checkedDate ? { checkedDate } : {}),
-    fingerprint: buildOfficialFingerprint(mergedYears, true),
-    retryAfterByYear: pruneRetryAfterByYear(retryAfterByYear, currentYear, todayIso),
+    fingerprint: buildOfficialFingerprint(
+      mergedYears,
+      true
+    ),
+    checkedDateByYear: pruneCheckedDateByYear(
+      checkedDateByYear,
+      currentYear,
+      todayIso,
+      mergedYears
+    ),
+    retryAfterByYear: pruneRetryAfterByYear(
+      retryAfterByYear,
+      currentYear,
+      todayIso
+    ),
     years: mergedYears
   };
 
@@ -1473,21 +1804,39 @@ async function loadOfficialHolidayDaily(ctx, currentYear, todayIso, storageKey, 
       ctx.storage.setJSON(storageKey, newCache);
     }
   } catch (e) {
-    warnLog("[Countdown] failed to save official holiday cache:", e);
+    warnLog(
+      "[Countdown] failed to save official holiday cache:",
+      e
+    );
   }
 
   return newCache;
 }
 
-async function safeLoadOfficialHolidayDaily(ctx, currentYear, todayIso, storageKey, options = {}) {
+async function safeLoadOfficialHolidayDaily(
+  ctx,
+  currentYear,
+  todayIso,
+  storageKey,
+  options = {}
+) {
   if (!storageKey) {
     return null;
   }
 
   try {
-    return await loadOfficialHolidayDaily(ctx, currentYear, todayIso, storageKey, options);
+    return await loadOfficialHolidayDaily(
+      ctx,
+      currentYear,
+      todayIso,
+      storageKey,
+      options
+    );
   } catch (e) {
-    warnLog("[Countdown] official holiday load failed, fallback to local/cache:", e);
+    warnLog(
+      "[Countdown] official holiday load failed, fallback to local/cache:",
+      e
+    );
 
     return readOfficialHolidayCache(ctx, storageKey);
   }
@@ -1499,44 +1848,69 @@ function resolveOfficialRefreshPlan({
   todayIso,
   hasCachedBaseData = false
 }) {
-  const years = officialHolidayCache?.years;
-  const now = Date.now();
-  const cacheIsFresh = isOfficialCacheFresh(officialHolidayCache, todayIso, currentYear);
-
-  const missingRequiredYears = uniqueFiniteNumbers(
-    getMissingOfficialYears(years, officialRequiredYears(currentYear, todayIso))
+  const requiredYears = uniqueFiniteNumbers(
+    officialRequiredYears(currentYear, todayIso)
   );
 
-  if (missingRequiredYears.length > 0) {
-    const blockingYearsToFetch = getOfficialFetchableYears(
+  if (
+    isOfficialCacheFresh(
       officialHolidayCache,
-      missingRequiredYears,
-      now
-    );
-
+      todayIso,
+      currentYear
+    )
+  ) {
     return {
-      blockingYearsToFetch,
-      shouldBlockRenderForOfficialRefresh: blockingYearsToFetch.length > 0
+      blockingYearsToFetch: [],
+      shouldBlockRenderForOfficialRefresh: false
     };
   }
 
-  if (!cacheIsFresh) {
-    const blockingYearsToFetch = getOfficialFetchableYears(
+  const missingRequiredYears = uniqueFiniteNumbers(
+    getMissingOfficialYears(
+      officialHolidayCache?.years,
+      requiredYears
+    )
+  );
+
+  const missingYearSet = new Set(missingRequiredYears);
+
+  const staleRequiredYears = requiredYears.filter(
+    year =>
+      !missingYearSet.has(year) &&
+      !isOfficialYearCacheFresh(
+        officialHolidayCache,
+        todayIso,
+        year
+      )
+  );
+
+  const yearsNeedingRefresh = uniqueFiniteNumbers([
+    ...missingRequiredYears,
+    ...staleRequiredYears
+  ]);
+
+  const blockingYearsToFetch =
+    getOfficialFetchableYears(
       officialHolidayCache,
-      [currentYear],
-      now
+      yearsNeedingRefresh,
+      Date.now()
     );
 
-    return {
-      blockingYearsToFetch,
-      shouldBlockRenderForOfficialRefresh:
-        blockingYearsToFetch.length > 0 && !hasCachedBaseData
-    };
-  }
+  const fetchableYearSet = new Set(
+    blockingYearsToFetch
+  );
+
+  const hasFetchableMissingYear =
+    missingRequiredYears.some(year =>
+      fetchableYearSet.has(year)
+    );
 
   return {
-    blockingYearsToFetch: [],
-    shouldBlockRenderForOfficialRefresh: false
+    blockingYearsToFetch,
+    shouldBlockRenderForOfficialRefresh:
+      hasFetchableMissingYear ||
+      (blockingYearsToFetch.length > 0 &&
+        !hasCachedBaseData)
   };
 }
 
@@ -1549,7 +1923,9 @@ function shouldRefreshOfficialBeforeRender(
     return false;
   }
 
-  const blockingYearsToFetch = Array.isArray(plan.blockingYearsToFetch)
+  const blockingYearsToFetch = Array.isArray(
+    plan.blockingYearsToFetch
+  )
     ? plan.blockingYearsToFetch
     : [];
 
@@ -1571,23 +1947,28 @@ async function refreshOfficialCache({
   officialHolidayCache,
   forceYearsToFetch
 }) {
-  const yearsToFetch = getOfficialFetchableYears(officialHolidayCache, forceYearsToFetch);
+  const yearsToFetch = getOfficialFetchableYears(
+    officialHolidayCache,
+    forceYearsToFetch
+  );
 
   if (yearsToFetch.length === 0) {
     return officialHolidayCache;
   }
 
-  const refreshedCache = await safeLoadOfficialHolidayDaily(
-    ctx,
-    currentYear,
-    todayIso,
-    officialHolidayStorageKey,
-    {
-      oldCache: officialHolidayCache,
-      httpTimeoutMs: WIDGET_OFFICIAL_HTTP_TIMEOUT_MS,
-      forceYearsToFetch: yearsToFetch
-    }
-  );
+  const refreshedCache =
+    await safeLoadOfficialHolidayDaily(
+      ctx,
+      currentYear,
+      todayIso,
+      officialHolidayStorageKey,
+      {
+        oldCache: officialHolidayCache,
+        httpTimeoutMs:
+          WIDGET_OFFICIAL_HTTP_TIMEOUT_MS,
+        forceYearsToFetch: yearsToFetch
+      }
+    );
 
   return refreshedCache || officialHolidayCache;
 }
@@ -1600,7 +1981,11 @@ async function prepareOfficialHolidayCacheForWidget({
   officialHolidayStorageKey,
   readBaseDailyCache
 }) {
-  let officialHolidayCache = readOfficialHolidayCache(ctx, officialHolidayStorageKey);
+  let officialHolidayCache =
+    readOfficialHolidayCache(
+      ctx,
+      officialHolidayStorageKey
+    );
 
   if (officialHolidayCache) {
     const prunedYears = pruneOfficialYears(
@@ -1609,62 +1994,111 @@ async function prepareOfficialHolidayCacheForWidget({
       todayIso
     );
 
-    const prunedRetryAfterByYear = pruneRetryAfterByYear(
-      officialHolidayCache.retryAfterByYear,
-      currentYear,
-      todayIso
-    );
+    const prunedCheckedDateByYear =
+      pruneCheckedDateByYear(
+        officialHolidayCache.checkedDateByYear,
+        currentYear,
+        todayIso,
+        prunedYears
+      );
+
+    const prunedRetryAfterByYear =
+      pruneRetryAfterByYear(
+        officialHolidayCache.retryAfterByYear,
+        currentYear,
+        todayIso
+      );
 
     const yearsUnchanged = sameYearDataRefs(
       officialHolidayCache.years || {},
       prunedYears
     );
+
+    const checkedDateUnchanged =
+      shallowObjectEqual(
+        officialHolidayCache.checkedDateByYear || {},
+        prunedCheckedDateByYear
+      );
+
     const retryUnchanged = shallowObjectEqual(
       officialHolidayCache.retryAfterByYear || {},
       prunedRetryAfterByYear
     );
 
-    if (yearsUnchanged && retryUnchanged) {
+    if (
+      yearsUnchanged &&
+      checkedDateUnchanged &&
+      retryUnchanged
+    ) {
       officialHolidayCache = {
         ...officialHolidayCache,
-        retryAfterByYear: prunedRetryAfterByYear,
+        checkedDateByYear:
+          prunedCheckedDateByYear,
+        retryAfterByYear:
+          prunedRetryAfterByYear,
         years: prunedYears
       };
     } else {
       const prunedOfficialHolidayCache = {
         ...officialHolidayCache,
-        fingerprint: buildOfficialFingerprint(prunedYears, true),
-        retryAfterByYear: prunedRetryAfterByYear,
+        fingerprint: buildOfficialFingerprint(
+          prunedYears,
+          true
+        ),
+        checkedDateByYear:
+          prunedCheckedDateByYear,
+        retryAfterByYear:
+          prunedRetryAfterByYear,
         years: prunedYears
       };
 
       try {
         if (
           ctx.storage &&
-          shouldSaveOfficialCache(officialHolidayCache, prunedOfficialHolidayCache)
+          shouldSaveOfficialCache(
+            officialHolidayCache,
+            prunedOfficialHolidayCache
+          )
         ) {
-          ctx.storage.setJSON(officialHolidayStorageKey, prunedOfficialHolidayCache);
+          ctx.storage.setJSON(
+            officialHolidayStorageKey,
+            prunedOfficialHolidayCache
+          );
         }
       } catch (e) {
-        warnLog("[Countdown] failed to prune official holiday cache:", e);
+        warnLog(
+          "[Countdown] failed to prune official holiday cache:",
+          e
+        );
       }
 
-      officialHolidayCache = prunedOfficialHolidayCache;
+      officialHolidayCache =
+        prunedOfficialHolidayCache;
     }
   }
 
   const readBaseByCurrentOfficialState = () => {
-    const envFingerprint = getOfficialEnvFingerprint(dataEnvFingerprint, officialHolidayCache);
+    const envFingerprint =
+      getOfficialEnvFingerprint(
+        dataEnvFingerprint,
+        officialHolidayCache
+      );
 
     return {
       envFingerprint,
-      cachedBaseData: readBaseDailyCache(envFingerprint)
+      cachedBaseData:
+        readBaseDailyCache(envFingerprint)
     };
   };
 
-  let { envFingerprint, cachedBaseData } = readBaseByCurrentOfficialState();
+  let {
+    envFingerprint,
+    cachedBaseData
+  } = readBaseByCurrentOfficialState();
 
-  const canRefreshOfficialHoliday = Boolean(ctx.http && ctx.storage);
+  const canRefreshOfficialHoliday = Boolean(
+    ctx.http && ctx.storage
+  );
 
   const plan = resolveOfficialRefreshPlan({
     officialHolidayCache,
@@ -1682,28 +2116,40 @@ async function prepareOfficialHolidayCacheForWidget({
   ) {
     const fallbackEnvFingerprint = envFingerprint;
     const fallbackCachedBaseData = cachedBaseData;
-    const oldOfficialFingerprint = getOfficialFingerprintText(officialHolidayCache);
+    const oldOfficialFingerprint =
+      getOfficialFingerprintText(
+        officialHolidayCache
+      );
 
-    officialHolidayCache = await refreshOfficialCache({
-      ctx,
-      officialHolidayStorageKey,
-      currentYear,
-      todayIso,
-      officialHolidayCache,
-      forceYearsToFetch: plan.blockingYearsToFetch
-    });
+    officialHolidayCache =
+      await refreshOfficialCache({
+        ctx,
+        officialHolidayStorageKey,
+        currentYear,
+        todayIso,
+        officialHolidayCache,
+        forceYearsToFetch:
+          plan.blockingYearsToFetch
+      });
 
-    ({ envFingerprint, cachedBaseData } = readBaseByCurrentOfficialState());
+    ({
+      envFingerprint,
+      cachedBaseData
+    } = readBaseByCurrentOfficialState());
 
     if (
       !cachedBaseData &&
       fallbackCachedBaseData &&
-      getOfficialFingerprintText(officialHolidayCache) === oldOfficialFingerprint
+      getOfficialFingerprintText(
+        officialHolidayCache
+      ) === oldOfficialFingerprint
     ) {
       return {
         officialHolidayCache,
-        envFingerprint: fallbackEnvFingerprint,
-        cachedBaseData: fallbackCachedBaseData
+        envFingerprint:
+          fallbackEnvFingerprint,
+        cachedBaseData:
+          fallbackCachedBaseData
       };
     }
 
@@ -1723,24 +2169,43 @@ async function prepareOfficialHolidayCacheForWidget({
 
 function isValidOfficialRange(range) {
   if (!range || typeof range !== "object") return false;
-  if (typeof range.name !== "string" || !range.name.trim()) return false;
+  if (
+    typeof range.name !== "string" ||
+    !range.name.trim()
+  ) {
+    return false;
+  }
+
   if (!isValidISODate(range.start)) return false;
 
   const duration = Number(range.duration);
 
-  if (!Number.isInteger(duration) || duration < 1 || duration > 30) {
+  if (
+    !Number.isInteger(duration) ||
+    duration < 1 ||
+    duration > 30
+  ) {
     return false;
   }
 
-  if (range.end !== undefined && !isValidISODate(range.end)) {
+  if (
+    range.end !== undefined &&
+    !isValidISODate(range.end)
+  ) {
     return false;
   }
 
-  if (range.startMs !== undefined && !Number.isFinite(Number(range.startMs))) {
+  if (
+    range.startMs !== undefined &&
+    !Number.isFinite(Number(range.startMs))
+  ) {
     return false;
   }
 
-  if (range.endMs !== undefined && !Number.isFinite(Number(range.endMs))) {
+  if (
+    range.endMs !== undefined &&
+    !Number.isFinite(Number(range.endMs))
+  ) {
     return false;
   }
 
@@ -1758,7 +2223,9 @@ function isValidOfficialRange(range) {
 function parseSlashDateSpec(raw) {
   const s = String(raw ?? "").trim();
 
-  const annualMatch = s.match(ANNUAL_SLASH_DATE_RE);
+  const annualMatch = s.match(
+    ANNUAL_SLASH_DATE_RE
+  );
 
   if (annualMatch) {
     return {
@@ -1790,22 +2257,34 @@ function slashYMDToMs(dateStr) {
 
 function officialRangeOverlapsYear(range, year) {
   const duration = Number(range.duration);
-  const startMs = Number.isFinite(Number(range.startMs))
+
+  const startMs = Number.isFinite(
+    Number(range.startMs)
+  )
     ? Number(range.startMs)
     : isoToMs(range.start);
 
-  if (!Number.isFinite(startMs) || !Number.isInteger(duration) || duration < 1) {
+  if (
+    !Number.isFinite(startMs) ||
+    !Number.isInteger(duration) ||
+    duration < 1
+  ) {
     return false;
   }
 
-  const endMs = Number.isFinite(Number(range.endMs))
+  const endMs = Number.isFinite(
+    Number(range.endMs)
+  )
     ? Number(range.endMs)
     : startMs + (duration - 1) * DAY_MS;
 
   const yearStartMs = Date.UTC(year, 0, 1);
   const yearEndMs = Date.UTC(year, 11, 31);
 
-  return startMs <= yearEndMs && endMs >= yearStartMs;
+  return (
+    startMs <= yearEndMs &&
+    endMs >= yearStartMs
+  );
 }
 
 function getOfficialDayMs(day) {
@@ -1818,7 +2297,9 @@ function getOfficialDayMs(day) {
   return isoToMs(day?.date);
 }
 
-function buildOfficialHolidayRangesFromNormalizedDays(days) {
+function buildOfficialHolidayRangesFromNormalizedDays(
+  days
+) {
   if (!Array.isArray(days) || days.length === 0) {
     return [];
   }
@@ -1857,11 +2338,19 @@ function buildOfficialHolidayRangesFromNormalizedDays(days) {
   for (const day of offDays) {
     const last = groups[groups.length - 1];
 
-    if (last && last.name === day.name && day.ms - last.endMs === DAY_MS) {
+    if (
+      last &&
+      last.name === day.name &&
+      day.ms - last.endMs === DAY_MS
+    ) {
       last.end = day.date;
       last.endMs = day.ms;
       last.duration += 1;
-    } else if (!last || last.name !== day.name || last.endMs !== day.ms) {
+    } else if (
+      !last ||
+      last.name !== day.name ||
+      last.endMs !== day.ms
+    ) {
       groups.push({
         name: day.name,
         start: day.date,
@@ -1884,7 +2373,9 @@ function buildOfficialHolidayRangesFromNormalizedDays(days) {
   }));
 }
 
-function buildOfficialHolidayRangeCache(officialHolidayCache) {
+function buildOfficialHolidayRangeCache(
+  officialHolidayCache
+) {
   const years = officialHolidayCache?.years;
 
   if (!years || typeof years !== "object") {
@@ -1894,39 +2385,72 @@ function buildOfficialHolidayRangeCache(officialHolidayCache) {
   const allDays = [];
 
   for (const yearData of Object.values(years)) {
-    if (!yearData || !Array.isArray(yearData.days)) continue;
+    if (
+      !yearData ||
+      !Array.isArray(yearData.days)
+    ) {
+      continue;
+    }
 
     for (const day of yearData.days) {
       allDays.push(day);
     }
   }
 
-  return buildOfficialHolidayRangesFromNormalizedDays(allDays);
+  return buildOfficialHolidayRangesFromNormalizedDays(
+    allDays
+  );
 }
 
-function getOfficialLegalHolidaysFromRanges(officialRanges, year) {
-  if (!Array.isArray(officialRanges) || officialRanges.length === 0) {
+function getOfficialLegalHolidaysFromRanges(
+  officialRanges,
+  year
+) {
+  if (
+    !Array.isArray(officialRanges) ||
+    officialRanges.length === 0
+  ) {
     return null;
   }
 
   const rows = officialRanges
-    .filter(range => isValidOfficialRange(range) && officialRangeOverlapsYear(range, year))
+    .filter(
+      range =>
+        isValidOfficialRange(range) &&
+        officialRangeOverlapsYear(range, year)
+    )
     .map(range => {
-      const startMs = Number.isFinite(Number(range.startMs))
+      const startMs = Number.isFinite(
+        Number(range.startMs)
+      )
         ? Number(range.startMs)
         : isoToMs(range.start);
 
-      const ymd = range.startYMD || msToYMD(startMs);
+      const ymd =
+        range.startYMD || msToYMD(startMs);
 
-      return [range.name.trim(), ymd, Number(range.duration), "official", startMs];
+      return [
+        range.name.trim(),
+        ymd,
+        Number(range.duration),
+        "official",
+        startMs
+      ];
     })
     .filter(row => row[1]);
 
   return rows.length > 0 ? rows : null;
 }
 
-function officialRowDistanceToFallback(row, fallbackMs) {
-  const startMs = Number.isFinite(Number(row?.[4])) ? Number(row[4]) : slashYMDToMs(row?.[1]);
+function officialRowDistanceToFallback(
+  row,
+  fallbackMs
+) {
+  const startMs = Number.isFinite(
+    Number(row?.[4])
+  )
+    ? Number(row[4])
+    : slashYMDToMs(row?.[1]);
 
   const duration = Number(row?.[2]) || 1;
 
@@ -1938,13 +2462,21 @@ function officialRowDistanceToFallback(row, fallbackMs) {
     return 0;
   }
 
-  const endMs = startMs + (Math.max(1, duration) - 1) * DAY_MS;
+  const endMs =
+    startMs +
+    (Math.max(1, duration) - 1) * DAY_MS;
 
-  if (fallbackMs >= startMs && fallbackMs <= endMs) {
+  if (
+    fallbackMs >= startMs &&
+    fallbackMs <= endMs
+  ) {
     return 0;
   }
 
-  return Math.min(Math.abs(fallbackMs - startMs), Math.abs(fallbackMs - endMs));
+  return Math.min(
+    Math.abs(fallbackMs - startMs),
+    Math.abs(fallbackMs - endMs)
+  );
 }
 
 function toHolidayRowMeta(row) {
@@ -1966,11 +2498,16 @@ function toHolidayRowMeta(row) {
     name,
     parts,
     partSet: new Set(parts),
-    startMs: Number.isFinite(startMsFromRow) ? startMsFromRow : slashYMDToMs(row[1])
+    startMs: Number.isFinite(startMsFromRow)
+      ? startMsFromRow
+      : slashYMDToMs(row[1])
   };
 }
 
-function buildHolidayRowMetas(rows, keepInvalid = false) {
+function buildHolidayRowMetas(
+  rows,
+  keepInvalid = false
+) {
   if (!Array.isArray(rows)) {
     return [];
   }
@@ -1996,7 +2533,11 @@ function buildHolidayRowMetas(rows, keepInvalid = false) {
   return metas;
 }
 
-function findBestOfficialMatchIndex(officialRows, usedOfficialIndexes, fallback) {
+function findBestOfficialMatchIndex(
+  officialRows,
+  usedOfficialIndexes,
+  fallback
+) {
   let bestIndex = -1;
   let bestDistance = Infinity;
 
@@ -2005,11 +2546,20 @@ function findBestOfficialMatchIndex(officialRows, usedOfficialIndexes, fallback)
 
     const official = officialRows[i];
 
-    if (!partsIntersect(official.parts, fallback.partSet)) {
+    if (
+      !partsIntersect(
+        official.parts,
+        fallback.partSet
+      )
+    ) {
       continue;
     }
 
-    const distance = officialRowDistanceToFallback(official.row, fallback.startMs);
+    const distance =
+      officialRowDistanceToFallback(
+        official.row,
+        fallback.startMs
+      );
 
     if (distance < bestDistance) {
       bestDistance = distance;
@@ -2020,22 +2570,35 @@ function findBestOfficialMatchIndex(officialRows, usedOfficialIndexes, fallback)
   return bestIndex;
 }
 
-function mergeLegalHolidays(fallbackLegal, officialLegal) {
+function mergeLegalHolidays(
+  fallbackLegal,
+  officialLegal
+) {
   if (!Array.isArray(fallbackLegal)) {
-    return Array.isArray(officialLegal) ? [...officialLegal] : [];
+    return Array.isArray(officialLegal)
+      ? [...officialLegal]
+      : [];
   }
 
-  if (!Array.isArray(officialLegal) || officialLegal.length === 0) {
+  if (
+    !Array.isArray(officialLegal) ||
+    officialLegal.length === 0
+  ) {
     return [...fallbackLegal];
   }
 
-  const officialRows = buildHolidayRowMetas(officialLegal);
+  const officialRows =
+    buildHolidayRowMetas(officialLegal);
 
   if (officialRows.length === 0) {
     return [...fallbackLegal];
   }
 
-  const fallbackRows = buildHolidayRowMetas(fallbackLegal, true);
+  const fallbackRows = buildHolidayRowMetas(
+    fallbackLegal,
+    true
+  );
+
   const merged = [];
   const usedOfficialIndexes = new Set();
   const coveredFallbackTokens = new Set();
@@ -2053,7 +2616,12 @@ function mergeLegalHolidays(fallbackLegal, officialLegal) {
       continue;
     }
 
-    if (holidayNameMatchesTokenSet(fallback.name, coveredFallbackTokens)) {
+    if (
+      holidayNameMatchesTokenSet(
+        fallback.name,
+        coveredFallbackTokens
+      )
+    ) {
       continue;
     }
 
@@ -2081,7 +2649,12 @@ function mergeLegalHolidays(fallbackLegal, officialLegal) {
   for (let i = 0; i < officialRows.length; i++) {
     if (usedOfficialIndexes.has(i)) continue;
 
-    if (!partsIntersect(officialRows[i].parts, fallbackTokenSet)) {
+    if (
+      !partsIntersect(
+        officialRows[i].parts,
+        fallbackTokenSet
+      )
+    ) {
       merged.push(officialRows[i].row);
     }
   }
@@ -2089,7 +2662,10 @@ function mergeLegalHolidays(fallbackLegal, officialLegal) {
   return merged;
 }
 
-function getOfficialDayInfo(officialHolidayCache, todayIso) {
+function getOfficialDayInfo(
+  officialHolidayCache,
+  todayIso
+) {
   const parts = parseISODateParts(todayIso);
 
   if (!parts) {
@@ -2102,10 +2678,16 @@ function getOfficialDayInfo(officialHolidayCache, todayIso) {
     return null;
   }
 
-  const requiredYears = officialRequiredYears(parts.y, todayIso);
+  const requiredYears = officialRequiredYears(
+    parts.y,
+    todayIso
+  );
+
   const candidateYears = [
     parts.y,
-    ...requiredYears.filter(year => year !== parts.y)
+    ...requiredYears.filter(
+      year => year !== parts.y
+    )
   ];
 
   for (const year of candidateYears) {
@@ -2131,10 +2713,18 @@ function getOfficialDayInfo(officialHolidayCache, todayIso) {
 }
 
 function isValidMonthDay(y, m, d) {
-  if (!Number.isInteger(m) || !Number.isInteger(d)) return false;
+  if (
+    !Number.isInteger(m) ||
+    !Number.isInteger(d)
+  ) {
+    return false;
+  }
+
   if (m < 1 || m > 12) return false;
 
-  const maxDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const maxDay = new Date(
+    Date.UTC(y, m, 0)
+  ).getUTCDate();
 
   return d >= 1 && d <= maxDay;
 }
@@ -2147,7 +2737,13 @@ function parseExclusiveDateSpec(raw) {
   }
 
   if (spec.type === "annual") {
-    if (!isValidMonthDay(2000, spec.month, spec.day)) {
+    if (
+      !isValidMonthDay(
+        2000,
+        spec.month,
+        spec.day
+      )
+    ) {
       return null;
     }
 
@@ -2155,11 +2751,20 @@ function parseExclusiveDateSpec(raw) {
   }
 
   if (spec.type === "once") {
-    if (spec.year < 1900 || spec.year > 9999) {
+    if (
+      spec.year < 1900 ||
+      spec.year > 9999
+    ) {
       return null;
     }
 
-    if (!isValidMonthDay(spec.year, spec.month, spec.day)) {
+    if (
+      !isValidMonthDay(
+        spec.year,
+        spec.month,
+        spec.day
+      )
+    ) {
       return null;
     }
 
@@ -2170,17 +2775,35 @@ function parseExclusiveDateSpec(raw) {
 }
 
 function parseCountdownUserConfig(normalizedEnv) {
-  const getStr = (key, defaultVal = "") => getStrFromNormalizedEnv(normalizedEnv, key, defaultVal);
+  const getStr = (key, defaultVal = "") =>
+    getStrFromNormalizedEnv(
+      normalizedEnv,
+      key,
+      defaultVal
+    );
 
   const getBool = (key, defaultVal = true) =>
-    getBoolFromNormalizedEnv(normalizedEnv, key, defaultVal);
+    getBoolFromNormalizedEnv(
+      normalizedEnv,
+      key,
+      defaultVal
+    );
 
-  const pinnedHolidays = [...new Set(splitNameList(getStr("PINNED_HOLIDAY")))];
+  const pinnedHolidays = [
+    ...new Set(
+      splitNameList(getStr("PINNED_HOLIDAY"))
+    )
+  ];
 
   const customDays = [1, 2, 3, 4, 5, 6]
     .map(i => {
-      const name = getStr(`EXCLUSIVE_NAME_${i}`);
-      const date = getStr(`EXCLUSIVE_DATE_${i}`);
+      const name = getStr(
+        `EXCLUSIVE_NAME_${i}`
+      );
+
+      const date = getStr(
+        `EXCLUSIVE_DATE_${i}`
+      );
 
       return {
         name,
@@ -2190,11 +2813,21 @@ function parseCountdownUserConfig(normalizedEnv) {
     .filter(item => item.name && item.spec);
 
   return {
-    enablePrioritySort: getBool("ENABLE_PRIORITY_SORT", true),
-    enableExclusiveWeight: getBool("ENABLE_EXCLUSIVE_WEIGHT", true),
+    enablePrioritySort: getBool(
+      "ENABLE_PRIORITY_SORT",
+      true
+    ),
+    enableExclusiveWeight: getBool(
+      "ENABLE_EXCLUSIVE_WEIGHT",
+      true
+    ),
     pinnedHolidays,
-    annualCustomDays: customDays.filter(item => item.spec.type === "annual"),
-    onceCustomDays: customDays.filter(item => item.spec.type === "once")
+    annualCustomDays: customDays.filter(
+      item => item.spec.type === "annual"
+    ),
+    onceCustomDays: customDays.filter(
+      item => item.spec.type === "once"
+    )
   };
 }
 
@@ -2210,49 +2843,97 @@ function createLunarToSolarConverter() {
 
     let resultDate = null;
 
-    if (isValidLunarYear(y) && Number.isInteger(m) && m >= 1 && m <= 12) {
+    if (
+      isValidLunarYear(y) &&
+      Number.isInteger(m) &&
+      m >= 1 &&
+      m <= 12
+    ) {
       const monthDays = Lunar.mDays(y, m);
 
-      if (Number.isInteger(d) && d >= 1 && d <= monthDays) {
+      if (
+        Number.isInteger(d) &&
+        d >= 1 &&
+        d <= monthDays
+      ) {
         ensureLunarCumulative(y);
 
-        let off = lunarCumulativeCache.off[y - MIN_LUNAR_YEAR] ?? 0;
+        let off =
+          lunarCumulativeCache.off[
+            y - MIN_LUNAR_YEAR
+          ] ?? 0;
+
         const info = Lunar.info[y - 1900];
         const leapMonth = info & 0xf;
 
         for (let i = 1; i < m; i++) {
           off += Lunar.mDays(y, i);
 
-          if (leapMonth > 0 && i === leapMonth) {
+          if (
+            leapMonth > 0 &&
+            i === leapMonth
+          ) {
             off += info & 0x10000 ? 30 : 29;
           }
         }
 
-        const date = new Date(Date.UTC(1900, 0, 31) + (off + d - 1) * DAY_MS);
+        const date = new Date(
+          Date.UTC(1900, 0, 31) +
+            (off + d - 1) * DAY_MS
+        );
 
-        resultDate = YMD(date.getUTCFullYear(), date.getUTCMonth() + 1, date.getUTCDate());
+        resultDate = YMD(
+          date.getUTCFullYear(),
+          date.getUTCMonth() + 1,
+          date.getUTCDate()
+        );
       }
     }
 
-    lunarToSolarCache.set(cacheKey, resultDate);
+    lunarToSolarCache.set(
+      cacheKey,
+      resultDate
+    );
 
     return resultDate;
   };
 }
 
-function buildYearFestivals({ year: y, annualCustomDays, l2s, officialRanges }) {
+function buildYearFestivals({
+  year: y,
+  annualCustomDays,
+  l2s,
+  officialRanges
+}) {
   const term = n => {
     if (!isValidLunarYear(y)) return null;
 
-    const bjT = new Date(Lunar.term(y, n).getTime() + BJ_OFFSET_MS);
+    const bjT = new Date(
+      Lunar.term(y, n).getTime() +
+        BJ_OFFSET_MS
+    );
 
-    return YMD(bjT.getUTCFullYear(), bjT.getUTCMonth() + 1, bjT.getUTCDate());
+    return YMD(
+      bjT.getUTCFullYear(),
+      bjT.getUTCMonth() + 1,
+      bjT.getUTCDate()
+    );
   };
 
   const wDay = (m, n, w) => {
-    const x = w - new Date(Date.UTC(y, m - 1, 1)).getUTCDay();
+    const x =
+      w -
+      new Date(
+        Date.UTC(y, m - 1, 1)
+      ).getUTCDay();
 
-    return YMD(y, m, 1 + (x < 0 ? x + 7 : x) + (n - 1) * 7);
+    return YMD(
+      y,
+      m,
+      1 +
+        (x < 0 ? x + 7 : x) +
+        (n - 1) * 7
+    );
   };
 
   const fallbackLegal = [
@@ -2265,15 +2946,29 @@ function buildYearFestivals({ year: y, annualCustomDays, l2s, officialRanges }) 
     ["国庆节", YMD(y, 10, 1), 3]
   ];
 
-  const officialLegal = getOfficialLegalHolidaysFromRanges(officialRanges, y);
+  const officialLegal =
+    getOfficialLegalHolidaysFromRanges(
+      officialRanges,
+      y
+    );
 
   return {
-    legal: mergeLegalHolidays(fallbackLegal, officialLegal),
+    legal: mergeLegalHolidays(
+      fallbackLegal,
+      officialLegal
+    ),
 
     exclusive: annualCustomDays.map(item => {
       const { month, day } = item.spec;
 
-      return [item.name, isValidMonthDay(y, month, day) ? YMD(y, month, day) : null, 1, "custom"];
+      return [
+        item.name,
+        isValidMonthDay(y, month, day)
+          ? YMD(y, month, day)
+          : null,
+        1,
+        "custom"
+      ];
     }),
 
     folk: [
@@ -2285,7 +2980,11 @@ function buildYearFestivals({ year: y, annualCustomDays, l2s, officialRanges }) 
       ["寒衣节", l2s(y, 10, 1), 1],
       ["腊八节", l2s(y, 12, 8), 1],
       ["小年", l2s(y, 12, 23), 1],
-      ["除夕", l2s(y, 12, Lunar.mDays(y, 12)), 1]
+      [
+        "除夕",
+        l2s(y, 12, Lunar.mDays(y, 12)),
+        1
+      ]
     ],
 
     intl: [
@@ -2309,18 +3008,26 @@ function compareTodayItems(a, b) {
   if (pb !== pa) return pb - pa;
   if (b.diff !== a.diff) return b.diff - a.diff;
 
-  return String(a.name).localeCompare(String(b.name));
+  return String(a.name).localeCompare(
+    String(b.name)
+  );
 }
 
-function createPriorityResolver(enablePrioritySort, enableExclusiveWeight) {
+function createPriorityResolver(
+  enablePrioritySort,
+  enableExclusiveWeight
+) {
   return (name, cat, sourceKind) => {
     if (!enablePrioritySort) return 1;
 
     if (sourceKind === "custom") {
-      return enableExclusiveWeight ? 9 : basePriority[cat] ?? 1;
+      return enableExclusiveWeight
+        ? 9
+        : basePriority[cat] ?? 1;
     }
 
-    const special = getSpecialHolidayPriority(name);
+    const special =
+      getSpecialHolidayPriority(name);
 
     return special ?? basePriority[cat] ?? 1;
   };
@@ -2334,44 +3041,80 @@ function finalizeCountdownResult({
   pinnedTokenSet,
   enablePrioritySort
 }) {
-  const todayItems = Array.from(todayItemMap.values()).sort(compareTodayItems);
+  const todayItems = Array.from(
+    todayItemMap.values()
+  ).sort(compareTodayItems);
 
-  const displayTodayItems = dedupeHolidayItemsByToken(todayItems);
+  const displayTodayItems =
+    dedupeHolidayItemsByToken(todayItems);
+
   const todayFestTokenSet = new Set();
 
   for (const item of displayTodayItems) {
-    addHolidayNameTokens(todayFestTokenSet, item.name);
+    addHolidayNameTokens(
+      todayFestTokenSet,
+      item.name
+    );
   }
 
   const result = {};
 
   for (const cat of CATEGORY_KEYS) {
-    result[cat] = Array.from(rawResult[cat].values())
+    result[cat] = Array.from(
+      rawResult[cat].values()
+    )
       .filter(i => {
-        const parts = splitHolidayNames(i.name);
+        const parts =
+          splitHolidayNames(i.name);
 
-        if (partsIntersect(parts, pinnedTokenSet)) return false;
-        if (partsIntersect(parts, todayFestTokenSet)) return false;
+        if (
+          partsIntersect(
+            parts,
+            pinnedTokenSet
+          )
+        ) {
+          return false;
+        }
+
+        if (
+          partsIntersect(
+            parts,
+            todayFestTokenSet
+          )
+        ) {
+          return false;
+        }
 
         return true;
       })
       .sort((a, b) => {
-        if (a.diff !== b.diff) return a.diff - b.diff;
+        if (a.diff !== b.diff) {
+          return a.diff - b.diff;
+        }
 
-        return enablePrioritySort ? b.priority - a.priority : 0;
+        return enablePrioritySort
+          ? b.priority - a.priority
+          : 0;
       })
       .slice(0, 7)
       .map(toPublicCountdownItem);
   }
 
   const todayNoticeText =
-    displayTodayItems.length > 0 ? formatTodayFestGroup(displayTodayItems) : "";
+    displayTodayItems.length > 0
+      ? formatTodayFestGroup(
+          displayTodayItems
+        )
+      : "";
 
   const pinnedData = pinnedHolidays
     .filter(n => {
       if (!pinnedMap.has(n)) return false;
 
-      return !partsIntersect(splitHolidayNames(n), todayFestTokenSet);
+      return !partsIntersect(
+        splitHolidayNames(n),
+        todayFestTokenSet
+      );
     })
     .map(n => ({
       name: n,
@@ -2383,7 +3126,8 @@ function finalizeCountdownResult({
     result,
     todayNoticeText,
     pinnedData,
-    todayItems: todayItems.map(toPublicCountdownItem)
+    todayItems:
+      todayItems.map(toPublicCountdownItem)
   };
 }
 
@@ -2402,17 +3146,28 @@ function createCountdownCollectionState() {
   };
 }
 
-function buildPinnedHolidayPartsMap(pinnedHolidays) {
+function buildPinnedHolidayPartsMap(
+  pinnedHolidays
+) {
   const pinnedHolidayPartsMap = new Map();
 
   for (const pinnedName of pinnedHolidays) {
-    pinnedHolidayPartsMap.set(pinnedName, new Set(splitHolidayNames(pinnedName)));
+    pinnedHolidayPartsMap.set(
+      pinnedName,
+      new Set(splitHolidayNames(pinnedName))
+    );
   }
 
   return pinnedHolidayPartsMap;
 }
 
-function addTodayCountdownItem(state, name, diff, priority, duration = 1) {
+function addTodayCountdownItem(
+  state,
+  name,
+  diff,
+  priority,
+  duration = 1
+) {
   const key = String(name);
 
   const nextItem = {
@@ -2422,38 +3177,68 @@ function addTodayCountdownItem(state, name, diff, priority, duration = 1) {
     priority: priority + 100
   };
 
-  const oldItem = state.todayItemMap.get(key);
+  const oldItem =
+    state.todayItemMap.get(key);
 
   if (
     !oldItem ||
     nextItem.priority > oldItem.priority ||
-    (nextItem.priority === oldItem.priority && nextItem.diff > oldItem.diff)
+    (nextItem.priority === oldItem.priority &&
+      nextItem.diff > oldItem.diff)
   ) {
     state.todayItemMap.set(key, nextItem);
   }
 }
 
-function updatePinnedCountdown(state, collectCtx, name, diff) {
-  const { pinnedHolidays, pinnedHolidayPartsMap } = collectCtx;
+function updatePinnedCountdown(
+  state,
+  collectCtx,
+  name,
+  diff
+) {
+  const {
+    pinnedHolidays,
+    pinnedHolidayPartsMap
+  } = collectCtx;
 
-  if (!Array.isArray(pinnedHolidays) || pinnedHolidays.length === 0) {
+  if (
+    !Array.isArray(pinnedHolidays) ||
+    pinnedHolidays.length === 0
+  ) {
     return;
   }
 
   const nameParts = splitHolidayNames(name);
 
   for (const pinnedName of pinnedHolidays) {
-    const pinnedPartSet = pinnedHolidayPartsMap.get(pinnedName);
+    const pinnedPartSet =
+      pinnedHolidayPartsMap.get(pinnedName);
 
-    if (!partsIntersect(nameParts, pinnedPartSet)) {
+    if (
+      !partsIntersect(
+        nameParts,
+        pinnedPartSet
+      )
+    ) {
       continue;
     }
 
-    const oldPinnedDiff = state.pinnedMap.get(pinnedName);
+    const oldPinnedDiff =
+      state.pinnedMap.get(pinnedName);
 
-    if (oldPinnedDiff === undefined || diff < oldPinnedDiff) {
-      state.pinnedMap.set(pinnedName, diff);
-      addHolidayNameTokens(state.pinnedTokenSet, pinnedName);
+    if (
+      oldPinnedDiff === undefined ||
+      diff < oldPinnedDiff
+    ) {
+      state.pinnedMap.set(
+        pinnedName,
+        diff
+      );
+
+      addHolidayNameTokens(
+        state.pinnedTokenSet,
+        pinnedName
+      );
     }
   }
 }
@@ -2469,26 +3254,53 @@ function addCountdownFestival(
 ) {
   if (!name || !dateStr) return;
 
-  const parseDate = collectCtx.parseSlashYMDPartsCached || parseSlashYMDParts;
+  const parseDate =
+    collectCtx.parseSlashYMDPartsCached ||
+    parseSlashYMDParts;
+
   const dateParts = parseDate(dateStr);
 
   if (!dateParts) {
     return;
   }
 
-  const diff = (dateParts.ms - collectCtx.todayMs) / DAY_MS;
-  const priority = collectCtx.getPriority(name, cat, sourceKind);
-  const safeDuration = Math.max(1, Number(duration) || 1);
+  const diff =
+    (dateParts.ms - collectCtx.todayMs) /
+    DAY_MS;
+
+  const priority = collectCtx.getPriority(
+    name,
+    cat,
+    sourceKind
+  );
+
+  const safeDuration = Math.max(
+    1,
+    Number(duration) || 1
+  );
 
   if (diff <= 0 && diff > -safeDuration) {
-    addTodayCountdownItem(state, name, diff, priority, safeDuration);
+    addTodayCountdownItem(
+      state,
+      name,
+      diff,
+      priority,
+      safeDuration
+    );
+
     return;
   }
 
   if (diff > 0) {
-    updatePinnedCountdown(state, collectCtx, name, diff);
+    updatePinnedCountdown(
+      state,
+      collectCtx,
+      name,
+      diff
+    );
 
-    const old = state.rawResult[cat].get(name);
+    const old =
+      state.rawResult[cat].get(name);
 
     if (!old || diff < old.diff) {
       state.rawResult[cat].set(name, {
@@ -2501,9 +3313,19 @@ function addCountdownFestival(
   }
 }
 
-function buildCountdownData({ normalizedEnv, officialHolidayCache, year: Y, todayMs }) {
-  const officialRanges = buildOfficialHolidayRangeCache(officialHolidayCache);
-  const userConfig = parseCountdownUserConfig(normalizedEnv);
+function buildCountdownData({
+  normalizedEnv,
+  officialHolidayCache,
+  year: Y,
+  todayMs
+}) {
+  const officialRanges =
+    buildOfficialHolidayRangeCache(
+      officialHolidayCache
+    );
+
+  const userConfig =
+    parseCountdownUserConfig(normalizedEnv);
 
   const {
     enablePrioritySort,
@@ -2513,21 +3335,45 @@ function buildCountdownData({ normalizedEnv, officialHolidayCache, year: Y, toda
     onceCustomDays
   } = userConfig;
 
-  const state = createCountdownCollectionState();
-  const pinnedHolidayPartsMap = buildPinnedHolidayPartsMap(pinnedHolidays);
-  const l2s = createLunarToSolarConverter();
-  const getPriority = createPriorityResolver(enablePrioritySort, enableExclusiveWeight);
+  const state =
+    createCountdownCollectionState();
+
+  const pinnedHolidayPartsMap =
+    buildPinnedHolidayPartsMap(
+      pinnedHolidays
+    );
+
+  const l2s =
+    createLunarToSolarConverter();
+
+  const getPriority =
+    createPriorityResolver(
+      enablePrioritySort,
+      enableExclusiveWeight
+    );
 
   const slashYmdPartsCache = new Map();
-  const parseSlashYMDPartsCached = dateStr => {
-    if (slashYmdPartsCache.has(dateStr)) {
-      return slashYmdPartsCache.get(dateStr);
-    }
 
-    const parts = parseSlashYMDParts(dateStr);
-    slashYmdPartsCache.set(dateStr, parts);
-    return parts;
-  };
+  const parseSlashYMDPartsCached =
+    dateStr => {
+      if (
+        slashYmdPartsCache.has(dateStr)
+      ) {
+        return slashYmdPartsCache.get(
+          dateStr
+        );
+      }
+
+      const parts =
+        parseSlashYMDParts(dateStr);
+
+      slashYmdPartsCache.set(
+        dateStr,
+        parts
+      );
+
+      return parts;
+    };
 
   const collectCtx = {
     todayMs,
@@ -2548,7 +3394,14 @@ function buildCountdownData({ normalizedEnv, officialHolidayCache, year: Y, toda
     });
 
     for (const cat of CATEGORY_KEYS) {
-      for (const [name, dateStr, duration = 1, sourceKind = ""] of f[cat]) {
+      for (
+        const [
+          name,
+          dateStr,
+          duration = 1,
+          sourceKind = ""
+        ] of f[cat]
+      ) {
         addCountdownFestival(
           state,
           collectCtx,
@@ -2563,7 +3416,11 @@ function buildCountdownData({ normalizedEnv, officialHolidayCache, year: Y, toda
   }
 
   for (const item of onceCustomDays) {
-    const { year, month, day } = item.spec;
+    const {
+      year,
+      month,
+      day
+    } = item.spec;
 
     addCountdownFestival(
       state,
@@ -2581,7 +3438,8 @@ function buildCountdownData({ normalizedEnv, officialHolidayCache, year: Y, toda
     todayItemMap: state.todayItemMap,
     pinnedMap: state.pinnedMap,
     pinnedHolidays,
-    pinnedTokenSet: state.pinnedTokenSet,
+    pinnedTokenSet:
+      state.pinnedTokenSet,
     enablePrioritySort
   });
 }
@@ -2591,7 +3449,11 @@ function isValidCountdownResult(result) {
     result &&
     typeof result === "object" &&
     CATEGORY_KEYS.every(
-      key => Array.isArray(result[key]) && result[key].every(isValidCountdownItem)
+      key =>
+        Array.isArray(result[key]) &&
+        result[key].every(
+          isValidCountdownItem
+        )
     )
   );
 }
@@ -2601,15 +3463,26 @@ function isValidBaseDailyPayload(payload) {
     payload &&
     typeof payload === "object" &&
     isValidCountdownResult(payload.result) &&
-    typeof payload.todayNoticeText === "string" &&
+    typeof payload.todayNoticeText ===
+      "string" &&
     Array.isArray(payload.pinnedData) &&
-    payload.pinnedData.every(isValidPinnedItem) &&
+    payload.pinnedData.every(
+      isValidPinnedItem
+    ) &&
     Array.isArray(payload.todayItems) &&
-    payload.todayItems.every(isValidCountdownItem)
+    payload.todayItems.every(
+      isValidCountdownItem
+    )
   );
 }
 
-function notifyTodayIfNeeded(ctx, notifyKey, notifyDate, todayItems, legacyNotifyKey) {
+function notifyTodayIfNeeded(
+  ctx,
+  notifyKey,
+  notifyDate,
+  todayItems,
+  legacyNotifyKey
+) {
   if (
     typeof ctx.notify !== "function" ||
     !ctx.storage ||
@@ -2623,26 +3496,35 @@ function notifyTodayIfNeeded(ctx, notifyKey, notifyDate, todayItems, legacyNotif
     if (!key) return {};
 
     try {
-      const value = ctx.storage.getJSON(key);
+      const value =
+        ctx.storage.getJSON(key);
 
-      return value && typeof value === "object" ? value : {};
+      return value &&
+        typeof value === "object"
+        ? value
+        : {};
     } catch (e) {
-      warnLog("[Countdown] failed to read notify state:", e);
+      warnLog(
+        "[Countdown] failed to read notify state:",
+        e
+      );
 
       return {};
     }
   };
 
-  const writeNotifyState = (key, value, errorMessage) => {
+  const writeNotifyState = (
+    key,
+    value,
+    errorMessage
+  ) => {
     if (!key) return false;
 
     try {
       ctx.storage.setJSON(key, value);
-
       return true;
     } catch (e) {
       warnLog(errorMessage, e);
-
       return false;
     }
   };
@@ -2651,7 +3533,9 @@ function notifyTodayIfNeeded(ctx, notifyKey, notifyDate, todayItems, legacyNotif
     const notifyNames = [
       ...new Set(
         todayItems
-          .filter(i => i && i.diff === 0)
+          .filter(
+            i => i && i.diff === 0
+          )
           .map(i => i.name)
           .filter(Boolean)
       )
@@ -2662,18 +3546,30 @@ function notifyTodayIfNeeded(ctx, notifyKey, notifyDate, todayItems, legacyNotif
     }
 
     const now = Date.now();
-    const currentNotifyState = readNotifyState(notifyKey);
-    let matchedNotifyState = currentNotifyState;
+
+    const currentNotifyState =
+      readNotifyState(notifyKey);
+
+    let matchedNotifyState =
+      currentNotifyState;
 
     if (
-      matchedNotifyState.date !== notifyDate &&
+      matchedNotifyState.date !==
+        notifyDate &&
       legacyNotifyKey &&
       legacyNotifyKey !== notifyKey
     ) {
-      const legacyNotifyState = readNotifyState(legacyNotifyKey);
+      const legacyNotifyState =
+        readNotifyState(
+          legacyNotifyKey
+        );
 
-      if (legacyNotifyState.date === notifyDate) {
-        matchedNotifyState = legacyNotifyState;
+      if (
+        legacyNotifyState.date ===
+        notifyDate
+      ) {
+        matchedNotifyState =
+          legacyNotifyState;
 
         writeNotifyState(
           notifyKey,
@@ -2686,9 +3582,17 @@ function notifyTodayIfNeeded(ctx, notifyKey, notifyDate, todayItems, legacyNotif
       }
     }
 
-    if (matchedNotifyState.date === notifyDate) {
-      const failed = matchedNotifyState.failed === true;
-      const retryAfter = Number(matchedNotifyState.retryAfter) || 0;
+    if (
+      matchedNotifyState.date ===
+      notifyDate
+    ) {
+      const failed =
+        matchedNotifyState.failed === true;
+
+      const retryAfter =
+        Number(
+          matchedNotifyState.retryAfter
+        ) || 0;
 
       if (!failed || retryAfter > now) {
         return;
@@ -2702,7 +3606,10 @@ function notifyTodayIfNeeded(ctx, notifyKey, notifyDate, todayItems, legacyNotif
         sound: true
       });
     } catch (e) {
-      warnLog("[Countdown] notify failed:", e);
+      warnLog(
+        "[Countdown] notify failed:",
+        e
+      );
 
       writeNotifyState(
         notifyKey,
@@ -2711,8 +3618,14 @@ function notifyTodayIfNeeded(ctx, notifyKey, notifyDate, todayItems, legacyNotif
           names: notifyNames,
           time: Date.now(),
           failed: true,
-          retryAfter: Date.now() + NOTIFY_FAILED_RETRY_INTERVAL_MS,
-          error: String(e?.message || e || "notify failed").slice(0, 120)
+          retryAfter:
+            Date.now() +
+            NOTIFY_FAILED_RETRY_INTERVAL_MS,
+          error: String(
+            e?.message ||
+              e ||
+              "notify failed"
+          ).slice(0, 120)
         },
         "[Countdown] failed to save notify failure state:"
       );
@@ -2731,157 +3644,292 @@ function notifyTodayIfNeeded(ctx, notifyKey, notifyDate, todayItems, legacyNotif
       "[Countdown] failed to save notify success state:"
     );
   } catch (e) {
-    warnLog("[Countdown] notify process failed:", e);
+    warnLog(
+      "[Countdown] notify process failed:",
+      e
+    );
   }
 }
 
-function buildPinnedStickyText(pinnedData, limit = TOP_PINNED_DISPLAY_LIMIT) {
-  if (!Array.isArray(pinnedData) || pinnedData.length === 0) {
+function buildPinnedStickyText(
+  pinnedData,
+  limit = TOP_PINNED_DISPLAY_LIMIT
+) {
+  if (
+    !Array.isArray(pinnedData) ||
+    pinnedData.length === 0
+  ) {
     return "";
   }
 
-  const safeLimit = Math.max(1, Number(limit) || TOP_PINNED_DISPLAY_LIMIT);
-  const validPinnedData = pinnedData.filter(isValidPinnedItem);
+  const safeLimit = Math.max(
+    1,
+    Number(limit) ||
+      TOP_PINNED_DISPLAY_LIMIT
+  );
+
+  const validPinnedData =
+    pinnedData.filter(isValidPinnedItem);
 
   if (validPinnedData.length === 0) {
     return "";
   }
 
-  const parts = validPinnedData.slice(0, safeLimit).map(p => `${p.name} ${p.diff}天`);
+  const parts = validPinnedData
+    .slice(0, safeLimit)
+    .map(
+      p => `${p.name} ${p.diff}天`
+    );
 
-  if (validPinnedData.length > safeLimit) {
+  if (
+    validPinnedData.length >
+    safeLimit
+  ) {
     parts.push("…");
   }
 
   return parts.join("·");
 }
 
-function getSupportedFamilyResult(ctx, withRefresh) {
-  const family = String(ctx.widgetFamily || "systemMedium").toLowerCase();
+function getSupportedFamilyResult(
+  ctx,
+  withRefresh
+) {
+  const family = String(
+    ctx.widgetFamily || "systemMedium"
+  ).toLowerCase();
 
   if (family.startsWith("accessory")) {
-    return withRefresh(mkUnsupportedWidget("不支持锁屏组件"));
+    return withRefresh(
+      mkUnsupportedWidget(
+        "不支持锁屏组件"
+      )
+    );
   }
 
-  if (family === "systemsmall" || family === "systemlarge") {
-    return withRefresh(mkUnsupportedWidget("仅支持 Medium 组件", { maxLines: 2 }));
+  if (
+    family === "systemsmall" ||
+    family === "systemlarge"
+  ) {
+    return withRefresh(
+      mkUnsupportedWidget(
+        "仅支持 Medium 组件",
+        { maxLines: 2 }
+      )
+    );
   }
 
-  if (family === "systemextralarge") {
-    return withRefresh(mkUnsupportedWidget("暂不支持 Extra Large", { maxLines: 2 }));
+  if (
+    family === "systemextralarge"
+  ) {
+    return withRefresh(
+      mkUnsupportedWidget(
+        "暂不支持 Extra Large",
+        { maxLines: 2 }
+      )
+    );
   }
 
   if (family !== "systemmedium") {
-    return withRefresh(mkUnsupportedWidget("仅支持 Medium 组件", { maxLines: 2 }));
+    return withRefresh(
+      mkUnsupportedWidget(
+        "仅支持 Medium 组件",
+        { maxLines: 2 }
+      )
+    );
   }
 
   return null;
 }
 
-async function renderCountdownWidget(ctx = {}) {
-  const dateCtx = getBeijingDateContext();
+async function renderCountdownWidget(
+  ctx = {}
+) {
+  const dateCtx =
+    getBeijingDateContext();
+
   const withRefresh = widget => ({
     ...widget,
-    refreshAfter: dateCtx.nextRefreshIso
+    refreshAfter:
+      dateCtx.nextRefreshIso
   });
 
-  const unsupportedWidget = getSupportedFamilyResult(ctx, withRefresh);
-  if (unsupportedWidget) return unsupportedWidget;
+  const unsupportedWidget =
+    getSupportedFamilyResult(
+      ctx,
+      withRefresh
+    );
+
+  if (unsupportedWidget) {
+    return unsupportedWidget;
+  }
 
   const env = ctx.env ?? {};
-  const normalizedEnv = buildNormalizedEnv(env);
+  const normalizedEnv =
+    buildNormalizedEnv(env);
 
-  const scriptName = String(ctx.script?.name || "countdown");
-  const storageScope = `countdown:${hashString(scriptName)}`;
-  const officialHolidayStorageKey = `${storageScope}:official_holidays:v${OFFICIAL_HOLIDAY_STORAGE_VERSION}`;
-
-  const dataEnvStorageFingerprint = buildEnvFingerprintFromNormalized(normalizedEnv, DATA_ENV_KEYS);
-
-  const dataEnvCacheSuffix = hashString(dataEnvStorageFingerprint);
-
-  const enableWeekendTheme = getBoolFromNormalizedEnv(
-    normalizedEnv,
-    "ENABLE_WEEKEND_THEME",
-    true
+  const scriptName = String(
+    ctx.script?.name || "countdown"
   );
 
-  const { year: Y, weekday: currentDay, todayMs, todayIso, todayStr } = dateCtx;
+  const storageScope =
+    `countdown:${hashString(scriptName)}`;
 
-  const BASE_CACHE_KEY = `${storageScope}:daily:v${DAILY_CACHE_SCHEMA_VERSION}`;
-  const NOTIFY_KEY = `${storageScope}:notify:v1`;
-  const LEGACY_NOTIFY_KEY = `${storageScope}:notify:${dataEnvCacheSuffix}`;
+  const officialHolidayStorageKey =
+    `${storageScope}:official_holidays:` +
+    `v${OFFICIAL_HOLIDAY_STORAGE_VERSION}`;
 
-  let baseDailyCacheRecordLoaded = false;
+  const dataEnvStorageFingerprint =
+    buildEnvFingerprintFromNormalized(
+      normalizedEnv,
+      DATA_ENV_KEYS
+    );
+
+  const dataEnvCacheSuffix =
+    hashString(
+      dataEnvStorageFingerprint
+    );
+
+  const enableWeekendTheme =
+    getBoolFromNormalizedEnv(
+      normalizedEnv,
+      "ENABLE_WEEKEND_THEME",
+      true
+    );
+
+  const {
+    year: Y,
+    weekday: currentDay,
+    todayMs,
+    todayIso,
+    todayStr
+  } = dateCtx;
+
+  const BASE_CACHE_KEY =
+    `${storageScope}:daily:` +
+    `v${DAILY_CACHE_SCHEMA_VERSION}`;
+
+  const NOTIFY_KEY =
+    `${storageScope}:notify:v1`;
+
+  const LEGACY_NOTIFY_KEY =
+    `${storageScope}:notify:` +
+    dataEnvCacheSuffix;
+
+  let baseDailyCacheRecordLoaded =
+    false;
+
   let baseDailyCacheRecord = null;
 
-  const readBaseDailyCacheRecord = () => {
-    if (baseDailyCacheRecordLoaded) {
+  const readBaseDailyCacheRecord =
+    () => {
+      if (
+        baseDailyCacheRecordLoaded
+      ) {
+        return baseDailyCacheRecord;
+      }
+
+      baseDailyCacheRecordLoaded =
+        true;
+
+      if (!ctx.storage) {
+        baseDailyCacheRecord = null;
+        return null;
+      }
+
+      try {
+        baseDailyCacheRecord =
+          ctx.storage.getJSON(
+            BASE_CACHE_KEY
+          );
+      } catch (e) {
+        warnLog(
+          "[Countdown] failed to read base daily cache:",
+          e
+        );
+
+        baseDailyCacheRecord = null;
+      }
+
       return baseDailyCacheRecord;
-    }
+    };
 
-    baseDailyCacheRecordLoaded = true;
+  const readBaseDailyCache =
+    currentEnvFingerprint => {
+      const stored =
+        readBaseDailyCacheRecord();
 
-    if (!ctx.storage) {
-      baseDailyCacheRecord = null;
+      const payload = stored?.payload;
+
+      if (
+        stored &&
+        stored.version ===
+          DAILY_CACHE_VERSION_TEXT &&
+        stored.date === todayStr &&
+        stored.envFingerprint ===
+          currentEnvFingerprint &&
+        isValidBaseDailyPayload(payload)
+      ) {
+        return payload;
+      }
+
       return null;
-    }
+    };
 
-    try {
-      baseDailyCacheRecord = ctx.storage.getJSON(BASE_CACHE_KEY);
-    } catch (e) {
-      warnLog("[Countdown] failed to read base daily cache:", e);
-      baseDailyCacheRecord = null;
-    }
-
-    return baseDailyCacheRecord;
-  };
-
-  const readBaseDailyCache = currentEnvFingerprint => {
-    const stored = readBaseDailyCacheRecord();
-    const payload = stored?.payload;
-
+  const writeBaseDailyCache = (
+    envFingerprint,
+    payload
+  ) => {
     if (
-      stored &&
-      stored.version === DAILY_CACHE_VERSION_TEXT &&
-      stored.date === todayStr &&
-      stored.envFingerprint === currentEnvFingerprint &&
-      isValidBaseDailyPayload(payload)
+      !ctx.storage ||
+      !isValidBaseDailyPayload(payload)
     ) {
-      return payload;
+      return;
     }
-
-    return null;
-  };
-
-  const writeBaseDailyCache = (envFingerprint, payload) => {
-    if (!ctx.storage || !isValidBaseDailyPayload(payload)) return;
 
     const nextRecord = {
-      version: DAILY_CACHE_VERSION_TEXT,
+      version:
+        DAILY_CACHE_VERSION_TEXT,
       date: todayStr,
       envFingerprint,
       payload
     };
 
     try {
-      ctx.storage.setJSON(BASE_CACHE_KEY, nextRecord);
+      ctx.storage.setJSON(
+        BASE_CACHE_KEY,
+        nextRecord
+      );
 
-      baseDailyCacheRecordLoaded = true;
-      baseDailyCacheRecord = nextRecord;
+      baseDailyCacheRecordLoaded =
+        true;
+
+      baseDailyCacheRecord =
+        nextRecord;
     } catch (e) {
-      warnLog("[Countdown] failed to save base daily cache:", e);
+      warnLog(
+        "[Countdown] failed to save base daily cache:",
+        e
+      );
     }
   };
 
-  const { officialHolidayCache, envFingerprint, cachedBaseData } =
-    await prepareOfficialHolidayCacheForWidget({
-      ctx,
-      currentYear: Y,
-      todayIso,
-      dataEnvFingerprint: dataEnvStorageFingerprint,
-      officialHolidayStorageKey,
-      readBaseDailyCache
-    });
+  const {
+    officialHolidayCache,
+    envFingerprint,
+    cachedBaseData
+  } =
+    await prepareOfficialHolidayCacheForWidget(
+      {
+        ctx,
+        currentYear: Y,
+        todayIso,
+        dataEnvFingerprint:
+          dataEnvStorageFingerprint,
+        officialHolidayStorageKey,
+        readBaseDailyCache
+      }
+    );
 
   let baseData = cachedBaseData;
 
@@ -2893,51 +3941,113 @@ async function renderCountdownWidget(ctx = {}) {
       todayMs
     });
 
-    writeBaseDailyCache(envFingerprint, baseData);
+    writeBaseDailyCache(
+      envFingerprint,
+      baseData
+    );
   }
 
-  const { result, todayNoticeText, pinnedData, todayItems } = baseData;
+  const {
+    result,
+    todayNoticeText,
+    pinnedData,
+    todayItems
+  } = baseData;
 
   const layoutConfig = LAYOUT_CONFIG;
-  const displayCache = buildDisplayCache(result, layoutConfig.maxW);
-  const stickyText = buildPinnedStickyText(pinnedData);
 
-  notifyTodayIfNeeded(ctx, NOTIFY_KEY, todayIso, todayItems, LEGACY_NOTIFY_KEY);
+  const displayCache =
+    buildDisplayCache(
+      result,
+      layoutConfig.maxW
+    );
 
-  const hasActiveTodayItem = Array.isArray(todayItems) && todayItems.length > 0;
+  const stickyText =
+    buildPinnedStickyText(pinnedData);
+
+  notifyTodayIfNeeded(
+    ctx,
+    NOTIFY_KEY,
+    todayIso,
+    todayItems,
+    LEGACY_NOTIFY_KEY
+  );
+
+  const hasActiveTodayItem =
+    Array.isArray(todayItems) &&
+    todayItems.length > 0;
 
   const officialTodayInfo =
-    enableWeekendTheme && !hasActiveTodayItem
-      ? getOfficialDayInfo(officialHolidayCache, todayIso)
+    enableWeekendTheme &&
+    !hasActiveTodayItem
+      ? getOfficialDayInfo(
+          officialHolidayCache,
+          todayIso
+        )
       : null;
 
-  const isOfficialOffDay = officialTodayInfo?.isOffDay === true;
-  const isOfficialAdjustedWorkday = officialTodayInfo?.isOffDay === false;
+  const isOfficialOffDay =
+    officialTodayInfo?.isOffDay === true;
+
+  const isOfficialAdjustedWorkday =
+    officialTodayInfo?.isOffDay === false;
 
   const themeKey = hasActiveTodayItem
     ? "fest"
     : enableWeekendTheme &&
         (isOfficialOffDay ||
-          (!isOfficialAdjustedWorkday && (currentDay === 0 || currentDay === 6)))
+          (!isOfficialAdjustedWorkday &&
+            (currentDay === 0 ||
+              currentDay === 6)))
       ? "weekend"
       : "workday";
 
-  const backgroundGradient = getBackgroundGradient(themeKey);
-  const gridRows = buildGridRows(displayCache, layoutConfig);
+  const backgroundGradient =
+    getBackgroundGradient(themeKey);
+
+  const gridRows = buildGridRows(
+    displayCache,
+    layoutConfig
+  );
 
   const rightHeaderElements = [];
-  const topTextOpts = { maxLines: 1, minScale: 0.75 };
+
+  const topTextOpts = {
+    maxLines: 1,
+    minScale: 0.75
+  };
 
   if (todayNoticeText) {
     rightHeaderElements.push(
-      mkIcon("sparkles", C.purple, layoutConfig.topFz),
-      mkText(todayNoticeText, layoutConfig.topFz, "bold", C.purple, topTextOpts)
+      mkIcon(
+        "sparkles",
+        C.purple,
+        layoutConfig.topFz
+      ),
+      mkText(
+        todayNoticeText,
+        layoutConfig.topFz,
+        "bold",
+        C.purple,
+        topTextOpts
+      )
     );
   } else {
     rightHeaderElements.push(
-      mkIcon("tortoise", C.blue2, Math.round(layoutConfig.topFz * 1.5)),
+      mkIcon(
+        "tortoise",
+        C.blue2,
+        Math.round(
+          layoutConfig.topFz * 1.5
+        )
+      ),
       mkText(
-        RANDOM_NOTICES[Math.floor(Math.random() * RANDOM_NOTICES.length)],
+        RANDOM_NOTICES[
+          Math.floor(
+            Math.random() *
+              RANDOM_NOTICES.length
+          )
+        ],
         layoutConfig.topFz,
         "medium",
         C.green,
@@ -2948,8 +4058,20 @@ async function renderCountdownWidget(ctx = {}) {
 
   if (stickyText) {
     rightHeaderElements.push(
-      mkText(" ｜ ", layoutConfig.topFz, "bold", C.red, { maxLines: 1 }),
-      mkText(stickyText, layoutConfig.topFz, "bold", C.red, topTextOpts)
+      mkText(
+        " ｜ ",
+        layoutConfig.topFz,
+        "bold",
+        C.red,
+        { maxLines: 1 }
+      ),
+      mkText(
+        stickyText,
+        layoutConfig.topFz,
+        "bold",
+        C.red,
+        topTextOpts
+      )
     );
   }
 
@@ -2960,15 +4082,31 @@ async function renderCountdownWidget(ctx = {}) {
     children: [
       mkRow(
         [
-          mkIcon("hourglass.circle.fill", C.main, layoutConfig.titleIcz),
-          mkText("时光倒数", layoutConfig.titleFz, "heavy", C.main),
+          mkIcon(
+            "hourglass.circle.fill",
+            C.main,
+            layoutConfig.titleIcz
+          ),
+          mkText(
+            "时光倒数",
+            layoutConfig.titleFz,
+            "heavy",
+            C.main
+          ),
           mkSpacer(),
-          mkRow(rightHeaderElements, 4)
+          mkRow(
+            rightHeaderElements,
+            4
+          )
         ],
         6
       ),
 
-      mkSpacer(gridRows.length <= 4 ? 12 : 10),
+      mkSpacer(
+        gridRows.length <= 4
+          ? 12
+          : 10
+      ),
 
       ...(gridRows.length > 0
         ? [
@@ -2976,11 +4114,21 @@ async function renderCountdownWidget(ctx = {}) {
               type: "stack",
               direction: "column",
               alignItems: "start",
-              gap: gridRows.length <= 4 ? 11 : 8,
+              gap:
+                gridRows.length <= 4
+                  ? 11
+                  : 8,
               children: gridRows
             }
           ]
-        : [mkText("近期暂无倒计时", layoutConfig.fz, "medium", C.muted)]),
+        : [
+            mkText(
+              "近期暂无倒计时",
+              layoutConfig.fz,
+              "medium",
+              C.muted
+            )
+          ]),
 
       mkSpacer()
     ]
@@ -2989,27 +4137,50 @@ async function renderCountdownWidget(ctx = {}) {
 
 export default async function (ctx = {}) {
   try {
-    return await renderCountdownWidget(ctx || {});
+    return await renderCountdownWidget(
+      ctx || {}
+    );
   } catch (e) {
-    warnLog("[Countdown] widget render failed:", e);
+    warnLog(
+      "[Countdown] widget render failed:",
+      e
+    );
 
-    const dateCtx = getBeijingDateContext();
+    const dateCtx =
+      getBeijingDateContext();
 
     return {
       type: "widget",
       padding: 12,
-      refreshAfter: dateCtx.nextRefreshIso,
-      backgroundGradient: getBackgroundGradient("workday"),
+      refreshAfter:
+        dateCtx.nextRefreshIso,
+      backgroundGradient:
+        getBackgroundGradient("workday"),
       children: [
         mkRow(
           [
-            mkIcon("exclamationmark.triangle.fill", C.red, 16),
-            mkText("时光倒数加载失败", 14, "heavy", C.main)
+            mkIcon(
+              "exclamationmark.triangle.fill",
+              C.red,
+              16
+            ),
+            mkText(
+              "时光倒数加载失败",
+              14,
+              "heavy",
+              C.main
+            )
           ],
           6
         ),
         mkSpacer(8),
-        mkText("请稍后刷新或检查脚本配置", 12, "medium", C.sub, { maxLines: 2 })
+        mkText(
+          "请稍后刷新或检查脚本配置",
+          12,
+          "medium",
+          C.sub,
+          { maxLines: 2 }
+        )
       ]
     };
   }
