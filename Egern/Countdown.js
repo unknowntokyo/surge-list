@@ -9,7 +9,7 @@
  * • 时区基准：采用 UTC+8 固定时区进行日期、倒计时和每日刷新时间计算。
  * • 自定义配置：支持通过 Egern 环境变量设置最多 6 个专属纪念日。
  * • 排序与显示：支持按倒数天数及分类优先级排序，支持指定节日跨分类置顶。
- * • 状态响应：可根据工作日、周末、法定放假日、调休工作日和当天节日状态切换背景渐变色。
+ * • 状态响应：可根据工作日、周末、法定放假日和调休工作日状态切换背景渐变色。
  * • 当天提醒：节日 / 专属日期当天弹窗提醒，每天只弹一次。
  *
  * ⚙️ 环境变量说明：
@@ -24,7 +24,7 @@
  *    专属纪念日是否提高显示权重。
  *    默认：true
  *
- * 3. ENABLE_WEEKEND_THEME
+ * 3. ENABLE_AUTO_THEME
  *    是否启用周末 / 法定放假日 / 调休工作日背景主题判断。
  *    默认：true
  *
@@ -74,7 +74,7 @@
  * env:
  *   ENABLE_PRIORITY_SORT: "true"
  *   ENABLE_EXCLUSIVE_WEIGHT: "true"
- *   ENABLE_WEEKEND_THEME: "true"
+ *   ENABLE_AUTO_THEME: "true"
  *   PINNED_HOLIDAY: "春节,国庆节,中秋节"
  *   EXCLUSIVE_NAME_1: "生日"
  *   EXCLUSIVE_DATE_1: "5/20"
@@ -736,14 +736,14 @@ const DATA_ENV_KEYS = [
   "EXCLUSIVE_DATE_6"
 ];
 
-const RENDER_ENV_KEYS = ["ENABLE_WEEKEND_THEME"];
+const RENDER_ENV_KEYS = ["ENABLE_AUTO_THEME"];
 
 const CACHE_ENV_KEYS = [...DATA_ENV_KEYS, ...RENDER_ENV_KEYS];
 
 const CACHE_BOOL_ENV_KEYS = new Set([
   "ENABLE_PRIORITY_SORT",
   "ENABLE_EXCLUSIVE_WEIGHT",
-  "ENABLE_WEEKEND_THEME"
+  "ENABLE_AUTO_THEME"
 ]);
 
 const BOOL_FALSE_VALUES = new Set([
@@ -1381,7 +1381,12 @@ function officialRequestYears(currentYear, todayIso) {
   );
 }
 
-function pruneOfficialYears(years, currentYear, todayIso) {
+function pruneOfficialYears(
+  years,
+  currentYear,
+  todayIso,
+  alreadyValidated = false
+) {
   const keep = new Set(
     officialRequestYears(currentYear, todayIso).map(String)
   );
@@ -1393,7 +1398,9 @@ function pruneOfficialYears(years, currentYear, todayIso) {
       continue;
     }
 
-    const normalized = normalizeCachedOfficialYearData(data);
+    const normalized = alreadyValidated
+      ? data
+      : normalizeCachedOfficialYearData(data);
 
     if (normalized) {
       pruned[String(year)] = normalized;
@@ -1682,7 +1689,8 @@ async function loadOfficialHolidayDaily(
   const mergedYears = pruneOfficialYears(
     oldCache?.years || {},
     currentYear,
-    todayIso
+    todayIso,
+    true
   );
 
   const checkedDateByYear = pruneCheckedDateByYear(
@@ -1899,8 +1907,7 @@ function resolveOfficialRefreshPlan({
 
 function shouldRefreshOfficialBeforeRender(
   canRefreshOfficialHoliday,
-  plan,
-  hasCachedBaseData = false
+  plan
 ) {
   if (!canRefreshOfficialHoliday || !plan) {
     return false;
@@ -1917,8 +1924,7 @@ function shouldRefreshOfficialBeforeRender(
   }
 
   return (
-    plan.shouldBlockRenderForOfficialRefresh === true ||
-    hasCachedBaseData === false
+    plan.shouldBlockRenderForOfficialRefresh === true
   );
 }
 
@@ -1974,7 +1980,8 @@ async function prepareOfficialHolidayCacheForWidget({
     const prunedYears = pruneOfficialYears(
       officialHolidayCache.years,
       currentYear,
-      todayIso
+      todayIso,
+      true
     );
 
     const prunedCheckedDateByYear =
@@ -2093,8 +2100,7 @@ async function prepareOfficialHolidayCacheForWidget({
   if (
     shouldRefreshOfficialBeforeRender(
       canRefreshOfficialHoliday,
-      plan,
-      Boolean(cachedBaseData)
+      plan
     )
   ) {
     const fallbackEnvFingerprint = envFingerprint;
@@ -3727,10 +3733,10 @@ async function renderCountdownWidget(
       dataEnvStorageFingerprint
     );
 
-  const enableWeekendTheme =
+  const enableAutoTheme =
     getBoolFromNormalizedEnv(
       normalizedEnv,
-      "ENABLE_WEEKEND_THEME",
+      "ENABLE_AUTO_THEME",
       true
     );
 
@@ -3906,13 +3912,8 @@ async function renderCountdownWidget(
     todayItems
   );
 
-  const hasActiveTodayItem =
-    Array.isArray(todayItems) &&
-    todayItems.length > 0;
-
   const officialTodayInfo =
-    enableWeekendTheme &&
-    !hasActiveTodayItem
+    enableAutoTheme
       ? getOfficialDayInfo(
           officialHolidayCache,
           todayIso
@@ -3925,13 +3926,12 @@ async function renderCountdownWidget(
   const isOfficialAdjustedWorkday =
     officialTodayInfo?.isOffDay === false;
 
-  const themeKey = hasActiveTodayItem
-    ? "fest"
-    : enableWeekendTheme &&
-        (isOfficialOffDay ||
-          (!isOfficialAdjustedWorkday &&
-            (currentDay === 0 ||
-              currentDay === 6)))
+  const themeKey =
+    enableAutoTheme &&
+    (isOfficialOffDay ||
+      (!isOfficialAdjustedWorkday &&
+        (currentDay === 0 ||
+          currentDay === 6)))
       ? "weekend"
       : "workday";
 
