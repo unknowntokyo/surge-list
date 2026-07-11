@@ -1025,6 +1025,12 @@ function normalizeHolidayCnYearData(data, year) {
     throw new Error(`official holiday days missing: ${year}`);
   }
 
+  const days = normalizeOfficialDays(data.days);
+
+  if (days.length === 0) {
+    throw new Error(`official holiday days invalid or empty: ${year}`);
+  }
+
   return {
     days
   };
