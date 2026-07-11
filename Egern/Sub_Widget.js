@@ -156,7 +156,9 @@ async function main(ctx) {
 
   const slotCacheMemo = new Map();
 
-  const allSlotStates = slots.map((slot) =>
+  const slotStates = slots
+  .slice(0, getDisplayLimit(widgetFamily))
+  .map((slot) =>
     buildSlotState(
       ctx,
       slot,
@@ -165,11 +167,6 @@ async function main(ctx) {
       slotCacheMemo,
       cacheBucketMemo
     )
-  );
-
-  const slotStates = allSlotStates.slice(
-    0,
-    getDisplayLimit(widgetFamily)
   );
 
   const maxConcurrent =
