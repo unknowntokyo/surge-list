@@ -1110,6 +1110,17 @@ function normalizeHolidayCnYearData(data, year) {
   };
 }
 
+function isOfficialDayMsConsistent(day) {
+  const dateMs = isoToMs(day?.date);
+  const cachedMs = Number(day?.ms);
+
+  return (
+    Number.isFinite(dateMs) &&
+    Number.isFinite(cachedMs) &&
+    cachedMs === dateMs
+  );
+}
+
 function isNormalizedOfficialDay(day) {
   return (
     day &&
@@ -1118,7 +1129,7 @@ function isNormalizedOfficialDay(day) {
     day.name.trim() &&
     typeof day.date === "string" &&
     typeof day.isOffDay === "boolean" &&
-    Number.isFinite(Number(day.ms))
+    isOfficialDayMsConsistent(day)
   );
 }
 
@@ -1201,10 +1212,7 @@ function isTrustedOfficialCacheYears(years) {
         return false;
       }
 
-      if (
-        day.ms !== undefined &&
-        !Number.isFinite(Number(day.ms))
-      ) {
+      if (!isOfficialDayMsConsistent(day)) {
         return false;
       }
     }
@@ -1344,9 +1352,25 @@ function readOfficialHolidayCache(ctx, storageKey) {
   }
 
   try {
-    return normalizeOfficialCacheOnRead(
-      ctx.storage?.getJSON(storageKey)
-    );
+    const cached = ctx.storage?.getJSON(storageKey);
+    const normalized = normalizeOfficialCacheOnRead(cached);
+
+    if (!normalized) {
+      return null;
+    }
+
+    if (!isTrustedOfficialCacheYears(cached?.years)) {
+      try {
+        ctx.storage?.setJSON(storageKey, normalized);
+      } catch (e) {
+        warnLog(
+          "[Countdown] failed to save normalized official holiday cache:",
+          e
+        );
+      }
+    }
+
+    return normalized;
   } catch (e) {
     warnLog(
       "[Countdown] failed to read official holiday cache:",
@@ -2274,12 +2298,6 @@ function officialRangeOverlapsYear(range, year) {
 }
 
 function getOfficialDayMs(day) {
-  const ms = Number(day?.ms);
-
-  if (Number.isFinite(ms)) {
-    return ms;
-  }
-
   return isoToMs(day?.date);
 }
 
@@ -3725,11 +3743,6 @@ async function renderCountdownWidget(
       DATA_ENV_KEYS
     );
 
-  const dataEnvCacheSuffix =
-    hashString(
-      dataEnvStorageFingerprint
-    );
-
   const enableAutoTheme =
     getBoolFromNormalizedEnv(
       normalizedEnv,
@@ -3747,8 +3760,7 @@ async function renderCountdownWidget(
 
   const BASE_CACHE_KEY =
     `${storageScope}:daily:` +
-    `v${DAILY_CACHE_SCHEMA_VERSION}:` +
-    dataEnvCacheSuffix;
+    `v${DAILY_CACHE_SCHEMA_VERSION}`;
 
   const NOTIFY_KEY =
     `${storageScope}:notify:v1`;
