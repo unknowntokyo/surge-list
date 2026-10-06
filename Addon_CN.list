@@ -15,6 +15,7 @@ IP-CIDR,38.76.213.238/32,no-resolve
 
 # > Krill-AI
 DOMAIN-SUFFIX,api-slb.krill-ai.com
+DOMAIN-SUFFIX,cdn-krill-ai.com
 
 # > Domestic DNS
 IP-CIDR,1.12.12.12/32,no-resolve
