@@ -16,6 +16,7 @@ IP-CIDR,38.76.213.238/32,no-resolve
 # > Krill-AI
 DOMAIN-SUFFIX,api-slb.kbsfdxc.net
 DOMAIN-SUFFIX,api.kbsfdxc.com
+DOMAIN-SUFFIX,krill-code.com
 
 # > Domestic DNS
 IP-CIDR,1.12.12.12/32,no-resolve
