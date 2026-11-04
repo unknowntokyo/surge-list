@@ -6,10 +6,10 @@
  * • 适用任何周期性扣费：AI 服务、流媒体、云存储、会员、域名、VPS、机场等。
  * • 小组件：大号数字突出最近一笔续费，其余按剩余天数排序；
  *   支持桌面小/中/大号，以及锁屏圆形、矩形、单行组件。
- * • 提醒：续费前按 REMIND_DAYS 推送通知，同一订阅同一档位只推一次，每个周期自动循环。
+ * • 提醒：默认在续费前一天和当天各推送一次，同一订阅同一档位只推一次；每个周期自动循环。
  *   同一个脚本既可作 generic（小组件），也可作 schedule（每天定时检查提醒）。
  * • 周期：按月（默认）、每 N 个月、按年、每 N 天；31 号等月末日期自动落到当月最后一天。
- * • 时区：默认按 UTC+8 计算“今天”，可用 TZ_OFFSET 修改。
+ * • 时区：默认按 UTC+8 计算"今天"，可用 TZ_OFFSET 修改。
  *
  * ⚙️ 环境变量：
  *
@@ -21,7 +21,7 @@
  *                    月末/闰日请填原始日号，勿用被钳制的 2/28 代替 1/31 或 2/29
  *                    年份范围 1970–2100
  *    • 金额：可选，原样显示，如 $20、20 USD、¥140（用于计算月均支出，按币种分别合计）
- *    • 周期：可选，默认 1M。写法：1M / 3M / 1Y / 30D（也可写“月”“年”“3个月”“30天”）
+ *    • 周期：可选，默认 1M。写法：1M / 3M / 1Y / 30D（也可写"月""年""3个月""30天"）
  *    • 颜色：可选，#RRGGBB；不填时常见服务用品牌色，其余按名称自动取色
  *    中间字段留空即用默认值，如 "域名|2025/3/8||1Y"
  *
@@ -33,22 +33,22 @@
  *      SUB_5: "域名 example.com|2025/9/10|$12|1Y"
  *      SUB_6: "机场|2026/10/20|¥15|30D|#5856D6"
  *
- * 2. REMIND_DAYS   提前几天提醒，默认 "3,1,0"；空值用默认，非法值报错并回退默认
+ * 2. REMIND_DAYS   提前几天提醒，默认 "1,0"（前一天、当天）；空值或非法值回退默认
  *                  漏跑时补当前续费期窗口内最接近的一个档位，不追溯已过期续费
  * 3. NOTIFY        通知全局开关，默认 true；仅无 widgetFamily 的定时/手动运行发送
  * 4. TZ_OFFSET     固定时区偏移（小时），-12～14，默认 8；不自动处理夏令时
- * 5. SHOW_TOTAL    中/大号显示月均支出，默认 true
+ * 5. SHOW_TOTAL    桌面小/中/大号显示月均支出，默认 true
  *    月均为估算：按天周期以 30 天折算；不同币种不换汇，顺序按 SUB_n
  *    金额支持非负数（含 .99）、规范千分位及前/后缀币种；无法解析或未填的不计入
- *    周期上限：3660D / 120M / 10Y。名称固定为“订阅提醒”。
+ *    周期上限：3660D / 120M / 10Y。名称固定为"订阅提醒"。
  *    通知调用与存储没有事务性保证；写入失败后下次运行可能重发。
- *    REMIND_DAYS 只影响通知；小组件中 1 天内标红、3 天内标橙
+ *    REMIND_DAYS 默认只提醒前一天和当天；小组件中 1 天内标红、3 天内标橙
  * =======================================
  */
 
 // 名称包含关键字即使用对应品牌色；未命中的按名称哈希取色
 const BRANDS = [
-  [/claude|anthropic/ANT/i, "#D97757"],
+  [/claude|anthropic/i, "#D97757"],
   [/chatgpt|openai|gpt/i, "#10A37F"],
   [/gemini|google/i, "#4285F4"],
   [/grok|x\.ai|xai/i, "#6E6E73"],
@@ -250,10 +250,10 @@ const whenText = diff => (diff <= 1 ? `${dayShort(diff)}续费` : `${diff}天后
 
 function parseRemindDays(raw, errors) {
   const tokens = String(raw ?? "").trim().split(/[、，,\s]+/).map(s => s.trim()).filter(Boolean);
-  if (!tokens.length) return [0, 1, 3];
+  if (!tokens.length) return [0, 1];
   if (tokens.some(s => !/^\d+$/.test(s) || Number(s) > 60)) {
-    errors.push("REMIND_DAYS 有误，已使用 3,1,0");
-    return [0, 1, 3];
+    errors.push("REMIND_DAYS 有误，已使用 1,0");
+    return [0, 1];
   }
   return [...new Set(tokens.map(Number))].sort((a, b) => a - b);
 }
@@ -328,7 +328,7 @@ const mkRow = (children, gap = 0, opts = {}) => ({ type: "stack", direction: "ro
 const mkCol = (children, gap = 0, opts = {}) => ({ type: "stack", direction: "column", alignItems: "start", gap, children, ...opts });
 const mkSpacer = length => length != null ? { type: "spacer", length } : { type: "spacer" };
 const BG = {
-  type: "linear", colors: [{ light: "#FAF9F7", dark: "#1B1D22" }, { light: "#F0F2F6", dark: "#111318" }],
+  type: "linear", colors: [{ light: "#FFFFFF", dark: "#1C1C1E" }, { light: "#F2F2F7", dark: "#0C0C0E" }],
   startPoint: { x: 0, y: 0 }, endPoint: { x: 1, y: 1 }
 };
 const mix = (brand, base, ratio) => {
@@ -355,11 +355,24 @@ const cardGradient = it => ({ type: "linear", colors: [surfaceTint(it.color, 0.1
 const dayColor = diff => diff <= 1 ? C.red : diff <= 3 ? C.orange : C.main;
 const errorSummary = opts => `${opts.errors.length}项配置有误`;
 const mkDot = color => ({ type: "stack", width: 5, height: 5, borderRadius: 2.5, backgroundColor: color, children: [] });
-const mkTitle = size => mkRow([
-  { type: "image", src: "sf-symbol:bell.fill", width: 12, height: 12, color: C.main },
-  mkText("订阅提醒", size, "semibold", C.main)
-], 4);
-const widget = (opts, padding, children, gradient = BG) => ({ type: "widget", padding, refreshAfter: opts.refreshIso, backgroundGradient: gradient, children });
+function mkTitle(count, opts, small = false, showCount = false) {
+  // 总数需要额外空间时先合并币种，不降低缩放下限。
+  const monthly = totalText(opts, small || showCount ? 1 : 2);
+  const font = { size: small ? 11 : 12.5, weight: "bold", ...(small ? { family: "DINCondensed-Bold" } : {}) };
+  const sub = { light: "#48484A", dark: "#D1D1D6" };
+  const note = opts.errors.length
+    ? [mkText(errorSummary(opts), font.size, "bold", C.red, { font })]
+    : monthly ? [
+      mkText(monthly, font.size, "bold", { light: "#34C759", dark: "#30D158" }, { font }),
+      ...(showCount ? [mkText(`· 共${count}项`, font.size, "bold", sub)] : [])
+    ] : [mkText(`共${count}项`, font.size, "bold", sub, { font })];
+  return mkRow([
+    { type: "image", src: "sf-symbol:bell.fill", width: small ? 14 : 16, height: small ? 14 : 16, color: C.main },
+    mkText("订阅提醒", small ? 13.5 : 15, "heavy", C.main), mkSpacer(),
+    ...(note.length === 1 ? note : [mkRow(note, 4)])
+  ], 6);
+}
+const widget = (opts, children) => ({ type: "widget", padding: 12, refreshAfter: opts.refreshIso, backgroundGradient: BG, children });
 const datePrice = (it, long = false) => `${long ? `${it.month}月${it.day}日 ${it.week}` : `${it.month}/${it.day}`} · ${it.price}`;
 
 // 主卡中最多一条细进度条；首期锚点在未来时不产生进度节点。
@@ -379,95 +392,91 @@ function mkBigDays(it, size, compact = false) {
   ], 3, { alignItems: "end" });
 }
 const mkDaysCol = (it, size, width, color = dayColor(it.diff)) => mkRow([
-  mkText(dayShort(it.diff), size, "semibold", color, { flex: 1, textAlign: "right" })
+  mkSpacer(), mkText(dayShort(it.diff), size, "semibold", color)
 ], 0, { width });
 
-// 两行列表：名称占独立一行；日期与金额不再挤占名称的宽度。
-function mkListRow(it, large, tail = "") {
-  return mkRow([
-    mkDot(it.color),
-    mkCol([
-      mkText(it.name, large ? 14 : 13, "medium", C.main),
-      mkText(datePrice(it) + tail, 11, "regular", C.muted)
-    ], 1, { flex: 1 }),
-    mkDaysCol(it, large ? 14 : 13, large ? 42 : 38)
-  ], large ? 8 : 7, { height: large ? 33 : 32 });
+// 两行列表：色点、名称与天数共用首行中线，日期缩进到名称左缘。
+function mkListRow(it, large) {
+  const gap = 7;
+  return mkCol([
+    mkRow([
+      mkDot(it.color),
+      mkText(it.name, large ? 14 : 13, "medium", C.main), mkSpacer(),
+      mkDaysCol(it, large ? 14 : 13, large ? 42 : 38)
+    ], gap),
+    mkRow([mkSpacer(5 + gap), mkText(datePrice(it), 11, "regular", C.muted), mkSpacer()])
+  ], 1, large ? { height: 33 } : {});
 }
-function totalText(opts) {
+function totalText(opts, maxCurrencies = 2) {
   if (!opts.showTotal || !opts.totals.length) return "";
   const values = opts.totals;
-  const limit = values.slice(0, 2).join(" · ").length > 23 ? 1 : 2;
-  return `月均 ${values.slice(0, limit).join(" · ")}${values.length > limit ? ` · 另${values.length - limit}币种` : ""}`;
+  const limit = maxCurrencies === 1 || values.slice(0, 2).join(" · ").length > 23 ? 1 : 2;
+  return `月均 ${values.slice(0, limit).join(" · ")}${values.length > limit ? ` +${values.length - limit}` : ""}`;
 }
-const noteText = (text, color = C.muted) => mkText(text, 11, "medium", color, { flex: 1, textAlign: "right" });
 
-function emptyWidget(opts) {
-  return widget(opts, 14, [
-    mkTitle(12), mkSpacer(),
-    mkText(opts.errors.length ? errorSummary(opts) : "还没有订阅", 15, "semibold", opts.errors.length ? C.red : C.main),
-    mkSpacer(4), mkText("在模块中配置 SUB_1～SUB_20", 11, "regular", C.muted, { maxLines: 2 }), mkSpacer()
+function emptyWidget(opts, small) {
+  return widget(opts, [
+    mkTitle(0, opts, small), mkSpacer(12), mkSpacer(),
+    mkRow([mkText(opts.errors.length ? errorSummary(opts) : "还没有订阅", 15, "semibold", opts.errors.length ? C.red : C.main), mkSpacer()]),
+    mkSpacer(4), mkRow([mkText("在模块中配置 SUB_1～SUB_20", 11, "regular", C.muted, { maxLines: 2 }), mkSpacer()]), mkSpacer()
   ]);
 }
 
-// 小号 158×158：无内卡、无进度条；标题计数与下方预告有独立空间。
+// 小号 158×158：无内卡、无进度条；主内容和底部预告均沿根内边距起排。
 function renderSmall(items, opts) {
   const hero = items[0], next = items[1];
-  const bottom = opts.errors.length ? mkText(errorSummary(opts), 11, "medium", C.red)
-    : next ? mkRow([mkDot(next.color), mkText(next.name, 12, "medium", C.main, { flex: 1 }), mkDaysCol(next, 12, 32)], 5)
-    : mkText(`每${cycleText(hero.cycle)}续费`, 11, "medium", C.muted);
-  return widget(opts, 14, [
-    mkRow([mkTitle(12), mkSpacer(), mkText(`共${items.length}项`, 10.5, "medium", C.muted)], 3),
-    mkSpacer(4), mkBigDays(hero, 38),
-    mkText(hero.name, 15, "semibold", C.main), mkSpacer(2),
-    mkText(`${hero.month}月${hero.day}日 · ${hero.price}`, 11, "regular", C.muted),
+  const bottom = opts.errors.length ? mkRow([mkText(errorSummary(opts), 11, "medium", C.red), mkSpacer()])
+    : next ? mkRow([mkDot(next.color), mkText(next.name, 12, "medium", C.main), mkSpacer(), mkDaysCol(next, 12, 32)], 5)
+    : mkRow([mkText(`每${cycleText(hero.cycle)}续费`, 11, "medium", C.muted), mkSpacer()]);
+  return widget(opts, [
+    mkTitle(items.length, opts, true), mkSpacer(12), mkRow([mkBigDays(hero, 38), mkSpacer()]),
+    mkRow([mkText(hero.name, 15, "semibold", C.main), mkSpacer()]), mkSpacer(2),
+    mkRow([mkText(`${hero.month}月${hero.day}日 · ${hero.price}`, 11, "regular", C.muted), mkSpacer()]),
     mkSpacer(), mkSpacer(8), bottom
-  ], { ...BG, colors: [surfaceTint(hero.color, 0.075, 0.09), BG.colors[1]] });
+  ]);
 }
 
 // 中号 338×158：全宽顶栏 + 104pt 主卡 + 三个两行项目，无竖分隔线。
 function renderMedium(items, opts) {
   const hero = items[0], rest = items.slice(1, 4), hidden = items.length - 1 - rest.length;
-  const note = opts.errors.length ? errorSummary(opts) : totalText(opts) || `共${items.length}项`;
   const left = mkCol([
-    mkBigDays(hero, 38, true), mkSpacer(1),
-    mkText(hero.name, 14, "semibold", C.main), mkSpacer(2),
-    mkText(datePrice(hero), 11, "regular", C.muted), mkSpacer(), ...mkProgress(hero)
-  ], 0, { width: 104, height: 106, padding: 8, borderRadius: 14, backgroundGradient: cardGradient(hero) });
+    mkRow([mkBigDays(hero, 38, true), mkSpacer()]), mkSpacer(1),
+    mkRow([mkText(hero.name, 14, "semibold", C.main), mkSpacer()]), mkSpacer(2),
+    mkRow([mkText(datePrice(hero), 11, "regular", C.muted), mkSpacer()]), mkSpacer(), ...mkProgress(hero)
+  ], 0, { width: 104, height: 104, padding: 8, borderRadius: 14, backgroundGradient: cardGradient(hero) });
   const right = mkCol(rest.length ? rest.flatMap((it, i) => [
-    ...(i ? [mkSpacer()] : []), mkListRow(it, false, i === rest.length - 1 && hidden > 0 ? ` · 另${hidden}项` : "")
-  ]) : [mkSpacer(), mkText("没有其他订阅", 12, "regular", C.muted), mkSpacer()], 0, { flex: 1, height: 106 });
-  return widget(opts, 14, [
-    mkRow([mkTitle(12), noteText(note, opts.errors.length ? C.red : C.muted)], 8, { height: 16 }),
-    mkSpacer(8), mkRow([left, right], 12, { alignItems: "start" })
+    ...(i ? [mkSpacer(6)] : []), mkListRow(it, false)
+  ]) : [mkRow([mkText("没有其他订阅", 12, "regular", C.muted), mkSpacer()])], 0, { flex: 1 });
+  right.children.push(mkSpacer());
+  right.height = 104;
+  return widget(opts, [
+    mkTitle(items.length, opts, false, hidden > 0), mkSpacer(12), mkRow([left, right], 12, { alignItems: "start" })
   ]);
 }
 
-// 大号 338×354：72pt 主卡、最多五个后续项目、底部汇总。
+// 大号 338×354：72pt 主卡、最多五个后续项目、底部计数。
 function renderLarge(items, opts) {
   const hero = items[0];
   // 未计入说明需要独立页脚行，减少一条列表以维持最小尺寸预算。
   const rest = items.slice(1, opts.omitted ? 5 : 6), hidden = items.length - 1 - rest.length;
-  const note = opts.errors.length ? errorSummary(opts) : `7天内${items.filter(it => it.diff <= 7).length}项`;
   const main = mkRow([
-    mkCol([mkBigDays(hero, 42, true)], 0, { width: 78 }),
+    mkBigDays(hero, 42, true),
     mkCol([
-      mkText(hero.name, 17, "semibold", C.main),
-      mkText(datePrice(hero, true), 11.5, "regular", C.muted)
+      mkRow([mkText(hero.name, 17, "semibold", C.main), mkSpacer()]),
+      mkRow([mkText(datePrice(hero, true), 11.5, "regular", C.muted), mkSpacer()])
     ], 3, { flex: 1 })
-  ], 10);
+  ], 10, { alignItems: "center" });
   const card = mkCol([main, mkSpacer(), ...mkProgress(hero)], 0, {
     height: 72, padding: 10, borderRadius: 16, backgroundGradient: cardGradient(hero)
   });
-  const rows = rest.length ? rest.map(it => mkListRow(it, true)) : [mkText("没有其他订阅", 13, "regular", C.muted)];
+  const rows = rest.length ? rest.map(it => mkListRow(it, true)) : [mkRow([mkText("没有其他订阅", 13, "regular", C.muted), mkSpacer()])];
   const count = `共${items.length}项${hidden ? ` · 另${hidden}项` : ""}`;
-  return widget(opts, 16, [
-    mkRow([mkTitle(13), noteText(note, opts.errors.length ? C.red : C.muted)], 8, { height: 18 }),
-    mkSpacer(8), card, mkSpacer(5), mkSpacer(),
-    mkText("接下来", 11.5, "medium", C.muted), mkSpacer(4),
+  return widget(opts, [
+    mkTitle(items.length, opts), mkSpacer(12), card, mkSpacer(5), mkSpacer(),
+    mkRow([mkText("接下来", 11.5, "medium", C.muted), mkSpacer()]), mkSpacer(4),
     mkCol(rows.flatMap((row, i) => [...(i && rest.length < 5 ? [mkSpacer(3)] : []), row])),
-    mkSpacer(), mkSpacer(8),
-    mkRow([mkText(count, 11, "medium", C.muted), noteText(totalText(opts))], 8),
-    ...(opts.omitted ? [mkSpacer(2), mkText(`${opts.omitted}项金额未计入月均`, 11, "regular", C.muted)] : [])
+    mkSpacer(), mkSpacer(6), mkRow([mkText(count, 11, "medium", C.muted), mkSpacer()]),
+    ...(opts.omitted ? [mkSpacer(2), mkRow([mkText(`${opts.omitted}项金额未计入月均`, 11, "regular", C.muted), mkSpacer()])] : [])
   ]);
 }
 
@@ -491,7 +500,8 @@ function renderAccessory(family, items, opts) {
     ], 1, { width: 64, height: 64, alignItems: "center", padding: [0, 6], backgroundImage: ringSrc(first.hasProgress ? first.progress : null) }), mkSpacer()])]);
   }
   const row = (it, size, weight) => mkRow([
-    mkText(it.name, size, weight, "#FFFFFF", { flex: 1 }), mkDaysCol(it, size, 34, "#FFFFFF")
+    mkText(it.name, size, weight, "#FFFFFF", { flex: 1 }),
+    mkRow([mkText(dayShort(it.diff), size, "semibold", "#FFFFFF", { flex: 1, textAlign: "right" })], 0, { width: 34 })
   ], 4);
   return base([
     row(first, 13.5, "semibold"), mkSpacer(1),
@@ -531,7 +541,7 @@ export default async function (ctx = {}) {
     };
     const family = String(ctx.widgetFamily);
     if (family.startsWith("accessory")) return renderAccessory(family, items, opts);
-    if (!items.length) return emptyWidget(opts);
+    if (!items.length) return emptyWidget(opts, family === "systemSmall");
     if (family === "systemSmall") return renderSmall(items, opts);
     if (family === "systemMedium") return renderMedium(items, opts);
     return renderLarge(items, opts);
