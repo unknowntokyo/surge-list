@@ -48,7 +48,7 @@
 
 // 名称包含关键字即使用对应品牌色；未命中的按名称哈希取色
 const BRANDS = [
-  [/claude|anthropic/i, "#D97757"],
+  [/claude|anthropic/ANT/i, "#D97757"],
   [/chatgpt|openai|gpt/i, "#10A37F"],
   [/gemini|google/i, "#4285F4"],
   [/grok|x\.ai|xai/i, "#6E6E73"],
