@@ -364,7 +364,7 @@ function mkTitle(count, opts, small = false, showCount = false) {
     ? [mkText(errorSummary(opts), font.size, "bold", C.red, { font })]
     : monthly ? [
       mkText(monthly, font.size, "bold", { light: "#34C759", dark: "#30D158" }, { font }),
-      ...(showCount ? [mkText(`· 共${count}项`, font.size, "bold", sub)] : [])
+      ...(showCount ? [mkText(`· 共${count}项`, font.size, "medium", sub)] : [])
     ] : [mkText(`共${count}项`, font.size, "bold", sub, { font })];
   return mkRow([
     { type: "image", src: "sf-symbol:bell.fill", width: small ? 14 : 16, height: small ? 14 : 16, color: C.main },
@@ -396,22 +396,15 @@ const mkDaysCol = (it, size, width, color = dayColor(it.diff)) => mkRow([
   mkSpacer(), mkText(dayShort(it.diff), size, "semibold", color)
 ], 0, { width });
 
-// 两行列表：色点、名称与天数共用首行中线，日期缩进到名称左缘。
+// 单行列表：名称承接剩余宽度，天数和价格分别固定38pt、58pt并靠右。
 function mkListRow(it, large) {
-  const gap = 7;
-  return mkCol([
-    mkRow([
-      mkDot(it.color),
-      mkText(it.name, large ? 14 : 13, "medium", C.main), mkSpacer(),
-      mkDaysCol(it, large ? 14 : 13, large ? 42 : 38)
-    ], gap),
-    // 日期在弹性容器内靠左，先让出空间给右侧价格。
-    mkRow([
-      mkSpacer(5 + gap),
-      mkRow([mkText(`${it.month}/${it.day}`, 11, "regular", C.muted), mkSpacer()], 0, { flex: 1 }),
-      mkText(it.price, 11, "regular", C.muted)
-    ])
-  ], 1, large ? { height: 33 } : {});
+  return mkRow([
+    mkDot(it.color), mkSpacer(7),
+    // 真机上 flex 文本会居中，用尾部 spacer 保持左对齐（同 c6 日期写法）。
+    mkRow([mkText(it.name, 13, "medium", C.main), mkSpacer()], 0, { flex: 1 }),
+    mkDaysCol(it, 13, 38), mkSpacer(8),
+    mkRow([mkSpacer(), mkText(it.price, 12, "regular", C.muted)], 0, { width: 58 })
+  ], 0, { height: large ? 30 : 26 });
 }
 function totalText(opts, maxCurrencies = 2) {
   if (!opts.showTotal || !opts.totals.length) return "";
@@ -442,29 +435,27 @@ function renderSmall(items, opts) {
   ]);
 }
 
-// 中号 338×158：全宽顶栏 + 104pt 主卡 + 三个两行项目，无竖分隔线。
+// 中号 338×158：全宽顶栏 + 104pt 主卡 + 最多四个26pt单行项目。
 function renderMedium(items, opts) {
-  const hero = items[0], rest = items.slice(1, 4), hidden = items.length - 1 - rest.length;
+  const hero = items[0], rest = items.slice(1, 5);
   const left = mkCol([
     mkRow([mkBigDays(hero, 38, true), mkSpacer()]), mkSpacer(1),
     mkRow([mkText(hero.name, 14, "semibold", C.main), mkSpacer()]), mkSpacer(2),
     mkRow([mkText(datePrice(hero), 11, "regular", C.muted), mkSpacer()]), mkSpacer(), ...mkProgress(hero)
   ], 0, { width: 104, height: 104, padding: [hero.diff === 0 ? 6 : 2, 8, 8, 8], borderRadius: 14, backgroundGradient: cardGradient(hero) });
-  const right = mkCol(rest.length ? rest.flatMap((it, i) => [
-    ...(i ? [mkSpacer(6)] : []), mkListRow(it, false)
-  ]) : [mkRow([mkText("没有其他订阅", 12, "regular", C.muted), mkSpacer()])], 0, { flex: 1 });
+  const right = mkCol(rest.length ? rest.map(it => mkListRow(it, false)) : [mkRow([mkText("没有其他订阅", 12, "regular", C.muted), mkSpacer()])], 0, { flex: 1 });
   right.children.push(mkSpacer());
   right.height = 104;
   return widget(opts, [
-    mkTitle(items.length, opts, false, hidden > 0), mkSpacer(12), mkRow([left, right], 20, { alignItems: "start" })
+    mkTitle(items.length, opts, false, true), mkSpacer(12), mkRow([left, right], 20, { alignItems: "start" })
   ]);
 }
 
-// 大号 338×354：72pt 主卡、最多五个后续项目、底部计数。
+// 大号 338×354：330pt内容预算，标题约18pt + 12 + 72 + 14 + 7×30 = 326pt。
 function renderLarge(items, opts) {
   const hero = items[0];
-  // 未计入说明需要独立页脚行，减少一条列表以维持最小尺寸预算。
-  const rest = items.slice(1, opts.omitted ? 5 : 6), hidden = items.length - 1 - rest.length;
+  // 未计入说明约13.2pt，改用六行后仍有约20.8pt底部弹性空间。
+  const rest = items.slice(1, opts.omitted ? 7 : 8);
   const main = mkRow([
     mkBigDays(hero, 42, true),
     mkCol([
@@ -476,13 +467,10 @@ function renderLarge(items, opts) {
     height: 72, padding: 10, borderRadius: 16, backgroundGradient: cardGradient(hero)
   });
   const rows = rest.length ? rest.map(it => mkListRow(it, true)) : [mkRow([mkText("没有其他订阅", 13, "regular", C.muted), mkSpacer()])];
-  const count = `共${items.length}项${hidden ? ` · 另${hidden}项` : ""}`;
   return widget(opts, [
-    mkTitle(items.length, opts), mkSpacer(12), card, mkSpacer(5), mkSpacer(),
-    mkRow([mkText("接下来", 11.5, "medium", C.muted), mkSpacer()]), mkSpacer(4),
-    mkCol(rows.flatMap((row, i) => [...(i && rest.length < 5 ? [mkSpacer(3)] : []), row])),
-    mkSpacer(), mkSpacer(6), mkRow([mkText(count, 11, "medium", C.muted), mkSpacer()]),
-    ...(opts.omitted ? [mkSpacer(2), mkRow([mkText(`${opts.omitted}项金额未计入月均`, 11, "regular", C.muted), mkSpacer()])] : [])
+    mkTitle(items.length, opts, false, true), mkSpacer(12), card, mkSpacer(14),
+    mkCol(rows), mkSpacer(),
+    ...(opts.omitted ? [mkRow([mkText(`${opts.omitted}项金额未计入月均`, 11, "regular", C.muted), mkSpacer()])] : [])
   ]);
 }
 
