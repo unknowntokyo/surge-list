@@ -48,8 +48,8 @@
 
 // 名称包含关键字即使用对应品牌色；未命中的按名称哈希取色
 const BRANDS = [
-  [/claude|anthropic/ANT/i, "#D97757"],
-  [/chatgpt|openai|gpt/RESIP/i, "#10A37F"],
+  [/claude|anthropic|ANT/i, "#D97757"],
+  [/chatgpt|openai|gpt|RESIP/i, "#10A37F"],
   [/gemini|google/i, "#4285F4"],
   [/grok|x\.ai|xai/i, "#6E6E73"],
   [/perplexity/i, "#20808D"],
@@ -367,7 +367,7 @@ function mkTitle(count, opts, small = false, showCount = false) {
       ...(showCount ? [mkText(`· 共${count}项`, font.size, "medium", sub)] : [])
     ] : [mkText(`共${count}项`, font.size, "bold", sub, { font })];
   return mkRow([
-    { type: "image", src: "sf-symbol:bell.fill", width: small ? 14 : 16, height: small ? 14 : 16, color: C.main },
+    { type: "image", src: "sf-symbol:dollarsign", width: small ? 14 : 16, height: small ? 14 : 16, color: C.main },
     mkText("订阅提醒", small ? 13.5 : 15, "heavy", C.main), mkSpacer(),
     ...(note.length === 1 ? note : [mkRow(note, 4)])
   ], 6);
