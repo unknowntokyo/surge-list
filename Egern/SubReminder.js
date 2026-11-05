@@ -386,9 +386,10 @@ function mkProgress(it) {
 function mkBigDays(it, size, compact = false) {
   const digits = String(it.diff).length;
   const fitSize = digits <= 2 ? size : Math.min(size, compact ? ({ 3: 29, 4: 24 }[digits] || 20) : 32);
+  const digitSize = it.diff === 0 ? Math.round(size * 0.72) : fitSize;
   return mkRow([
-    mkText(it.diff === 0 ? "今天" : it.diff, it.diff === 0 ? Math.round(size * 0.72) : fitSize, "bold", dayColor(it.diff)),
-    ...(it.diff === 0 ? [] : [mkCol([mkText("天", 12, "medium", C.muted)], 0, { padding: [0, 0, 5, 0] })])
+    mkText(it.diff === 0 ? "今天" : it.diff, digitSize, "bold", dayColor(it.diff)),
+    ...(it.diff === 0 ? [] : [mkCol([mkText("天", 12, "medium", C.muted)], 0, { padding: [0, 0, Math.round(digitSize * 0.24 - 2), 0] })])
   ], 3, { alignItems: "end" });
 }
 const mkDaysCol = (it, size, width, color = dayColor(it.diff)) => mkRow([
@@ -404,7 +405,12 @@ function mkListRow(it, large) {
       mkText(it.name, large ? 14 : 13, "medium", C.main), mkSpacer(),
       mkDaysCol(it, large ? 14 : 13, large ? 42 : 38)
     ], gap),
-    mkRow([mkSpacer(5 + gap), mkText(datePrice(it), 11, "regular", C.muted), mkSpacer()])
+    // 日期在弹性容器内靠左，先让出空间给右侧价格。
+    mkRow([
+      mkSpacer(5 + gap),
+      mkRow([mkText(`${it.month}/${it.day}`, 11, "regular", C.muted), mkSpacer()], 0, { flex: 1 }),
+      mkText(it.price, 11, "regular", C.muted)
+    ])
   ], 1, large ? { height: 33 } : {});
 }
 function totalText(opts, maxCurrencies = 2) {
@@ -443,14 +449,14 @@ function renderMedium(items, opts) {
     mkRow([mkBigDays(hero, 38, true), mkSpacer()]), mkSpacer(1),
     mkRow([mkText(hero.name, 14, "semibold", C.main), mkSpacer()]), mkSpacer(2),
     mkRow([mkText(datePrice(hero), 11, "regular", C.muted), mkSpacer()]), mkSpacer(), ...mkProgress(hero)
-  ], 0, { width: 104, height: 104, padding: 8, borderRadius: 14, backgroundGradient: cardGradient(hero) });
+  ], 0, { width: 104, height: 104, padding: [hero.diff === 0 ? 6 : 2, 8, 8, 8], borderRadius: 14, backgroundGradient: cardGradient(hero) });
   const right = mkCol(rest.length ? rest.flatMap((it, i) => [
     ...(i ? [mkSpacer(6)] : []), mkListRow(it, false)
   ]) : [mkRow([mkText("没有其他订阅", 12, "regular", C.muted), mkSpacer()])], 0, { flex: 1 });
   right.children.push(mkSpacer());
   right.height = 104;
   return widget(opts, [
-    mkTitle(items.length, opts, false, hidden > 0), mkSpacer(12), mkRow([left, right], 12, { alignItems: "start" })
+    mkTitle(items.length, opts, false, hidden > 0), mkSpacer(12), mkRow([left, right], 20, { alignItems: "start" })
   ]);
 }
 
