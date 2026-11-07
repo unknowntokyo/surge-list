@@ -358,14 +358,16 @@ const mkDot = color => ({ type: "stack", width: 5, height: 5, borderRadius: 2.5,
 function mkTitle(count, opts, small = false, showCount = false) {
   // 总数需要额外空间时先合并币种，不降低缩放下限。
   const monthly = totalText(opts, small || showCount ? 1 : 2);
-  const font = { size: small ? 11 : 12.5, weight: "bold", ...(small ? { family: "DINCondensed-Bold" } : {}) };
+  // 右上角信息统一不加粗；小号仍用窄体字防止标题行挤压。DIN Condensed 只有粗体，改用 Avenir Next Condensed Medium，
+  // 它比 DIN 宽约 14%，小号字号从 11 降到 10，宽度与原版基本持平。
+  const font = { size: small ? 10 : 12.5, weight: "medium", ...(small ? { family: "AvenirNextCondensed-Medium" } : {}) };
   const sub = { light: "#48484A", dark: "#D1D1D6" };
   const note = opts.errors.length
-    ? [mkText(errorSummary(opts), font.size, "bold", C.red, { font })]
+    ? [mkText(errorSummary(opts), font.size, "medium", C.red, { font })]
     : monthly ? [
-      mkText(monthly, font.size, "bold", { light: "#34C759", dark: "#30D158" }, { font }),
+      mkText(monthly, font.size, "medium", { light: "#34C759", dark: "#30D158" }, { font }),
       ...(showCount ? [mkText(`· 共${count}项`, font.size, "medium", sub)] : [])
-    ] : [mkText(`共${count}项`, font.size, "bold", sub, { font })];
+    ] : [mkText(`共${count}项`, font.size, "medium", sub, { font })];
   return mkRow([
     { type: "image", src: "sf-symbol:bell.circle.fill", width: small ? 14 : 16, height: small ? 14 : 16, color: C.main },
     mkText("订阅提醒", small ? 13.5 : 15, "heavy", C.main), mkSpacer(),
@@ -528,9 +530,12 @@ export default async function (ctx = {}) {
       }
     }
     if (!ctx.widgetFamily) return;
+    const showTotal = String(env.SHOW_TOTAL ?? "true").trim().toLowerCase() !== "false";
+    const totals = monthlyTotals(items);
     const opts = {
-      showTotal: String(env.SHOW_TOTAL ?? "true").trim().toLowerCase() !== "false",
-      totals: monthlyTotals(items), omitted: items.filter(it => !it.amount || it.amount.value == null).length,
+      showTotal, totals,
+      // 只有标题实际显示月均时（无配置错误且有月均），"未计入月均"的说明才有意义，否则不占大号列表的行位。
+      omitted: !errors.length && showTotal && totals.length ? items.filter(it => !it.amount || it.amount.value == null).length : 0,
       errors, refreshIso: t.refreshIso
     };
     const family = String(ctx.widgetFamily);
