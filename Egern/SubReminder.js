@@ -367,7 +367,7 @@ function mkTitle(count, opts, small = false, showCount = false) {
       ...(showCount ? [mkText(`· 共${count}项`, font.size, "medium", sub)] : [])
     ] : [mkText(`共${count}项`, font.size, "bold", sub, { font })];
   return mkRow([
-    { type: "image", src: "sf-symbol:bell.circle.fill", width: small ? 13 : 14, height: small ? 13 : 14, color: C.main },
+    { type: "image", src: "sf-symbol:bell.circle.fill", width: small ? 14 : 16, height: small ? 14 : 16, color: C.main },
     mkText("订阅提醒", small ? 13.5 : 15, "heavy", C.main), mkSpacer(),
     ...(note.length === 1 ? note : [mkRow(note, 4)])
   ], 6);
