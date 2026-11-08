@@ -1,49 +1,24 @@
 /**
- * =======================================
- * 🔔 订阅提醒（Egern 小组件 + 定时提醒）
+ * 订阅提醒：Egern generic 小组件 / schedule 定时提醒。
+ * 支持桌面小、中、大号及三种锁屏组件，按剩余天数排序。
  *
- * ✨ 功能：
- * • 适用任何周期性扣费：AI 服务、流媒体、云存储、会员、域名、VPS、机场等。
- * • 小组件：大号数字突出最近一笔续费，其余按剩余天数排序；
- *   支持桌面小/中/大号，以及锁屏圆形、矩形、单行组件。
- * • 提醒：默认在续费前一天和当天各推送一次，同一订阅同一档位只推一次；每个周期自动循环。
- *   同一个脚本既可作 generic（小组件），也可作 schedule（每天定时检查提醒）。
- * • 周期：按月（默认）、每 N 个月、按年、每 N 天；31 号等月末日期自动落到当月最后一天。
- * • 时区：默认按 UTC+8 计算"今天"，可用 TZ_OFFSET 修改。
+ * SUB_1～SUB_20：名称|日期|金额|周期|颜色，中间字段留空即用默认值。
+ * 日期：D 仅用于每月第D天；YYYY/M/D 为原始扣费锚点（1970～2100）。
+ * 月末/闰日保留原始日号，勿用被钳制的2/28代替1/31或2/29；未来首期不显示进度。
+ * 金额：可选，条目与通知原样显示；月均支持非负数、.99、规范千分位和前/后缀币种。
+ * 周期：默认1M；支持1M/3M/1Y/30D及月/年/3个月/30天，上限120M/10Y/3660D。
+ * 颜色：可选#RRGGBB，未填时按品牌或名称取色。
+ * 示例：SUB_1="Claude Pro|15|$20"；SUB_2="域名|2025/9/10|¥120|1Y"。
  *
- * ⚙️ 环境变量：
- *
- * 1. SUB_1 ~ SUB_20   订阅条目，格式：名称|日期|金额|周期|颜色
- *    • 名称：如 Claude Pro、Netflix、iCloud+
- *    • 日期：
- *        D           每月第 D 天续费（如 15），只能配合按月周期
- *        YYYY/M/D    保留原扣费日号的锚点；未来日期视为首次扣费日，此前不显示周期进度
- *                    月末/闰日请填原始日号，勿用被钳制的 2/28 代替 1/31 或 2/29
- *                    年份范围 1970–2100
- *    • 金额：可选，原样显示，如 $20、20 USD、¥140（用于计算月均支出，按币种分别合计）
- *    • 周期：可选，默认 1M。写法：1M / 3M / 1Y / 30D（也可写"月""年""3个月""30天"）
- *    • 颜色：可选，#RRGGBB；不填时常见服务用品牌色，其余按名称自动取色
- *    中间字段留空即用默认值，如 "域名|2025/3/8||1Y"
- *
- *    示例：
- *      SUB_1: "Claude Pro|15|$20"
- *      SUB_2: "ChatGPT Plus|2025/6/3|$20|1M"
- *      SUB_3: "Netflix|2025/1/31|$15.49"
- *      SUB_4: "iCloud+|8|¥21"
- *      SUB_5: "域名 example.com|2025/9/10|$12|1Y"
- *      SUB_6: "机场|2026/10/20|¥15|30D|#5856D6"
- *
- * 2. REMIND_DAYS   提前几天提醒，默认 "1,0"（前一天、当天）；空值或非法值回退默认
- *                  漏跑时补当前续费期窗口内最接近的一个档位，不追溯已过期续费
- * 3. NOTIFY        通知全局开关，默认 true；仅无 widgetFamily 的定时/手动运行发送
- * 4. TZ_OFFSET     固定时区偏移（小时），-12～14，默认 8；不自动处理夏令时
- * 5. SHOW_TOTAL    桌面小/中/大号显示月均支出，默认 true
- *    月均为估算：按天周期以 30 天折算；不同币种不换汇，顺序按 SUB_n
- *    金额支持非负数（含 .99）、规范千分位及前/后缀币种；无法解析或未填的不计入
- *    周期上限：3660D / 120M / 10Y。名称固定为"订阅提醒"。
- *    通知调用与存储没有事务性保证；写入失败后下次运行可能重发。
- *    REMIND_DAYS 默认只提醒前一天和当天；小组件中 1 天内标红、3 天内标橙
- * =======================================
+ * REMIND_DAYS：提前提醒天数，默认"1,0"；空值或非法值回退默认。
+ *   同一订阅同一续费期的同一档位只推一次；漏跑补最近档位，不追溯已过期续费。
+ * NOTIFY：默认true；仅无widgetFamily的定时/手动运行发通知。
+ * TZ_OFFSET：固定时区偏移-12～14小时，默认8，不自动处理夏令时。
+ * SHOW_TOTAL：默认true；按币种显示月均，按天周期以30天折算，不换汇。
+ *   人民币¥/￥/元/CNY/RMB统一为¥并合计；其他币种保留原标识，顺序按SUB_n。
+ *   最多显示两种，如$84.90 + ¥120/月；小号双币种独占一行，多出币种用+N提示。
+ *   未填或无法解析的金额不计入；原始条目价格与通知不变。
+ * 组件1天内标红、3天内标橙。通知调用与存储非事务，写入失败后可能重发。
  */
 
 // 名称包含关键字即使用对应品牌色；未命中的按名称哈希取色
@@ -234,11 +209,13 @@ function monthlyTotals(items) {
     const a = it.amount;
     if (!a || a.value == null) continue;
     const perMonth = it.cycle.unit === "D" ? (a.value * 30) / it.cycle.n : a.value / it.cycle.n;
-    totals.set(a.cur, (totals.get(a.cur) || 0) + perMonth);
+    // 仅汇总展示统一人民币别名；各条目原价与通知文案仍保留用户输入。
+    const cur = /^(?:¥|￥|元|CNY|RMB)$/i.test(a.cur) ? "¥" : a.cur;
+    totals.set(cur, (totals.get(cur) || 0) + perMonth);
   }
   return [...totals].map(([cur, v]) => {
     const num = Math.abs(v - Math.round(v)) < 0.005 ? String(Math.round(v)) : v.toFixed(2);
-    // 符号类币种放前面（$20），字母代码放后面（20 USD）
+    // 人民币统一为¥，其他符号原样在前；其他货币代码保留一个分隔空格。
     return /^[A-Za-z]+$/.test(cur) ? `${num} ${cur}` : `${cur}${num}`;
   });
 }
@@ -355,35 +332,32 @@ const cardGradient = it => ({ type: "linear", colors: [surfaceTint(it.color, 0.1
 const dayColor = diff => diff <= 1 ? C.red : diff <= 3 ? C.orange : C.main;
 const errorSummary = opts => `${opts.errors.length}项配置有误`;
 const mkDot = color => ({ type: "stack", width: 5, height: 5, borderRadius: 2.5, backgroundColor: color, children: [] });
-// 小号单独安排紧凑标题；系统字体与正文一致，图标仍为14pt。
+// 双币种的小号标题使用独立金额行，完整显示同一种汇总样式。
+const smallHasRateRow = opts => opts.showTotal && !opts.errors.length && opts.totals.length > 1;
 function mkSmallTitle(count, opts) {
-  const monthly = totalText(opts, 1);
+  const monthly = monthlyRateText(opts);
   const note = opts.errors.length ? errorSummary(opts) : monthly || `共${count}项`;
   const color = opts.errors.length ? C.red : monthly ? { light: "#34C759", dark: "#30D158" } : C.muted;
-  return mkRow([
-    mkRow([
-      { type: "image", src: "sf-symbol:bell.circle.fill", width: 14, height: 14, color: C.main },
-      mkText("订阅提醒", 12.5, "heavy", C.main)
-    ], 4),
-    mkText(note, 10, "medium", color, { flex: 1, textAlign: "right" })
-  ], 6, { height: 16 });
+  const title = mkRow([
+    { type: "image", src: "sf-symbol:bell.circle.fill", width: 14, height: 14, color: C.main },
+    mkText("订阅提醒", 12.5, "heavy", C.main)
+  ], 4);
+  const amount = mkText(note, 10, "medium", color, { flex: 1, textAlign: "right" });
+  if (smallHasRateRow(opts)) return mkCol([
+    mkRow([title, mkSpacer()], 0, { height: 16 }),
+    mkRow([amount], 0, { height: 14 })
+  ], 1, { height: 31 });
+  return mkRow([title, amount], 6, { height: 16 });
 }
-function mkTitle(count, opts, small = false, showCount = false) {
+function mkTitle(count, opts, small = false) {
   if (small) return mkSmallTitle(count, opts);
-  // 总数需要额外空间时先合并币种，不降低缩放下限。
-  const monthly = totalText(opts, showCount ? 1 : 2);
-  const font = { size: 12.5, weight: "medium" };
-  const sub = { light: "#48484A", dark: "#D1D1D6" };
-  const note = opts.errors.length
-    ? [mkText(errorSummary(opts), font.size, "medium", C.red, { font })]
-    : monthly ? [
-      mkText(monthly, font.size, "medium", { light: "#34C759", dark: "#30D158" }, { font }),
-      ...(showCount ? [mkText(`· 共${count}项`, font.size, "medium", sub)] : [])
-    ] : [mkText(`共${count}项`, font.size, "medium", sub, { font })];
+  // 中/大号只显示按币种分别折算的“金额/月”；关闭汇总或无金额时不回退显示总项数。
+  const rate = monthlyRateText(opts);
+  const note = opts.errors.length ? errorSummary(opts) : rate;
   return mkRow([
-    { type: "image", src: "sf-symbol:bell.circle.fill", width: small ? 14 : 16, height: small ? 14 : 16, color: C.main },
-    mkText("订阅提醒", small ? 13.5 : 15, "heavy", C.main), mkSpacer(),
-    ...(note.length === 1 ? note : [mkRow(note, 4)])
+    { type: "image", src: "sf-symbol:bell.circle.fill", width: 16, height: 16, color: C.main },
+    mkText("订阅提醒", 15, "heavy", C.main), mkSpacer(),
+    ...(note ? [mkText(note, 12.5, "medium", opts.errors.length ? C.red : { light: "#34C759", dark: "#30D158" }, { textAlign: "right" })] : [])
   ], 6);
 }
 const widget = (opts, children) => ({ type: "widget", padding: 12, refreshAfter: opts.refreshIso, backgroundGradient: BG, children });
@@ -397,23 +371,22 @@ function mkProgress(it) {
   const fill = tinted(it.color, 0.78, 0.85), track = tinted(it.color, 0.22, 0.30);
   return [mkRow(p <= 0 ? [bar(1, track)] : p >= 100 ? [bar(1, fill)] : [bar(p, fill), bar(100 - p, track)], 0, { height: 3 })];
 }
-function mkBigDays(it, size, compact = false) {
+function mkBigDays(it, size) {
   const digits = String(it.diff).length;
-  const fitSize = digits <= 2 ? size : Math.min(size, compact ? ({ 3: 29, 4: 24 }[digits] || 20) : 32);
+  const fitSize = digits <= 2 ? size : Math.min(size, { 3: 29, 4: 24 }[digits] || 20);
   const digitSize = it.diff === 0 ? Math.round(size * 0.72) : fitSize;
   return mkRow([
     mkText(it.diff === 0 ? "今天" : it.diff, digitSize, "bold", dayColor(it.diff)),
     ...(it.diff === 0 ? [] : [mkCol([mkText("天", 12, "medium", C.muted)], 0, { padding: [0, 0, Math.round(digitSize * 0.24 - 2), 0] })])
   ], 3, { alignItems: "end" });
 }
-const mkDaysCol = (it, size, width, color = dayColor(it.diff)) => mkRow([
-  mkSpacer(), mkText(dayShort(it.diff), size, "semibold", color)
-], 0, { width });
+const mkNextDays = it => mkRow([
+  mkSpacer(), mkText(dayShort(it.diff), 12, "semibold", dayColor(it.diff))
+], 0, { width: 32 });
 
-// 三列由原生布局按各列内容决定宽度；等权空白吸收组件的实际剩余宽度。
-// 天数与价格列右对齐，整列的行高一致，不再估算字宽或假定组件总宽为338。
-function mkList(items, large = false) {
-  const rowHeight = large ? 30 : 26;
+// 中号三列：天数/价格右对齐，每行26pt，列间空白等分剩余宽度。
+function mkMediumList(items) {
+  const rowHeight = 26;
   const height = items.length * rowHeight;
   const column = (makeCell, alignItems) => mkCol(items.map(makeCell), 0, { alignItems, height });
   const cell = text => mkRow([text], 0, { height: rowHeight });
@@ -424,11 +397,10 @@ function mkList(items, large = false) {
     column(it => cell(mkText(dayShort(it.diff), 13, "semibold", dayColor(it.diff), { textAlign: "right" })), "end"),
     equalSpace(),
     column(it => cell(mkText(it.price, 12, "regular", C.muted, { textAlign: "right" })), "end")
-  ], 0, { height: large ? height : 104, alignItems: "start", flex: 1 });
+  ], 0, { height: 104, alignItems: "start", flex: 1 });
 }
-// 大号列表直接在根容器的纵向余量内等分各行，不再封顶196/176pt。
-// 每行自身是横向布局，三个列框按2:1:1分宽；同列右缘/中线保持一致。
-// 四条以内显示续费日期；更多条目改为单行，以保留七条的展示容量。
+// 大号按纵向余量等分各行，行内三列权重为2:1:1。
+// 四条以内显示续费日期，更多条目采用单行。
 function mkLargeList(items) {
   const detailed = items.length <= 4;
   const children = [];
@@ -446,11 +418,14 @@ function mkLargeList(items) {
   }
   return mkCol(children, 0, { flex: 1 });
 }
-function totalText(opts, maxCurrencies = 2) {
+function monthlyRateText(opts) {
   if (!opts.showTotal || !opts.totals.length) return "";
-  const values = opts.totals;
-  const limit = maxCurrencies === 1 || values.slice(0, 2).join(" · ").length > 23 ? 1 : 2;
-  return `月均 ${values.slice(0, limit).join(" · ")}${values.length > limit ? ` +${values.length - limit}` : ""}`;
+  // 三种桌面尺寸统一为$84.90 + ¥120/月，两币种均显示，不换汇。
+  // 加号两侧各一个空格，/月两侧无空格；其他货币代码保留必要的内部空格。
+  const values = opts.totals.map(value => value.trim());
+  const visible = values.slice(0, 2).join(" + ");
+  const more = values.length > 2 ? ` +${values.length - 2}` : "";
+  return `${visible}/月${more}`;
 }
 
 function emptyWidget(opts, small) {
@@ -465,21 +440,24 @@ function emptyWidget(opts, small) {
 function renderSmall(items, opts) {
   const hero = items[0], next = items[1];
   const bottom = opts.errors.length ? mkRow([mkText(errorSummary(opts), 11, "medium", C.red), mkSpacer()])
-    : next ? mkRow([mkDot(next.color), mkText(next.name, 12, "medium", C.main), mkSpacer(), mkDaysCol(next, 12, 32)], 5)
+    : next ? mkRow([mkDot(next.color), mkText(next.name, 12, "medium", C.main), mkSpacer(), mkNextDays(next)], 5)
     : mkRow([mkText(`每${cycleText(hero.cycle)}续费`, 11, "medium", C.muted), mkSpacer()]);
   bottom.height = 16;
   const divider = mkRow([mkCol([], 0, {
     flex: 1, height: 1, backgroundColor: { light: "#E3E4E8", dark: "#35363C" }
   })], 0, { height: 1 });
+  // 双币种为完整汇总腾出一行；正文仍共用中线，并保持固定日期到横线距离。
+  const compact = smallHasRateRow(opts);
+  const groupHeight = compact ? 71 : 81;
   const centered = mkCol([
-    mkRow([mkBigDays(hero, 34, true)], 0, { height: 42 }),
-    mkRow([mkText(hero.name, 15, "semibold", C.main, { textAlign: "center" })], 0, { height: 19 }), mkSpacer(2),
-    mkRow([mkText(datePrice(hero), 11, "regular", C.muted, { textAlign: "center" })], 0, { height: 14 })
-  ], 0, { alignItems: "center", height: 77 });
+    mkRow([mkBigDays(hero, compact ? 30 : 34)], 0, { height: compact ? 37 : 42 }),
+    mkRow([mkText(hero.name, compact ? 14 : 15, "semibold", C.main, { textAlign: "center" })], 0, { height: compact ? 17 : 19 }), mkSpacer(compact ? 4 : 6),
+    mkRow([mkText(datePrice(hero), compact ? 10.5 : 11, "regular", C.muted, { textAlign: "center" })], 0, { height: compact ? 13 : 14 })
+  ], 0, { alignItems: "center", height: groupHeight });
   return widget(opts, [
-    mkTitle(items.length, opts, true), mkSpacer(6),
-    mkRow([mkSpacer(), centered, mkSpacer()], 0, { height: 77 }),
-    mkSpacer(), mkSpacer(6), divider, mkSpacer(6), bottom
+    mkTitle(items.length, opts, true), mkSpacer(3), mkSpacer(),
+    mkRow([mkSpacer(), centered, mkSpacer()], 0, { height: groupHeight }),
+    mkSpacer(compact ? 8 : 10), divider, mkSpacer(compact ? 4 : 6), bottom
   ]);
 }
 
@@ -493,7 +471,7 @@ function renderMedium(items, opts) {
   const line = (content, height) => mkRow([content], 0, { height });
   const left = mkCol([
     mkSpacer(hasBar ? 3.5 : 7.5),
-    line(mkBigDays(hero, 32, true), 39),
+    line(mkBigDays(hero, 32), 39),
     ...(hasBar ? [] : [mkSpacer(3)]),
     line(mkText(hero.name, 14, "semibold", C.main, { textAlign: "center" }), 18),
     mkSpacer(hasBar ? 5 : 9),
@@ -504,9 +482,9 @@ function renderMedium(items, opts) {
   ], 0, {
     width: 104, height: 104, alignItems: "center", padding: [0, 8, 0, 8], borderRadius: 14, backgroundGradient: cardGradient(hero)
   });
-  const right = rest.length ? mkList(rest) : mkRow([mkText("没有其他订阅", 12, "regular", C.muted), mkSpacer()], 0, { flex: 1, height: 104 });
+  const right = rest.length ? mkMediumList(rest) : mkRow([mkText("没有其他订阅", 12, "regular", C.muted), mkSpacer()], 0, { flex: 1, height: 104 });
   return widget(opts, [
-    mkTitle(items.length, opts, false, true), mkSpacer(12), mkRow([left, right], 20, { alignItems: "start" })
+    mkTitle(items.length, opts, false), mkSpacer(12), mkRow([left, right], 20, { alignItems: "start" })
   ]);
 }
 
@@ -517,7 +495,7 @@ function renderLarge(items, opts) {
   const rest = items.slice(1, opts.omitted ? 7 : 8);
   const spacious = rest.length <= 4;
   const main = mkRow([
-    mkBigDays(hero, spacious ? 46 : 42, true),
+    mkBigDays(hero, spacious ? 46 : 42),
     mkCol([
       mkRow([mkText(hero.name, spacious ? 18 : 17, "semibold", C.main), mkSpacer()]),
       mkRow([mkText(datePrice(hero, true), spacious ? 12 : 11.5, "regular", C.muted), mkSpacer()])
@@ -530,7 +508,7 @@ function renderLarge(items, opts) {
     ? mkLargeList(rest)
     : mkCol([mkSpacer(), mkText("没有其他订阅", 13, "regular", C.muted), mkSpacer()], 0, { flex: 1 });
   return widget(opts, [
-    mkTitle(items.length, opts, false, true), mkSpacer(12), card, mkSpacer(10),
+    mkTitle(items.length, opts, false), mkSpacer(12), card, mkSpacer(10),
     list,
     ...(opts.omitted ? [mkSpacer(6), mkRow([mkText(`${opts.omitted}项金额未计入月均`, 11, "regular", C.muted), mkSpacer()])] : [])
   ]);
