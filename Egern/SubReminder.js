@@ -499,14 +499,15 @@ function renderLarge(items, opts) {
   // 有未计入金额的说明时少显示一行，给页脚留出空间。
   const rest = items.slice(1, opts.omitted ? 7 : 8);
   const spacious = rest.length <= 4;
+  // 数字与名称/日期保持自然宽度，再由两侧等权空白将整组水平居中。
   const main = mkRow([
     mkBigDays(hero, spacious ? 46 : 42),
     mkCol([
-      mkRow([mkText(hero.name, spacious ? 18 : 17, "semibold", C.main), mkSpacer()]),
-      mkRow([mkText(datePrice(hero, true), spacious ? 12 : 11.5, "regular", C.muted), mkSpacer()])
-    ], 3, { flex: 1 })
+      mkRow([mkText(hero.name, spacious ? 18 : 17, "semibold", C.main)]),
+      mkRow([mkText(datePrice(hero, true), spacious ? 12 : 11.5, "regular", C.muted)])
+    ], 3)
   ], 10, { alignItems: "center" });
-  const card = mkCol([main, mkSpacer(), ...mkProgress(hero)], 0, {
+  const card = mkCol([mkRow([mkSpacer(), main, mkSpacer()]), mkSpacer(), ...mkProgress(hero)], 0, {
     height: spacious ? 88 : 72, padding: 10, borderRadius: 16, backgroundGradient: cardGradient(hero)
   });
   const list = rest.length
