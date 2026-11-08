@@ -38,7 +38,7 @@
  * 3. NOTIFY        通知全局开关，默认 true；仅无 widgetFamily 的定时/手动运行发送
  * 4. TZ_OFFSET     固定时区偏移（小时），-12～14，默认 8；不自动处理夏令时
  * 5. SHOW_TOTAL    桌面小/中/大号显示月均支出，默认 true
- *    月均支出为估算：按天周期以 30 天折算；不同币种不换汇，顺序按 SUB_n
+ *    月均为估算：按天周期以 30 天折算；不同币种不换汇，顺序按 SUB_n
  *    金额支持非负数（含 .99）、规范千分位及前/后缀币种；无法解析或未填的不计入
  *    周期上限：3660D / 120M / 10Y。名称固定为"订阅提醒"。
  *    通知调用与存储没有事务性保证；写入失败后下次运行可能重发。
@@ -450,7 +450,7 @@ function totalText(opts, maxCurrencies = 2) {
   if (!opts.showTotal || !opts.totals.length) return "";
   const values = opts.totals;
   const limit = maxCurrencies === 1 || values.slice(0, 2).join(" · ").length > 23 ? 1 : 2;
-  return `月均支出 ${values.slice(0, limit).join(" · ")}${values.length > limit ? ` +${values.length - limit}` : ""}`;
+  return `月均 ${values.slice(0, limit).join(" · ")}${values.length > limit ? ` +${values.length - limit}` : ""}`;
 }
 
 function emptyWidget(opts, small) {
@@ -532,7 +532,7 @@ function renderLarge(items, opts) {
   return widget(opts, [
     mkTitle(items.length, opts, false, true), mkSpacer(12), card, mkSpacer(10),
     list,
-    ...(opts.omitted ? [mkSpacer(6), mkRow([mkText(`${opts.omitted}项金额未计入月均支出`, 11, "regular", C.muted), mkSpacer()])] : [])
+    ...(opts.omitted ? [mkSpacer(6), mkRow([mkText(`${opts.omitted}项金额未计入月均`, 11, "regular", C.muted), mkSpacer()])] : [])
   ]);
 }
 
@@ -594,7 +594,7 @@ export default async function (ctx = {}) {
     const totals = monthlyTotals(items);
     const opts = {
       showTotal, totals,
-      // 只有标题实际显示月均支出时（无配置错误且有月均支出），"未计入月均支出"的说明才有意义，否则不占大号列表的行位。
+      // 只有标题实际显示月均时（无配置错误且有月均），“未计入月均”的说明才有意义，否则不占大号列表的行位。
       omitted: !errors.length && showTotal && totals.length ? items.filter(it => !it.amount || it.amount.value == null).length : 0,
       errors, refreshIso: t.refreshIso
     };
