@@ -38,7 +38,7 @@
  * 3. NOTIFY        通知全局开关，默认 true；仅无 widgetFamily 的定时/手动运行发送
  * 4. TZ_OFFSET     固定时区偏移（小时），-12～14，默认 8；不自动处理夏令时
  * 5. SHOW_TOTAL    桌面小/中/大号显示月均支出，默认 true
- *    月均为估算：按天周期以 30 天折算；不同币种不换汇，顺序按 SUB_n
+ *    月均支出为估算：按天周期以 30 天折算；不同币种不换汇，顺序按 SUB_n
  *    金额支持非负数（含 .99）、规范千分位及前/后缀币种；无法解析或未填的不计入
  *    周期上限：3660D / 120M / 10Y。名称固定为"订阅提醒"。
  *    通知调用与存储没有事务性保证；写入失败后下次运行可能重发。
@@ -426,28 +426,31 @@ function mkList(items, large = false) {
     column(it => cell(mkText(it.price, 12, "regular", C.muted, { textAlign: "right" })), "end")
   ], 0, { height: large ? height : 104, alignItems: "start", flex: 1 });
 }
-// 大号使用统一列表高度，再按条目数分配行高；当前四条后续订阅为4×49pt。
-// 有页脚时减小列表预算；少于四项时单项最多52pt，避免把少量文字过度拉散。
-// 三列显式同高，不依赖宿主未公开的跨轴拉伸；不影响中号固定26pt行高。
-function mkLargeList(items, hasFooter) {
-  const height = Math.min(hasFooter ? 176 : 196, items.length * 52);
-  const rowHeight = height / items.length;
-  const column = (makeContent, alignItems) => mkCol(items.map(makeContent), 0, { alignItems, height });
-  const cell = text => mkRow([text], 0, { height: rowHeight });
-  const equalSpace = () => ({ type: "spacer", flex: 1 });
-  return mkRow([
-    column(it => mkRow([mkDot(it.color), mkSpacer(7), mkText(it.name, 13, "medium", C.main)], 0, { height: rowHeight }), "start"),
-    equalSpace(),
-    column(it => cell(mkText(dayShort(it.diff), 13, "semibold", dayColor(it.diff), { textAlign: "right" })), "end"),
-    equalSpace(),
-    column(it => cell(mkText(it.price, 12, "regular", C.muted, { textAlign: "right" })), "end")
-  ], 0, { height, alignItems: "start", flex: 1 });
+// 大号列表直接在根容器的纵向余量内等分各行，不再封顶196/176pt。
+// 每行自身是横向布局，三个列框按2:1:1分宽；同列右缘/中线保持一致。
+// 四条以内显示续费日期；更多条目改为单行，以保留七条的展示容量。
+function mkLargeList(items) {
+  const detailed = items.length <= 4;
+  const children = [];
+  for (const it of items) {
+    if (children.length) children.push(mkRow([mkCol([], 0, {
+      flex: 1, height: 1, backgroundColor: { light: "#E6E7EC", dark: "#303238" }
+    })], 0, { height: 1 }));
+    const name = mkCol([
+      mkRow([mkDot(it.color), mkSpacer(7), mkText(it.name, detailed ? 14 : 13, "medium", C.main), mkSpacer()]),
+      ...(detailed ? [mkRow([mkSpacer(12), mkText(`${it.month}/${it.day} ${it.week}`, 10.5, "regular", C.muted), mkSpacer()])] : [])
+    ], detailed ? 3 : 0, { flex: 2 });
+    const days = mkCol([mkRow([mkText(dayShort(it.diff), detailed ? 15 : 13, "semibold", dayColor(it.diff))])], 0, { flex: 1, alignItems: "center" });
+    const price = mkCol([mkRow([mkText(it.price, detailed ? 13 : 12, "regular", C.muted, { textAlign: "right" })])], 0, { flex: 1, alignItems: "end" });
+    children.push(mkRow([name, days, price], 8, { flex: 1 }));
+  }
+  return mkCol(children, 0, { flex: 1 });
 }
 function totalText(opts, maxCurrencies = 2) {
   if (!opts.showTotal || !opts.totals.length) return "";
   const values = opts.totals;
   const limit = maxCurrencies === 1 || values.slice(0, 2).join(" · ").length > 23 ? 1 : 2;
-  return `月均 ${values.slice(0, limit).join(" · ")}${values.length > limit ? ` +${values.length - limit}` : ""}`;
+  return `月均支出 ${values.slice(0, limit).join(" · ")}${values.length > limit ? ` +${values.length - limit}` : ""}`;
 }
 
 function emptyWidget(opts, small) {
@@ -458,7 +461,7 @@ function emptyWidget(opts, small) {
   ]);
 }
 
-// 小号：主内容统一左对齐；底部下一项以细线分区，保留右侧月均。
+// 小号：倒计时、名称和日期共用水平中心；标题与底部下一项独立排布。
 function renderSmall(items, opts) {
   const hero = items[0], next = items[1];
   const bottom = opts.errors.length ? mkRow([mkText(errorSummary(opts), 11, "medium", C.red), mkSpacer()])
@@ -468,11 +471,14 @@ function renderSmall(items, opts) {
   const divider = mkRow([mkCol([], 0, {
     flex: 1, height: 1, backgroundColor: { light: "#E3E4E8", dark: "#35363C" }
   })], 0, { height: 1 });
+  const centered = mkCol([
+    mkRow([mkBigDays(hero, 34, true)], 0, { height: 42 }),
+    mkRow([mkText(hero.name, 15, "semibold", C.main, { textAlign: "center" })], 0, { height: 19 }), mkSpacer(2),
+    mkRow([mkText(datePrice(hero), 11, "regular", C.muted, { textAlign: "center" })], 0, { height: 14 })
+  ], 0, { alignItems: "center", height: 77 });
   return widget(opts, [
     mkTitle(items.length, opts, true), mkSpacer(6),
-    mkRow([mkBigDays(hero, 34, true), mkSpacer()], 0, { height: 42 }),
-    mkRow([mkText(hero.name, 15, "semibold", C.main), mkSpacer()], 0, { height: 19 }), mkSpacer(2),
-    mkRow([mkText(datePrice(hero), 11, "regular", C.muted), mkSpacer()], 0, { height: 14 }),
+    mkRow([mkSpacer(), centered, mkSpacer()], 0, { height: 77 }),
     mkSpacer(), mkSpacer(6), divider, mkSpacer(6), bottom
   ]);
 }
@@ -504,29 +510,29 @@ function renderMedium(items, opts) {
   ]);
 }
 
-// 大号：主卡保留72pt；列表按条目数安排共同高度，不固定总宽。
-// 196/176是当前桌面大号的列表设计预算，额外大的画布仍会保留更多余白。
+// 大号：少条目时放大主卡并补列表日期；列表本身承接实际剩余高度。
 function renderLarge(items, opts) {
   const hero = items[0];
   // 有未计入金额的说明时少显示一行，给页脚留出空间。
   const rest = items.slice(1, opts.omitted ? 7 : 8);
+  const spacious = rest.length <= 4;
   const main = mkRow([
-    mkBigDays(hero, 42, true),
+    mkBigDays(hero, spacious ? 46 : 42, true),
     mkCol([
-      mkRow([mkText(hero.name, 17, "semibold", C.main), mkSpacer()]),
-      mkRow([mkText(datePrice(hero, true), 11.5, "regular", C.muted), mkSpacer()])
+      mkRow([mkText(hero.name, spacious ? 18 : 17, "semibold", C.main), mkSpacer()]),
+      mkRow([mkText(datePrice(hero, true), spacious ? 12 : 11.5, "regular", C.muted), mkSpacer()])
     ], 3, { flex: 1 })
   ], 10, { alignItems: "center" });
   const card = mkCol([main, mkSpacer(), ...mkProgress(hero)], 0, {
-    height: 72, padding: 10, borderRadius: 16, backgroundGradient: cardGradient(hero)
+    height: spacious ? 88 : 72, padding: 10, borderRadius: 16, backgroundGradient: cardGradient(hero)
   });
   const list = rest.length
-    ? mkRow([mkLargeList(rest, Boolean(opts.omitted))], 0, { alignItems: "start", flex: 1 })
+    ? mkLargeList(rest)
     : mkCol([mkSpacer(), mkText("没有其他订阅", 13, "regular", C.muted), mkSpacer()], 0, { flex: 1 });
   return widget(opts, [
-    mkTitle(items.length, opts, false, true), mkSpacer(12), card, mkSpacer(14),
+    mkTitle(items.length, opts, false, true), mkSpacer(12), card, mkSpacer(10),
     list,
-    ...(opts.omitted ? [mkSpacer(6), mkRow([mkText(`${opts.omitted}项金额未计入月均`, 11, "regular", C.muted), mkSpacer()])] : [])
+    ...(opts.omitted ? [mkSpacer(6), mkRow([mkText(`${opts.omitted}项金额未计入月均支出`, 11, "regular", C.muted), mkSpacer()])] : [])
   ]);
 }
 
@@ -588,7 +594,7 @@ export default async function (ctx = {}) {
     const totals = monthlyTotals(items);
     const opts = {
       showTotal, totals,
-      // 只有标题实际显示月均时（无配置错误且有月均），"未计入月均"的说明才有意义，否则不占大号列表的行位。
+      // 只有标题实际显示月均支出时（无配置错误且有月均支出），"未计入月均支出"的说明才有意义，否则不占大号列表的行位。
       omitted: !errors.length && showTotal && totals.length ? items.filter(it => !it.amount || it.amount.value == null).length : 0,
       errors, refreshIso: t.refreshIso
     };
