@@ -352,7 +352,7 @@ function mkSmallTitle(count, opts) {
 }
 function mkTitle(count, opts, small = false) {
   if (small) return mkSmallTitle(count, opts);
-  // 中/大号只显示按币种分别折算的“金额/月”；关闭汇总或无金额时不回退显示总项数。
+  // 中/大号只显示按币种分别折算的"金额/月"；关闭汇总或无金额时不回退显示总项数。
   const rate = monthlyRateText(opts);
   const note = opts.errors.length ? errorSummary(opts) : rate;
   return mkRow([
@@ -414,7 +414,8 @@ function mkLargeList(items) {
       ...(detailed ? [mkRow([mkSpacer(12), mkText(`${it.month}/${it.day} ${it.week}`, 10.5, "regular", C.muted), mkSpacer()])] : [])
     ], detailed ? 3 : 0, { flex: 2 });
     const days = mkCol([mkRow([mkText(dayShort(it.diff), detailed ? 15 : 13, "semibold", dayColor(it.diff))])], 0, { flex: 1, alignItems: "center" });
-    const price = mkCol([mkRow([mkText(it.price, detailed ? 13 : 12, "regular", C.muted, { textAlign: "right" })])], 0, { flex: 1, alignItems: "end" });
+    // 价格列用前置空白推至整行右端，与标题共用根容器的右内边距。
+    const price = mkRow([mkSpacer(), mkText(it.price, detailed ? 13 : 12, "regular", C.muted, { textAlign: "right" })], 0, { flex: 1 });
     children.push(mkRow([name, days, price], 8, { flex: 1 }));
   }
   return mkCol(children, 0, { flex: 1 });
@@ -576,7 +577,7 @@ export default async function (ctx = {}) {
     const totals = monthlyTotals(items);
     const opts = {
       showTotal, totals,
-      // 只有标题实际显示月均时（无配置错误且有月均），“未计入月均”的说明才有意义，否则不占大号列表的行位。
+      // 只有标题实际显示月均时（无配置错误且有月均），"未计入月均"的说明才有意义，否则不占大号列表的行位。
       omitted: !errors.length && showTotal && totals.length ? items.filter(it => !it.amount || it.amount.value == null).length : 0,
       errors, refreshIso: t.refreshIso
     };
