@@ -1,5 +1,5 @@
 /**
- * 订阅提醒：Egern 小组件 / 定时提醒。
+ * 订阅提醒：Egern generic 小组件 / schedule 定时提醒。
  * 支持桌面小、中、大号及三种锁屏组件，按剩余天数排序。
  *
  * SUB_1～SUB_20：名称|日期|金额|周期|颜色，中间字段留空即用默认值。
@@ -342,12 +342,13 @@ function mkSmallTitle(count, opts) {
     { type: "image", src: "sf-symbol:bell.circle.fill", width: 14, height: 14, color: C.main },
     mkText("订阅提醒", 12.5, "heavy", C.main)
   ], 4);
-  const amount = mkText(note, 10, "medium", color, { flex: 1, textAlign: "right" });
+  // 将弹性宽度交给容器，用前置spacer推到右边界，避免flex文本在分配宽度内居中。
+  const amount = mkText(note, 10, "medium", color, { textAlign: "right" });
   if (smallHasRateRow(opts)) return mkCol([
     mkRow([title, mkSpacer()], 0, { height: 16 }),
-    mkRow([amount], 0, { height: 14 })
+    mkRow([mkSpacer(), amount], 0, { height: 14 })
   ], 1, { height: 31 });
-  return mkRow([title, amount], 6, { height: 16 });
+  return mkRow([title, mkRow([mkSpacer(), amount], 0, { flex: 1 })], 6, { height: 16 });
 }
 function mkTitle(count, opts, small = false) {
   if (small) return mkSmallTitle(count, opts);
@@ -454,11 +455,14 @@ function renderSmall(items, opts) {
     mkRow([mkText(hero.name, compact ? 14 : 15, "semibold", C.main, { textAlign: "center" })], 0, { height: compact ? 17 : 19 }), mkSpacer(compact ? 4 : 6),
     mkRow([mkText(datePrice(hero), compact ? 10.5 : 11, "regular", C.muted, { textAlign: "center" })], 0, { height: compact ? 13 : 14 })
   ], 0, { alignItems: "center", height: groupHeight });
-  return widget(opts, [
-    mkTitle(items.length, opts, true), mkSpacer(3), mkSpacer(),
-    mkRow([mkSpacer(), centered, mkSpacer()], 0, { height: groupHeight }),
-    mkSpacer(compact ? 8 : 10), divider, mkSpacer(compact ? 4 : 6), bottom
-  ]);
+  return {
+    ...widget(opts, [
+      mkTitle(items.length, opts, true), mkSpacer(3), mkSpacer(),
+      mkRow([mkSpacer(), centered, mkSpacer()], 0, { height: groupHeight }),
+      mkSpacer(compact ? 8 : 10), divider, mkSpacer(compact ? 4 : 6), bottom
+    ]),
+    backgroundGradient: cardGradient(hero)
+  };
 }
 
 // 中号主卡固定为104×104；每行都有明确行高，剩余空间不再混用多层弹性空白。
