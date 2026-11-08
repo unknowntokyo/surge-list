@@ -398,14 +398,15 @@ const mkDaysCol = (it, size, width, color = dayColor(it.diff)) => mkRow([
   mkSpacer(), mkText(dayShort(it.diff), size, "semibold", color)
 ], 0, { width });
 
-// 单行列表：名称承接剩余宽度，天数和价格分别固定38pt、58pt并靠右。
+// 单行列表：名称--天数--价格之间各放一个 flex:1 弹性空白，按文档 flex 比例 1:1 平分剩余宽度，两段间距相等。
+// 名称或价格极长、剩余宽度耗尽时由系统压缩（minScale 0.85），此时无法再保证等距。
 function mkListRow(it, large) {
+  const equalSpace = () => ({ type: "spacer", flex: 1 });
   return mkRow([
     mkDot(it.color), mkSpacer(7),
-    // 真机上 flex 文本会居中，用尾部 spacer 保持左对齐（同 c6 日期写法）。
-    mkRow([mkText(it.name, 13, "medium", C.main), mkSpacer()], 0, { flex: 1 }),
-    mkDaysCol(it, 13, 38), mkSpacer(8),
-    mkRow([mkSpacer(), mkText(it.price, 12, "regular", C.muted)], 0, { width: 58 })
+    mkText(it.name, 13, "medium", C.main), equalSpace(),
+    mkText(dayShort(it.diff), 13, "semibold", dayColor(it.diff)), equalSpace(),
+    mkText(it.price, 12, "regular", C.muted)
   ], 0, { height: large ? 30 : 26 });
 }
 function totalText(opts, maxCurrencies = 2) {
@@ -438,18 +439,27 @@ function renderSmall(items, opts) {
 }
 
 // 中号 338×158：全宽顶栏 + 104pt 主卡 + 最多四个26pt单行项目。
+// 主卡：文字组上下各放一个 flex:1 弹性空白，在进度条以上的区域内上下居中，不再靠顶部 padding 微调；三行各自水平居中。
 function renderMedium(items, opts) {
   const hero = items[0], rest = items.slice(1, 5);
-  const left = mkCol([
-    mkRow([mkBigDays(hero, 38, true), mkSpacer()]), mkSpacer(1),
-    mkRow([mkText(hero.name, 14, "semibold", C.main), mkSpacer()]), mkSpacer(2),
-    mkRow([mkText(datePrice(hero), 11, "regular", C.muted), mkSpacer()]), mkSpacer(), ...mkProgress(hero)
-  ], 0, { width: 104, height: 104, padding: [hero.diff === 0 ? 6 : 2, 8, 8, 8], borderRadius: 14, backgroundGradient: cardGradient(hero) });
-  const right = mkCol(rest.length ? rest.map(it => mkListRow(it, false)) : [mkRow([mkText("没有其他订阅", 12, "regular", C.muted), mkSpacer()])], 0, { flex: 1 });
+  const innerWidth = 104 - 8 * 2;
+  const progress = mkProgress(hero);
+  const equalSpace = () => ({ type: "spacer", flex: 1 });
+  const line = el => mkRow([equalSpace(), el, equalSpace()], 0, { width: innerWidth });
+  const textGroup = mkCol([
+    line(mkBigDays(hero, 38, true)), mkSpacer(1),
+    line(mkText(hero.name, 14, "semibold", C.main)), mkSpacer(2),
+    line(mkText(datePrice(hero), 11, "regular", C.muted))
+  ], 0, { width: innerWidth });
+  const left = mkCol([mkCol([equalSpace(), textGroup, equalSpace()], 0, { width: innerWidth, flex: 1 }), ...progress], 0, {
+    width: 104, height: 104, padding: [progress.length ? 0 : 8, 8, 8, 8], borderRadius: 14, backgroundGradient: cardGradient(hero)
+  });
+  const right = mkCol(rest.length ? rest.map(it => mkListRow(it, false)) : [mkRow([mkText("没有其他订阅", 12, "regular", C.muted), mkSpacer()])], 0, { flex: 1, height: 104 });
   right.children.push(mkSpacer());
-  right.height = 104;
   return widget(opts, [
-    mkTitle(items.length, opts, false, true), mkSpacer(12), mkRow([left, right], 20, { alignItems: "start" })
+    // 按用户要求让主卡左侧与价格右侧的视觉边距一致：主卡向内移 2pt（真机截图中价格右侧视觉留白比主卡左侧多约 2pt），
+    // 18 + 2 与原 gap 20 相同，右列宽度和价格位置不变。
+    mkTitle(items.length, opts, false, true), mkSpacer(12), mkRow([mkSpacer(2), left, mkSpacer(18), right], 0, { alignItems: "start" })
   ]);
 }
 
