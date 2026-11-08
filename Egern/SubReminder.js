@@ -355,12 +355,24 @@ const cardGradient = it => ({ type: "linear", colors: [surfaceTint(it.color, 0.1
 const dayColor = diff => diff <= 1 ? C.red : diff <= 3 ? C.orange : C.main;
 const errorSummary = opts => `${opts.errors.length}项配置有误`;
 const mkDot = color => ({ type: "stack", width: 5, height: 5, borderRadius: 2.5, backgroundColor: color, children: [] });
+// 小号单独安排紧凑标题；系统字体与正文一致，图标仍为14pt。
+function mkSmallTitle(count, opts) {
+  const monthly = totalText(opts, 1);
+  const note = opts.errors.length ? errorSummary(opts) : monthly || `共${count}项`;
+  const color = opts.errors.length ? C.red : monthly ? { light: "#34C759", dark: "#30D158" } : C.muted;
+  return mkRow([
+    mkRow([
+      { type: "image", src: "sf-symbol:bell.circle.fill", width: 14, height: 14, color: C.main },
+      mkText("订阅提醒", 12.5, "heavy", C.main)
+    ], 4),
+    mkText(note, 10, "medium", color, { flex: 1, textAlign: "right" })
+  ], 6, { height: 16 });
+}
 function mkTitle(count, opts, small = false, showCount = false) {
+  if (small) return mkSmallTitle(count, opts);
   // 总数需要额外空间时先合并币种，不降低缩放下限。
-  const monthly = totalText(opts, small || showCount ? 1 : 2);
-  // 右上角信息统一不加粗；小号仍用窄体字防止标题行挤压。DIN Condensed 只有粗体，改用 Avenir Next Condensed Medium，
-  // 它比 DIN 宽约 14%，小号字号从 11 降到 10，宽度与原版基本持平。
-  const font = { size: small ? 10 : 12.5, weight: "medium", ...(small ? { family: "AvenirNextCondensed-Medium" } : {}) };
+  const monthly = totalText(opts, showCount ? 1 : 2);
+  const font = { size: 12.5, weight: "medium" };
   const sub = { light: "#48484A", dark: "#D1D1D6" };
   const note = opts.errors.length
     ? [mkText(errorSummary(opts), font.size, "medium", C.red, { font })]
@@ -414,6 +426,23 @@ function mkList(items, large = false) {
     column(it => cell(mkText(it.price, 12, "regular", C.muted, { textAlign: "right" })), "end")
   ], 0, { height: large ? height : 104, alignItems: "start", flex: 1 });
 }
+// 大号使用统一列表高度，再按条目数分配行高；当前四条后续订阅为4×49pt。
+// 有页脚时减小列表预算；少于四项时单项最多52pt，避免把少量文字过度拉散。
+// 三列显式同高，不依赖宿主未公开的跨轴拉伸；不影响中号固定26pt行高。
+function mkLargeList(items, hasFooter) {
+  const height = Math.min(hasFooter ? 176 : 196, items.length * 52);
+  const rowHeight = height / items.length;
+  const column = (makeContent, alignItems) => mkCol(items.map(makeContent), 0, { alignItems, height });
+  const cell = text => mkRow([text], 0, { height: rowHeight });
+  const equalSpace = () => ({ type: "spacer", flex: 1 });
+  return mkRow([
+    column(it => mkRow([mkDot(it.color), mkSpacer(7), mkText(it.name, 13, "medium", C.main)], 0, { height: rowHeight }), "start"),
+    equalSpace(),
+    column(it => cell(mkText(dayShort(it.diff), 13, "semibold", dayColor(it.diff), { textAlign: "right" })), "end"),
+    equalSpace(),
+    column(it => cell(mkText(it.price, 12, "regular", C.muted, { textAlign: "right" })), "end")
+  ], 0, { height, alignItems: "start", flex: 1 });
+}
 function totalText(opts, maxCurrencies = 2) {
   if (!opts.showTotal || !opts.totals.length) return "";
   const values = opts.totals;
@@ -429,17 +458,22 @@ function emptyWidget(opts, small) {
   ]);
 }
 
-// 小号 158×158：无内卡、无进度条；主内容和底部预告均沿根内边距起排。
+// 小号：主内容统一左对齐；底部下一项以细线分区，保留右侧月均。
 function renderSmall(items, opts) {
   const hero = items[0], next = items[1];
   const bottom = opts.errors.length ? mkRow([mkText(errorSummary(opts), 11, "medium", C.red), mkSpacer()])
     : next ? mkRow([mkDot(next.color), mkText(next.name, 12, "medium", C.main), mkSpacer(), mkDaysCol(next, 12, 32)], 5)
     : mkRow([mkText(`每${cycleText(hero.cycle)}续费`, 11, "medium", C.muted), mkSpacer()]);
+  bottom.height = 16;
+  const divider = mkRow([mkCol([], 0, {
+    flex: 1, height: 1, backgroundColor: { light: "#E3E4E8", dark: "#35363C" }
+  })], 0, { height: 1 });
   return widget(opts, [
-    mkTitle(items.length, opts, true), mkSpacer(12), mkRow([mkBigDays(hero, 38), mkSpacer()]),
-    mkRow([mkText(hero.name, 15, "semibold", C.main), mkSpacer()]), mkSpacer(2),
-    mkRow([mkText(`${hero.month}月${hero.day}日 · ${hero.price}`, 11, "regular", C.muted), mkSpacer()]),
-    mkSpacer(), mkSpacer(8), bottom
+    mkTitle(items.length, opts, true), mkSpacer(6),
+    mkRow([mkBigDays(hero, 34, true), mkSpacer()], 0, { height: 42 }),
+    mkRow([mkText(hero.name, 15, "semibold", C.main), mkSpacer()], 0, { height: 19 }), mkSpacer(2),
+    mkRow([mkText(datePrice(hero), 11, "regular", C.muted), mkSpacer()], 0, { height: 14 }),
+    mkSpacer(), mkSpacer(6), divider, mkSpacer(6), bottom
   ]);
 }
 
@@ -470,10 +504,11 @@ function renderMedium(items, opts) {
   ]);
 }
 
-// 大号 338×354：330pt内容预算，标题约18pt + 12 + 72 + 14 + 7×30 = 326pt。
+// 大号：主卡保留72pt；列表按条目数安排共同高度，不固定总宽。
+// 196/176是当前桌面大号的列表设计预算，额外大的画布仍会保留更多余白。
 function renderLarge(items, opts) {
   const hero = items[0];
-  // 未计入说明约13.2pt，改用六行后仍有约20.8pt底部弹性空间。
+  // 有未计入金额的说明时少显示一行，给页脚留出空间。
   const rest = items.slice(1, opts.omitted ? 7 : 8);
   const main = mkRow([
     mkBigDays(hero, 42, true),
@@ -485,11 +520,13 @@ function renderLarge(items, opts) {
   const card = mkCol([main, mkSpacer(), ...mkProgress(hero)], 0, {
     height: 72, padding: 10, borderRadius: 16, backgroundGradient: cardGradient(hero)
   });
-  const list = rest.length ? mkRow([mkList(rest, true)], 0, { alignItems: "start" }) : mkRow([mkText("没有其他订阅", 13, "regular", C.muted), mkSpacer()]);
+  const list = rest.length
+    ? mkRow([mkLargeList(rest, Boolean(opts.omitted))], 0, { alignItems: "start", flex: 1 })
+    : mkCol([mkSpacer(), mkText("没有其他订阅", 13, "regular", C.muted), mkSpacer()], 0, { flex: 1 });
   return widget(opts, [
     mkTitle(items.length, opts, false, true), mkSpacer(12), card, mkSpacer(14),
-    list, mkSpacer(),
-    ...(opts.omitted ? [mkRow([mkText(`${opts.omitted}项金额未计入月均`, 11, "regular", C.muted), mkSpacer()])] : [])
+    list,
+    ...(opts.omitted ? [mkSpacer(6), mkRow([mkText(`${opts.omitted}项金额未计入月均`, 11, "regular", C.muted), mkSpacer()])] : [])
   ]);
 }
 
