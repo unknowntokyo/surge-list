@@ -12,7 +12,7 @@
  *
  * REMIND_DAYS：提前提醒天数，默认"1,0"；空值或非法值回退默认。
  *   同一订阅同一续费期的同一档位只推一次；漏跑补最近档位，不追溯已过期续费。
- * NOTIFY：默认true；仅无widgetFamily的定时/手动运行发通知。
+ * NOTIFY：默认true；小组件刷新、定时或手动运行时都会检查并发通知（已修改）。
  * TZ_OFFSET：固定时区偏移-12～14小时，默认8，不自动处理夏令时。
  * SHOW_TOTAL：默认true；按币种显示月均，按天周期以30天折算，不换汇。
  *   人民币¥/￥/元/CNY/RMB统一为¥并合计；其他币种保留原标识，顺序按SUB_n。
@@ -266,10 +266,10 @@ function notifyIfNeeded(ctx, items, remindDays, todayMs) {
     dirty = true;
   }
   const todayIso = isoOf(todayMs);
-  const active = new Map(items.map(it => [it.id, it.nextIso]));
+  // 已修改：只按日期清理过期记录，不按当前实例的订阅列表删除，避免多个小组件实例互删去重记录。
   for (const key of Object.keys(state)) {
     const m = key.match(/^(SUB_\d+)@(\d{4}-\d{2}-\d{2})@(\d+)$/);
-    if (!m || m[2] < todayIso || active.get(m[1]) !== m[2] || Number(m[3]) > 60 || !Number.isFinite(state[key]) || state[key] < 0) {
+    if (!m || m[2] < todayIso || Number(m[3]) > 60 || !Number.isFinite(state[key]) || state[key] < 0) {
       delete state[key];
       dirty = true;
     }
@@ -565,8 +565,8 @@ export default async function (ctx = {}) {
     const t = today(tz), remindDays = parseRemindDays(env.REMIND_DAYS, errors);
     const items = parseSubs(env, errors).map(sub => computeRenewal(sub, t.todayMs)).sort((a, b) => a.diff - b.diff || a.slot - b.slot);
     if (errors.length) console.log(`[SubReminder] ${errors.join("；")}`);
-    // NOTIFY 只是全局开关。任何带 widgetFamily 的入口都只负责渲染。
-    if (!ctx.widgetFamily && String(env.NOTIFY ?? "true").trim().toLowerCase() !== "false") {
+    // NOTIFY 为全局开关；小组件、定时和手动运行都按提醒档位与去重状态检查通知。
+    if (String(env.NOTIFY ?? "true").trim().toLowerCase() !== "false") {
       try {
         notifyIfNeeded(ctx, items, remindDays, t.todayMs);
       } catch (e) {
