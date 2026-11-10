@@ -288,7 +288,7 @@ function notifyIfNeeded(ctx, items, remindDays, todayMs) {
       return `${it.name}${it.amount ? ` ${it.amount.text}` : ""}：${when}`;
     });
     // 调用失败让入口的通知隔离层记录；成功后才更新去重状态，失败可重试。
-    ctx.notify({ title: "🔔 订阅提醒", body: lines.join("\n"), sound: true });
+    ctx.notify({ title: "🕹️ 订阅提醒", body: lines.join("\n"), sound: true });
     for (const { key } of due) state[key] = Date.now();
     dirty = true;
   }
