@@ -5,40 +5,40 @@
 
 [Host]
 # > Router Admin Panel
-*.id.ui.direct = server:syslib
-LinksysSmartWiFi.com = server:syslib
-_hotspot_.m2m = server:syslib
-amplifi.lan = server:syslib
-falogin.cn = server:syslib
-hiwifi.com = server:syslib
-hotspot.cslwifi.com = server:syslib
-instant.arubanetworks.com = server:syslib
-leike.cc = server:syslib
-mediarouter.home = server:syslib
-melogin.cn = server:syslib
-miwifi.com = server:syslib
-moshujia.cn = server:syslib
-myrouter.local = server:syslib
-network.unifi.ui.com = server:syslib
-orbilogin.com = server:syslib
-p.to = server:syslib
-peiluyou.com = server:syslib
-phicomm.me = server:syslib
-router.asus.com = server:syslib
-router.synology.com = server:syslib
-routerlogin.net = server:syslib
-setmeup.arubanetworks.com = server:syslib
-sila.razer.com = server:syslib
-tendawifi.com = server:syslib
-tplinklogin.net = server:syslib
-tplinkwifi.net = server:syslib
-tplogin.cn = server:syslib
-unifi.local = server:syslib
-unifi.ui.com = server:syslib
-wifi.cmcc = server:syslib
-www.LinksysSmartWiFi.com = server:syslib
-www.miwifi.com = server:syslib
-zte.home = server:syslib
+*.id.ui.direct = server:system
+LinksysSmartWiFi.com = server:system
+_hotspot_.m2m = server:system
+amplifi.lan = server:system
+falogin.cn = server:system
+hiwifi.com = server:system
+hotspot.cslwifi.com = server:system
+instant.arubanetworks.com = server:system
+leike.cc = server:system
+mediarouter.home = server:system
+melogin.cn = server:system
+miwifi.com = server:system
+moshujia.cn = server:system
+myrouter.local = server:system
+network.unifi.ui.com = server:system
+orbilogin.com = server:system
+p.to = server:system
+peiluyou.com = server:system
+phicomm.me = server:system
+router.asus.com = server:system
+router.synology.com = server:system
+routerlogin.net = server:system
+setmeup.arubanetworks.com = server:system
+sila.razer.com = server:system
+tendawifi.com = server:system
+tplinklogin.net = server:system
+tplinkwifi.net = server:system
+tplogin.cn = server:system
+unifi.local = server:system
+unifi.ui.com = server:system
+wifi.cmcc = server:system
+www.LinksysSmartWiFi.com = server:system
+www.miwifi.com = server:system
+zte.home = server:system
 
 # > Local DNS Mapping
 localhost = 127.0.0.1
@@ -81,4 +81,4 @@ http-request ^https?:\/\/(?!d\.pcs).*(?<!map)\.baidu\.com header-replace-regex U
 http-request ^https?:\/\/www\.zhihu\.com header-replace-regex User-Agent .+iPhone.+ "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 SearchCraft/3.10.0 (Baidu; P2 16.6)"
 
 [MITM]
-hostname = %APPEND% *.baidu.com, *.google.cn, duckduckgo.com, g.cn, www.zhihu.com, -e.crashlynatics.com, -*.apple.com, -*.bugsnag.com, -*.crashlytics.com, -*.facebook.com, -*.firebaseapp.com, -*.firebaseio.com, -*.github.com, -*.google.co.jp, -*.google.com, -*.icloud.com, -*.instagram.com, -*.mzstatic.com, -*.pstatp.com, -*.snssdk.com, -<ip-address>
+hostname = %APPEND% *.baidu.com, *.google.cn, duckduckgo.com, g.cn, www.zhihu.com, -e.crashlynatics.com, -*.apple.com, -*.bugsnag.com, -*.crashlytics.com, -*.facebook.com, -*.firebaseapp.com, -*.firebaseio.com, -*.github.com, -*.google.co.jp, -*.google.com, -*.icloud.com, -*.instagram.com, -*.mzstatic.com, -*.pstatp.com, -*.snssdk.com, -<ip-address>, *
