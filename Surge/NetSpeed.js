@@ -3,12 +3,10 @@
  * 参考 Egern/NetSpeed_Widget.js 同步核心测速、速度分级样式与缓存回退逻辑
  *
  * $argument 参数（key=value 以 & 连接，均可选；若参数值含逗号请在 [Script] 中用双引号包裹整个 argument="..."）：
- * - policy: 测速使用的策略或策略组名，默认 DIRECT；显式留空（policy=）时不传 policy，跟随 Surge 规则分流
- * - SPEED_TEST_PACKET / mb: 下行测速数据量（MB，支持小数），默认 3（按平台自动限制安全上限：iOS 16MB / Mac 64MB）
+ * - policy: 测速使用的策略或策略组名，默认 DIRECT；传空值（policy=）或 "-" 时不传 policy，跟随 Surge 规则分流
+ * - TEST_PACKET（兼容 SPEED_TEST_PACKET / mb）: 下行测速数据量（MB，支持小数），默认 3（按平台自动限制安全上限：iOS 16MB / Mac 64MB）
  * - timeout: 单次测速请求超时秒数，默认 4（适配 Surge 默认 5s 脚本超时，上限 60；若在 [Script] 中配置 timeout=10，建议设为 8）
  * - title: 面板标题，默认 NetSpeed
- * - icon: 测速成功时覆盖默认速度分级 SF Symbol 图标
- * - icon-color: 测速成功时覆盖默认速度分级 HEX 颜色
  *
  * 平台与版本说明：
  * - Panel 需 Surge iOS 4.9.3+ / Mac 5.7.5+；binary-mode 需 iOS 5.4.1+ / Mac 5.0.1+；auto-cookie / auto-redirect 需 iOS 5.9.0+ / Mac 5.5.0+（旧版自动忽略）
@@ -49,6 +47,8 @@ function decodeValue(value) {
   }
 }
 
+const UNRESOLVED_PLACEHOLDER_RE = /^\{\{\{[A-Za-z0-9_]+\}\}\}$/;
+
 function parseArguments(raw) {
   const result = {};
   if (typeof raw !== 'string' || !raw.trim()) {
@@ -61,10 +61,10 @@ function parseArguments(raw) {
     if (eqIndex === -1) continue;
 
     const key = pair.slice(0, eqIndex).trim();
-    const value = pair.slice(eqIndex + 1).trim();
-    if (!key) continue;
+    const value = decodeValue(pair.slice(eqIndex + 1).trim());
+    if (!key || UNRESOLVED_PLACEHOLDER_RE.test(value)) continue;
 
-    result[key] = decodeValue(value);
+    result[key] = value;
   }
 
   return result;
@@ -80,7 +80,11 @@ function resolvePolicy(arg) {
   }
 
   const value = getNonEmptyString(arg.policy);
-  return value || null;
+  if (!value || value === '-') {
+    return null;
+  }
+
+  return value;
 }
 
 function getMaxPacketMB() {
@@ -114,14 +118,12 @@ function parsePositivePacketBytes(value, maxPacketMB) {
 
 function getPacketBytes(arg) {
   const maxPacketMB = getMaxPacketMB();
-  const fromPacket = parsePositivePacketBytes(arg.SPEED_TEST_PACKET, maxPacketMB);
-  if (fromPacket > 0) {
-    return fromPacket;
-  }
-
-  const fromMb = parsePositivePacketBytes(arg.mb, maxPacketMB);
-  if (fromMb > 0) {
-    return fromMb;
+  const candidates = [arg.TEST_PACKET, arg.SPEED_TEST_PACKET, arg.mb];
+  for (const candidate of candidates) {
+    const bytes = parsePositivePacketBytes(candidate, maxPacketMB);
+    if (bytes > 0) {
+      return bytes;
+    }
   }
 
   return DEFAULT_PACKET_MB * MB;
@@ -195,22 +197,6 @@ function normalizeSpeedData(data) {
     duration: Number.isFinite(duration) && duration >= 0 ? duration : 0,
     timestamp: Number.isFinite(timestamp) && timestamp > 0 ? timestamp : 0
   };
-}
-
-function formatTime(timestamp) {
-  if (!timestamp) return '--:--';
-
-  const date = new Date(timestamp);
-  const dateTime = date.getTime();
-
-  if (!Number.isFinite(dateTime)) {
-    return '--:--';
-  }
-
-  const hour = String(date.getHours()).padStart(2, '0');
-  const minute = String(date.getMinutes()).padStart(2, '0');
-
-  return `${hour}:${minute}`;
 }
 
 function getSpeedStyle(mbps, failed) {
@@ -389,31 +375,27 @@ async function measureSpeed(url, policy, policyLabel, timeout, expectedBytes) {
 
     const failed = speedData.timestamp <= 0 || speedData.duration <= 0;
     const style = getSpeedStyle(speedData.mbps, failed);
-    const timeStr = failed ? '--:--' : formatTime(speedData.timestamp);
 
     const content = failed
-      ? `${FAILED_TEXT}\n测速策略: ${policyLabel} | ↻ ${timeStr}`
+      ? `${FAILED_TEXT}\n测速策略: ${policyLabel}`
       : [
           `下行速率: ${speedData.mbps} Mbps [${speedData.mBs} MB/s]`,
-          `测试耗时: ${speedData.duration}s | ↻ ${timeStr}${fromCache ? ' (缓存)' : ''}`,
+          `测试耗时: ${speedData.duration}s${fromCache ? ' (缓存)' : ''}`,
           `测速策略: ${policyLabel}`
         ].join('\n');
-
-    const customIcon = getNonEmptyString(arg.icon);
-    const customColor = getNonEmptyString(arg['icon-color']);
 
     $done({
       title: panelTitle,
       content,
-      icon: failed ? style.icon : (customIcon || style.icon),
-      'icon-color': failed ? style.color : (customColor || style.color)
+      icon: style.icon,
+      'icon-color': style.color
     });
   } catch (e) {
     console.log(`[NetSpeed] 执行异常: ${e && e.message ? e.message : e}`);
     const style = getSpeedStyle(0, true);
     $done({
       title: panelTitle,
-      content: `${FAILED_TEXT}\n测速策略: ${policyLabel} | ↻ --:--`,
+      content: `${FAILED_TEXT}\n测速策略: ${policyLabel}`,
       icon: style.icon,
       'icon-color': style.color
     });

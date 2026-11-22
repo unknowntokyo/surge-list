@@ -2,11 +2,11 @@
 #!desc=花里胡哨才是生产力 测试网络下载速度、延迟并根据速度和延迟改变图标和颜色，乌龟、兔子还是闪电？
 #!author=unknownTokyo
 #!category=工具
-#!arguments=title:NetSpeed,policy:DIRECT,SPEED_TEST_PACKET:3,timeout:8,icon:auto,icon_color:auto
-#!arguments-desc=title 面板标题；policy 测速策略或策略组名（默认 DIRECT，填 - 跟随 Surge 规则分流）；SPEED_TEST_PACKET 下行数据量(MB，iOS上限16/Mac上限64)；timeout 请求超时秒数（需小于模块脚本超时 10s）；icon 与 icon_color 为可选自定义成功态 SF Symbol 图标及 HEX 颜色（默认 auto 按速度自动分级）。参数值请勿包含 & 或 "。
+#!arguments=title:NetSpeed,policy:DIRECT,TEST_PACKET:3,timeout:8
+#!arguments-desc=title 面板标题；policy 测速策略或策略组名（默认 DIRECT，填 - 跟随 Surge 规则分流）；TEST_PACKET 下行数据量(MB，iOS上限16/Mac上限64)；timeout 请求超时秒数（需小于模块脚本超时 10s）。参数值请勿包含 & 或 "。
 
 [Panel]
 NetSpeed = script-name=NetSpeed,update-interval=-1
 
 [Script]
-NetSpeed = type=generic,script-path=https://raw.githubusercontent.com/unknowntokyo/surge-list/master/Surge/NetSpeed.js,timeout=10,argument="title={{{title}}}&policy={{{policy}}}&SPEED_TEST_PACKET={{{SPEED_TEST_PACKET}}}&timeout={{{timeout}}}&icon={{{icon}}}&icon-color={{{icon_color}}}"
+NetSpeed = type=generic,script-path=https://raw.githubusercontent.com/unknowntokyo/surge-list/master/Surge/NetSpeed.js,timeout=10,argument="title={{{title}}}&policy={{{policy}}}&TEST_PACKET={{{TEST_PACKET}}}&timeout={{{timeout}}}"
