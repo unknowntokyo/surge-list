@@ -57,9 +57,6 @@ sub.store = 127.0.0.1
 # > bd xxx (百度)
 ^https:\/\/duckduckgo\.com\/\?(?:(?!q=)[^&]*&)*q=bd(?:\+|%20)([^&]+)(?:&.*)?$ https://www.baidu.com/s?wd=$1 307
 
-# > zh xxx (知乎)
-^https:\/\/duckduckgo\.com\/\?(?:(?!q=)[^&]*&)*q=zh(?:\+|%20)([^&]+)(?:&.*)?$ https://www.zhihu.com/search?q=$1 307
-
 # > ccn (App Store 临时切换至国区)
 ^https:\/\/duckduckgo\.com\/\?(?:(?!q=)[^&]*&)*q=ccn(?:&.*)?$ https://itunes.apple.com/WebObjects/MZStore.woa/wa/resetAndRedirect?dsf=143465&mt=8&url=/WebObjects/MZStore.woa/wa/viewSoftware?mt=8&id=1108187390&cc=cn&urlDesc 307
 
@@ -79,8 +76,5 @@ sub.store = 127.0.0.1
 # > 百度（全站替换为简单搜索的UA）
 http-request ^https?:\/\/(?!d\.pcs).*(?<!map)\.baidu\.com header-replace-regex User-Agent .+iPhone.+ "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 SearchCraft/3.10.0 (Baidu; P2 16.6)"
 
-# > 知乎（部分替换为简单搜索的UA）
-http-request ^https?:\/\/www\.zhihu\.com header-replace-regex User-Agent .+iPhone.+ "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 SearchCraft/3.10.0 (Baidu; P2 16.6)"
-
 [MITM]
-hostname = %APPEND% *.baidu.com, *.google.cn, duckduckgo.com, g.cn, www.zhihu.com, -*.apple.com, -*.bugsnag.com, -*.crashlytics.com, -*.facebook.com, -*.firebaseapp.com, -*.firebaseio.com, -*.github.com, -*.google.co.jp, -*.google.com, -*.icloud.com, -*.instagram.com, -*.mzstatic.com, -*.pstatp.com, -*.snssdk.com, -<ip-address>
+hostname = %APPEND% *.baidu.com, *.google.cn, duckduckgo.com, g.cn, -*.apple.com, -*.bugsnag.com, -*.crashlytics.com, -*.facebook.com, -*.firebaseapp.com, -*.firebaseio.com, -*.github.com, -*.google.co.jp, -*.google.com, -*.icloud.com, -*.instagram.com, -*.mzstatic.com, -*.pstatp.com, -*.snssdk.com, -<ip-address>
