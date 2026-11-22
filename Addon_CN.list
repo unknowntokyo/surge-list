@@ -6,6 +6,9 @@ USER-AGENT,NeteaseMusic*
 DOMAIN-SUFFIX,cn
 DEST-PORT,22
 
+# > Tailscale DERP中继
+DOMAIN,derp*.tailscale.com
+
 # > FlowerCloud
 DOMAIN-SUFFIX,xmancdn.com
 

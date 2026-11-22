@@ -1,4 +1,6 @@
 DOMAIN,challenges.cloudflare.com
+DOMAIN,controlplane.tailscale.com
+DOMAIN,login.tailscale.com
 DOMAIN,sub.xream.eu.org
 DOMAIN-SUFFIX,ikuncode.ai
 DOMAIN-SUFFIX,ikuncode.cc
@@ -18,7 +20,6 @@ DOMAIN-SUFFIX,rawgit.com
 DOMAIN-SUFFIX,rawgithub.com
 DOMAIN-SUFFIX,sub.store
 DOMAIN-SUFFIX,sublink.dev
-DOMAIN-SUFFIX,tailscale.com
 DOMAIN-SUFFIX,tailscale.io
 DOMAIN-KEYWORD,amytele
 DOMAIN-KEYWORD,cordcloud
