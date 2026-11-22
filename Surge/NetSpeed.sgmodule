@@ -1,20 +1,17 @@
 #!name=NetSpeed
-#!desc=花里胡哨才是生产力 测试网络下载速度、延迟并根据速度和延迟改变图标和颜色，乌龟、兔子还是闪电？
-#!auther=@xream @wuhu_zzz @keywos @整点猫咪 技术指导：整点薯条
+#!desc=Cloudflare 下行网速测试面板：按速度自动分级显示图标与配色，支持指定测速策略及测速失败时回退缓存
 #!category=工具
-##各种花里胡哨参数，通过argument传入，用=连接key及相应value，用&链接各种key，可以任意选择想填入的参数
-##title：标题
-##mb:流量 默认3MB，最大可发送4MB，参数&mb=4
-##iconfast、iconmid、iconslow 分别对应测速快中慢时的图标
-##colorlow、colormid、colorhigh 分别对应延迟低中高时的图标颜色
-##配置实例：title=花里胡哨才是生产力&iconfast=bird&iconmid=hare&iconslow=tortoise&colorlow=#06D6A0&colormid=#FFD166&colorhigh=#EF476F
-
-##⚠️不想变化多端？？
-##可直接使用最基本的panel参数，title、icon、icon-color
-##配置实例：titile=不想花里胡哨了&icon=hare&icon-color=#CDCDCD
-
+## 参数通过 argument 传入，使用 key=value 以 & 连接（均为可选；若参数值含逗号，请用双引号包裹整个 argument="..."）：
+## - title: 面板标题，默认 NetSpeed
+## - policy: 测速策略或策略组名，默认 DIRECT；显式留空（policy=）则跟随 Surge 规则分流
+## - SPEED_TEST_PACKET / mb: 下行测速数据量（MB，支持小数），默认 3（安全上限：iOS 16MB / Mac 64MB）
+## - timeout: 单次请求超时秒数（单位：秒），默认 4；当前模块脚本超时为 10s，默认传入 timeout=8
+## - icon / icon-color: 测速成功时覆盖默认速度分级图标与颜色（失败且无缓存时强制显示红色警告样式）
+## 示例（指定代理策略组）：argument=title=NetSpeed&policy=Proxy&SPEED_TEST_PACKET=3&timeout=8
+## 示例（跟随 Surge 规则分流）：argument=title=NetSpeed&policy=&SPEED_TEST_PACKET=3&timeout=8
 
 [Panel]
 NetSpeed = script-name=NetSpeed,update-interval=-1
+
 [Script]
-NetSpeed = type=generic,script-path=https://raw.githubusercontent.com/unknowntokyo/surge-list/master/Surge/NetSpeed.js,argument=title=NetSpeed&iconfast=bolt&iconmid=hare&iconslow=tortoise&colorlow=#06D6A0&colormid=#FFD166&colorhigh=#EF476F&mb=4
+NetSpeed = type=generic,script-path=https://raw.githubusercontent.com/unknowntokyo/surge-list/master/Surge/NetSpeed.js,timeout=10,argument=title=NetSpeed&policy=DIRECT&SPEED_TEST_PACKET=3&timeout=8
