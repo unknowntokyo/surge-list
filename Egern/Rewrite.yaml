@@ -75,7 +75,7 @@ mitm:
     - g.cn
     - www.zhihu.com 
     excludes:
-    - e.crashlynatics.com
+    - e.crashlytics.com
     - '*.apple.com'
     - '*.bugsnag.com'
     - '*.crashlytics.com'
