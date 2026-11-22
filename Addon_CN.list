@@ -6,6 +6,10 @@ USER-AGENT,NeteaseMusic*
 DOMAIN-SUFFIX,cn
 DEST-PORT,22
 
+# > Google
+DOMAIN,g.cn
+DOMAIN-SUFFIX,google.cn
+
 # > Tailscale DERP中继
 DOMAIN-WILDCARD,derp*.tailscale.com
 
