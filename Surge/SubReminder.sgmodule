@@ -1,8 +1,8 @@
 #!name=订阅提醒
 #!desc=追踪订阅续费倒计时、按币种统计月均费用，通过 Surge 信息面板展示并按定时任务推送续费提醒（参考 Egern SubReminder 移植）。
 #!category=工具
-#!arguments=SUB_1:-,SUB_2:-,SUB_3:-,SUB_4:-,SUB_5:-,SUB_6:-,SUB_7:-,SUB_8:-,SUB_9:-,SUB_10:-,SUB_11:-,SUB_12:-,SUB_13:-,SUB_14:-,SUB_15:-,SUB_16:-,SUB_17:-,SUB_18:-,SUB_19:-,SUB_20:-,REMIND_DAYS:1 0,NOTIFY:true,TZ_OFFSET:8,SHOW_TOTAL:true,MAX_DISPLAY:8,CRON:0 9 * * *
-#!arguments-desc=SUB_1～SUB_20 格式：名称|日期|金额|周期（后两项可留空，如 Claude Pro|15|$20 或 域名|2025/9/10|¥120|1Y；不使用的槽位保持 - 或留空）。REMIND_DAYS：提前提醒天数（空格/逗号/顿号分隔，0～60，默认 1 0）。NOTIFY：是否开启续费通知（true/false）。TZ_OFFSET：时区偏移（-12～14，默认 8）。SHOW_TOTAL：是否按币种显示月均（true/false）。MAX_DISPLAY：面板最多显示条数（0 表示全部，默认 8）。CRON：定时检查 Cron 表达式（默认 0 9 * * *，勿留空）。参数值请勿包含英文双引号。
+#!arguments=SUB_1:-,SUB_2:-,SUB_3:-,SUB_4:-,SUB_5:-,SUB_6:-,SUB_7:-,SUB_8:-,SUB_9:-,SUB_10:-,SUB_11:-,SUB_12:-,SUB_13:-,SUB_14:-,SUB_15:-,SUB_16:-,SUB_17:-,SUB_18:-,SUB_19:-,SUB_20:-,REMIND_DAYS:1 0,NOTIFY:true,TZ_OFFSET:8,SHOW_TOTAL:true,MAX_DISPLAY:8,CRON:0 8 * * *
+#!arguments-desc=SUB_1～SUB_20 格式：名称|日期|金额|周期（后两项可留空，如 Google AI Ultra|15|$99.99 或 域名|2025/9/10|¥120|1Y；不使用的槽位保持 - 或留空）。REMIND_DAYS：提前提醒天数（空格/逗号/顿号分隔，0～60，默认 1 0）。NOTIFY：是否开启续费通知（true/false）。TZ_OFFSET：时区偏移（-12～14，默认 8）。SHOW_TOTAL：是否按币种显示月均（true/false）。MAX_DISPLAY：面板最多显示条数（0 表示全部，默认 8）。CRON：定时检查 Cron 表达式（默认 0 9 * * *，勿留空）。参数值请勿包含英文双引号。
 
 [Panel]
 SubReminderPanel = title="订阅提醒",content="点击刷新或在模块参数中配置 SUB_1～SUB_20",icon=bell.circle.fill,icon-color=#8E8E93,script-name=SubReminderPanel,update-interval=60
