@@ -1,24 +1,3 @@
-/*
- * =======================================
- * 时光倒数 (Surge Panel + Cron 提醒)
- * ---------------------------------------
- * - 统一按北京时间 (UTC+8) 计算，解决跨时区偏移与跨年农历漏算问题
- * - 内置 1900-2100 农历与清明节气算法，优先融合 holiday-cn 国务院放假/调休数据
- * - 支持四大分类（法定 / 民俗 / 国际 / 专属）、跨年连续假期合并、今日放假进度
- * - 支持置顶节日、权重排序、专属高权重、沙漏图标自动配色（含官方补班日回落）
- * - 支持 Panel 与 Cron 共享持久化缓存与当日首日提醒去重（含同日新增补推与失败退避）
- *
- * 参数配置（通过 Surge 模块 #!arguments 或脚本 argument="KEY=VAL&..." 传入）：
- * - SMART_SORT     : true/false，默认 true，同天数冲突时按节日权重排序
- * - VIP_WEIGHT     : true/false，默认 true，开启后专属日优先级提升为 9
- * - NOTIFY         : true/false，默认 true，节日/专属日首日发送系统通知
- * - PINNED         : 置顶节日名称，支持顿号/中文逗号/斜杠分隔，最多 12 项
- * - CUSTOM_1 ~ 6   : 专属纪念日「名称:日期」，支持公历每年 M/D、一次性 YYYY/M/D，
- *                    并兼容农历每年 L12/3（或 农历12/3）与一次性 L2026/12/3
- * （同时向后兼容旧参数名 ENABLE_PRIORITY_SORT / ENABLE_EXCLUSIVE_WEIGHT / ENABLE_NOTIFY / PINNED_HOLIDAY / EXCLUSIVE_NAME_1~6 / EXCLUSIVE_DATE_1~6）
- * =======================================
- */
-
 "use strict";
 
 const RANDOM_NOTICES = [
@@ -63,13 +42,13 @@ const BASE_PRIORITY = {
 };
 
 const SPECIAL_PRIORITY = {
-  春节: 10,
-  国庆节: 9,
-  元旦: 7,
-  清明节: 7,
-  端午节: 7,
-  中秋节: 7,
-  除夕: 6
+  "春节": 10,
+  "国庆节": 9,
+  "元旦": 7,
+  "清明节": 7,
+  "端午节": 7,
+  "中秋节": 7,
+  "除夕": 6
 };
 
 const ICON_COLORS = {
@@ -85,6 +64,7 @@ const PANEL_HTTP_TIMEOUT_S = 3;
 const CRON_HTTP_TIMEOUT_S = 5;
 const OFFICIAL_REFRESH_INTERVAL_MS = 3 * DAY_MS;
 const OFFICIAL_FAILED_RETRY_INTERVAL_MS = DAY_MS;
+const OFFICIAL_DISTINCT_PERIOD_GAP_MS = 60 * DAY_MS;
 const NOTIFY_FAILED_RETRY_INTERVAL_MS = 10 * 60 * 1000;
 const NOTIFY_PANEL_START_HOUR = 8;
 
@@ -97,46 +77,47 @@ const OFFICIAL_HOLIDAY_STORAGE_VERSION = 3;
 const DAILY_CACHE_SCHEMA_VERSION = 26;
 const DAILY_CACHE_VERSION = `v${DAILY_CACHE_SCHEMA_VERSION}`;
 
-const OFFICIAL_HOLIDAY_KEY = `${STORAGE_SCOPE}_official_holidays_v${OFFICIAL_HOLIDAY_STORAGE_VERSION}`;
+const OFFICIAL_HOLIDAY_KEY =
+  `${STORAGE_SCOPE}_official_holidays_v${OFFICIAL_HOLIDAY_STORAGE_VERSION}`;
 const BASE_CACHE_KEY = `${STORAGE_SCOPE}_daily_${DAILY_CACHE_VERSION}`;
 const NOTIFY_KEY = `${STORAGE_SCOPE}_notify_v1`;
 
 const ISO_DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
 const SLASH_YMD_RE = /^(\d{4})\/(\d{1,2})\/(\d{1,2})$/;
 const ANNUAL_SLASH_DATE_RE = /^(\d{1,2})\/(\d{1,2})$/;
-const ONCE_SLASH_DATE_RE = /^(\d{4})\/(\d{1,2})\/(\d{1,2})$/;
 const LUNAR_PREFIX_RE = /^(?:[Ll]|农历)\s*/;
 const TEMPLATE_PLACEHOLDER_RE = /^\{\{\{[A-Za-z0-9_]+\}\}\}$/;
 const EMPTY_ARG_SENTINEL_RE = /^(?:-|无|none|null|\(null\))$/i;
 const NAME_LIST_SEPARATOR_RE = /[、，,/;；]+/;
+const NAME_LIST_SEPARATOR_CHAR_RE = /^[、，,/;；]$/;
 const INVISIBLE_TEXT_CHARS_RE = /[\u200B\u200C\u2060\uFEFF\u00AD]/g;
 const INVISIBLE_STRICT_CHARS_RE = /[\u200B-\u200D\u2060\uFEFF\u00AD]/g;
 const EXCLUSIVE_NAME_KEY_RE = /^EXCLUSIVE_NAME_\d+$/;
 const EXCLUSIVE_DATE_KEY_RE = /^EXCLUSIVE_DATE_\d+$/;
 
 const HOLIDAY_ALIAS_MAP = {
-  国庆: "国庆节",
-  中秋: "中秋节",
-  端午: "端午节",
-  清明: "清明节",
-  五一: "劳动节",
-  劳动: "劳动节",
-  元宵: "元宵节",
-  七夕: "七夕节",
-  中元: "中元节",
-  重阳: "重阳节",
-  寒衣: "寒衣节",
-  腊八: "腊八节",
-  情人: "情人节",
-  妇女: "妇女节",
-  三八: "妇女节",
-  母亲: "母亲节",
-  儿童: "儿童节",
-  六一: "儿童节",
-  父亲: "父亲节",
-  万圣: "万圣节",
-  感恩: "感恩节",
-  圣诞: "圣诞节"
+  "国庆": "国庆节",
+  "中秋": "中秋节",
+  "端午": "端午节",
+  "清明": "清明节",
+  "五一": "劳动节",
+  "劳动": "劳动节",
+  "元宵": "元宵节",
+  "七夕": "七夕节",
+  "中元": "中元节",
+  "重阳": "重阳节",
+  "寒衣": "寒衣节",
+  "腊八": "腊八节",
+  "情人": "情人节",
+  "妇女": "妇女节",
+  "三八": "妇女节",
+  "母亲": "母亲节",
+  "儿童": "儿童节",
+  "六一": "儿童节",
+  "父亲": "父亲节",
+  "万圣": "万圣节",
+  "感恩": "感恩节",
+  "圣诞": "圣诞节"
 };
 
 const MAX_EXCLUSIVE_NAME_LENGTH = 20;
@@ -175,7 +156,7 @@ const BOOL_FALSE_VALUES = new Set(["false", "0", "no", "off", "disabled"]);
 const BOOL_TRUE_VALUES = new Set(["true", "1", "yes", "on", "enabled"]);
 
 const SOLAR_TERM_INFO = [
-  0, 21208, 42467, 63836, 85337, 107014, 128867, 150921,
+       0,  21208,  42467,  63836,  85337, 107014, 128867, 150921,
   173149, 195551, 218072, 240693, 263343, 285989, 308563, 331033,
   353350, 375494, 397447, 419210, 440795, 462224, 483532, 504758
 ];
@@ -217,7 +198,9 @@ const Lunar = {
     );
   },
   lDays(y) {
-    if (!Number.isInteger(y) || y < 1900 || y >= 1900 + this.info.length) return 0;
+    if (!Number.isInteger(y) || y < 1900 || y >= 1900 + this.info.length) {
+      return 0;
+    }
     const info = this.info[y - 1900];
     let s = 348;
     for (let i = 0x8000; i > 0x8; i >>= 1) {
@@ -227,8 +210,12 @@ const Lunar = {
     return s + (lp ? (info & 0x10000 ? 30 : 29) : 0);
   },
   mDays(y, m) {
-    if (!Number.isInteger(y) || y < 1900 || y >= 1900 + this.info.length) return 0;
-    if (!Number.isInteger(m) || m < 1 || m > 12) return 0;
+    if (!Number.isInteger(y) || y < 1900 || y >= 1900 + this.info.length) {
+      return 0;
+    }
+    if (!Number.isInteger(m) || m < 1 || m > 12) {
+      return 0;
+    }
     return this.info[y - 1900] & (0x10000 >> m) ? 30 : 29;
   }
 };
@@ -245,7 +232,9 @@ const lunarCumulativeCache = { maxYear: 1899, off: [] };
 
 function ensureLunarCumulative(maxYear) {
   const targetYear = Math.min(MAX_LUNAR_YEAR, maxYear);
-  if (targetYear <= lunarCumulativeCache.maxYear) return;
+  if (targetYear <= lunarCumulativeCache.maxYear) {
+    return;
+  }
 
   let acc =
     lunarCumulativeCache.maxYear < MIN_LUNAR_YEAR
@@ -253,7 +242,8 @@ function ensureLunarCumulative(maxYear) {
       : lunarCumulativeCache.off[lunarCumulativeCache.maxYear - MIN_LUNAR_YEAR] +
         Lunar.lDays(lunarCumulativeCache.maxYear);
 
-  for (let y = Math.max(MIN_LUNAR_YEAR, lunarCumulativeCache.maxYear + 1); y <= targetYear; y++) {
+  const startYear = Math.max(MIN_LUNAR_YEAR, lunarCumulativeCache.maxYear + 1);
+  for (let y = startYear; y <= targetYear; y++) {
     lunarCumulativeCache.off[y - MIN_LUNAR_YEAR] = acc;
     acc += Lunar.lDays(y);
   }
@@ -293,7 +283,9 @@ function isValidMonthDay(year, month, day) {
   if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) {
     return false;
   }
-  if (month < 1 || month > 12 || day < 1 || day > 31) return false;
+  if (month < 1 || month > 12 || day < 1 || day > 31) {
+    return false;
+  }
   const d = new Date(Date.UTC(year, month - 1, day));
   return (
     d.getUTCFullYear() === year &&
@@ -304,11 +296,15 @@ function isValidMonthDay(year, month, day) {
 
 function parseISODateParts(dateStr) {
   const m = ISO_DATE_RE.exec(String(dateStr ?? "").trim());
-  if (!m) return null;
+  if (!m) {
+    return null;
+  }
   const y = Number(m[1]);
   const mo = Number(m[2]);
   const d = Number(m[3]);
-  if (!isValidMonthDay(y, mo, d)) return null;
+  if (!isValidMonthDay(y, mo, d)) {
+    return null;
+  }
   return { y, m: mo, d, ms: Date.UTC(y, mo - 1, d) };
 }
 
@@ -319,11 +315,15 @@ function isoToMs(dateStr) {
 
 function parseSlashYMDParts(dateStr) {
   const m = SLASH_YMD_RE.exec(String(dateStr ?? "").trim());
-  if (!m) return null;
+  if (!m) {
+    return null;
+  }
   const y = Number(m[1]);
   const mo = Number(m[2]);
   const d = Number(m[3]);
-  if (!isValidMonthDay(y, mo, d)) return null;
+  if (!isValidMonthDay(y, mo, d)) {
+    return null;
+  }
   return { y, m: mo, d, ms: Date.UTC(y, mo - 1, d) };
 }
 
@@ -333,7 +333,9 @@ function slashYMDToMs(dateStr) {
 }
 
 function msToYMD(ms) {
-  if (!Number.isFinite(ms)) return "";
+  if (!Number.isFinite(ms)) {
+    return "";
+  }
   const d = new Date(ms);
   return YMD(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate());
 }
@@ -345,14 +347,22 @@ function splitNameList(value) {
     .filter(Boolean);
 }
 
+function normalizeHolidayMatchName(name) {
+  return stripInvisibleChars(name, false);
+}
+
 const EMPTY_HOLIDAY_NAME_PARTS = [];
 const HOLIDAY_NAME_PARTS_CACHE = new Map();
 
 function splitHolidayNames(name) {
   const raw = String(name ?? "").trim();
-  if (!raw) return EMPTY_HOLIDAY_NAME_PARTS;
+  if (!raw) {
+    return EMPTY_HOLIDAY_NAME_PARTS;
+  }
   const cached = HOLIDAY_NAME_PARTS_CACHE.get(raw);
-  if (cached) return cached;
+  if (cached) {
+    return cached;
+  }
   const parts = splitNameList(raw);
   if (HOLIDAY_NAME_PARTS_CACHE.size >= 256) {
     HOLIDAY_NAME_PARTS_CACHE.clear();
@@ -362,21 +372,30 @@ function splitHolidayNames(name) {
 }
 
 function partsIntersect(parts, partSet) {
-  if (!Array.isArray(parts) || parts.length === 0 || !(partSet instanceof Set) || partSet.size === 0) {
+  if (
+    !Array.isArray(parts) ||
+    parts.length === 0 ||
+    !(partSet instanceof Set) ||
+    partSet.size === 0
+  ) {
     return false;
   }
   return parts.some(part => partSet.has(part));
 }
 
 function addHolidayNameTokens(targetSet, name) {
-  if (!(targetSet instanceof Set)) return;
+  if (!(targetSet instanceof Set)) {
+    return;
+  }
   for (const part of splitHolidayNames(name)) {
     targetSet.add(part);
   }
 }
 
 function holidayNameMatchesTokenSet(name, tokenSet) {
-  if (!(tokenSet instanceof Set) || tokenSet.size === 0) return false;
+  if (!(tokenSet instanceof Set) || tokenSet.size === 0) {
+    return false;
+  }
   return splitHolidayNames(name).some(part => tokenSet.has(part));
 }
 
@@ -395,21 +414,52 @@ function getSpecialHolidayPriority(name) {
 }
 
 function dedupeHolidayItemsByToken(items) {
-  if (!Array.isArray(items) || items.length === 0) return [];
+  if (!Array.isArray(items) || items.length === 0) {
+    return [];
+  }
+  const usedCustomNameSet = new Set();
   const usedTokenSet = new Set();
+  const usedExactDisplaySet = new Set();
   const output = [];
   for (const item of items) {
-    if (!item) continue;
+    if (!item) {
+      continue;
+    }
+    const normName = normalizeHolidayMatchName(item.name);
+    const exactDisplayKey = normName
+      ? `${normName}\0${formatDisplayItem(item)}`
+      : "";
+    if (exactDisplayKey && usedExactDisplaySet.has(exactDisplayKey)) {
+      continue;
+    }
+    if (item.sourceKind === "custom") {
+      if (!normName || usedCustomNameSet.has(normName)) {
+        continue;
+      }
+      usedCustomNameSet.add(normName);
+      usedExactDisplaySet.add(exactDisplayKey);
+      output.push(item);
+      continue;
+    }
     const parts = splitHolidayNames(item.name);
-    if (parts.some(part => usedTokenSet.has(part))) continue;
-    for (const part of parts) usedTokenSet.add(part);
+    if (parts.some(part => usedTokenSet.has(part))) {
+      continue;
+    }
+    for (const part of parts) {
+      usedTokenSet.add(part);
+    }
+    if (exactDisplayKey) {
+      usedExactDisplaySet.add(exactDisplayKey);
+    }
     output.push(item);
   }
   return output;
 }
 
 function formatPeriodStr(label, diff, duration = 1) {
-  if (diff === 0) return `今日 ${label}`;
+  if (diff === 0) {
+    return `今日 ${label}`;
+  }
   const total = Math.max(1, Number(duration) || 1);
   if (diff < 0 && total > 1) {
     const dayIndex = Math.floor(Math.abs(diff)) + 1;
@@ -423,11 +473,15 @@ function formatDisplayItem(item) {
 }
 
 function toPublicCountdownItem(item) {
-  return {
+  const out = {
     name: item.name,
     diff: item.diff,
     duration: Math.max(1, Number(item.duration) || 1)
   };
+  if (item.sourceKind === "custom") {
+    out.sourceKind = "custom";
+  }
+  return out;
 }
 
 function formatTodayFestGroup(items) {
@@ -447,19 +501,27 @@ function formatTodayFestGroup(items) {
 }
 
 function buildPinnedStickyText(pinnedData) {
-  if (!Array.isArray(pinnedData) || pinnedData.length === 0) return "";
+  if (!Array.isArray(pinnedData) || pinnedData.length === 0) {
+    return "";
+  }
   const visible = pinnedData.slice(0, TOP_PINNED_DISPLAY_LIMIT);
-  const text = visible.map(item => formatPeriodStr(item.name, item.diff, item.duration)).join(" · ");
+  const text = visible
+    .map(item => formatPeriodStr(item.name, item.diff, item.duration))
+    .join(" · ");
   return pinnedData.length > TOP_PINNED_DISPLAY_LIMIT ? `${text} · …` : text;
 }
 
 function truncateByCodePoint(str, maxLen) {
   const s = String(str ?? "");
-  if (maxLen <= 0) return "";
+  if (maxLen <= 0) {
+    return "";
+  }
   let out = "";
   let count = 0;
   for (const ch of s) {
-    if (count >= maxLen) break;
+    if (count >= maxLen) {
+      break;
+    }
     out += ch;
     count += 1;
   }
@@ -476,16 +538,26 @@ function hashString(str) {
 }
 
 function parseBoolValue(value, defaultVal = true) {
-  if (typeof value === "boolean") return value;
+  if (typeof value === "boolean") {
+    return value;
+  }
   const raw = stripInvisibleChars(value, true).toLowerCase();
-  if (!raw) return defaultVal;
-  if (BOOL_FALSE_VALUES.has(raw)) return false;
-  if (BOOL_TRUE_VALUES.has(raw)) return true;
+  if (!raw) {
+    return defaultVal;
+  }
+  if (BOOL_FALSE_VALUES.has(raw)) {
+    return false;
+  }
+  if (BOOL_TRUE_VALUES.has(raw)) {
+    return true;
+  }
   return defaultVal;
 }
 
 function safeDecodeURIComponent(str) {
-  if (!str || str.indexOf("%") === -1) return str;
+  if (!str || str.indexOf("%") === -1) {
+    return str;
+  }
   try {
     return decodeURIComponent(str);
   } catch (_) {
@@ -494,10 +566,16 @@ function safeDecodeURIComponent(str) {
 }
 
 function parseSurgeArgument(rawArg) {
-  if (!rawArg) return {};
-  if (typeof rawArg === "object") return { ...rawArg };
+  if (!rawArg) {
+    return {};
+  }
+  if (typeof rawArg === "object") {
+    return { ...rawArg };
+  }
   const text = String(rawArg).trim();
-  if (!text) return {};
+  if (!text) {
+    return {};
+  }
 
   if (text.startsWith("{") && text.endsWith("}")) {
     try {
@@ -506,17 +584,22 @@ function parseSurgeArgument(rawArg) {
         return parsed;
       }
     } catch (_) {
-      // 回落按 query string 解析
     }
   }
 
   const out = {};
   for (const segment of text.split("&")) {
-    if (!segment) continue;
+    if (!segment) {
+      continue;
+    }
     const eqIdx = segment.indexOf("=");
-    if (eqIdx <= 0) continue;
+    if (eqIdx <= 0) {
+      continue;
+    }
     const key = safeDecodeURIComponent(segment.slice(0, eqIdx).trim());
-    if (!key) continue;
+    if (!key) {
+      continue;
+    }
     let val = safeDecodeURIComponent(segment.slice(eqIdx + 1)).trim();
     if (TEMPLATE_PLACEHOLDER_RE.test(val)) {
       val = "";
@@ -532,33 +615,162 @@ function stripInvisibleChars(value, strict = false) {
     .trim();
 }
 
+function normalizeExclusiveDateString(rawDate) {
+  const cleaned = stripInvisibleChars(rawDate, true);
+  if (!cleaned) {
+    return "";
+  }
+  return cleaned.replace(/^([Ll]|农历)\s+/, "$1").replace(/\s+/g, " ");
+}
+
 function normalizePinnedHolidayName(name) {
   const clean = stripInvisibleChars(name, false);
   return HOLIDAY_ALIAS_MAP[clean] ?? clean;
 }
 
-function sanitizeEnvStringValue(key, rawValue) {
+function splitPinnedHolidayList(value, customNames = []) {
+  const text = String(value ?? "").trim();
+  if (!text) {
+    return [];
+  }
+  const preservedNames = Array.from(
+    new Set(
+      (Array.isArray(customNames) ? customNames : [])
+        .map(name => stripInvisibleChars(name, false))
+        .filter(name => name && NAME_LIST_SEPARATOR_RE.test(name))
+    )
+  ).sort((a, b) => b.length - a.length);
+
+  if (preservedNames.length === 0) {
+    return splitNameList(text);
+  }
+
+  const isLeftBoundary = idx => {
+    let p = idx - 1;
+    while (p >= 0 && /\s/.test(text[p])) {
+      p -= 1;
+    }
+    return p < 0 || NAME_LIST_SEPARATOR_CHAR_RE.test(text[p]);
+  };
+
+  const isRightBoundary = idx => {
+    let p = idx;
+    while (p < text.length && /\s/.test(text[p])) {
+      p += 1;
+    }
+    return p >= text.length || NAME_LIST_SEPARATOR_CHAR_RE.test(text[p]);
+  };
+
+  const items = [];
+  let buffer = "";
+  let i = 0;
+
+  const flushBuffer = () => {
+    if (!buffer) {
+      return;
+    }
+    for (const part of splitNameList(buffer)) {
+      items.push(part);
+    }
+    buffer = "";
+  };
+
+  while (i < text.length) {
+    let matched = "";
+    if (isLeftBoundary(i)) {
+      for (const candidate of preservedNames) {
+        if (
+          text.startsWith(candidate, i) &&
+          isRightBoundary(i + candidate.length)
+        ) {
+          matched = candidate;
+          break;
+        }
+      }
+    }
+    if (matched) {
+      flushBuffer();
+      items.push(matched);
+      i += matched.length;
+    } else {
+      buffer += text[i];
+      i += 1;
+    }
+  }
+  flushBuffer();
+  return items;
+}
+
+function normalizePinnedHolidayList(rawValue, customNames = []) {
+  const value = stripInvisibleChars(rawValue, false);
+  if (
+    !value ||
+    TEMPLATE_PLACEHOLDER_RE.test(value) ||
+    EMPTY_ARG_SENTINEL_RE.test(value)
+  ) {
+    return [];
+  }
+  const truncated = truncateByCodePoint(value, MAX_PINNED_HOLIDAY_TOTAL_LENGTH);
+  const deduped = Array.from(
+    new Set(
+      splitPinnedHolidayList(truncated, customNames)
+        .map(item => {
+          const clipped = truncateByCodePoint(item, MAX_PINNED_HOLIDAY_ITEM_LENGTH);
+          return normalizePinnedHolidayName(clipped);
+        })
+        .filter(Boolean)
+    )
+  );
+  return deduped.slice(0, MAX_PINNED_HOLIDAY_COUNT);
+}
+
+function decodeNormalizedPinnedHolidays(rawValue, customNames = []) {
+  if (Array.isArray(rawValue)) {
+    return Array.from(
+      new Set(
+        rawValue
+          .map(item => normalizePinnedHolidayName(stripInvisibleChars(item, false)))
+          .filter(Boolean)
+      )
+    );
+  }
+  const text = String(rawValue ?? "").trim();
+  if (!text) {
+    return [];
+  }
+  if (text.startsWith("[")) {
+    try {
+      const parsed = JSON.parse(text);
+      if (
+        Array.isArray(parsed) &&
+        parsed.every(item => typeof item === "string")
+      ) {
+        return Array.from(
+          new Set(parsed.map(item => item.trim()).filter(Boolean))
+        );
+      }
+    } catch (_) {}
+  }
+  return Array.from(new Set(splitPinnedHolidayList(text, customNames)));
+}
+
+function sanitizeEnvStringValue(key, rawValue, customNames = []) {
   const isDateField = EXCLUSIVE_DATE_KEY_RE.test(key);
   let value = stripInvisibleChars(rawValue, isDateField);
   if (TEMPLATE_PLACEHOLDER_RE.test(value) || EMPTY_ARG_SENTINEL_RE.test(value)) {
     value = "";
   }
   if (key === "PINNED_HOLIDAY") {
-    const truncated = truncateByCodePoint(value, MAX_PINNED_HOLIDAY_TOTAL_LENGTH);
-    const deduped = Array.from(
-      new Set(
-        splitNameList(truncated)
-          .map(item => normalizePinnedHolidayName(truncateByCodePoint(item, MAX_PINNED_HOLIDAY_ITEM_LENGTH)))
-          .filter(Boolean)
-      )
-    );
-    return deduped.slice(0, MAX_PINNED_HOLIDAY_COUNT).join(",");
+    return JSON.stringify(normalizePinnedHolidayList(value, customNames));
   }
   if (EXCLUSIVE_NAME_KEY_RE.test(key)) {
     return truncateByCodePoint(value, MAX_EXCLUSIVE_NAME_LENGTH);
   }
   if (isDateField) {
-    return truncateByCodePoint(value, MAX_EXCLUSIVE_DATE_LENGTH);
+    return truncateByCodePoint(
+      normalizeExclusiveDateString(value),
+      MAX_EXCLUSIVE_DATE_LENGTH
+    );
   }
   return value;
 }
@@ -570,22 +782,31 @@ const SHORT_ARG_ALIASES = {
   PINNED_HOLIDAY: "PINNED"
 };
 
-const CUSTOM_TRAILING_DATE_RE = /^(.*?)\s+((?:(?:[Ll]|农历)\s*)?(?:\d{4}[/／-])?\d{1,2}[/／-]\d{1,2})$/;
+const CUSTOM_TRAILING_DATE_RE =
+  /^(.+)\s+((?:[Ll]|农历)?(?:\d{4}[/／-])?\d{1,2}[/／-]\d{1,2})$/;
 
 function isPlaceholderOrEmptyArg(rawValue) {
   const value = stripInvisibleChars(rawValue, false);
-  return !value || TEMPLATE_PLACEHOLDER_RE.test(value) || EMPTY_ARG_SENTINEL_RE.test(value);
+  return (
+    !value ||
+    TEMPLATE_PLACEHOLDER_RE.test(value) ||
+    EMPTY_ARG_SENTINEL_RE.test(value)
+  );
 }
 
 function parseCustomEntry(rawValue) {
-  let value = stripInvisibleChars(rawValue, false);
-  if (!value || TEMPLATE_PLACEHOLDER_RE.test(value) || EMPTY_ARG_SENTINEL_RE.test(value)) {
+  const value = stripInvisibleChars(rawValue, false);
+  if (
+    !value ||
+    TEMPLATE_PLACEHOLDER_RE.test(value) ||
+    EMPTY_ARG_SENTINEL_RE.test(value)
+  ) {
     return { name: "", date: "" };
   }
   const sepMatch = /^([\s\S]+?)\s*[:：=]\s*([^:：=]+)$/.exec(value);
   if (sepMatch) {
     const name = stripInvisibleChars(sepMatch[1], false);
-    const date = stripInvisibleChars(sepMatch[2], true);
+    const date = normalizeExclusiveDateString(sepMatch[2]);
     if (name && date && parseExclusiveDateSpec(date)) {
       return { name, date };
     }
@@ -593,7 +814,7 @@ function parseCustomEntry(rawValue) {
   const spaceMatch = CUSTOM_TRAILING_DATE_RE.exec(value);
   if (spaceMatch) {
     const name = stripInvisibleChars(spaceMatch[1], false);
-    const date = stripInvisibleChars(spaceMatch[2], true);
+    const date = normalizeExclusiveDateString(spaceMatch[2]);
     if (name && date && parseExclusiveDateSpec(date)) {
       return { name, date };
     }
@@ -606,7 +827,9 @@ function buildNormalizedEnv(rawEnv) {
   const merged = { ...src };
 
   for (const [canonicalKey, shortKey] of Object.entries(SHORT_ARG_ALIASES)) {
-    if (!Object.prototype.hasOwnProperty.call(src, shortKey)) continue;
+    if (!Object.prototype.hasOwnProperty.call(src, shortKey)) {
+      continue;
+    }
     if (
       !isPlaceholderOrEmptyArg(src[shortKey]) ||
       !Object.prototype.hasOwnProperty.call(src, canonicalKey)
@@ -617,7 +840,9 @@ function buildNormalizedEnv(rawEnv) {
 
   for (let i = 1; i <= 6; i++) {
     const customKey = `CUSTOM_${i}`;
-    if (!Object.prototype.hasOwnProperty.call(src, customKey)) continue;
+    if (!Object.prototype.hasOwnProperty.call(src, customKey)) {
+      continue;
+    }
     const parsed = parseCustomEntry(src[customKey]);
     if (parsed.name && parsed.date) {
       merged[`EXCLUSIVE_NAME_${i}`] = parsed.name;
@@ -628,19 +853,36 @@ function buildNormalizedEnv(rawEnv) {
     }
   }
 
+  const customNames = [];
+  for (let i = 1; i <= 6; i++) {
+    const name = sanitizeEnvStringValue(
+      `EXCLUSIVE_NAME_${i}`,
+      merged[`EXCLUSIVE_NAME_${i}`]
+    );
+    const dateStr = sanitizeEnvStringValue(
+      `EXCLUSIVE_DATE_${i}`,
+      merged[`EXCLUSIVE_DATE_${i}`]
+    );
+    if (name && parseExclusiveDateSpec(dateStr)) {
+      customNames.push(name);
+    }
+  }
+
   const normalized = {};
   for (const key of CACHE_ENV_KEYS) {
     if (BOOL_ENV_KEYS.has(key)) {
       normalized[key] = parseBoolValue(merged[key], true) ? "1" : "0";
     } else {
-      normalized[key] = sanitizeEnvStringValue(key, merged[key]);
+      normalized[key] = sanitizeEnvStringValue(key, merged[key], customNames);
     }
   }
   return normalized;
 }
 
 function buildEnvFingerprintFromNormalized(normalizedEnv) {
-  return JSON.stringify(DATA_ENV_KEYS.map(key => [key, normalizedEnv[key] ?? ""]));
+  return JSON.stringify(
+    DATA_ENV_KEYS.map(key => [key, normalizedEnv[key] ?? ""])
+  );
 }
 
 function warnLog(msg, err) {
@@ -655,7 +897,9 @@ const surgeStorage = {
     }
     try {
       const raw = $persistentStore.read(key);
-      if (typeof raw !== "string" || !raw) return null;
+      if (typeof raw !== "string" || !raw) {
+        return null;
+      }
       return JSON.parse(raw);
     } catch (e) {
       warnLog(`failed to read storage ${key}:`, e);
@@ -682,45 +926,91 @@ function httpGetJSON(url, timeoutSec) {
       reject(new Error("$httpClient unavailable"));
       return;
     }
-    const clampedTimeout = Math.max(1, Math.min(10, Number(timeoutSec) || PANEL_HTTP_TIMEOUT_S));
-    $httpClient.get(
-      {
-        url,
-        timeout: clampedTimeout,
-        headers: {
-          Accept: "application/json",
-          "User-Agent": "Surge-Countdown"
-        }
-      },
-      (error, response, data) => {
-        if (error) {
-          reject(new Error(typeof error === "string" ? error : error.message || "request failed"));
-          return;
-        }
-        const status = Number(response?.status ?? response?.statusCode);
-        if (Number.isFinite(status) && status >= 400) {
-          reject(new Error(`HTTP ${status}`));
-          return;
-        }
-        try {
-          const parsed = typeof data === "string" ? JSON.parse(data) : data;
-          resolve(parsed);
-        } catch (e) {
-          reject(new Error(`invalid JSON: ${e.message || e}`));
-        }
-      }
+    const clampedTimeout = Math.max(
+      1,
+      Math.min(10, Number(timeoutSec) || PANEL_HTTP_TIMEOUT_S)
     );
+    let settled = false;
+    let timer = null;
+
+    const finish = (isResolve, value) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      if (timer !== null) {
+        if (typeof clearTimeout === "function") {
+          clearTimeout(timer);
+        }
+        timer = null;
+      }
+      if (isResolve) {
+        resolve(value);
+      } else {
+        reject(value);
+      }
+    };
+
+    if (typeof setTimeout === "function") {
+      timer = setTimeout(() => {
+        finish(false, new Error(`request timeout after ${clampedTimeout}s`));
+      }, (clampedTimeout + 1) * 1000);
+    }
+
+    try {
+      $httpClient.get(
+        {
+          url,
+          timeout: clampedTimeout,
+          headers: {
+            Accept: "application/json",
+            "User-Agent": "Surge-Countdown"
+          }
+        },
+        (error, response, data) => {
+          if (error) {
+            const errMsg =
+              typeof error === "string"
+                ? error
+                : error.message || "request failed";
+            finish(false, new Error(errMsg));
+            return;
+          }
+          const status = Number(response?.status ?? response?.statusCode);
+          if (Number.isFinite(status) && status >= 400) {
+            finish(false, new Error(`HTTP ${status}`));
+            return;
+          }
+          try {
+            const parsed = typeof data === "string" ? JSON.parse(data) : data;
+            finish(true, parsed);
+          } catch (e) {
+            finish(false, new Error(`invalid JSON: ${e.message || e}`));
+          }
+        }
+      );
+    } catch (e) {
+      finish(false, e instanceof Error ? e : new Error(String(e)));
+    }
   });
 }
 
 function normalizeOfficialDay(day) {
-  if (!day || typeof day !== "object") return null;
+  if (!day || typeof day !== "object") {
+    return null;
+  }
   const name = typeof day.name === "string" ? day.name.trim() : "";
-  if (!name) return null;
+  if (!name) {
+    return null;
+  }
   const date = typeof day.date === "string" ? day.date.trim() : "";
   const parts = parseISODateParts(date);
-  if (!parts) return null;
-  if (typeof day.isOffDay !== "boolean") return null;
+  if (!parts) {
+    return null;
+  }
+  if (typeof day.isOffDay !== "boolean") {
+    return null;
+  }
   return {
     name,
     date,
@@ -730,14 +1020,20 @@ function normalizeOfficialDay(day) {
 }
 
 function normalizeOfficialDays(days) {
-  if (!Array.isArray(days) || days.length === 0) return [];
+  if (!Array.isArray(days) || days.length === 0) {
+    return [];
+  }
   const seen = new Set();
   const normalizedDays = [];
   for (const rawDay of days) {
     const day = normalizeOfficialDay(rawDay);
-    if (!day) continue;
+    if (!day) {
+      continue;
+    }
     const dedupeKey = `${day.date}|${day.name}|${day.isOffDay ? 1 : 0}`;
-    if (seen.has(dedupeKey)) continue;
+    if (seen.has(dedupeKey)) {
+      continue;
+    }
     seen.add(dedupeKey);
     normalizedDays.push(day);
   }
@@ -768,7 +1064,9 @@ function normalizeHolidayCnYearData(data, year) {
 }
 
 function buildOfficialFingerprint(years) {
-  if (!years || typeof years !== "object") return "none";
+  if (!years || typeof years !== "object") {
+    return "none";
+  }
   const keys = Object.keys(years).sort();
   const chunks = [];
   for (const key of keys) {
@@ -785,10 +1083,19 @@ function buildOfficialFingerprint(years) {
 }
 
 function isTrustedOfficialCacheYears(years) {
-  if (!years || typeof years !== "object" || Array.isArray(years)) return false;
+  if (!years || typeof years !== "object" || Array.isArray(years)) {
+    return false;
+  }
   for (const [yearKey, yearData] of Object.entries(years)) {
-    if (!/^\d{4}$/.test(yearKey)) return false;
-    if (!yearData || typeof yearData !== "object" || !Array.isArray(yearData.days) || yearData.days.length === 0) {
+    if (!/^\d{4}$/.test(yearKey)) {
+      return false;
+    }
+    if (
+      !yearData ||
+      typeof yearData !== "object" ||
+      !Array.isArray(yearData.days) ||
+      yearData.days.length === 0
+    ) {
       return false;
     }
     for (const day of yearData.days) {
@@ -812,10 +1119,16 @@ function isTrustedOfficialCacheYears(years) {
 
 function sanitizeOfficialYears(rawYears) {
   const clean = {};
-  if (!rawYears || typeof rawYears !== "object") return clean;
+  if (!rawYears || typeof rawYears !== "object") {
+    return clean;
+  }
   for (const [yearKey, yearData] of Object.entries(rawYears)) {
-    if (!/^\d{4}$/.test(yearKey)) continue;
-    if (!yearData || !Array.isArray(yearData.days)) continue;
+    if (!/^\d{4}$/.test(yearKey)) {
+      continue;
+    }
+    if (!yearData || !Array.isArray(yearData.days)) {
+      continue;
+    }
     const days = normalizeOfficialDays(yearData.days);
     if (days.length > 0) {
       clean[yearKey] = { days };
@@ -827,16 +1140,24 @@ function sanitizeOfficialYears(rawYears) {
 function officialRequiredYears(currentYear, todayIso) {
   const parts = parseISODateParts(todayIso);
   const m = parts ? parts.m : 0;
-  if (m === 1) return [currentYear - 1, currentYear];
-  if (m === 12) return [currentYear, currentYear + 1];
+  if (m === 1) {
+    return [currentYear - 1, currentYear];
+  }
+  if (m === 12) {
+    return [currentYear, currentYear + 1];
+  }
   return [currentYear];
 }
 
 function pruneOfficialYears(years, keepYearsSet) {
   const out = {};
-  if (!years || typeof years !== "object") return out;
+  if (!years || typeof years !== "object") {
+    return out;
+  }
   for (const [yearKey, yearData] of Object.entries(years)) {
-    if (!keepYearsSet.has(Number(yearKey))) continue;
+    if (!keepYearsSet.has(Number(yearKey))) {
+      continue;
+    }
     if (yearData && Array.isArray(yearData.days) && yearData.days.length > 0) {
       out[yearKey] = yearData;
     }
@@ -846,9 +1167,13 @@ function pruneOfficialYears(years, keepYearsSet) {
 
 function pruneCheckedDateByYear(checkedDateByYear, validYears) {
   const out = {};
-  if (!checkedDateByYear || typeof checkedDateByYear !== "object") return out;
+  if (!checkedDateByYear || typeof checkedDateByYear !== "object") {
+    return out;
+  }
   for (const [yearKey, dateStr] of Object.entries(checkedDateByYear)) {
-    if (!validYears[yearKey]) continue;
+    if (!validYears[yearKey]) {
+      continue;
+    }
     if (typeof dateStr === "string" && parseISODateParts(dateStr)) {
       out[yearKey] = dateStr;
     }
@@ -858,11 +1183,16 @@ function pruneCheckedDateByYear(checkedDateByYear, validYears) {
 
 function pruneRetryAfterByYear(retryAfterByYear, keepYearsSet, nowMs) {
   const out = {};
-  if (!retryAfterByYear || typeof retryAfterByYear !== "object") return out;
+  if (!retryAfterByYear || typeof retryAfterByYear !== "object") {
+    return out;
+  }
+  const maxRetryAt = nowMs + OFFICIAL_FAILED_RETRY_INTERVAL_MS;
   for (const [yearKey, retryAt] of Object.entries(retryAfterByYear)) {
-    if (!keepYearsSet.has(Number(yearKey))) continue;
+    if (!keepYearsSet.has(Number(yearKey))) {
+      continue;
+    }
     const ts = Number(retryAt);
-    if (Number.isFinite(ts) && ts > nowMs) {
+    if (Number.isFinite(ts) && ts > nowMs && ts <= maxRetryAt) {
       out[yearKey] = ts;
     }
   }
@@ -874,9 +1204,13 @@ function shallowEqualRecord(a, b) {
   const objB = b && typeof b === "object" ? b : {};
   const keysA = Object.keys(objA);
   const keysB = Object.keys(objB);
-  if (keysA.length !== keysB.length) return false;
+  if (keysA.length !== keysB.length) {
+    return false;
+  }
   for (const k of keysA) {
-    if (objA[k] !== objB[k]) return false;
+    if (objA[k] !== objB[k]) {
+      return false;
+    }
   }
   return true;
 }
@@ -886,21 +1220,43 @@ function isPlainRecord(value) {
 }
 
 function shouldSaveOfficialCache(oldCache, newCache) {
-  if (!isPlainRecord(oldCache)) return true;
-  if (oldCache.version !== newCache.version) return true;
-  if (oldCache.fingerprint !== newCache.fingerprint) return true;
-  if (!isPlainRecord(oldCache.checkedDateByYear) || !isPlainRecord(oldCache.retryAfterByYear)) {
+  if (!isPlainRecord(oldCache)) {
+    return true;
+  }
+  if (oldCache.version !== newCache.version) {
+    return true;
+  }
+  if (oldCache.fingerprint !== newCache.fingerprint) {
+    return true;
+  }
+  if (
+    !isPlainRecord(oldCache.checkedDateByYear) ||
+    !isPlainRecord(oldCache.retryAfterByYear)
+  ) {
     return true;
   }
   const oldYearKeys = Object.keys(oldCache.years || {}).sort().join(",");
   const newYearKeys = Object.keys(newCache.years || {}).sort().join(",");
-  if (oldYearKeys !== newYearKeys) return true;
-  if (!shallowEqualRecord(oldCache.checkedDateByYear, newCache.checkedDateByYear)) return true;
-  if (!shallowEqualRecord(oldCache.retryAfterByYear, newCache.retryAfterByYear)) return true;
+  if (oldYearKeys !== newYearKeys) {
+    return true;
+  }
+  if (!shallowEqualRecord(oldCache.checkedDateByYear, newCache.checkedDateByYear)) {
+    return true;
+  }
+  if (!shallowEqualRecord(oldCache.retryAfterByYear, newCache.retryAfterByYear)) {
+    return true;
+  }
   return false;
 }
 
-function buildOfficialCacheRecord(years, checkedDateByYear, retryAfterByYear, currentYear, todayIso, nowMs) {
+function buildOfficialCacheRecord(
+  years,
+  checkedDateByYear,
+  retryAfterByYear,
+  currentYear,
+  todayIso,
+  nowMs
+) {
   const keepSet = new Set(officialRequiredYears(currentYear, todayIso));
   const prunedYears = pruneOfficialYears(years, keepSet);
   const prunedChecked = pruneCheckedDateByYear(checkedDateByYear, prunedYears);
@@ -916,7 +1272,11 @@ function buildOfficialCacheRecord(years, checkedDateByYear, retryAfterByYear, cu
 
 function readOfficialHolidayCache(currentYear, todayIso, nowMs) {
   const raw = surgeStorage.getJSON(OFFICIAL_HOLIDAY_KEY);
-  if (!raw || typeof raw !== "object" || raw.version !== OFFICIAL_HOLIDAY_STORAGE_VERSION) {
+  if (
+    !raw ||
+    typeof raw !== "object" ||
+    raw.version !== OFFICIAL_HOLIDAY_STORAGE_VERSION
+  ) {
     return null;
   }
   if (!raw.years || typeof raw.years !== "object") {
@@ -959,10 +1319,22 @@ function isOfficialYearCacheFresh(cache, year, todayIso) {
 
 function isOfficialYearRetryBlocked(cache, year, nowMs) {
   const retryAt = Number(cache?.retryAfterByYear?.[String(year)]);
-  return Number.isFinite(retryAt) && retryAt > nowMs;
+  return (
+    Number.isFinite(retryAt) &&
+    retryAt > nowMs &&
+    retryAt <= nowMs + OFFICIAL_FAILED_RETRY_INTERVAL_MS
+  );
 }
 
-function resolveOfficialRefreshPlan(cache, currentYear, todayIso, nowMs, hasCachedBaseData, forceStaleRefresh) {
+function resolveOfficialRefreshPlan(
+  cache,
+  currentYear,
+  todayIso,
+  nowMs,
+  hasCachedBaseData,
+  forceStaleRefresh,
+  bypassRetryBackoff = false
+) {
   const requiredYears = officialRequiredYears(currentYear, todayIso);
   const missingRequiredYears = [];
   const staleRequiredYears = [];
@@ -977,8 +1349,10 @@ function resolveOfficialRefreshPlan(cache, currentYear, todayIso, nowMs, hasCach
     }
   }
 
-  const fetchableMissing = missingRequiredYears.filter(y => !isOfficialYearRetryBlocked(cache, y, nowMs));
-  const fetchableStale = staleRequiredYears.filter(y => !isOfficialYearRetryBlocked(cache, y, nowMs));
+  const canFetchYear = year =>
+    bypassRetryBackoff || !isOfficialYearRetryBlocked(cache, year, nowMs);
+  const fetchableMissing = missingRequiredYears.filter(canFetchYear);
+  const fetchableStale = staleRequiredYears.filter(canFetchYear);
   const blockingYearsToFetch = [...fetchableMissing, ...fetchableStale];
 
   const shouldRefresh =
@@ -992,12 +1366,20 @@ function resolveOfficialRefreshPlan(cache, currentYear, todayIso, nowMs, hasCach
 }
 
 async function fetchOfficialHolidayYear(year, timeoutSec) {
-  const url = `https://raw.githubusercontent.com/NateScarlet/holiday-cn/master/${year}.json`;
+  const url =
+    `https://raw.githubusercontent.com/NateScarlet/holiday-cn/master/${year}.json`;
   const data = await httpGetJSON(url, timeoutSec);
   return normalizeHolidayCnYearData(data, year);
 }
 
-async function refreshOfficialHolidayYears(oldCache, yearsToFetch, currentYear, todayIso, nowMs, timeoutSec) {
+async function refreshOfficialHolidayYears(
+  oldCache,
+  yearsToFetch,
+  currentYear,
+  todayIso,
+  nowMs,
+  timeoutSec
+) {
   const years = { ...(oldCache?.years || {}) };
   const checkedDateByYear = { ...(oldCache?.checkedDateByYear || {}) };
   const retryAfterByYear = { ...(oldCache?.retryAfterByYear || {}) };
@@ -1039,7 +1421,9 @@ async function refreshOfficialHolidayYears(oldCache, yearsToFetch, currentYear, 
 }
 
 function buildOfficialHolidayRangesFromNormalizedDays(days) {
-  if (!Array.isArray(days) || days.length === 0) return [];
+  if (!Array.isArray(days) || days.length === 0) {
+    return [];
+  }
   const offDays = [];
   for (const day of days) {
     if (
@@ -1052,7 +1436,9 @@ function buildOfficialHolidayRangesFromNormalizedDays(days) {
       continue;
     }
     const ms = Number.isFinite(day.ms) ? day.ms : isoToMs(day.date);
-    if (!Number.isFinite(ms)) continue;
+    if (!Number.isFinite(ms)) {
+      continue;
+    }
     offDays.push({
       name: day.name.trim(),
       date: day.date,
@@ -1094,10 +1480,14 @@ function buildOfficialHolidayRangesFromNormalizedDays(days) {
 
 function buildOfficialHolidayRangeCache(officialHolidayCache) {
   const years = officialHolidayCache?.years;
-  if (!years || typeof years !== "object") return [];
+  if (!years || typeof years !== "object") {
+    return [];
+  }
   const allDays = [];
   for (const yearData of Object.values(years)) {
-    if (!yearData || !Array.isArray(yearData.days)) continue;
+    if (!yearData || !Array.isArray(yearData.days)) {
+      continue;
+    }
     for (const day of yearData.days) {
       allDays.push(day);
     }
@@ -1108,11 +1498,11 @@ function buildOfficialHolidayRangeCache(officialHolidayCache) {
 function isValidOfficialRange(range) {
   return Boolean(
     range &&
-      typeof range.name === "string" &&
-      range.name.trim() &&
-      Number.isFinite(Number(range.startMs)) &&
-      Number.isFinite(Number(range.endMs)) &&
-      Number(range.duration) >= 1
+    typeof range.name === "string" &&
+    range.name.trim() &&
+    Number.isFinite(Number(range.startMs)) &&
+    Number.isFinite(Number(range.endMs)) &&
+    Number(range.duration) >= 1
   );
 }
 
@@ -1123,7 +1513,9 @@ function officialRangeOverlapsYear(range, year) {
 }
 
 function getOfficialLegalHolidaysFromRanges(officialRanges, year) {
-  if (!Array.isArray(officialRanges) || officialRanges.length === 0) return null;
+  if (!Array.isArray(officialRanges) || officialRanges.length === 0) {
+    return null;
+  }
   const rows = officialRanges
     .filter(range => isValidOfficialRange(range) && officialRangeOverlapsYear(range, year))
     .map(range => {
@@ -1136,13 +1528,39 @@ function getOfficialLegalHolidaysFromRanges(officialRanges, year) {
 }
 
 function officialRowDistanceToFallback(row, fallbackMs) {
-  const startMs = Number.isFinite(Number(row?.[4])) ? Number(row[4]) : slashYMDToMs(row?.[1]);
+  const startMs = Number.isFinite(Number(row?.[4]))
+    ? Number(row[4])
+    : slashYMDToMs(row?.[1]);
   const duration = Number(row?.[2]) || 1;
-  if (!Number.isFinite(startMs)) return Infinity;
-  if (!Number.isFinite(fallbackMs)) return 0;
+  if (!Number.isFinite(startMs)) {
+    return Infinity;
+  }
+  if (!Number.isFinite(fallbackMs)) {
+    return 0;
+  }
   const endMs = startMs + (Math.max(1, duration) - 1) * DAY_MS;
-  if (fallbackMs >= startMs && fallbackMs <= endMs) return 0;
+  if (fallbackMs >= startMs && fallbackMs <= endMs) {
+    return 0;
+  }
   return Math.min(Math.abs(fallbackMs - startMs), Math.abs(fallbackMs - endMs));
+}
+
+function officialRowGapMs(rowA, rowB) {
+  const startA = Number.isFinite(Number(rowA?.[4]))
+    ? Number(rowA[4])
+    : slashYMDToMs(rowA?.[1]);
+  const startB = Number.isFinite(Number(rowB?.[4]))
+    ? Number(rowB[4])
+    : slashYMDToMs(rowB?.[1]);
+  if (!Number.isFinite(startA) || !Number.isFinite(startB)) {
+    return 0;
+  }
+  const endA = startA + (Math.max(1, Number(rowA?.[2]) || 1) - 1) * DAY_MS;
+  const endB = startB + (Math.max(1, Number(rowB?.[2]) || 1) - 1) * DAY_MS;
+  if (startA <= endB && startB <= endA) {
+    return 0;
+  }
+  return Math.max(startA - endB, startB - endA);
 }
 
 function toHolidayRowMeta(row) {
@@ -1167,7 +1585,9 @@ function toHolidayRowMeta(row) {
 }
 
 function buildHolidayRowMetas(rows, keepInvalid = false) {
-  if (!Array.isArray(rows)) return [];
+  if (!Array.isArray(rows)) {
+    return [];
+  }
   const metas = [];
   for (const row of rows) {
     const meta = toHolidayRowMeta(row);
@@ -1190,9 +1610,13 @@ function findBestOfficialMatchIndex(officialRows, usedOfficialIndexes, fallback)
   let bestIndex = -1;
   let bestDistance = Infinity;
   for (let i = 0; i < officialRows.length; i++) {
-    if (usedOfficialIndexes.has(i)) continue;
+    if (usedOfficialIndexes.has(i)) {
+      continue;
+    }
     const official = officialRows[i];
-    if (!partsIntersect(official.parts, fallback.partSet)) continue;
+    if (!partsIntersect(official.parts, fallback.partSet)) {
+      continue;
+    }
     const distance = officialRowDistanceToFallback(official.row, fallback.startMs);
     if (distance < bestDistance) {
       bestDistance = distance;
@@ -1210,7 +1634,9 @@ function mergeLegalHolidays(fallbackLegal, officialLegal) {
     return [...fallbackLegal];
   }
   const officialRows = buildHolidayRowMetas(officialLegal);
-  if (officialRows.length === 0) return [...fallbackLegal];
+  if (officialRows.length === 0) {
+    return [...fallbackLegal];
+  }
 
   const fallbackRows = buildHolidayRowMetas(fallbackLegal, true);
   const merged = [];
@@ -1219,7 +1645,9 @@ function mergeLegalHolidays(fallbackLegal, officialLegal) {
   const fallbackTokenSet = new Set();
 
   for (const fb of fallbackRows) {
-    for (const part of fb.parts) fallbackTokenSet.add(part);
+    for (const part of fb.parts) {
+      fallbackTokenSet.add(part);
+    }
   }
 
   for (const fb of fallbackRows) {
@@ -1230,11 +1658,17 @@ function mergeLegalHolidays(fallbackLegal, officialLegal) {
     if (holidayNameMatchesTokenSet(fb.name, coveredFallbackTokens)) {
       continue;
     }
-    const bestIndex = findBestOfficialMatchIndex(officialRows, usedOfficialIndexes, fb);
+    const bestIndex = findBestOfficialMatchIndex(
+      officialRows,
+      usedOfficialIndexes,
+      fb
+    );
     if (bestIndex >= 0) {
       const official = officialRows[bestIndex];
       usedOfficialIndexes.add(bestIndex);
-      for (const part of official.parts) coveredFallbackTokens.add(part);
+      for (const part of official.parts) {
+        coveredFallbackTokens.add(part);
+      }
       merged.push(official.row);
     } else {
       merged.push(fb.row);
@@ -1242,9 +1676,31 @@ function mergeLegalHolidays(fallbackLegal, officialLegal) {
   }
 
   for (let i = 0; i < officialRows.length; i++) {
-    if (usedOfficialIndexes.has(i)) continue;
-    if (!partsIntersect(officialRows[i].parts, fallbackTokenSet)) {
-      merged.push(officialRows[i].row);
+    if (usedOfficialIndexes.has(i)) {
+      continue;
+    }
+    const official = officialRows[i];
+    if (!partsIntersect(official.parts, fallbackTokenSet)) {
+      usedOfficialIndexes.add(i);
+      merged.push(official.row);
+      continue;
+    }
+    let hasSameNameUsed = false;
+    let distinctFromAllSameName = true;
+    for (const usedIdx of usedOfficialIndexes) {
+      const used = officialRows[usedIdx];
+      if (!partsIntersect(official.parts, used.partSet)) {
+        continue;
+      }
+      hasSameNameUsed = true;
+      if (officialRowGapMs(official.row, used.row) <= OFFICIAL_DISTINCT_PERIOD_GAP_MS) {
+        distinctFromAllSameName = false;
+        break;
+      }
+    }
+    if (hasSameNameUsed && distinctFromAllSameName) {
+      usedOfficialIndexes.add(i);
+      merged.push(official.row);
     }
   }
   return merged;
@@ -1252,10 +1708,14 @@ function mergeLegalHolidays(fallbackLegal, officialLegal) {
 
 function getOfficialDayInfo(officialHolidayCache, todayIso) {
   const years = officialHolidayCache?.years;
-  if (!years || typeof years !== "object" || !todayIso) return null;
+  if (!years || typeof years !== "object" || !todayIso) {
+    return null;
+  }
   const yearKey = todayIso.slice(0, 4);
   const candidates = [];
-  if (years[yearKey]?.days) candidates.push(years[yearKey].days);
+  if (years[yearKey]?.days) {
+    candidates.push(years[yearKey].days);
+  }
   for (const [k, v] of Object.entries(years)) {
     if (k !== yearKey && Array.isArray(v?.days)) {
       candidates.push(v.days);
@@ -1265,9 +1725,15 @@ function getOfficialDayInfo(officialHolidayCache, todayIso) {
   let matchedWorkday = null;
   for (const days of candidates) {
     for (const day of days) {
-      if (day?.date !== todayIso) continue;
-      if (day.isOffDay === true) return day;
-      if (!matchedWorkday && day.isOffDay === false) matchedWorkday = day;
+      if (day?.date !== todayIso) {
+        continue;
+      }
+      if (day.isOffDay === true) {
+        return day;
+      }
+      if (!matchedWorkday && day.isOffDay === false) {
+        matchedWorkday = day;
+      }
     }
   }
   return matchedWorkday;
@@ -1275,14 +1741,15 @@ function getOfficialDayInfo(officialHolidayCache, todayIso) {
 
 function parseExclusiveDateSpec(rawDate) {
   let raw = stripInvisibleChars(rawDate, true);
-  if (!raw) return null;
+  if (!raw) {
+    return null;
+  }
 
   let calendar = "solar";
   if (LUNAR_PREFIX_RE.test(raw)) {
     calendar = "lunar";
     raw = raw.replace(LUNAR_PREFIX_RE, "").trim();
   }
-  // 兼容连字符与全角斜杠写法（如 5-20 / 2026-10-1 / 12／3）
   raw = raw.replace(/[-／]/g, "/");
 
   const annualMatch = ANNUAL_SLASH_DATE_RE.exec(raw);
@@ -1290,14 +1757,18 @@ function parseExclusiveDateSpec(rawDate) {
     const month = Number(annualMatch[1]);
     const day = Number(annualMatch[2]);
     if (calendar === "lunar") {
-      if (month < 1 || month > 12 || day < 1 || day > 30) return null;
+      if (month < 1 || month > 12 || day < 1 || day > 30) {
+        return null;
+      }
       return { calendar: "lunar", kind: "annual", month, day };
     }
-    if (!isValidMonthDay(2000, month, day)) return null;
+    if (!isValidMonthDay(2000, month, day)) {
+      return null;
+    }
     return { calendar: "solar", kind: "annual", month, day };
   }
 
-  const onceMatch = ONCE_SLASH_DATE_RE.exec(raw);
+  const onceMatch = SLASH_YMD_RE.exec(raw);
   if (onceMatch) {
     const year = Number(onceMatch[1]);
     const month = Number(onceMatch[2]);
@@ -1308,7 +1779,9 @@ function parseExclusiveDateSpec(rawDate) {
       }
       return { calendar: "lunar", kind: "once", year, month, day };
     }
-    if (year < 1900 || year > 9999 || !isValidMonthDay(year, month, day)) return null;
+    if (year < 1900 || year > 9999 || !isValidMonthDay(year, month, day)) {
+      return null;
+    }
     return { calendar: "solar", kind: "once", year, month, day };
   }
 
@@ -1318,9 +1791,6 @@ function parseExclusiveDateSpec(rawDate) {
 function parseCountdownUserConfig(normalizedEnv) {
   const enablePrioritySort = normalizedEnv.ENABLE_PRIORITY_SORT !== "0";
   const enableExclusiveWeight = normalizedEnv.ENABLE_EXCLUSIVE_WEIGHT !== "0";
-  const pinnedHolidays = Array.from(
-    new Set(splitNameList(normalizedEnv.PINNED_HOLIDAY || ""))
-  );
 
   const customDays = [];
   for (let i = 1; i <= 6; i++) {
@@ -1332,6 +1802,12 @@ function parseCountdownUserConfig(normalizedEnv) {
     }
   }
 
+  const customNames = customDays.map(item => item.name);
+  const pinnedHolidays = decodeNormalizedPinnedHolidays(
+    normalizedEnv.PINNED_HOLIDAY || "",
+    customNames
+  );
+
   return {
     enablePrioritySort,
     enableExclusiveWeight,
@@ -1342,9 +1818,13 @@ function parseCountdownUserConfig(normalizedEnv) {
 
 function createLunarToSolarConverter() {
   return (y, m, d) => {
-    if (!isValidLunarYear(y) || !Number.isInteger(m) || m < 1 || m > 12) return null;
+    if (!isValidLunarYear(y) || !Number.isInteger(m) || m < 1 || m > 12) {
+      return null;
+    }
     const maxDay = Lunar.mDays(y, m);
-    if (!Number.isInteger(d) || d < 1 || d > maxDay) return null;
+    if (!Number.isInteger(d) || d < 1 || d > maxDay) {
+      return null;
+    }
     ensureLunarCumulative(y);
     let off = lunarCumulativeCache.off[y - MIN_LUNAR_YEAR];
     const info = Lunar.info[y - MIN_LUNAR_YEAR];
@@ -1360,7 +1840,9 @@ function createLunarToSolarConverter() {
 }
 
 function getSolarTermYMD(y, n) {
-  if (!Number.isInteger(y) || y < 1900 || y > 2100) return null;
+  if (!Number.isInteger(y) || y < 1900 || y > 2100) {
+    return null;
+  }
   // Lunar.term 基准 Date.UTC(1900, 0, 6, 2, 5) 已内置东八区偏移，直接取 UTC 年月日即北京时间日期
   const termDate = Lunar.term(y, n);
   return YMD(termDate.getUTCFullYear(), termDate.getUTCMonth() + 1, termDate.getUTCDate());
@@ -1373,12 +1855,24 @@ function wDay(y, m, nth, weekday) {
   return isValidMonthDay(y, m, day) ? YMD(y, m, day) : null;
 }
 
-function resolveLunarExclusiveYMD(l2s, year, month, day, allowShortMonthFallback = false) {
-  if (!isValidLunarYear(year)) return null;
+function resolveLunarExclusiveYMD(
+  l2s,
+  year,
+  month,
+  day,
+  allowShortMonthFallback = false
+) {
+  if (!isValidLunarYear(year)) {
+    return null;
+  }
   const maxDay = Lunar.mDays(year, month);
-  if (!maxDay) return null;
+  if (!maxDay) {
+    return null;
+  }
   const actualDay = allowShortMonthFallback && day === 30 && maxDay === 29 ? 29 : day;
-  if (actualDay > maxDay) return null;
+  if (actualDay > maxDay) {
+    return null;
+  }
   return l2s(year, month, actualDay);
 }
 
@@ -1423,7 +1917,9 @@ function buildYearFestivals(y, officialRanges, customDays, l2s) {
 
   const exclusive = [];
   for (const item of customDays) {
-    if (item.spec.kind !== "annual") continue;
+    if (item.spec.kind !== "annual") {
+      continue;
+    }
     let ymd = null;
     if (item.spec.calendar === "lunar") {
       ymd = resolveLunarExclusiveYMD(l2s, y, item.spec.month, item.spec.day, true);
@@ -1440,7 +1936,9 @@ function buildYearFestivals(y, officialRanges, customDays, l2s) {
 
 function createPriorityResolver(enablePrioritySort, enableExclusiveWeight) {
   return (cat, name, sourceKind) => {
-    if (!enablePrioritySort) return 1;
+    if (!enablePrioritySort) {
+      return 1;
+    }
     if (sourceKind === "custom") {
       return enableExclusiveWeight ? 9 : BASE_PRIORITY[cat] ?? 2;
     }
@@ -1449,22 +1947,34 @@ function createPriorityResolver(enablePrioritySort, enableExclusiveWeight) {
 }
 
 function compareTodayItems(a, b) {
+  const partsCountA =
+    a.sourceKind === "custom" ? 1 : splitHolidayNames(a.name).length;
+  const partsCountB =
+    b.sourceKind === "custom" ? 1 : splitHolidayNames(b.name).length;
   return (
     b.priority - a.priority ||
     b.diff - a.diff ||
-    splitHolidayNames(b.name).length - splitHolidayNames(a.name).length ||
+    partsCountB - partsCountA ||
     (Number(b.duration) || 1) - (Number(a.duration) || 1) ||
     String(a.name).localeCompare(String(b.name))
   );
 }
 
-function addTodayCountdownItem(state, name, diff, priority, duration = 1) {
-  const key = String(name);
+function addTodayCountdownItem(
+  state,
+  name,
+  diff,
+  priority,
+  duration = 1,
+  sourceKind = "builtin"
+) {
+  const key = `${sourceKind === "custom" ? "custom" : "std"}:${name}`;
   const nextItem = {
     name,
     diff,
     duration: Math.max(1, Number(duration) || 1),
-    priority: priority + 100
+    priority: priority + 100,
+    sourceKind
   };
   const prev = state.todayItemMap.get(key);
   if (
@@ -1479,15 +1989,26 @@ function addTodayCountdownItem(state, name, diff, priority, duration = 1) {
   }
 }
 
-function addCategoryCountdownItem(state, cat, name, diff, priority, duration = 1) {
+function addCategoryCountdownItem(
+  state,
+  cat,
+  name,
+  diff,
+  priority,
+  duration = 1,
+  sourceKind = "builtin"
+) {
   const bucket = state.rawResult[cat];
-  if (!bucket) return;
+  if (!bucket) {
+    return;
+  }
   const key = String(name);
   const nextItem = {
     name,
     diff,
     duration: Math.max(1, Number(duration) || 1),
-    priority
+    priority,
+    sourceKind
   };
   const prev = bucket.get(key);
   if (
@@ -1499,51 +2020,102 @@ function addCategoryCountdownItem(state, cat, name, diff, priority, duration = 1
   }
 }
 
-function updatePinnedCountdown(state, name, diff, duration) {
-  if (diff <= 0 || state.pinnedHolidayPartsMap.size === 0) return;
-  const nameParts = splitHolidayNames(name);
-  if (nameParts.length === 0) return;
-  const namePartSet = new Set(nameParts);
+function updatePinnedCountdown(state, name, diff, duration, sourceKind = "builtin") {
+  if (diff <= 0 || state.pinnedHolidayPartsMap.size === 0) {
+    return;
+  }
+  const isCustom = sourceKind === "custom";
+  const normalizedName = normalizeHolidayMatchName(name);
+  if (!normalizedName) {
+    return;
+  }
+  const nameParts = isCustom ? [normalizedName] : splitHolidayNames(name);
+  if (nameParts.length === 0) {
+    return;
+  }
+  const namePartSet = isCustom ? null : new Set(nameParts);
 
   for (const [pinnedName, pinnedParts] of state.pinnedHolidayPartsMap.entries()) {
-    if (!partsIntersect(pinnedParts, namePartSet)) continue;
+    const matched = isCustom
+      ? pinnedName === normalizedName
+      : partsIntersect(pinnedParts, namePartSet);
+    if (!matched) {
+      continue;
+    }
     const prev = state.pinnedMap.get(pinnedName);
     if (!prev || diff < prev.diff) {
+      const displayName = isCustom
+        ? normalizedName
+        : nameParts.length > 1
+          ? name
+          : pinnedName;
       state.pinnedMap.set(pinnedName, {
-        name: nameParts.length > 1 ? name : pinnedName,
+        name: displayName,
         diff,
         duration: Math.max(1, Number(duration) || 1),
+        sourceKind,
         order: state.pinnedOrderMap.get(pinnedName) ?? Number.MAX_SAFE_INTEGER
       });
     }
   }
 }
 
+function isHiddenByMatchSets(item, nonCustomTokenSet, customNameSet) {
+  if (item.sourceKind === "custom") {
+    return customNameSet.has(normalizeHolidayMatchName(item.name));
+  }
+  return holidayNameMatchesTokenSet(item.name, nonCustomTokenSet);
+}
+
 function finalizeCountdownResult(state, enablePrioritySort) {
   const sortedToday = Array.from(state.todayItemMap.values()).sort(compareTodayItems);
   const dedupedToday = dedupeHolidayItemsByToken(sortedToday);
   const todayItems = sortedToday.map(toPublicCountdownItem);
-  const todayNoticeText = dedupedToday.length > 0 ? formatTodayFestGroup(dedupedToday) : "";
+  const todayNoticeText =
+    dedupedToday.length > 0 ? formatTodayFestGroup(dedupedToday) : "";
 
-  const todayFestTokenSet = new Set();
-  for (const item of dedupedToday) {
-    addHolidayNameTokens(todayFestTokenSet, item.name);
+  const todayNonCustomTokenSet = new Set();
+  const todayCustomNameSet = new Set();
+  for (const item of sortedToday) {
+    if (item.sourceKind === "custom") {
+      const normName = normalizeHolidayMatchName(item.name);
+      if (normName) {
+        todayCustomNameSet.add(normName);
+      }
+    } else {
+      addHolidayNameTokens(todayNonCustomTokenSet, item.name);
+    }
   }
 
   const sortedPinned = Array.from(state.pinnedMap.values())
-    .filter(item => !holidayNameMatchesTokenSet(item.name, todayFestTokenSet))
+    .filter(
+      item => !isHiddenByMatchSets(item, todayNonCustomTokenSet, todayCustomNameSet)
+    )
     .sort((a, b) => {
       const diffCmp = a.diff - b.diff;
-      if (diffCmp !== 0) return diffCmp;
-      const orderA = a.order ?? state.pinnedOrderMap.get(a.name) ?? Number.MAX_SAFE_INTEGER;
-      const orderB = b.order ?? state.pinnedOrderMap.get(b.name) ?? Number.MAX_SAFE_INTEGER;
+      if (diffCmp !== 0) {
+        return diffCmp;
+      }
+      const orderA =
+        a.order ?? state.pinnedOrderMap.get(a.name) ?? Number.MAX_SAFE_INTEGER;
+      const orderB =
+        b.order ?? state.pinnedOrderMap.get(b.name) ?? Number.MAX_SAFE_INTEGER;
       return orderA - orderB || String(a.name).localeCompare(String(b.name));
     });
-  const pinnedData = dedupeHolidayItemsByToken(sortedPinned).map(toPublicCountdownItem);
+  const dedupedPinned = dedupeHolidayItemsByToken(sortedPinned);
+  const pinnedData = dedupedPinned.map(toPublicCountdownItem);
 
-  const activePinnedTokenSet = new Set();
-  for (const item of pinnedData.slice(0, TOP_PINNED_DISPLAY_LIMIT)) {
-    addHolidayNameTokens(activePinnedTokenSet, item.name);
+  const activePinnedNonCustomTokenSet = new Set();
+  const activePinnedCustomNameSet = new Set();
+  for (const item of dedupedPinned.slice(0, TOP_PINNED_DISPLAY_LIMIT)) {
+    if (item.sourceKind === "custom") {
+      const normName = normalizeHolidayMatchName(item.name);
+      if (normName) {
+        activePinnedCustomNameSet.add(normName);
+      }
+    } else {
+      addHolidayNameTokens(activePinnedNonCustomTokenSet, item.name);
+    }
   }
 
   const result = {};
@@ -1551,15 +2123,23 @@ function finalizeCountdownResult(state, enablePrioritySort) {
     const items = Array.from(state.rawResult[cat].values())
       .filter(
         item =>
-          !holidayNameMatchesTokenSet(item.name, todayFestTokenSet) &&
-          !holidayNameMatchesTokenSet(item.name, activePinnedTokenSet)
+          !isHiddenByMatchSets(item, todayNonCustomTokenSet, todayCustomNameSet) &&
+          !isHiddenByMatchSets(
+            item,
+            activePinnedNonCustomTokenSet,
+            activePinnedCustomNameSet
+          )
       )
       .sort((a, b) => {
         const diffCmp = a.diff - b.diff;
-        if (diffCmp !== 0) return diffCmp;
+        if (diffCmp !== 0) {
+          return diffCmp;
+        }
         if (enablePrioritySort) {
           const prioCmp = b.priority - a.priority;
-          if (prioCmp !== 0) return prioCmp;
+          if (prioCmp !== 0) {
+            return prioCmp;
+          }
         }
         return String(a.name).localeCompare(String(b.name));
       })
@@ -1585,10 +2165,15 @@ function buildCountdownData(dateCtx, normalizedEnv, officialHolidayCache) {
   const officialRanges = buildOfficialHolidayRangeCache(officialHolidayCache);
   const l2s = createLunarToSolarConverter();
 
+  const customNameSet = new Set(
+    userConfig.customDays
+      .map(item => normalizeHolidayMatchName(item.name))
+      .filter(Boolean)
+  );
   const pinnedHolidayPartsMap = new Map();
   const pinnedOrderMap = new Map();
   userConfig.pinnedHolidays.forEach((pinned, idx) => {
-    const parts = splitHolidayNames(pinned);
+    const parts = customNameSet.has(pinned) ? [pinned] : splitHolidayNames(pinned);
     if (parts.length > 0) {
       pinnedHolidayPartsMap.set(pinned, parts);
       pinnedOrderMap.set(pinned, idx);
@@ -1610,18 +2195,26 @@ function buildCountdownData(dateCtx, normalizedEnv, officialHolidayCache) {
 
   const slashCache = new Map();
   const parseYMD = dateStr => {
-    if (!dateStr) return null;
-    if (slashCache.has(dateStr)) return slashCache.get(dateStr);
+    if (!dateStr) {
+      return null;
+    }
+    if (slashCache.has(dateStr)) {
+      return slashCache.get(dateStr);
+    }
     const parsed = parseSlashYMDParts(dateStr);
     slashCache.set(dateStr, parsed);
     return parsed;
   };
 
   const addCountdownFestival = (cat, row) => {
-    if (!Array.isArray(row)) return;
+    if (!Array.isArray(row)) {
+      return;
+    }
     const name = typeof row[0] === "string" ? row[0].trim() : "";
     const dateStr = typeof row[1] === "string" ? row[1].trim() : "";
-    if (!name || !dateStr) return;
+    if (!name || !dateStr) {
+      return;
+    }
 
     const safeDuration = Math.max(1, Number(row[2]) || 1);
     const sourceKind = row[3] || "builtin";
@@ -1629,19 +2222,23 @@ function buildCountdownData(dateCtx, normalizedEnv, officialHolidayCache) {
     let dateMs = Number.isFinite(msFromRow) ? msFromRow : NaN;
     if (!Number.isFinite(dateMs)) {
       const parsed = parseYMD(dateStr);
-      if (!parsed) return;
+      if (!parsed) {
+        return;
+      }
       dateMs = parsed.ms;
     }
 
     const diff = Math.round((dateMs - dateCtx.todayMs) / DAY_MS);
-    if (diff <= -safeDuration) return;
+    if (diff <= -safeDuration) {
+      return;
+    }
 
     const priority = resolvePriority(cat, name, sourceKind);
     if (diff <= 0) {
-      addTodayCountdownItem(state, name, diff, priority, safeDuration);
+      addTodayCountdownItem(state, name, diff, priority, safeDuration, sourceKind);
     } else {
-      addCategoryCountdownItem(state, cat, name, diff, priority, safeDuration);
-      updatePinnedCountdown(state, name, diff, safeDuration);
+      addCategoryCountdownItem(state, cat, name, diff, priority, safeDuration, sourceKind);
+      updatePinnedCountdown(state, name, diff, safeDuration, sourceKind);
     }
   };
 
@@ -1675,7 +2272,9 @@ function buildCountdownData(dateCtx, normalizedEnv, officialHolidayCache) {
   }
 
   for (const item of userConfig.customDays) {
-    if (item.spec.kind !== "once") continue;
+    if (item.spec.kind !== "once") {
+      continue;
+    }
     let ymd = null;
     if (item.spec.calendar === "lunar") {
       ymd = resolveLunarExclusiveYMD(l2s, item.spec.year, item.spec.month, item.spec.day);
@@ -1693,26 +2292,42 @@ function buildCountdownData(dateCtx, normalizedEnv, officialHolidayCache) {
 function isValidCountdownItem(item) {
   return Boolean(
     item &&
-      typeof item === "object" &&
-      typeof item.name === "string" &&
-      item.name.trim() &&
-      Number.isFinite(Number(item.diff)) &&
-      Number.isFinite(Number(item.duration))
+    typeof item === "object" &&
+    typeof item.name === "string" &&
+    item.name.trim() &&
+    Number.isFinite(Number(item.diff)) &&
+    Number.isFinite(Number(item.duration))
   );
 }
 
 function isValidBaseDailyPayload(payload) {
-  if (!payload || typeof payload !== "object") return false;
-  if (!payload.result || typeof payload.result !== "object") return false;
-  for (const cat of CATEGORY_KEYS) {
-    if (!Array.isArray(payload.result[cat])) return false;
-    if (!payload.result[cat].every(isValidCountdownItem)) return false;
-  }
-  if (typeof payload.todayNoticeText !== "string") return false;
-  if (!Array.isArray(payload.pinnedData) || !payload.pinnedData.every(isValidCountdownItem)) {
+  if (!payload || typeof payload !== "object") {
     return false;
   }
-  if (!Array.isArray(payload.todayItems) || !payload.todayItems.every(isValidCountdownItem)) {
+  if (!payload.result || typeof payload.result !== "object") {
+    return false;
+  }
+  for (const cat of CATEGORY_KEYS) {
+    if (!Array.isArray(payload.result[cat])) {
+      return false;
+    }
+    if (!payload.result[cat].every(isValidCountdownItem)) {
+      return false;
+    }
+  }
+  if (typeof payload.todayNoticeText !== "string") {
+    return false;
+  }
+  if (
+    !Array.isArray(payload.pinnedData) ||
+    !payload.pinnedData.every(isValidCountdownItem)
+  ) {
+    return false;
+  }
+  if (
+    !Array.isArray(payload.todayItems) ||
+    !payload.todayItems.every(isValidCountdownItem)
+  ) {
     return false;
   }
   return true;
@@ -1738,11 +2353,21 @@ function createDailyCacheReader(todayStr) {
   return {
     read(envFingerprint) {
       const stored = loadRecord();
-      if (!stored || typeof stored !== "object") return null;
-      if (stored.version !== DAILY_CACHE_VERSION) return null;
-      if (stored.date !== todayStr) return null;
-      if (stored.envFingerprint !== envFingerprint) return null;
-      if (!isValidBaseDailyPayload(stored.payload)) return null;
+      if (!stored || typeof stored !== "object") {
+        return null;
+      }
+      if (stored.version !== DAILY_CACHE_VERSION) {
+        return null;
+      }
+      if (stored.date !== todayStr) {
+        return null;
+      }
+      if (stored.envFingerprint !== envFingerprint) {
+        return null;
+      }
+      if (!isValidBaseDailyPayload(stored.payload)) {
+        return null;
+      }
       return stored.payload;
     },
     save(envFingerprint, payload) {
@@ -1761,7 +2386,9 @@ function createDailyCacheReader(todayStr) {
 }
 
 function notifyTodayIfNeeded(enableNotify, dateCtx, todayItems, isCron) {
-  if (!enableNotify) return { sent: false, reason: "disabled" };
+  if (!enableNotify) {
+    return { sent: false, reason: "disabled" };
+  }
   if (typeof $notification === "undefined" || !$notification?.post) {
     return { sent: false, reason: "unavailable" };
   }
@@ -1775,38 +2402,65 @@ function notifyTodayIfNeeded(enableNotify, dateCtx, todayItems, isCron) {
   const todayIso = dateCtx.todayIso;
   const todayStartItems = dedupeHolidayItemsByToken(
     todayItems.filter(
-      item => Number(item.diff) === 0 && typeof item.name === "string" && item.name.trim()
+      item =>
+        Number(item.diff) === 0 &&
+        typeof item.name === "string" &&
+        item.name.trim()
     )
   );
-  const todayStartNames = Array.from(new Set(todayStartItems.map(item => item.name.trim())));
+  const todayStartNames = Array.from(
+    new Set(todayStartItems.map(item => item.name.trim()))
+  );
   if (todayStartNames.length === 0) {
     return { sent: false, reason: "no_first_day_items" };
   }
 
   const nowMs = Date.now();
   const prevState = surgeStorage.getJSON(NOTIFY_KEY);
-  const sameDay = prevState && prevState.date === todayIso;
-  const prevNotified = sameDay
-    ? Array.isArray(prevState.notifiedNames)
-      ? prevState.notifiedNames
-      : prevState.failed !== true && Array.isArray(prevState.names)
-        ? prevState.names
-        : []
-    : [];
+  const sameDay = Boolean(prevState && prevState.date === todayIso);
+  let prevNotified = [];
+  if (sameDay) {
+    if (Array.isArray(prevState.notifiedNames)) {
+      prevNotified = prevState.notifiedNames;
+    } else if (prevState.failed !== true && Array.isArray(prevState.names)) {
+      prevNotified = prevState.names;
+    }
+  }
 
   if (sameDay && prevState.failed === true && Number(prevState.retryAfter) > nowMs) {
     return { sent: false, reason: "retry_backoff" };
   }
 
+  const todayCustomNameSet = new Set(
+    todayStartItems
+      .filter(item => item.sourceKind === "custom")
+      .map(item => normalizeHolidayMatchName(item.name))
+      .filter(Boolean)
+  );
   const notifiedSet = new Set(prevNotified);
   const notifiedTokenSet = new Set();
   for (const name of prevNotified) {
-    addHolidayNameTokens(notifiedTokenSet, name);
+    if (!todayCustomNameSet.has(normalizeHolidayMatchName(name))) {
+      addHolidayNameTokens(notifiedTokenSet, name);
+    }
   }
 
-  const pendingNames = todayStartNames.filter(
-    name => !notifiedSet.has(name) && !holidayNameMatchesTokenSet(name, notifiedTokenSet)
-  );
+  const pendingNames = [];
+  const pendingSet = new Set();
+  for (const item of todayStartItems) {
+    const name = item.name.trim();
+    if (!name || pendingSet.has(name) || notifiedSet.has(name)) {
+      continue;
+    }
+    if (
+      item.sourceKind !== "custom" &&
+      holidayNameMatchesTokenSet(name, notifiedTokenSet)
+    ) {
+      continue;
+    }
+    pendingSet.add(name);
+    pendingNames.push(name);
+  }
   if (pendingNames.length === 0) {
     return { sent: false, reason: "already_notified" };
   }
@@ -1861,7 +2515,9 @@ function buildPanelOutput(baseData, dateCtx, officialHolidayCache) {
 
   for (const cfg of CATEGORY_CONFIG) {
     const items = (baseData.result?.[cfg.key] || []).slice(0, CATEGORY_DISPLAY_LIMIT);
-    if (items.length === 0) continue;
+    if (items.length === 0) {
+      continue;
+    }
     lines.push(`${cfg.label}：${items.map(formatDisplayItem).join("，")}`);
   }
 
@@ -1880,6 +2536,23 @@ function buildPanelOutput(baseData, dateCtx, officialHolidayCache) {
   };
 }
 
+let doneCalled = false;
+
+function finishScript(payload) {
+  if (doneCalled) {
+    return;
+  }
+  doneCalled = true;
+  if (typeof $done !== "function") {
+    return;
+  }
+  if (arguments.length > 0) {
+    $done(payload);
+  } else {
+    $done();
+  }
+}
+
 async function runCountdown() {
   const isCron = typeof $script !== "undefined" && $script?.type === "cron";
   const isManualRefresh = typeof $trigger !== "undefined" && $trigger === "button";
@@ -1896,7 +2569,10 @@ async function runCountdown() {
   let officialHolidayCache = readOfficialHolidayCache(dateCtx.Y, dateCtx.todayIso, nowMs);
 
   const readBaseByOfficialState = () => {
-    const envFingerprint = buildCompositeEnvFingerprint(dataEnvFingerprint, officialHolidayCache);
+    const envFingerprint = buildCompositeEnvFingerprint(
+      dataEnvFingerprint,
+      officialHolidayCache
+    );
     return {
       envFingerprint,
       cachedBaseData: dailyCache.read(envFingerprint)
@@ -1904,8 +2580,6 @@ async function runCountdown() {
   };
 
   let { envFingerprint, cachedBaseData } = readBaseByOfficialState();
-  const fallbackCachedBaseData = cachedBaseData;
-  const fallbackEnvFingerprint = envFingerprint;
 
   const canFetchOfficial = typeof $httpClient !== "undefined" && Boolean($httpClient?.get);
   if (canFetchOfficial) {
@@ -1915,7 +2589,8 @@ async function runCountdown() {
       dateCtx.todayIso,
       nowMs,
       Boolean(cachedBaseData),
-      isCron || isManualRefresh
+      isCron || isManualRefresh,
+      isManualRefresh
     );
     if (plan.blockingYearsToFetch.length > 0) {
       const timeoutSec = isCron ? CRON_HTTP_TIMEOUT_S : PANEL_HTTP_TIMEOUT_S;
@@ -1932,9 +2607,6 @@ async function runCountdown() {
         warnLog("official holiday refresh error:", e);
       }
       ({ envFingerprint, cachedBaseData } = readBaseByOfficialState());
-      if (!cachedBaseData && fallbackCachedBaseData && envFingerprint === fallbackEnvFingerprint) {
-        cachedBaseData = fallbackCachedBaseData;
-      }
     }
   }
 
@@ -1947,14 +2619,16 @@ async function runCountdown() {
   const notifyRes = notifyTodayIfNeeded(enableNotify, dateCtx, baseData.todayItems, isCron);
 
   if (isCron) {
+    const todayLog = baseData.todayNoticeText || "none";
+    const notifyLog = notifyRes.sent ? notifyRes.names.join("、") : notifyRes.reason;
     console.log(
-      `[Countdown] cron done (${dateCtx.todayIso}), today=${baseData.todayNoticeText || "none"}, notify=${notifyRes.sent ? notifyRes.names.join("、") : notifyRes.reason}`
+      `[Countdown] cron done (${dateCtx.todayIso}), today=${todayLog}, notify=${notifyLog}`
     );
-    $done();
+    finishScript();
     return;
   }
 
-  $done(buildPanelOutput(baseData, dateCtx, officialHolidayCache));
+  finishScript(buildPanelOutput(baseData, dateCtx, officialHolidayCache));
 }
 
 (async () => {
@@ -1964,9 +2638,9 @@ async function runCountdown() {
     warnLog("unhandled error:", e);
     const isCron = typeof $script !== "undefined" && $script?.type === "cron";
     if (isCron) {
-      $done();
+      finishScript();
     } else {
-      $done({
+      finishScript({
         title: "时光倒数加载失败",
         content: truncateByCodePoint(e?.message || "请检查脚本或参数配置", 80),
         icon: "exclamationmark.triangle.fill",
