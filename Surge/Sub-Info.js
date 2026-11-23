@@ -8,7 +8,7 @@
  * reset_day：每月重置日（1–31），短月份按月末计。title：面板标题。icon：SF Symbol 名称。
  * color：HEX 图标色，如 #007aff。method：head 或 get，省略时按策略探测。policy：Surge 代理策略名。
  * expire：YYYY-MM-DD、YYYY/MM/DD 或秒/毫秒时间戳，0 表示永久有效，false 隐藏到期信息。
- * 手动填写数字 expire 时，将它放在裸 url= 之前，或整体编码 URL 值。
+ * 手动填写数字 expire 且未接模块参数时，将它放在裸 url= 之前，或为 URL 加引号/整体编码。
  */
 
 (async function () {
@@ -45,6 +45,7 @@
   const RETIRE_GRACE_MS = DAY_MS;
   const NETWORK_COOLDOWN_MS = 30 * 60 * 1000;
   const MAX_STALE_MS = 10 * DAY_MS;
+  const CLOCK_SKEW_TOLERANCE_MS = 5 * 60 * 1000;
   const MAX_CACHE_SEQ = 9007199254740991;
   const SLOT_HEARTBEAT_MS = DAY_MS;
   const ORPHAN_SLOT_TTL_MS = 10 * DAY_MS;
@@ -76,6 +77,7 @@
     { id: "get_verge", method: "get", flag: null, ua: "clash-verge-rev/2.3.1", accept: ACCEPT },
   ];
   const STRATEGY_IDS = new Set(STRATEGIES.map((strategy) => strategy.id));
+  const HEAD_SKIP_ERRORS = new Set(["HTTP 400", "HTTP 403", "HTTP 404", "HTTP 405", "HTTP 501", "Timeout"]);
 
   function stripPairedQuotes(value) {
     const quote = value[0];
@@ -167,40 +169,81 @@
     return prefix.indexOf("#") === -1 && prefix.indexOf("?") !== -1;
   }
 
-  // 词法候选：scheme 后、首个 / ? # 之前首个 @ 所在段的下一段；合法性由 parseArgs 回退闭环判定。
+  // 词法候选：scheme 后、首个 / ? # 之前首个 @ 所在段的下一段；遇到已知合法脚本参数段时停止。
   function findBareAuthorityMinEnd(segments, u) {
-    const full = joinUrlSegments(segments, u, segments.length);
-    const scheme = /^\s*https?:\/\//i.exec(full);
+    const first = segments[u].value;
+    const scheme = /^\s*https?:\/\//i.exec(first);
     if (!scheme) return u + 1;
-    let at = -1;
-    for (let i = scheme[0].length; i < full.length && at === -1; i++) {
-      const ch = full[i];
-      if (ch === "/" || ch === "?" || ch === "#") return u + 1;
-      if (ch === "@") at = i;
+    for (let i = scheme[0].length; i < first.length; i++) {
+      const ch = first[i];
+      if (ch === "/" || ch === "?" || ch === "#" || ch === "@") return u + 1;
     }
-    if (at === -1) return u + 1;
-    let index = u;
-    let segmentEnd = segments[u].value.length;
-    while (segmentEnd <= at) {
-      index++;
-      segmentEnd += 1 + segments[index].text.length;
+    for (let i = u + 1; i < segments.length; i++) {
+      const { text, key, value } = segments[i];
+      if (key !== "url" && KNOWN_KEYS.has(key) && isValidTrailingArgValue(key, value)) return u + 1;
+      for (let j = 0; j < text.length; j++) {
+        const ch = text[j];
+        if (ch === "/" || ch === "?" || ch === "#") return u + 1;
+        if (ch === "@") return i + 1;
+      }
     }
-    return index + 1;
+    return u + 1;
+  }
+
+  function isValidModuleExtraValue(key, rawValue) {
+    if (key === "expire") {
+      const value = normalizeArgValue(key, rawValue);
+      return !value || /^(?:false|\d{4}[-/]\d{1,2}[-/]\d{1,2})$/i.test(value) || STRICT_NON_NEGATIVE_NUM.test(value);
+    }
+    return isValidTrailingArgValue(key, rawValue);
+  }
+
+  function isValidModuleExtrasRange(segments, start, beforeKeys) {
+    const seen = new Set();
+    let currentKey = "";
+    let currentValue = "";
+    for (let i = start; i < segments.length; i++) {
+      const { text, key, value } = segments[i];
+      if (key !== "url" && KNOWN_KEYS.has(key)) {
+        if (currentKey && !isValidModuleExtraValue(currentKey, currentValue)) return false;
+        if (!MODULE_EXTRAS.has(key) || beforeKeys.has(key) || seen.has(key)) return false;
+        seen.add(key);
+        currentKey = key;
+        currentValue = value;
+      } else {
+        if (currentKey !== "policy") return false;
+        currentValue += "&" + text;
+      }
+    }
+    return !currentKey || isValidModuleExtraValue(currentKey, currentValue);
   }
 
   function findModuleTail(segments, beforeKeys, minStart) {
     if (MODULE_KEYS.some((key) => beforeKeys.has(key))) return null;
-    let tailEnd = segments.length;
-    const extraSeen = new Set();
-    while (tailEnd > minStart + 3) {
-      const { key, value } = segments[tailEnd - 1];
-      if (!MODULE_EXTRAS.has(key) || beforeKeys.has(key) || extraSeen.has(key) || !isValidTrailingArgValue(key, value)) break;
-      extraSeen.add(key);
-      tailEnd--;
+    let co = -1;
+    let tailEnd = -1;
+    // 优先严格匹配：允许 color 后存在数字 expire 及含 & 的 policy
+    for (let i = segments.length - 1; i >= minStart + 3; i--) {
+      if (segments[i].key !== "color") continue;
+      if (isValidModuleExtrasRange(segments, i + 1, beforeKeys)) {
+        co = i;
+        tailEnd = i + 1;
+        break;
+      }
     }
-
-    const co = findLastKey(segments, tailEnd - 1, minStart + 3, "color");
-    if (co === -1) return null;
+    // 严格匹配未命中时回退至容错切分，避免尾随 &、未知参数或非法 extra 值导致整个模板失配
+    if (co === -1) {
+      tailEnd = segments.length;
+      const extraSeen = new Set();
+      while (tailEnd > minStart + 3) {
+        const { key, value } = segments[tailEnd - 1];
+        if (!MODULE_EXTRAS.has(key) || beforeKeys.has(key) || extraSeen.has(key) || !isValidModuleExtraValue(key, value)) break;
+        extraSeen.add(key);
+        tailEnd--;
+      }
+      co = findLastKey(segments, tailEnd - 1, minStart + 3, "color");
+      if (co === -1) return null;
+    }
     const ic = findLastKey(segments, co - 1, minStart + 2, "icon");
     if (ic === -1) return null;
     const tLast = findLastKey(segments, ic - 1, minStart + 1, "title");
@@ -264,6 +307,21 @@
       }
     }
 
+    function readModuleExtras(start, end, beforeKeys) {
+      let current = "";
+      for (let i = start; i < end; i++) {
+        const { text, key, value } = segments[i];
+        if (MODULE_EXTRAS.has(key) && !beforeKeys.has(key)) {
+          current = key;
+          args[key] = value;
+        } else if (key !== "" && (key === "url" || KNOWN_KEYS.has(key))) {
+          current = "";
+        } else if (current === "policy" && text) {
+          args[current] += "&" + text;
+        }
+      }
+    }
+
     readArgs(0, urlIndex < 0 ? segments.length : urlIndex);
     if (urlIndex >= 0) {
       const beforeKeys = new Set(Object.keys(args));
@@ -318,8 +376,16 @@
         args.reset_day = joinUrlSegments(segments, r, t);
         args.title = joinUrlSegments(segments, t, ic);
         args.icon = joinUrlSegments(segments, ic, co);
-        args.color = joinUrlSegments(segments, co, tailEnd);
-        for (let i = tailEnd; i < segments.length; i++) args[segments[i].key] = segments[i].value;
+        if (tailEnd === co + 1) {
+          args.color = segments[co].value;
+          readArgs(tailEnd, segments.length);
+        } else if (isValidTrailingArgValue("color", segments[co].value)) {
+          args.color = segments[co].value;
+          readModuleExtras(co + 1, segments.length, beforeKeys);
+        } else {
+          args.color = joinUrlSegments(segments, co, tailEnd);
+          readArgs(tailEnd, segments.length);
+        }
       } else {
         args.url = joinUrlSegments(segments, urlIndex, end);
         readArgs(end, segments.length);
@@ -531,7 +597,7 @@
     } catch (_) {
       return { status: "error" };
     }
-    if (raw == null) return { status: "missing" };
+    if (raw == null || raw === "") return { status: "missing" };
     if (typeof raw !== "string") return { status: "corrupt" };
     try {
       return { status: "ok", value: JSON.parse(raw) };
@@ -541,8 +607,18 @@
   }
 
   function storageWrite(key, value) {
+    if (value === null) {
+      try {
+        if ($persistentStore.write(null, key) === true) return true;
+      } catch (_) {}
+      try {
+        return $persistentStore.write("", key) === true;
+      } catch (_) {
+        return false;
+      }
+    }
     try {
-      return $persistentStore.write(value === null ? null : JSON.stringify(value), key) === true;
+      return $persistentStore.write(JSON.stringify(value), key) === true;
     } catch (_) {
       return false;
     }
@@ -573,7 +649,7 @@
     let dirty = bucket.entries.length === 0;
     for (const entry of bucket.entries) {
       if (!entry || !isCacheId(entry.id, key) || !Number.isFinite(entry.time) ||
-          nowMs < entry.time || nowMs - entry.time >= MAX_STALE_MS ||
+          entry.time - nowMs > CLOCK_SKEW_TOLERANCE_MS || nowMs - entry.time >= MAX_STALE_MS ||
           !isValidSeq(entry.seq) ||
           (entry.strategy !== null && !STRATEGY_IDS.has(entry.strategy))) {
         dirty = true;
@@ -613,7 +689,7 @@
 
   function saveCache(descriptor, data, strategy, startedAt, baseSeq, finishedAt) {
     if (!Number.isFinite(startedAt) || !Number.isFinite(finishedAt) ||
-        finishedAt < startedAt || finishedAt - startedAt >= MAX_STALE_MS) return false;
+        startedAt - finishedAt > CLOCK_SKEW_TOLERANCE_MS || finishedAt - startedAt >= MAX_STALE_MS) return false;
     const { key, id } = descriptor;
     const { ok, entries, dirty } = readBucket(key, finishedAt);
     if (!ok) return false;
@@ -792,7 +868,13 @@
   function shouldSaveCache(slot, descriptor, nowMs) {
     if (!slot) return true;
     const { ok, state } = readState(nowMs);
-    return ok && Object.keys(state.slots).some((hash) => {
+    if (!ok) return false;
+    const current = state.slots[slot];
+    if (!current) {
+      return syncSlot(slot, descriptor, nowMs).ok;
+    }
+    if (current.i === descriptor.id && isActiveSlot(current, nowMs)) return true;
+    return Object.keys(state.slots).some((hash) => {
       const record = state.slots[hash];
       return record.i === descriptor.id && isActiveSlot(record, nowMs);
     });
@@ -840,8 +922,8 @@
     } catch (_) {
       return "Network";
     }
-    if (/timeout|timed out/i.test(message)) return "Timeout";
-    if (/dns|hostname could not be found|cannot find host|host not found|enotfound|nxdomain/i.test(message)) return "DNS Error";
+    if (/timeout|timed out|超时|逾時/i.test(message)) return "Timeout";
+    if (/dns|hostname could not be found|cannot find host|host not found|enotfound|nxdomain|(?:找不|未能找)到.*主机|无法解析.*(?:域名|主机|服务器)|無法解析.*(?:網域|主機|伺服器)|域名解析|網域解析/i.test(message)) return "DNS Error";
     return "Network";
   }
 
@@ -903,18 +985,35 @@
 
     let response;
     try {
-      const settled = await new Promise((resolve, reject) => {
-        $httpClient[strategy.method](options, (error, result) => {
-          if (error != null) reject(error);
-          else {
-            // Promise 只检查包装对象的 then，宿主响应留到 await 后读取。
-            const box = Object.create(null);
-            box.response = result;
-            resolve(box);
+      const resultBox = await new Promise((resolve, reject) => {
+        let settled = false;
+        const timer = setTimeout(() => {
+          if (settled) return;
+          settled = true;
+          reject(new Error("Timeout"));
+        }, Math.max(1000, timeout * 1000 + 250));
+        try {
+          $httpClient[strategy.method](options, (error, result) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            if (error !== null && error !== undefined && error !== "" && error !== false) reject(error);
+            else {
+              // Promise 只检查包装对象的 then，宿主响应留到 await 后读取。
+              const box = Object.create(null);
+              box.response = result;
+              resolve(box);
+            }
+          });
+        } catch (error) {
+          if (!settled) {
+            settled = true;
+            clearTimeout(timer);
+            reject(error);
           }
-        });
+        }
       });
-      response = settled.response;
+      response = resultBox.response;
     } catch (error) {
       return { error: normalizeRequestError(error) };
     }
@@ -937,17 +1036,18 @@
     const used = (info.upload || 0) + (info.download || 0);
     const percent = (used / info.total) * 100;
     if (!Number.isFinite(used) || !Number.isFinite(percent)) return { error: "No Data" };
-    return { data: { used, totalBytes: info.total, percent, expire: info.expire || null } };
+    return { data: { used, totalBytes: info.total, percent, expire: typeof info.expire === "number" ? info.expire : null } };
   }
 
   async function fetchSubscription(url, args, preferred, deadlineTime) {
-    const method = args.method;
+    const method = typeof args.method === "string" ? args.method.toLowerCase() : "";
     const strategies = STRATEGIES.filter((strategy) => (method !== "head" && method !== "get") || strategy.method === method);
     const preferredIndex = strategies.findIndex((strategy) => strategy.id === preferred);
     if (preferredIndex > 0) strategies.unshift(strategies.splice(preferredIndex, 1)[0]);
 
     let lastError = "";
     let skipRemainingHead = false;
+    const hasGetFallback = strategies.some((strategy) => strategy.method === "get");
     for (const strategy of strategies) {
       if (skipRemainingHead && strategy.method === "head") continue;
       const timeout = getRequestTimeoutSec(deadlineTime, strategy.method, !lastError && strategy.id === preferred);
@@ -956,7 +1056,11 @@
       if (result.data) return { data: result.data, strategy: strategy.id };
       lastError = result.error;
       if (lastError === "DNS Error") break;
-      if (strategy.method === "head" && (lastError === "HTTP 405" || lastError === "HTTP 501" || lastError === "Timeout")) {
+      if (strategy.method === "head" && (
+        hasGetFallback
+          ? HEAD_SKIP_ERRORS.has(lastError)
+          : (lastError === "HTTP 405" || lastError === "HTTP 501")
+      )) {
         skipRemainingHead = true;
       }
     }
@@ -971,7 +1075,8 @@
       value /= 1024;
       unit++;
     }
-    let rounded = value >= 10 || unit === 0 ? Math.round(value) : Number(value.toFixed(1));
+    const useDecimal = unit > 0 && (value < 10 || (unit >= 3 && value < 100));
+    let rounded = useDecimal ? Number(value.toFixed(1)) : Math.round(value);
     if (rounded >= 1024 && unit < UNITS.length - 1) {
       rounded = 1;
       unit++;
@@ -979,12 +1084,13 @@
     return `${rounded}${UNITS[unit]}`;
   }
 
-  function formatCacheAge(ageMs) {
-    if (!Number.isFinite(ageMs) || ageMs < 0) return "缓存";
-    const minutes = Math.max(1, Math.floor(ageMs / 60000));
-    if (minutes < 60) return `缓存${minutes}分`;
-    const hours = Math.floor(minutes / 60);
-    return hours < 24 ? `缓存${hours}小时` : `缓存${Math.floor(hours / 24)}天`;
+  function formatDataAge(ageMs) {
+    if (!Number.isFinite(ageMs) || ageMs < -CLOCK_SKEW_TOLERANCE_MS) return "缓存数据";
+    const clamped = Math.max(0, ageMs);
+    if (clamped < 60000) return "1分内数据";
+    if (clamped < 60 * 60000) return `${Math.floor(clamped / 60000)}分前数据`;
+    if (clamped < DAY_MS) return `${Math.floor(clamped / 3600000)}小时前数据`;
+    return `${Math.floor(clamped / DAY_MS)}天前数据`;
   }
 
   function parseResetDay(value) {
@@ -1034,6 +1140,7 @@
   }
 
   function parseExpirationMs(value) {
+    if (value == null || value === "") return NaN;
     if (typeof value === "string" && !STRICT_NON_NEGATIVE_NUM.test(value)) return NaN;
     const number = Number(value);
     if (!Number.isFinite(number) || number < 0) return NaN;
@@ -1042,7 +1149,7 @@
 
   function getExpireState(override, remoteExpire, nowMs) {
     if (override && override.toLowerCase() === "false") return { text: "", expired: false };
-    const raw = override || remoteExpire;
+    const raw = override !== undefined && override !== "" ? override : remoteExpire;
     const cal = parseCalendarDateOverride(raw);
     if (cal) {
       if (!cal.valid) return { text: "有效期未知", expired: false };
@@ -1087,6 +1194,16 @@
       case "No Data": return "响应头不含有效流量信息";
       case "Network": return "网络连接失败";
       default: return error; // requestStrategy 仅构造校验过的 HTTP 状态码。
+    }
+  }
+
+  function shortErrorLabel(error) {
+    switch (error) {
+      case "Timeout": return "超时";
+      case "DNS Error": return "DNS失败";
+      case "No Data": return "无数据";
+      case "Network": return "网络异常";
+      default: return error || "";
     }
   }
 
@@ -1682,11 +1799,11 @@
       if (Number.isInteger(days) && days >= 0) lines.push(days === 0 ? "重置：今天重置" : `重置：${days}天后重置`);
     }
     if (expire.text) lines.push(`到期：${expire.text}`);
-    let suffix = ` | ${Math.round(data.percent)}%`;
+    const suffix = ` | ${Math.round(data.percent)}%`;
     if (fallback) {
-      const age = formatCacheAge(nowMs - fallback.time);
-      suffix += ` · ${age}`;
-      lines.push(`状态：拉取失败（${errorLabel(fallback.error)}），显示${age}数据`);
+      const ageText = formatDataAge(nowMs - fallback.time);
+      const shortReason = shortErrorLabel(fallback.error);
+      lines.push(shortReason ? `状态：${ageText} · ${shortReason}` : `状态：${ageText}`);
     }
     const resultTitle = finalizeTitle(title, suffix, secrets, safePanelName);
     let color = HEX_COLOR_PATTERN.test(args.color) ? args.color : getUsageColor(data.percent);
@@ -1768,7 +1885,7 @@
     if (secondRead.ok) {
       fallback = secondRead.entry;
     } else if (cached && Number.isFinite(finishedAt) &&
-               finishedAt >= cached.time && finishedAt - cached.time < MAX_STALE_MS) {
+               cached.time - finishedAt <= CLOCK_SKEW_TOLERANCE_MS && finishedAt - cached.time < MAX_STALE_MS) {
       fallback = cached;
     }
     stage = "render";
