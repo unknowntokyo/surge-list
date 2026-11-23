@@ -116,6 +116,7 @@ const ANNUAL_SLASH_DATE_RE = /^(\d{1,2})\/(\d{1,2})$/;
 const ONCE_SLASH_DATE_RE = /^(\d{4})\/(\d{1,2})\/(\d{1,2})$/;
 const LUNAR_PREFIX_RE = /^(?:[Ll]|农历)\s*/;
 const TEMPLATE_PLACEHOLDER_RE = /^\{\{\{[A-Za-z0-9_]+\}\}\}$/;
+const EMPTY_ARG_SENTINEL_RE = /^(?:-|无|none|null|\(null\))$/i;
 const NAME_LIST_SEPARATOR_RE = /[、，,/]+/;
 const EXCLUSIVE_NAME_KEY_RE = /^EXCLUSIVE_NAME_\d+$/;
 const EXCLUSIVE_DATE_KEY_RE = /^EXCLUSIVE_DATE_\d+$/;
@@ -514,7 +515,7 @@ function parseSurgeArgument(rawArg) {
 
 function sanitizeEnvStringValue(key, rawValue) {
   let value = String(rawValue ?? "").trim();
-  if (TEMPLATE_PLACEHOLDER_RE.test(value)) {
+  if (TEMPLATE_PLACEHOLDER_RE.test(value) || EMPTY_ARG_SENTINEL_RE.test(value)) {
     value = "";
   }
   if (key === "PINNED_HOLIDAY") {
