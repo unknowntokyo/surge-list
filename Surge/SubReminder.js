@@ -23,7 +23,7 @@
 (function () {
   "use strict";
 
-  const PANEL_ICON_COLOR = "#FF3B30";
+  const PANEL_ICON_COLOR = "#FF383C";
 
   const DAY_MS = 86400000;
   const MAX_SUBS = 20;

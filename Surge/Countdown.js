@@ -74,10 +74,10 @@ const SPECIAL_PRIORITY = {
 };
 
 const ICON_COLORS = {
-  festival: "#FF3B30",
+  festival: "#FF8D28",
   offday: "#34C759",
-  workday: "#8E8E93",
-  error: "#FF3B30"
+  workday: "#00C3D0",
+  error: "#FF383C"
 };
 
 const DAY_MS = 86400000;

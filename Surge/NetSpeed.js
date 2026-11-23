@@ -228,7 +228,7 @@ function getSpeedStyle(mbps, failed) {
   if (failed) {
     return {
       icon: 'exclamationmark.triangle.fill',
-      color: '#FF3B30'
+      color: '#FF383C'
     };
   }
 
@@ -242,13 +242,13 @@ function getSpeedStyle(mbps, failed) {
   if (mbps >= 10) {
     return {
       icon: 'hare.fill',
-      color: '#007AFF'
+      color: '#0088FF'
     };
   }
 
   return {
     icon: 'tortoise',
-    color: '#FF9500'
+    color: '#FF8D28'
   };
 }
 
