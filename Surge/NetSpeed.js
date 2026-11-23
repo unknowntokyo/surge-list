@@ -1,17 +1,14 @@
 /**
- * Surge 信息面板: NetSpeed 测速脚本
- * 参考 Egern/NetSpeed_Widget.js 同步核心测速、速度分级样式与缓存回退逻辑
+ * Surge 信息面板：NetSpeed 下行测速脚本
  *
- * $argument 参数（key=value 以 & 连接，均可选；若参数值含逗号请在 [Script] 中用双引号包裹整个 argument="..."）：
- * - policy: 测速使用的策略或策略组名，默认 DIRECT；传空值（policy=）或 "-" 时不传 policy，跟随 Surge 规则分流
- * - TEST_PACKET（兼容 SPEED_TEST_PACKET / mb）: 下行测速数据量（MB，支持小数），默认 3（按平台自动限制安全上限：iOS 16MB / Mac 64MB）
- * - timeout: 单次测速请求超时秒数，默认 4（适配 Surge 默认 5s 脚本超时，上限 60；若在 [Script] 中配置 timeout=10，建议设为 8）
- * - title: 面板标题，默认 NetSpeed
+ * $argument 参数（key=value 以 & 连接，均可选；支持 URL 编码，参数值含逗号时请用双引号包裹整个 argument="..."）：
+ * - policy：测速策略或策略组名，默认 DIRECT；传空值（policy=）或 "-" 时跟随 Surge 规则分流
+ * - TEST_PACKET（兼容 SPEED_TEST_PACKET / mb）：下行测速数据量（MB，支持小数），默认 3（iOS 上限 16 / Mac 上限 64）
+ * - timeout：单次测速请求超时秒数，默认 4（脚本上限 60，仅在手动调大 [Script] timeout 时生效；模块 timeout=10 下建议不超过 8）
+ * - title：面板标题，默认 NetSpeed
  *
- * 平台与版本说明：
- * - Panel 需 Surge iOS 4.9.3+ / Mac 5.7.5+；binary-mode 需 iOS 5.4.1+ / Mac 5.0.1+；auto-cookie / auto-redirect 需 iOS 5.9.0+ / Mac 5.5.0+（旧版自动忽略）
- * - Surge $httpClient 不支持流式读取，必须在超时内完整下完测速包才能算速：默认 3MB/4s 下低于约 6 Mbps（配套模块 3MB/8s 下低于约 3 Mbps）会超时并回退缓存
- * - 速率换算沿用 Egern 原脚本口径：1 MB = 1048576 字节
+ * 说明：Surge $httpClient 不支持流式读取，须在超时内完整下完测速包才能算速；
+ * 默认 3MB/4s 下低于约 6 Mbps（模块 3MB/8s 下低于约 3 Mbps）会超时并回退缓存。
  */
 
 const MB = 1048576;
@@ -31,11 +28,16 @@ const SIZE_TOLERANCE = 0.01;
 const MAX_RAW_KEY_ENCODED_LEN = 120;
 const FAILED_TEXT = '⚠️ 测速失败';
 
+const UNRESOLVED_PLACEHOLDER_RE = /^\{\{\{[A-Za-z0-9_]+\}\}\}$/;
+const STRICT_DECIMAL_RE = /^\d+(?:\.\d+)?$/;
+const SPEED_HOST_RE = /^(?:https?:\/\/)?speed\.cloudflare\.com(?::\d+)?(?:\/|\?|$)/i;
+
 const DEFAULT_SPEED_DATA = {
   mbps: 0,
   mBs: 0,
   duration: 0,
-  timestamp: 0
+  timestamp: 0,
+  node: ''
 };
 
 function hasOwn(obj, key) {
@@ -50,8 +52,6 @@ function decodeValue(value) {
   }
 }
 
-const UNRESOLVED_PLACEHOLDER_RE = /^\{\{\{[A-Za-z0-9_]+\}\}\}$/;
-
 function parseArguments(raw) {
   const result = {};
   if (typeof raw !== 'string' || !raw.trim()) {
@@ -59,15 +59,22 @@ function parseArguments(raw) {
   }
 
   for (const pair of raw.split('&')) {
-    if (!pair) continue;
+    if (!pair) {
+      continue;
+    }
+
     const eqIndex = pair.indexOf('=');
-    if (eqIndex === -1) continue;
+    if (eqIndex === -1) {
+      continue;
+    }
 
     const key = pair.slice(0, eqIndex).trim();
-    const value = decodeValue(pair.slice(eqIndex + 1).trim());
-    if (!key || UNRESOLVED_PLACEHOLDER_RE.test(value)) continue;
+    const rawValue = pair.slice(eqIndex + 1).trim();
+    if (!key || UNRESOLVED_PLACEHOLDER_RE.test(rawValue)) {
+      continue;
+    }
 
-    result[key] = value;
+    result[key] = decodeValue(rawValue);
   }
 
   return result;
@@ -91,27 +98,34 @@ function resolvePolicy(arg) {
 }
 
 function getMaxPacketMB() {
-  const system =
+  const hasSystem =
     typeof $environment !== 'undefined' &&
     $environment &&
-    typeof $environment.system === 'string'
-      ? $environment.system.toLowerCase()
-      : '';
-
+    typeof $environment.system === 'string';
+  const system = hasSystem ? $environment.system.toLowerCase() : '';
   return system === 'macos' ? MAX_PACKET_MB_MAC : MAX_PACKET_MB_IOS;
 }
 
 function parsePositivePacketBytes(value, maxPacketMB) {
   const raw = getNonEmptyString(value);
-  if (!raw) return 0;
+  if (!raw) {
+    return 0;
+  }
 
-  let mb = parseFloat(raw);
+  if (!STRICT_DECIMAL_RE.test(raw)) {
+    console.log(`[NetSpeed] 测速包体参数无效 (${raw})，已忽略`);
+    return 0;
+  }
+
+  let mb = Number(raw);
   if (!Number.isFinite(mb) || mb <= 0) {
     return 0;
   }
 
   if (mb > maxPacketMB) {
-    console.log(`[NetSpeed] 测速包体 ${mb}MB 超过当前平台安全上限 ${maxPacketMB}MB，已自动限幅`);
+    console.log(
+      `[NetSpeed] 测速包体 ${mb}MB 超过当前平台安全上限 ${maxPacketMB}MB，已自动限幅`
+    );
     mb = maxPacketMB;
   }
 
@@ -138,7 +152,14 @@ function getTimeoutSeconds(value) {
     return DEFAULT_TIMEOUT;
   }
 
-  const seconds = parseFloat(raw);
+  if (!STRICT_DECIMAL_RE.test(raw)) {
+    console.log(
+      `[NetSpeed] timeout=${raw} 格式无效，已回退默认 ${DEFAULT_TIMEOUT}s`
+    );
+    return DEFAULT_TIMEOUT;
+  }
+
+  const seconds = Number(raw);
   if (!Number.isFinite(seconds) || seconds <= 0) {
     return DEFAULT_TIMEOUT;
   }
@@ -171,6 +192,27 @@ function hash64Hex(text) {
   );
 }
 
+function buildKeyWithHash(prefix, hashPrefix, rawKey) {
+  const encoded = encodeURIComponent(rawKey);
+  if (encoded.length <= MAX_RAW_KEY_ENCODED_LEN) {
+    return `${prefix}${encoded}`;
+  }
+
+  return `${hashPrefix}${hash64Hex(rawKey)}`;
+}
+
+function getFallbackCacheKey(policy) {
+  if (policy === null) {
+    return 'netspeed_cache_rule';
+  }
+
+  return buildKeyWithHash(
+    'netspeed_cache_policy_',
+    'netspeed_cache_policy_h_',
+    policy
+  );
+}
+
 function getCacheKey(policy, resolvedNode) {
   const node = getNonEmptyString(resolvedNode);
 
@@ -179,31 +221,22 @@ function getCacheKey(policy, resolvedNode) {
       return 'netspeed_cache_rule';
     }
 
-    const rawKey = `rule\0${node}`;
-    const encoded = encodeURIComponent(rawKey);
-    if (encoded.length <= MAX_RAW_KEY_ENCODED_LEN) {
-      return `netspeed_cache_node_${encoded}`;
-    }
-
-    return `netspeed_cache_node_h_${hash64Hex(rawKey)}`;
+    return buildKeyWithHash(
+      'netspeed_cache_rule_node_',
+      'netspeed_cache_rule_node_h_',
+      node
+    );
   }
 
   if (node && node !== policy) {
-    const rawKey = `${policy}\0${node}`;
-    const encoded = encodeURIComponent(rawKey);
-    if (encoded.length <= MAX_RAW_KEY_ENCODED_LEN) {
-      return `netspeed_cache_node_${encoded}`;
-    }
-
-    return `netspeed_cache_node_h_${hash64Hex(rawKey)}`;
+    return buildKeyWithHash(
+      'netspeed_cache_node_',
+      'netspeed_cache_node_h_',
+      `${policy}\0${node}`
+    );
   }
 
-  const encoded = encodeURIComponent(policy);
-  if (encoded.length <= MAX_RAW_KEY_ENCODED_LEN) {
-    return `netspeed_cache_policy_${encoded}`;
-  }
-
-  return `netspeed_cache_policy_h_${hash64Hex(policy)}`;
+  return getFallbackCacheKey(policy);
 }
 
 function normalizeSpeedData(data) {
@@ -220,8 +253,13 @@ function normalizeSpeedData(data) {
     mbps: Number.isFinite(mbps) && mbps >= 0 ? mbps : 0,
     mBs: Number.isFinite(mBs) && mBs >= 0 ? mBs : 0,
     duration: Number.isFinite(duration) && duration >= 0 ? duration : 0,
-    timestamp: Number.isFinite(timestamp) && timestamp > 0 ? timestamp : 0
+    timestamp: Number.isFinite(timestamp) && timestamp > 0 ? timestamp : 0,
+    node: getNonEmptyString(data.node)
   };
+}
+
+function isValidSpeedData(data) {
+  return Boolean(data && data.timestamp > 0 && data.duration > 0);
 }
 
 function getSpeedStyle(mbps, failed) {
@@ -278,7 +316,9 @@ function saveCachedSpeedData(cacheKey, data) {
       }
     }
   } catch (e) {
-    console.log(`[NetSpeed] 写入缓存异常: ${e && e.message ? e.message : e}`);
+    console.log(
+      `[NetSpeed] 写入缓存异常: ${e && e.message ? e.message : e}`
+    );
   }
 }
 
@@ -296,9 +336,18 @@ function httpGet(options) {
 }
 
 function getByteLength(data) {
-  if (!data) return 0;
-  if (typeof data.byteLength === 'number') return data.byteLength;
-  if (typeof data === 'string') return data.length;
+  if (!data) {
+    return 0;
+  }
+
+  if (typeof data.byteLength === 'number') {
+    return data.byteLength;
+  }
+
+  if (typeof data === 'string') {
+    return data.length;
+  }
+
   return 0;
 }
 
@@ -335,7 +384,8 @@ async function measureSpeed(url, policy, policyLabel, timeout, expectedBytes) {
 
     const status = Number(response && response.status);
     if (!Number.isFinite(status) || status < 200 || status >= 300) {
-      console.log(`[NetSpeed] 测速失败 (${policyLabel}): HTTP ${response ? response.status : 'unknown'}`);
+      const statusText = response ? response.status : 'unknown';
+      console.log(`[NetSpeed] 测速失败 (${policyLabel}): HTTP ${statusText}`);
       return null;
     }
 
@@ -344,13 +394,16 @@ async function measureSpeed(url, policy, policyLabel, timeout, expectedBytes) {
 
     if (!isExpectedSize(downloadedBytes, expectedBytes)) {
       console.log(
-        `[NetSpeed] 响应体大小异常 (${policyLabel}): expected=${expectedBytes}, actual=${downloadedBytes}`
+        `[NetSpeed] 响应体大小异常 (${policyLabel}): ` +
+          `expected=${expectedBytes}, actual=${downloadedBytes}`
       );
       return null;
     }
 
     if (duration < MIN_DURATION) {
-      console.log(`[NetSpeed] 测速耗时过短 (${policyLabel}): duration=${duration}s`);
+      console.log(
+        `[NetSpeed] 测速耗时过短 (${policyLabel}): duration=${duration}s`
+      );
       return null;
     }
 
@@ -363,20 +416,25 @@ async function measureSpeed(url, policy, policyLabel, timeout, expectedBytes) {
       timestamp: Date.now()
     };
   } catch (e) {
-    console.log(`[NetSpeed] 测速失败 (${policyLabel}): ${e && e.message ? e.message : e}`);
+    console.log(
+      `[NetSpeed] 测速失败 (${policyLabel}): ${e && e.message ? e.message : e}`
+    );
     return null;
   }
 }
 
 function createRunId() {
   const ts = Date.now().toString(36);
-  const rand = Math.random().toString(36).slice(2, 6);
+  const rand = Math.random().toString(36).slice(2).padEnd(6, '0').slice(0, 6);
   return `${ts}${rand}`;
 }
 
 function toEpochMs(value) {
   const num = Number(value);
-  if (!Number.isFinite(num) || num <= 0) return 0;
+  if (!Number.isFinite(num) || num <= 0) {
+    return 0;
+  }
+
   return num > 1e12 ? num : num * 1000;
 }
 
@@ -384,28 +442,66 @@ function getRemainingMs(deadline) {
   return Math.max(0, deadline - Date.now());
 }
 
+function buildApiPath(path, params) {
+  if (!params || typeof params !== 'object') {
+    return path;
+  }
+
+  const pairs = [];
+  for (const key of Object.keys(params)) {
+    const val = params[key];
+    if (val === undefined || val === null) {
+      continue;
+    }
+
+    pairs.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(val))}`);
+  }
+
+  if (pairs.length === 0) {
+    return path;
+  }
+
+  const sep = path.includes('?') ? '&' : '?';
+  return `${path}${sep}${pairs.join('&')}`;
+}
+
 function httpApiGet(path, params, timeoutMs) {
   if (typeof $httpAPI !== 'function' || timeoutMs <= 0) {
     return Promise.resolve(null);
   }
 
+  const requestPath = buildApiPath(path, params);
+
   return new Promise((resolve) => {
     let settled = false;
+    let timerId = null;
+
     const finish = (value) => {
-      if (settled) return;
+      if (settled) {
+        return;
+      }
+
       settled = true;
+      if (timerId !== null && typeof clearTimeout === 'function') {
+        clearTimeout(timerId);
+        timerId = null;
+      }
+
       resolve(value);
     };
 
     if (typeof setTimeout === 'function') {
-      setTimeout(() => finish(null), timeoutMs);
+      timerId = setTimeout(() => finish(null), timeoutMs);
     }
 
     try {
-      $httpAPI('GET', path, params || null, (result) => {
+      $httpAPI('GET', requestPath, null, (result) => {
         finish(result && typeof result === 'object' ? result : null);
       });
-    } catch (_) {
+    } catch (e) {
+      console.log(
+        `[NetSpeed] $httpAPI 调用异常 (${path}): ${e && e.message ? e.message : e}`
+      );
       finish(null);
     }
   });
@@ -420,39 +516,64 @@ function getSelectGroupDetails() {
     ) {
       const details = $surge.selectGroupDetails();
       if (details && typeof details === 'object') {
-        return {
-          groups: details.groups && typeof details.groups === 'object' ? details.groups : {},
-          decisions: details.decisions && typeof details.decisions === 'object' ? details.decisions : {}
-        };
+        const groups =
+          details.groups && typeof details.groups === 'object'
+            ? details.groups
+            : {};
+        const decisions =
+          details.decisions && typeof details.decisions === 'object'
+            ? details.decisions
+            : {};
+        return { groups, decisions };
       }
     }
-  } catch (_) {}
+  } catch (e) {
+    console.log(
+      `[NetSpeed] 读取策略组信息异常: ${e && e.message ? e.message : e}`
+    );
+  }
 
   return null;
 }
 
 async function followSelectChain(startName, selectDetails, apiDeadline) {
   let current = getNonEmptyString(startName);
-  if (!current) return '';
+  if (!current) {
+    return '';
+  }
 
   const visited = new Set([current]);
 
   if (selectDetails) {
     for (let i = 0; i < MAX_POLICY_DEPTH; i++) {
       const next = getNonEmptyString(selectDetails.decisions[current]);
-      if (!next || visited.has(next)) break;
+      if (!next || visited.has(next)) {
+        break;
+      }
+
       visited.add(next);
       current = next;
     }
+
     return current;
   }
 
   for (let i = 0; i < MAX_POLICY_DEPTH; i++) {
     const remaining = getRemainingMs(apiDeadline);
-    if (remaining <= 0) break;
-    const res = await httpApiGet('/v1/policy_groups/select', { group_name: current }, remaining);
+    if (remaining <= 0) {
+      break;
+    }
+
+    const res = await httpApiGet(
+      '/v1/policy_groups/select',
+      { group_name: current },
+      remaining
+    );
     const next = getNonEmptyString(res && res.policy);
-    if (!next || visited.has(next)) break;
+    if (!next || visited.has(next)) {
+      break;
+    }
+
     visited.add(next);
     current = next;
   }
@@ -460,8 +581,30 @@ async function followSelectChain(startName, selectDetails, apiDeadline) {
   return current;
 }
 
+function hasRunIdToken(url, runId) {
+  const token = `_=${runId}`;
+  let pos = url.indexOf(token);
+  while (pos !== -1) {
+    const before = pos > 0 ? url.charAt(pos - 1) : '';
+    const afterPos = pos + token.length;
+    const after = afterPos < url.length ? url.charAt(afterPos) : '';
+    if (
+      (before === '?' || before === '&') &&
+      (after === '' || after === '&')
+    ) {
+      return true;
+    }
+
+    pos = url.indexOf(token, pos + 1);
+  }
+
+  return false;
+}
+
 function pickNewerRequest(current, candidate) {
-  if (!current) return candidate;
+  if (!current) {
+    return candidate;
+  }
 
   const curId = Number(current.id);
   const candId = Number(candidate.id);
@@ -478,25 +621,50 @@ function pickNewerRequest(current, candidate) {
   return current;
 }
 
-function findRecentSpeedRequest(recentData, runId, startedAt, finishedAt, policy) {
-  const list =
-    recentData && Array.isArray(recentData.requests) ? recentData.requests : [];
-  if (list.length === 0) return null;
+function pickClosestRequest(current, candidate, startedAt) {
+  if (!current) {
+    return candidate;
+  }
 
-  const token = `_=${runId}`;
+  const curDiff = Math.abs(toEpochMs(current.startDate) - startedAt);
+  const candDiff = Math.abs(toEpochMs(candidate.startDate) - startedAt);
+  if (candDiff !== curDiff) {
+    return candDiff < curDiff ? candidate : current;
+  }
+
+  return pickNewerRequest(current, candidate);
+}
+
+function findRecentSpeedRequest(
+  recentData,
+  runId,
+  startedAt,
+  finishedAt,
+  policy
+) {
+  const list =
+    recentData && Array.isArray(recentData.requests)
+      ? recentData.requests
+      : [];
+  if (list.length === 0) {
+    return null;
+  }
+
   let exactMatch = null;
   let downWindowMatch = null;
   let hostWindowMatch = null;
 
   for (const item of list) {
-    if (!item || typeof item !== 'object') continue;
+    if (!item || typeof item !== 'object') {
+      continue;
+    }
+
     const url = getNonEmptyString(item.URL || item.url);
-    if (!url) continue;
+    if (!url || !SPEED_HOST_RE.test(url)) {
+      continue;
+    }
 
-    const urlLower = url.toLowerCase();
-    if (!urlLower.includes('speed.cloudflare.com')) continue;
-
-    if (url.includes(token)) {
+    if (hasRunIdToken(url, runId)) {
       exactMatch = pickNewerRequest(exactMatch, item);
       continue;
     }
@@ -517,14 +685,26 @@ function findRecentSpeedRequest(recentData, runId, startedAt, finishedAt, policy
       }
     }
 
-    if (urlLower.includes('/__down')) {
-      downWindowMatch = pickNewerRequest(downWindowMatch, item);
+    if (url.toLowerCase().includes('/__down')) {
+      downWindowMatch = pickClosestRequest(downWindowMatch, item, startedAt);
     } else {
-      hostWindowMatch = pickNewerRequest(hostWindowMatch, item);
+      hostWindowMatch = pickClosestRequest(hostWindowMatch, item, startedAt);
     }
   }
 
-  return exactMatch || downWindowMatch || hostWindowMatch;
+  if (exactMatch) {
+    return { item: exactMatch, exact: true };
+  }
+
+  if (downWindowMatch) {
+    return { item: downWindowMatch, exact: false };
+  }
+
+  if (hostWindowMatch) {
+    return { item: hostWindowMatch, exact: false };
+  }
+
+  return null;
 }
 
 async function resolveSpeedNode(policy, runId, startedAt, finishedAt) {
@@ -538,15 +718,34 @@ async function resolveSpeedNode(policy, runId, startedAt, finishedAt) {
   const apiDeadline = Date.now() + HTTP_API_TIMEOUT_MS;
   const selectDetails = getSelectGroupDetails();
   const selectGroups = selectDetails ? selectDetails.groups : null;
-  const recentData = await httpApiGet('/v1/requests/recent', null, getRemainingMs(apiDeadline));
-  const recentReq = findRecentSpeedRequest(recentData, runId, startedAt, finishedAt, policy);
+  const recentData = await httpApiGet(
+    '/v1/requests/recent',
+    null,
+    getRemainingMs(apiDeadline)
+  );
+  const recentMatch = findRecentSpeedRequest(
+    recentData,
+    runId,
+    startedAt,
+    finishedAt,
+    policy
+  );
+  const recentReq = recentMatch ? recentMatch.item : null;
+  const recentExact = Boolean(recentMatch && recentMatch.exact);
+  const recentOrigPolicy = getNonEmptyString(
+    recentReq && recentReq.originalPolicyName
+  );
   const recentPolicy = getNonEmptyString(recentReq && recentReq.policyName);
   const recentResolved = recentPolicy
     ? await followSelectChain(recentPolicy, selectDetails, apiDeadline)
     : '';
 
   if (policy !== null) {
-    const selectLeaf = await followSelectChain(policy, selectDetails, apiDeadline);
+    const selectLeaf = await followSelectChain(
+      policy,
+      selectDetails,
+      apiDeadline
+    );
     let finalNode = selectLeaf;
 
     if (recentResolved) {
@@ -557,7 +756,8 @@ async function resolveSpeedNode(policy, runId, startedAt, finishedAt) {
       } else if (
         recentResolved !== policy &&
         recentResolved !== selectLeaf &&
-        !(selectGroups && hasOwn(selectGroups, recentResolved))
+        !(selectGroups && hasOwn(selectGroups, recentResolved)) &&
+        (recentExact || recentOrigPolicy === policy)
       ) {
         finalNode = recentResolved;
       }
@@ -591,7 +791,8 @@ async function resolveSpeedNode(policy, runId, startedAt, finishedAt) {
   const packetBytes = getPacketBytes(arg);
   const timeout = getTimeoutSeconds(arg.timeout);
   const runId = createRunId();
-  const speedTestUrl = `https://speed.cloudflare.com/__down?bytes=${packetBytes}&_=${runId}`;
+  const speedTestUrl =
+    `https://speed.cloudflare.com/__down?bytes=${packetBytes}&_=${runId}`;
   let nodeDisplay = policyLabel;
 
   try {
@@ -605,29 +806,65 @@ async function resolveSpeedNode(policy, runId, startedAt, finishedAt) {
     );
     const finishedAt = Date.now();
 
-    const nodeInfo = await resolveSpeedNode(policy, runId, startedAt, finishedAt);
+    const nodeInfo = await resolveSpeedNode(
+      policy,
+      runId,
+      startedAt,
+      finishedAt
+    );
     nodeDisplay = nodeInfo.display;
-    const cacheKey = getCacheKey(policy, nodeInfo.node);
+
+    const primaryCacheKey = getCacheKey(policy, nodeInfo.node);
+    const fallbackCacheKey = getFallbackCacheKey(policy);
 
     let speedData;
     let fromCache = false;
 
     if (measuredData) {
-      speedData = measuredData;
-      saveCachedSpeedData(cacheKey, speedData);
+      const record = {
+        ...measuredData,
+        node: nodeInfo.node
+      };
+      speedData = record;
+      saveCachedSpeedData(primaryCacheKey, record);
+      if (fallbackCacheKey !== primaryCacheKey) {
+        saveCachedSpeedData(fallbackCacheKey, record);
+      }
     } else {
-      speedData = loadCachedSpeedData(cacheKey);
+      const primaryData = loadCachedSpeedData(primaryCacheKey);
+      if (isValidSpeedData(primaryData)) {
+        speedData = primaryData;
+        if (
+          primaryCacheKey === fallbackCacheKey &&
+          primaryData.node &&
+          primaryData.node !== RULE_POLICY_LABEL
+        ) {
+          nodeDisplay = primaryData.node;
+        }
+      } else if (fallbackCacheKey !== primaryCacheKey) {
+        const fallbackData = loadCachedSpeedData(fallbackCacheKey);
+        const canUseFallback =
+          isValidSpeedData(fallbackData) &&
+          (!fallbackData.node ||
+            fallbackData.node === policy ||
+            fallbackData.node === nodeInfo.node);
+        speedData = canUseFallback ? fallbackData : { ...DEFAULT_SPEED_DATA };
+      } else {
+        speedData = { ...DEFAULT_SPEED_DATA };
+      }
       fromCache = true;
     }
 
-    const failed = speedData.timestamp <= 0 || speedData.duration <= 0;
+    const failed = !isValidSpeedData(speedData);
     const style = getSpeedStyle(speedData.mbps, failed);
 
     const content = failed
       ? `${FAILED_TEXT}\n测速节点: ${nodeDisplay}`
       : [
-          `下行速率: ${speedData.mbps} Mbps [${speedData.mBs} MB/s]`,
-          `测试耗时: ${speedData.duration}s${fromCache ? ' (缓存)' : ''}`,
+          `下行速率: ${speedData.mbps.toFixed(1)} Mbps ` +
+            `[${speedData.mBs.toFixed(2)} MB/s]`,
+          `测试耗时: ${speedData.duration.toFixed(2)}s` +
+            `${fromCache ? ' (缓存)' : ''}`,
           `测速节点: ${nodeDisplay}`
         ].join('\n');
 
