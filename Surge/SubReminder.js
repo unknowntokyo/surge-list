@@ -3,12 +3,11 @@
  * 参考 Egern SubReminder.js 移植，仅保留 Surge 原生支持的能力。
  *
  * 参数（通过模块 #!arguments 或 [Script] argument 传入，支持 KEY=VAL&... 或 JSON）：
- * - SUB_1～SUB_20：名称|日期|金额|周期|颜色，后三项可留空使用默认值。
+ * - SUB_1～SUB_20：名称|日期|金额|周期，后两项可留空使用默认值。
  *   - 日期：D（1～31）仅用于每月第 D 天（周期为 1M）；YYYY/M/D（支持 / - . 分隔，1970～2100）为原始扣费锚点。
  *     月末/闰日保留原始日号，按锚点推算（如 1/31 → 2/28 → 3/31）；未来首期锚点直接倒计时至该日。
  *   - 金额：可选，条目与通知原样显示；月均支持非负数、.99、规范千分位和前/后缀币种。
  *   - 周期：默认 1M；支持 1M/3M/1Y/30D 及月/年/3个月/30天，上限 120M/10Y/3660D。
- *   - 颜色：可选 #RRGGBB；未填时按品牌关键词或名称哈希取色，用于面板图标色（3 天内优先红/橙预警）。
  * - REMIND_DAYS：提前提醒天数，默认 "1 0"（兼容逗号/顿号/空格分隔，单值 0～60）；非法值回退默认。
  *   同一订阅同一续费期的同一档位只推一次；漏跑补最近档位，跨过续费日不追溯上一期。
  * - NOTIFY：默认 true；面板刷新、定时或手动运行时均会检查并按去重状态发通知。
@@ -24,41 +23,10 @@
 (function () {
   "use strict";
 
-  // 名称包含关键字即使用对应品牌色；未命中的按名称哈希取色
-  const BRANDS = [
-    [/claude|anthropic|ANT/i, "#D97757"],
-    [/chatgpt|openai|gpt|RESIP/i, "#10A37F"],
-    [/gemini|google/i, "#4285F4"],
-    [/grok|x\.ai|xai/i, "#6E6E73"],
-    [/perplexity/i, "#20808D"],
-    [/cursor/i, "#5B5BD6"],
-    [/copilot|github/i, "#8250DF"],
-    [/midjourney/i, "#E4572E"],
-    [/deepseek/i, "#4D6BFE"],
-    [/kimi|moonshot/i, "#1A73E8"],
-    [/^poe\b/i, "#7B61FF"],
-    [/netflix/i, "#E50914"],
-    [/spotify/i, "#1DB954"],
-    [/youtube/i, "#FF0000"],
-    [/disney/i, "#113CCF"],
-    [/icloud|apple|app store/i, "#0A84FF"],
-    [/microsoft|office|365|xbox/i, "#0078D4"],
-    [/notion/i, "#6E6E73"],
-    [/adobe/i, "#FA0F00"],
-    [/1password/i, "#0572EC"],
-    [/哔哩|bilibili|b站/i, "#FB7299"],
-    [/爱奇艺|iqiyi/i, "#00BE06"],
-    [/腾讯|qq|微信/i, "#12B7F5"],
-    [/网易云/i, "#C20C0C"],
-    [/优酷/i, "#1EBCFF"],
-    [/京东/i, "#E1251B"],
-    [/淘宝|88vip|天猫/i, "#FF5000"]
-  ];
-  const FALLBACK_COLORS = ["#FF9500", "#34C759", "#30B0C7", "#AF52DE", "#FF2D55", "#5856D6"];
-
   const PANEL_COLOR = {
     red: "#FF3B30",
     orange: "#FF9500",
+    green: "#34C759",
     muted: "#8E8E93"
   };
 
@@ -88,17 +56,6 @@
   function getTodayMs(tzOffsetHours, nowMs) {
     const local = new Date(nowMs + tzOffsetHours * 3600000);
     return toMs(local.getUTCFullYear(), local.getUTCMonth() + 1, local.getUTCDate());
-  }
-
-  function hash(str) {
-    let h = 0;
-    for (const ch of str) h = (h * 31 + ch.codePointAt(0)) >>> 0;
-    return h;
-  }
-
-  function brandColor(name) {
-    const hit = BRANDS.find(([re]) => re.test(name));
-    return hit ? hit[1] : FALLBACK_COLORS[hash(name) % FALLBACK_COLORS.length];
   }
 
   function isPlainObject(val) {
@@ -198,7 +155,7 @@
       const trimmed = raw == null ? "" : String(raw).trim();
       if (!trimmed || trimmed === "-") continue;
       const fields = trimmed.split("|").map(s => s.trim());
-      const [name, dateRaw, amountRaw, cycleRaw, colorRaw] = fields;
+      const [name, dateRaw, amountRaw, cycleRaw] = fields;
       const cycle = parseCycle(cycleRaw);
       let anchor = null;
 
@@ -214,12 +171,11 @@
         if (d >= 1 && d <= 31) anchor = { y: 2000, m: 1, d };
       }
 
-      if (!name || !anchor || !cycle || fields.length > 5) {
+      if (!name || !anchor || !cycle || fields.length > 4) {
         errors.push(`SUB_${i} 格式有误`);
         continue;
       }
-      const color = /^#[0-9A-Fa-f]{6}$/.test(colorRaw || "") ? colorRaw.toUpperCase() : brandColor(name);
-      subs.push({ id: `SUB_${i}`, slot: i, name, anchor, cycle, amount: parseAmount(amountRaw), color });
+      subs.push({ id: `SUB_${i}`, slot: i, name, anchor, cycle, amount: parseAmount(amountRaw) });
     }
     return subs;
   }
@@ -400,12 +356,6 @@
 
   // ---------- Surge Panel 渲染 ----------
 
-  function rowMarker(diff) {
-    if (diff <= 1) return "🔴";
-    if (diff <= 3) return "🟠";
-    return "•";
-  }
-
   function renderPanel(items, opts) {
     const { showTotal, totals, omitted, errors, maxDisplay } = opts;
     const rate = errors.length ? "" : monthlyRateText(showTotal, totals);
@@ -431,7 +381,7 @@
     } else if (items[0].diff <= 3) {
       iconColor = PANEL_COLOR.orange;
     } else {
-      iconColor = items[0].color;
+      iconColor = PANEL_COLOR.green;
     }
 
     const lines = [];
@@ -446,7 +396,7 @@
     } else {
       const visible = maxDisplay > 0 ? items.slice(0, maxDisplay) : items;
       for (const it of visible) {
-        lines.push(`${rowMarker(it.diff)} ${it.name} · ${dayShort(it.diff)} · ${it.price}`);
+        lines.push(`${it.name} · ${dayShort(it.diff)} · ${it.price}`);
       }
       if (visible.length < items.length) {
         lines.push(`… 另有 ${items.length - visible.length} 项未显示`);
