@@ -859,13 +859,13 @@ async function resolveSpeedNode(policy, runId, startedAt, finishedAt) {
     const style = getSpeedStyle(speedData.mbps, failed);
 
     const content = failed
-      ? `${FAILED_TEXT}\n测速节点: ${nodeDisplay}`
+      ? `${FAILED_TEXT}\n测速节点：${nodeDisplay}`
       : [
-          `下行速率: ${speedData.mbps.toFixed(1)} Mbps ` +
+          `下行速率：${speedData.mbps.toFixed(1)} Mbps ` +
             `[${speedData.mBs.toFixed(2)} MB/s]`,
-          `测试耗时: ${speedData.duration.toFixed(2)}s` +
-            `${fromCache ? ' (缓存)' : ''}`,
-          `测速节点: ${nodeDisplay}`
+          `测试耗时：${speedData.duration.toFixed(2)}s` +
+            `${fromCache ? '（缓存）' : ''}`,
+          `测速节点：${nodeDisplay}`
         ].join('\n');
 
     $done({
@@ -879,7 +879,7 @@ async function resolveSpeedNode(policy, runId, startedAt, finishedAt) {
     const style = getSpeedStyle(0, true);
     $done({
       title: panelTitle,
-      content: `${FAILED_TEXT}\n测速节点: ${nodeDisplay}`,
+      content: `${FAILED_TEXT}\n测速节点：${nodeDisplay}`,
       icon: style.icon,
       'icon-color': style.color
     });
