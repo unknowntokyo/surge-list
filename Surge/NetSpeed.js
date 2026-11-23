@@ -30,7 +30,6 @@ const MIN_DURATION = 0.01;
 const SIZE_TOLERANCE = 0.01;
 const MAX_RAW_KEY_ENCODED_LEN = 120;
 const FAILED_TEXT = '⚠️ 测速失败';
-const NODE_SEPARATOR = ' · ';
 
 const DEFAULT_SPEED_DATA = {
   mbps: 0,
@@ -531,7 +530,6 @@ function findRecentSpeedRequest(recentData, runId, startedAt, finishedAt, policy
 async function resolveSpeedNode(policy, runId, startedAt, finishedAt) {
   if (policy === DEFAULT_POLICY) {
     return {
-      group: null,
       node: DEFAULT_POLICY,
       display: DEFAULT_POLICY
     };
@@ -543,7 +541,6 @@ async function resolveSpeedNode(policy, runId, startedAt, finishedAt) {
   const recentData = await httpApiGet('/v1/requests/recent', null, getRemainingMs(apiDeadline));
   const recentReq = findRecentSpeedRequest(recentData, runId, startedAt, finishedAt, policy);
   const recentPolicy = getNonEmptyString(recentReq && recentReq.policyName);
-  const recentOriginalPolicy = getNonEmptyString(recentReq && recentReq.originalPolicyName);
   const recentResolved = recentPolicy
     ? await followSelectChain(recentPolicy, selectDetails, apiDeadline)
     : '';
@@ -566,38 +563,21 @@ async function resolveSpeedNode(policy, runId, startedAt, finishedAt) {
       }
     }
 
-    if (finalNode && finalNode !== policy) {
-      return {
-        group: policy,
-        node: finalNode,
-        display: `${policy}${NODE_SEPARATOR}${finalNode}`
-      };
-    }
-
+    const resolved = finalNode || policy;
     return {
-      group: null,
-      node: policy,
-      display: policy
+      node: resolved,
+      display: resolved
     };
   }
 
   if (recentResolved) {
-    let group = RULE_POLICY_LABEL;
-    if (recentOriginalPolicy && recentOriginalPolicy !== recentResolved) {
-      group = recentOriginalPolicy;
-    } else if (recentPolicy && recentPolicy !== recentResolved) {
-      group = recentPolicy;
-    }
-
     return {
-      group,
       node: recentResolved,
-      display: `${group}${NODE_SEPARATOR}${recentResolved}`
+      display: recentResolved
     };
   }
 
   return {
-    group: null,
     node: '',
     display: RULE_POLICY_LABEL
   };
