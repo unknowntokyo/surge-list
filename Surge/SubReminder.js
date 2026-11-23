@@ -9,14 +9,14 @@
  *   - 金额：可选，条目与通知原样显示；月均支持非负数、.99、规范千分位和前/后缀币种。
  *   - 周期：默认 1M；支持 1M/3M/1Y/30D 及月/年/3个月/30天，上限 120M/10Y/3660D。
  * - REMIND_DAYS：提前提醒天数，默认 "1 0"（兼容逗号/顿号/空格分隔，单值 0～60）；非法值回退默认。
- *   同一订阅同一续费期的同一档位只推一次；漏跑补最近档位，跨过续费日不追溯上一期。
- * - NOTIFY：默认 true；面板刷新、定时或手动运行时均会检查并按去重状态发通知。
+ *   同一订阅同一续费期的同一档位只推一次（按实例作用域+订阅名+周期去重）；漏跑补最近档位，跨过续费日不追溯上一期。
+ * - NOTIFY：默认 true（仅接受 true/false）；仅由 Cron 定时任务触发系统通知，面板刷新不弹窗。
  * - TZ_OFFSET：固定时区偏移 -12～14 小时，默认 8，不自动处理夏令时。
- * - SHOW_TOTAL：默认 true；按币种统计月均，按天周期以 30 天折算，不换汇；
- *   人民币 ¥/￥/元/CNY/RMB 统一为 ¥ 并合计，其余币种保留原标识、顺序按 SUB_n，最多显示两种，超出以 +N 提示。
+ * - SHOW_TOTAL：默认 true（仅接受 true/false）；按币种统计月均，按天周期以 30 天折算，不换汇；
+ *   人民币 ¥/￥/元/CNY/RMB 统一为 ¥ 并合计，其余含字母币种忽略大小写归并、顺序按 SUB_n，最多显示两种，超出以 +N 提示。
  * - MAX_DISPLAY：面板最多展示条数，默认 8；设为 0 显示全部。
  *
- * 提醒：Surge 模块参数通过双引号传入 argument="..."，请勿在订阅名称等值中使用英文双引号 "。
+ * 提醒：Surge 模块参数通过双引号传入 argument="..."，请勿在订阅名称等值中使用英文双引号 " 或换行符。
  * 通知调用与 $persistentStore 写入非事务，写入失败后下轮可能重发。
  */
 
@@ -97,7 +97,9 @@
     for (let i = 0; i < matches.length; i++) {
       const cur = matches[i];
       const valueEnd = i + 1 < matches.length ? matches[i + 1].tokenStart : text.length;
-      env[cur.key] = stripUnreplacedPlaceholder(text.slice(cur.valueStart, valueEnd));
+      if (!Object.prototype.hasOwnProperty.call(env, cur.key)) {
+        env[cur.key] = stripUnreplacedPlaceholder(text.slice(cur.valueStart, valueEnd));
+      }
     }
     return env;
   }
@@ -141,8 +143,8 @@
     if (!s) return null;
     const m = s.match(/^([A-Za-z$¥￥€£₩₽₹元]*)\s*((?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?|\.\d+)\s*([A-Za-z$¥￥€£₩₽₹元]*)$/);
     const value = m ? Number(m[2].replace(/,/g, "")) : NaN;
-    // 同时填写前后缀币种时，只接受相同币种，避免把 "$20 USD" 擅自合并为某币种。
-    if (!m || !Number.isFinite(value) || (m[1] && m[3] && m[1] !== m[3])) {
+    // 同时填写前后缀币种时，只接受相同币种（忽略大小写），避免把 "$20 USD" 擅自合并为某币种。
+    if (!m || !Number.isFinite(value) || (m[1] && m[3] && m[1].toUpperCase() !== m[3].toUpperCase())) {
       return { text: s, value: null, cur: "" };
     }
     return { text: s, value, cur: m[1] || m[3] };
@@ -156,6 +158,8 @@
       if (!trimmed || trimmed === "-") continue;
       const fields = trimmed.split("|").map(s => s.trim());
       const [name, dateRaw, amountRaw, cycleRaw] = fields;
+      // 防止漏写金额分隔符（如 "域名|2025/9/10|1Y"）把周期静默错判为金额与每月扣费
+      const amountLooksLikeCycle = !cycleRaw && Boolean(amountRaw) && /^\d+\s*(?:[MYD]|个月|月|年|天)$/i.test(amountRaw);
       const cycle = parseCycle(cycleRaw);
       let anchor = null;
 
@@ -171,7 +175,7 @@
         if (d >= 1 && d <= 31) anchor = { y: 2000, m: 1, d };
       }
 
-      if (!name || !anchor || !cycle || fields.length > 4) {
+      if (!name || !anchor || !cycle || fields.length > 4 || amountLooksLikeCycle) {
         errors.push(`SUB_${i} 格式有误`);
         continue;
       }
@@ -209,11 +213,19 @@
       return DEFAULT_MAX_DISPLAY;
     }
     const n = Number(s);
-    if (!Number.isSafeInteger(n) || n > MAX_SUBS) {
+    if (!Number.isSafeInteger(n)) {
       errors.push(`MAX_DISPLAY 有误，已使用 ${DEFAULT_MAX_DISPLAY}`);
       return DEFAULT_MAX_DISPLAY;
     }
     return n;
+  }
+
+  function parseBool(raw, name, errors) {
+    const s = String(raw ?? "").trim().toLowerCase();
+    if (!s || s === "true") return true;
+    if (s === "false") return false;
+    errors.push(`${name} 有误，已使用 true`);
+    return true;
   }
 
   // ---------- 计算续费日与汇总 ----------
@@ -262,8 +274,10 @@
       const a = it.amount;
       if (!a || a.value == null) continue;
       const perMonth = it.cycle.unit === "D" ? (a.value * 30) / it.cycle.n : a.value / it.cycle.n;
-      // 仅汇总展示统一人民币别名；各条目原价与通知文案仍保留用户输入。
-      const cur = /^(?:¥|￥|元|CNY|RMB)$/i.test(a.cur) ? "¥" : a.cur;
+      // 仅汇总展示统一人民币别名及字母币种大小写；各条目原价与通知文案仍保留用户输入。
+      const cur = /^(?:¥|￥|元|CNY|RMB)$/i.test(a.cur)
+        ? "¥"
+        : (/[A-Za-z]/.test(a.cur) ? a.cur.toUpperCase() : a.cur);
       totals.set(cur, (totals.get(cur) || 0) + perMonth);
     }
     return [...totals].map(([cur, v]) => {
@@ -289,9 +303,20 @@
   // 在当前尚未过去的续费期窗口内补最接近的一个档位；跨过续费日后不追溯上一期。
   const remindStage = (diff, remindDays) => remindDays.find(n => n >= diff);
 
+  function getNotifyScope() {
+    const raw = typeof $script !== "undefined" && $script && $script.name
+      ? String($script.name).trim()
+      : "";
+    return raw.replace(/(?:Panel|Cron)$/i, "") || "default";
+  }
+
   function notifyIfNeeded(items, remindDays, todayMs, storeKey) {
     if (typeof $notification === "undefined" || typeof $notification.post !== "function") return;
-    if (typeof $persistentStore === "undefined" || typeof $persistentStore.read !== "function") return;
+    if (
+      typeof $persistentStore === "undefined" ||
+      typeof $persistentStore.read !== "function" ||
+      typeof $persistentStore.write !== "function"
+    ) return;
 
     let rawState;
     try {
@@ -321,18 +346,19 @@
     const todayIso = isoOf(todayMs);
     // 只按日期和合法性清理过期记录，不按当前订阅列表删除，避免多实例互删去重记录。
     for (const key of Object.keys(state)) {
-      const m = key.match(/^(SUB_\d+)@(\d{4}-\d{2}-\d{2})@(\d+)$/);
-      if (!m || m[2] < todayIso || Number(m[3]) > 60 || !Number.isFinite(state[key]) || state[key] < 0) {
+      const m = key.match(/^(\d{4}-\d{2}-\d{2})\|(\d+)\|[\s\S]+$/) || key.match(/^SUB_\d+@(\d{4}-\d{2}-\d{2})@(\d+)$/);
+      if (!m || m[1] < todayIso || Number(m[2]) > 60 || !Number.isFinite(state[key]) || state[key] < 0) {
         delete state[key];
         dirty = true;
       }
     }
 
+    const scope = getNotifyScope();
     const due = [];
     for (const it of items) {
       const stage = remindStage(it.diff, remindDays);
       if (stage === undefined) continue;
-      const key = `${it.id}@${it.nextIso}@${stage}`;
+      const key = `${it.nextIso}|${stage}|${scope}|${it.name.trim().toLowerCase()}|${it.cycle.n}${it.cycle.unit}`;
       if (Object.prototype.hasOwnProperty.call(state, key)) continue;
       due.push({ it, key });
     }
@@ -396,7 +422,7 @@
     } else {
       const visible = maxDisplay > 0 ? items.slice(0, maxDisplay) : items;
       for (const it of visible) {
-        lines.push(`${it.name} · ${dayShort(it.diff)} · ${it.price}`);
+        lines.push(`${it.name}：${dayShort(it.diff)} · ${it.price}`);
       }
       if (visible.length < items.length) {
         lines.push(`… 另有 ${items.length - visible.length} 项未显示`);
@@ -419,6 +445,11 @@
 
   // ---------- 主入口 ----------
 
+  function isCronExecution() {
+    if (typeof $input !== "undefined" && $input && $input.purpose === "panel") return false;
+    return typeof $script !== "undefined" && $script && $script.type === "cron";
+  }
+
   function isPanelOutputNeeded() {
     if (typeof $input !== "undefined" && $input && $input.purpose === "panel") return true;
     const scriptType = typeof $script !== "undefined" && $script ? $script.type : "";
@@ -434,6 +465,8 @@
       const tz = parseTimezone(env.TZ_OFFSET, errors);
       const remindDays = parseRemindDays(env.REMIND_DAYS, errors);
       const maxDisplay = parseMaxDisplay(env.MAX_DISPLAY, errors);
+      const notify = parseBool(env.NOTIFY, "NOTIFY", errors);
+      const showTotal = parseBool(env.SHOW_TOTAL, "SHOW_TOTAL", errors);
 
       const todayMs = getTodayMs(tz, Date.now());
       const items = parseSubs(env, errors)
@@ -444,8 +477,8 @@
         console.log(`[SubReminder] ${errors.join("；")}`);
       }
 
-      // NOTIFY 为全局开关；面板刷新、定时和手动运行都按提醒档位与去重状态检查通知。
-      if (String(env.NOTIFY ?? "true").trim().toLowerCase() !== "false") {
+      // 仅在 Cron 定时任务运行时检查并发送系统通知，避免面板刷新提前打扰或消费档位。
+      if (notify && isCronExecution()) {
         try {
           notifyIfNeeded(items, remindDays, todayMs, NOTIFY_STORE_NAME);
         } catch (e) {
@@ -458,7 +491,6 @@
         return;
       }
 
-      const showTotal = String(env.SHOW_TOTAL ?? "true").trim().toLowerCase() !== "false";
       const totals = monthlyTotals(items);
       const omitted = !errors.length && showTotal && totals.length
         ? items.filter(it => !it.amount || it.amount.value == null).length
