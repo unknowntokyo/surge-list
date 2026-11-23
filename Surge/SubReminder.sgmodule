@@ -1,5 +1,5 @@
 #!name=订阅提醒
-#!desc=追踪订阅续费倒计时、按币种统计月均费用，通过 Surge 信息面板展示并按定时任务推送续费提醒（参考 Egern SubReminder 移植）。
+#!desc=追踪订阅续费倒计时、按币种统计月均费用，通过 Surge 信息面板展示并按定时任务推送续费提醒。
 #!category=工具
 #!arguments=SUB_1:-,SUB_2:-,SUB_3:-,SUB_4:-,SUB_5:-,SUB_6:-,SUB_7:-,SUB_8:-,SUB_9:-,SUB_10:-,SUB_11:-,SUB_12:-,SUB_13:-,SUB_14:-,SUB_15:-,SUB_16:-,SUB_17:-,SUB_18:-,SUB_19:-,SUB_20:-,REMIND_DAYS:1 0,NOTIFY:true,TZ_OFFSET:8,SHOW_TOTAL:true,MAX_DISPLAY:8,CRON:0 8 * * *
 #!arguments-desc=[参数说明]\n\n1. SUB_1～SUB_20：格式为「名称|日期|金额|周期」，金额与周期可留空；不使用的槽位保持 - 或留空。\n- 日期：只填日号（如 15）仅用于每月扣费；非月付（季付/年付/按天）须填完整日期（如 2025/9/10）。\n- 周期：不填默认每月（1M）；支持 1M/3M/1Y/30D 或中文 月/3个月/年/30天（M=月、Y=年、D=天）。\n- 示例：Google AI Ultra|15|$99.99（每月15日）、域名|2025/9/10|¥120|1Y（每年9月10日）。\n2. REMIND_DAYS：提前提醒天数，用空格/逗号/顿号分隔（0～60，默认 1 0 即前一天和当天）。\n3. NOTIFY：是否开启定时通知提醒（true/false，默认 true，仅由 Cron 定时任务触发）。\n4. TZ_OFFSET：固定时区偏移（-12～14，默认 8 即东八区）。\n5. SHOW_TOTAL：是否在面板标题按币种显示月均（true/false，默认 true）。\n6. MAX_DISPLAY：面板最多显示条数（0 表示全部，默认 8）。\n7. CRON：定时检查 Cron 表达式（默认 0 8 * * * 即每天 08:00，勿留空）。\n\n注意：参数值请勿包含英文双引号 " 或换行符。

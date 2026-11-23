@@ -1,6 +1,5 @@
 /**
  * 订阅提醒（Surge 版）：支持 Surge 信息面板（Panel）与定时提醒（Cron）。
- * 参考 Egern SubReminder.js 移植，仅保留 Surge 原生支持的能力。
  *
  * 参数（通过模块 #!arguments 或 [Script] argument 传入，支持 KEY=VAL&... 或 JSON）：
  * - SUB_1～SUB_20：名称|日期|金额|周期，后两项可留空使用默认值。
