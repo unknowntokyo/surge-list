@@ -38,7 +38,7 @@
   const URL_REST_CHAR = /^[A-Za-z0-9._~:/?#@!$&'()*+,;=-]$/;
   const DEFAULT_TITLE = "机场订阅";
   const UNITS = ["B", "KB", "MB", "GB", "TB", "PB"];
-  const SCRIPT_SOFT_TIMEOUT_MS = 4200;
+  const SCRIPT_SOFT_TIMEOUT_MS = 7000;
   const MIN_REQUEST_TIMEOUT_MS = 1000;
   const MAX_PROTO_HOPS = 64;
   const DAY_MS = 24 * 60 * 60 * 1000;
@@ -880,10 +880,10 @@
     });
   }
 
-  function getRequestTimeoutSec(deadlineTime, method, isPreferredFirstTry) {
+  function getRequestTimeoutSec(deadlineTime, method) {
     const remainingMs = deadlineTime - Date.now();
     if (remainingMs < MIN_REQUEST_TIMEOUT_MS) return 0;
-    const capSec = method === "get" && isPreferredFirstTry ? 3 : 2;
+    const capSec = method === "get" ? 4 : 3;
     return Math.min(capSec, Math.floor(remainingMs / 1000));
   }
 
@@ -1050,7 +1050,7 @@
     const hasGetFallback = strategies.some((strategy) => strategy.method === "get");
     for (const strategy of strategies) {
       if (skipRemainingHead && strategy.method === "head") continue;
-      const timeout = getRequestTimeoutSec(deadlineTime, strategy.method, !lastError && strategy.id === preferred);
+      const timeout = getRequestTimeoutSec(deadlineTime, strategy.method);
       if (!timeout) break;
       const result = await requestStrategy(url, strategy, timeout, args.policy);
       if (result.data) return { data: result.data, strategy: strategy.id };
@@ -1087,10 +1087,10 @@
   function formatDataAge(ageMs) {
     if (!Number.isFinite(ageMs) || ageMs < -CLOCK_SKEW_TOLERANCE_MS) return "缓存数据";
     const clamped = Math.max(0, ageMs);
-    if (clamped < 60000) return "1分内数据";
-    if (clamped < 60 * 60000) return `${Math.floor(clamped / 60000)}分前数据`;
-    if (clamped < DAY_MS) return `${Math.floor(clamped / 3600000)}小时前数据`;
-    return `${Math.floor(clamped / DAY_MS)}天前数据`;
+    if (clamped < 60000) return "1分内缓存数据";
+    if (clamped < 60 * 60000) return `${Math.floor(clamped / 60000)}分前缓存数据`;
+    if (clamped < DAY_MS) return `${Math.floor(clamped / 3600000)}小时前缓存数据`;
+    return `${Math.floor(clamped / DAY_MS)}天前缓存数据`;
   }
 
   function parseResetDay(value) {
@@ -1149,7 +1149,11 @@
 
   function getExpireState(override, remoteExpire, nowMs) {
     if (override && override.toLowerCase() === "false") return { text: "", expired: false };
-    const raw = override !== undefined && override !== "" ? override : remoteExpire;
+    const hasOverride = override !== undefined && override !== "";
+    if (!hasOverride && (remoteExpire == null || remoteExpire === "")) {
+      return { text: "永久有效", expired: false };
+    }
+    const raw = hasOverride ? override : remoteExpire;
     const cal = parseCalendarDateOverride(raw);
     if (cal) {
       if (!cal.valid) return { text: "有效期未知", expired: false };
@@ -1194,16 +1198,6 @@
       case "No Data": return "响应头不含有效流量信息";
       case "Network": return "网络连接失败";
       default: return error; // requestStrategy 仅构造校验过的 HTTP 状态码。
-    }
-  }
-
-  function shortErrorLabel(error) {
-    switch (error) {
-      case "Timeout": return "超时";
-      case "DNS Error": return "DNS失败";
-      case "No Data": return "无数据";
-      case "Network": return "网络异常";
-      default: return error || "";
     }
   }
 
@@ -1801,9 +1795,7 @@
     if (expire.text) lines.push(`到期：${expire.text}`);
     const suffix = ` | ${Math.round(data.percent)}%`;
     if (fallback) {
-      const ageText = formatDataAge(nowMs - fallback.time);
-      const shortReason = shortErrorLabel(fallback.error);
-      lines.push(shortReason ? `状态：${ageText} · ${shortReason}` : `状态：${ageText}`);
+      lines.push(`状态：${formatDataAge(nowMs - fallback.time)}`);
     }
     const resultTitle = finalizeTitle(title, suffix, secrets, safePanelName);
     let color = HEX_COLOR_PATTERN.test(args.color) ? args.color : getUsageColor(data.percent);
