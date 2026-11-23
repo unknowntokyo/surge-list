@@ -1,5 +1,5 @@
 #!name=NetSpeed
-#!desc=测试网络下行下载速度，并根据速率自动切换图标和颜色
+#!desc=花里胡哨才是生产力 测试网络下载速度、延迟并根据速度和延迟改变图标和颜色，乌龟、兔子还是闪电？
 #!author=unknownTokyo
 #!category=工具
 #!arguments=title:NetSpeed,policy:DIRECT,TEST_PACKET:3,timeout:8
