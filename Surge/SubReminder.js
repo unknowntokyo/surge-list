@@ -23,7 +23,12 @@
 (function () {
   "use strict";
 
-  const PANEL_ICON_COLOR = "#FF383C";
+  // 苹果 iOS 官方系统色（systemRed / systemOrange / systemGreen）
+  const PANEL_COLOR = {
+    red: "#FF3B30",
+    orange: "#FF9500",
+    green: "#34C759"
+  };
 
   const DAY_MS = 86400000;
   const MAX_SUBS = 20;
@@ -365,8 +370,18 @@
     }
 
     let icon = "bell.badge";
-    if (!items.length && errors.length) {
-      icon = "exclamationmark.triangle.fill";
+    let iconColor = PANEL_COLOR.green;
+    if (!items.length) {
+      if (errors.length) {
+        icon = "exclamationmark.triangle.fill";
+        iconColor = PANEL_COLOR.red;
+      }
+    } else if (items[0].diff <= 2) {
+      iconColor = PANEL_COLOR.red;
+    } else if (items[0].diff <= 4) {
+      iconColor = PANEL_COLOR.orange;
+    } else {
+      iconColor = PANEL_COLOR.green;
     }
 
     const lines = [];
@@ -398,7 +413,7 @@
       title,
       content: lines.join("\n"),
       icon,
-      "icon-color": PANEL_ICON_COLOR
+      "icon-color": iconColor
     };
   }
 
@@ -457,7 +472,7 @@
           title: "订阅提醒出错",
           content: String(e && e.message ? e.message : e),
           icon: "exclamationmark.triangle.fill",
-          "icon-color": PANEL_ICON_COLOR
+          "icon-color": PANEL_COLOR.red
         });
       } else {
         $done();
