@@ -6,18 +6,17 @@
  * - 统一按北京时间 (UTC+8) 计算，解决跨时区偏移与跨年农历漏算问题
  * - 内置 1900-2100 农历与清明节气算法，优先融合 holiday-cn 国务院放假/调休数据
  * - 支持四大分类（法定 / 民俗 / 国际 / 专属）、跨年连续假期合并、今日放假进度
- * - 支持置顶节日、优先级排序、专属高权重、自动主题色（含官方补班日回落）
+ * - 支持置顶节日、权重排序、专属高权重、沙漏图标自动配色（含官方补班日回落）
  * - 支持 Panel 与 Cron 共享持久化缓存与当日首日提醒去重（含同日新增补推与失败退避）
  *
  * 参数配置（通过 Surge 模块 #!arguments 或脚本 argument="KEY=VAL&..." 传入）：
- * - ENABLE_PRIORITY_SORT     : true/false，默认 true，按节日权重排序
- * - ENABLE_EXCLUSIVE_WEIGHT  : true/false，默认 true，开启后专属日优先级提升为 9
- * - ENABLE_AUTO_THEME        : true/false，默认 true，按今日节日(红)/放假或周末(绿)/工作日或补班(灰)切图标色
- * - ENABLE_NOTIFY            : true/false，默认 true，节日/专属日首日发送系统通知
- * - PINNED_HOLIDAY           : 置顶节日名称，支持逗号/顿号/斜杠分隔，最多 12 项
- * - EXCLUSIVE_NAME_1 ~ 6     : 专属纪念日名称（与同序号日期成对生效）
- * - EXCLUSIVE_DATE_1 ~ 6     : 支持公历每年 M/D、公历一次性 YYYY/M/D，
- *                              并额外兼容农历每年 L12/3（或 农历12/3）与一次性 L2026/12/3
+ * - SMART_SORT     : true/false，默认 true，同天数冲突时按节日权重排序
+ * - VIP_WEIGHT     : true/false，默认 true，开启后专属日优先级提升为 9
+ * - NOTIFY         : true/false，默认 true，节日/专属日首日发送系统通知
+ * - PINNED         : 置顶节日名称，支持顿号/中文逗号/斜杠分隔，最多 12 项
+ * - CUSTOM_1 ~ 6   : 专属纪念日「名称:日期」，支持公历每年 M/D、一次性 YYYY/M/D，
+ *                    并兼容农历每年 L12/3（或 农历12/3）与一次性 L2026/12/3
+ * （同时向后兼容旧参数名 ENABLE_PRIORITY_SORT / ENABLE_EXCLUSIVE_WEIGHT / ENABLE_NOTIFY / PINNED_HOLIDAY / EXCLUSIVE_NAME_1~6 / EXCLUSIVE_DATE_1~6）
  * =======================================
  */
 
@@ -44,16 +43,15 @@ const RANDOM_NOTICES = [
   "慢慢走，沿途的花都开了",
   "没什么期待，也就没什么失望",
   "所谓的成长，就是学会不抱希望",
-  "只要努力工作，老板的午餐就是我的",
   "今天的任务是：不干活！",
   "用力生活，用力摸鱼"
 ];
 
 const CATEGORY_CONFIG = [
-  { key: "legal", label: "法定", emoji: "🏛" },
-  { key: "folk", label: "民俗", emoji: "🏮" },
-  { key: "intl", label: "国际", emoji: "🌍" },
-  { key: "exclusive", label: "专属", emoji: "🎁" }
+  { key: "legal", label: "法定" },
+  { key: "folk", label: "民俗" },
+  { key: "intl", label: "国际" },
+  { key: "exclusive", label: "专属" }
 ];
 
 const CATEGORY_KEYS = CATEGORY_CONFIG.map(cfg => cfg.key);
@@ -73,12 +71,6 @@ const SPECIAL_PRIORITY = {
   端午节: 7,
   中秋节: 7,
   除夕: 6
-};
-
-const DISPLAY_NAME_MAP = {
-  端午节: "🐲",
-  七夕节: "💘",
-  万圣节: "🎃"
 };
 
 const ICON_COLORS = {
@@ -106,9 +98,9 @@ const OFFICIAL_HOLIDAY_STORAGE_VERSION = 3;
 const DAILY_CACHE_SCHEMA_VERSION = 26;
 const DAILY_CACHE_VERSION = `v${DAILY_CACHE_SCHEMA_VERSION}`;
 
-const OFFICIAL_HOLIDAY_KEY = `${STORAGE_SCOPE}:official_holidays:v${OFFICIAL_HOLIDAY_STORAGE_VERSION}`;
-const BASE_CACHE_KEY = `${STORAGE_SCOPE}:daily:${DAILY_CACHE_VERSION}`;
-const NOTIFY_KEY = `${STORAGE_SCOPE}:notify:v1`;
+const OFFICIAL_HOLIDAY_KEY = `${STORAGE_SCOPE}_official_holidays_v${OFFICIAL_HOLIDAY_STORAGE_VERSION}`;
+const BASE_CACHE_KEY = `${STORAGE_SCOPE}_daily_${DAILY_CACHE_VERSION}`;
+const NOTIFY_KEY = `${STORAGE_SCOPE}_notify_v1`;
 
 const ISO_DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
 const SLASH_YMD_RE = /^(\d{4})\/(\d{1,2})\/(\d{1,2})$/;
@@ -117,9 +109,36 @@ const ONCE_SLASH_DATE_RE = /^(\d{4})\/(\d{1,2})\/(\d{1,2})$/;
 const LUNAR_PREFIX_RE = /^(?:[Ll]|农历)\s*/;
 const TEMPLATE_PLACEHOLDER_RE = /^\{\{\{[A-Za-z0-9_]+\}\}\}$/;
 const EMPTY_ARG_SENTINEL_RE = /^(?:-|无|none|null|\(null\))$/i;
-const NAME_LIST_SEPARATOR_RE = /[、，,/]+/;
+const NAME_LIST_SEPARATOR_RE = /[、，,/;；]+/;
+const INVISIBLE_TEXT_CHARS_RE = /[\u200B\u200C\u2060\uFEFF\u00AD]/g;
+const INVISIBLE_STRICT_CHARS_RE = /[\u200B-\u200D\u2060\uFEFF\u00AD]/g;
 const EXCLUSIVE_NAME_KEY_RE = /^EXCLUSIVE_NAME_\d+$/;
 const EXCLUSIVE_DATE_KEY_RE = /^EXCLUSIVE_DATE_\d+$/;
+
+const HOLIDAY_ALIAS_MAP = {
+  国庆: "国庆节",
+  中秋: "中秋节",
+  端午: "端午节",
+  清明: "清明节",
+  五一: "劳动节",
+  劳动: "劳动节",
+  元宵: "元宵节",
+  七夕: "七夕节",
+  中元: "中元节",
+  重阳: "重阳节",
+  寒衣: "寒衣节",
+  腊八: "腊八节",
+  情人: "情人节",
+  妇女: "妇女节",
+  三八: "妇女节",
+  母亲: "母亲节",
+  儿童: "儿童节",
+  六一: "儿童节",
+  父亲: "父亲节",
+  万圣: "万圣节",
+  感恩: "感恩节",
+  圣诞: "圣诞节"
+};
 
 const MAX_EXCLUSIVE_NAME_LENGTH = 20;
 const MAX_EXCLUSIVE_DATE_LENGTH = 20;
@@ -145,12 +164,11 @@ const DATA_ENV_KEYS = [
   "EXCLUSIVE_DATE_6"
 ];
 
-const RENDER_ENV_KEYS = ["ENABLE_AUTO_THEME", "ENABLE_NOTIFY"];
+const RENDER_ENV_KEYS = ["ENABLE_NOTIFY"];
 const CACHE_ENV_KEYS = [...DATA_ENV_KEYS, ...RENDER_ENV_KEYS];
 const BOOL_ENV_KEYS = new Set([
   "ENABLE_PRIORITY_SORT",
   "ENABLE_EXCLUSIVE_WEIGHT",
-  "ENABLE_AUTO_THEME",
   "ENABLE_NOTIFY"
 ]);
 
@@ -321,10 +339,6 @@ function msToYMD(ms) {
   return YMD(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate());
 }
 
-function displayName(name) {
-  return DISPLAY_NAME_MAP[name] ?? name;
-}
-
 function splitNameList(value) {
   return String(value ?? "")
     .split(NAME_LIST_SEPARATOR_RE)
@@ -406,7 +420,7 @@ function formatPeriodStr(label, diff, duration = 1) {
 }
 
 function formatDisplayItem(item) {
-  return formatPeriodStr(displayName(item.name), item.diff, item.duration);
+  return formatPeriodStr(item.name, item.diff, item.duration);
 }
 
 function toPublicCountdownItem(item) {
@@ -420,7 +434,7 @@ function toPublicCountdownItem(item) {
 function formatTodayFestGroup(items) {
   let todayPrefixUsed = false;
   const parts = items.slice(0, 2).map(item => {
-    const name = displayName(item.name);
+    const name = item.name;
     if (item.diff === 0) {
       if (!todayPrefixUsed) {
         todayPrefixUsed = true;
@@ -464,7 +478,7 @@ function hashString(str) {
 
 function parseBoolValue(value, defaultVal = true) {
   if (typeof value === "boolean") return value;
-  const raw = String(value ?? "").trim().toLowerCase();
+  const raw = stripInvisibleChars(value, true).toLowerCase();
   if (!raw) return defaultVal;
   if (BOOL_FALSE_VALUES.has(raw)) return false;
   if (BOOL_TRUE_VALUES.has(raw)) return true;
@@ -513,15 +527,27 @@ function parseSurgeArgument(rawArg) {
   return out;
 }
 
+function stripInvisibleChars(value, strict = false) {
+  return String(value ?? "")
+    .replace(strict ? INVISIBLE_STRICT_CHARS_RE : INVISIBLE_TEXT_CHARS_RE, "")
+    .trim();
+}
+
+function normalizePinnedHolidayName(name) {
+  const clean = stripInvisibleChars(name, false);
+  return HOLIDAY_ALIAS_MAP[clean] ?? clean;
+}
+
 function sanitizeEnvStringValue(key, rawValue) {
-  let value = String(rawValue ?? "").trim();
+  const isDateField = EXCLUSIVE_DATE_KEY_RE.test(key);
+  let value = stripInvisibleChars(rawValue, isDateField);
   if (TEMPLATE_PLACEHOLDER_RE.test(value) || EMPTY_ARG_SENTINEL_RE.test(value)) {
     value = "";
   }
   if (key === "PINNED_HOLIDAY") {
     const truncated = truncateByCodePoint(value, MAX_PINNED_HOLIDAY_TOTAL_LENGTH);
     return splitNameList(truncated)
-      .map(item => truncateByCodePoint(item, MAX_PINNED_HOLIDAY_ITEM_LENGTH))
+      .map(item => normalizePinnedHolidayName(truncateByCodePoint(item, MAX_PINNED_HOLIDAY_ITEM_LENGTH)))
       .filter(Boolean)
       .slice(0, MAX_PINNED_HOLIDAY_COUNT)
       .join(",");
@@ -529,7 +555,7 @@ function sanitizeEnvStringValue(key, rawValue) {
   if (EXCLUSIVE_NAME_KEY_RE.test(key)) {
     return truncateByCodePoint(value, MAX_EXCLUSIVE_NAME_LENGTH);
   }
-  if (EXCLUSIVE_DATE_KEY_RE.test(key)) {
+  if (isDateField) {
     return truncateByCodePoint(value, MAX_EXCLUSIVE_DATE_LENGTH);
   }
   return value;
@@ -538,30 +564,29 @@ function sanitizeEnvStringValue(key, rawValue) {
 const SHORT_ARG_ALIASES = {
   ENABLE_PRIORITY_SORT: "SMART_SORT",
   ENABLE_EXCLUSIVE_WEIGHT: "VIP_WEIGHT",
-  ENABLE_AUTO_THEME: "AUTO_THEME",
   ENABLE_NOTIFY: "NOTIFY",
   PINNED_HOLIDAY: "PINNED"
 };
 
-const CUSTOM_TRAILING_DATE_RE = /^(.*?)\s+((?:(?:[Ll]|农历)\s*)?(?:\d{4}\/)?\d{1,2}\/\d{1,2})$/;
+const CUSTOM_TRAILING_DATE_RE = /^(.*?)\s+((?:(?:[Ll]|农历)\s*)?(?:\d{4}[/／-])?\d{1,2}[/／-]\d{1,2})$/;
 
 function parseCustomEntry(rawValue) {
-  let value = String(rawValue ?? "").trim();
+  let value = stripInvisibleChars(rawValue, false);
   if (!value || TEMPLATE_PLACEHOLDER_RE.test(value) || EMPTY_ARG_SENTINEL_RE.test(value)) {
     return { name: "", date: "" };
   }
   const sepMatch = /^([\s\S]+?)\s*[:：=]\s*([^:：=]+)$/.exec(value);
   if (sepMatch) {
     return {
-      name: sepMatch[1].trim(),
-      date: sepMatch[2].trim()
+      name: stripInvisibleChars(sepMatch[1], false),
+      date: stripInvisibleChars(sepMatch[2], true)
     };
   }
   const spaceMatch = CUSTOM_TRAILING_DATE_RE.exec(value);
   if (spaceMatch) {
     return {
-      name: spaceMatch[1].trim(),
-      date: spaceMatch[2].trim()
+      name: stripInvisibleChars(spaceMatch[1], false),
+      date: stripInvisibleChars(spaceMatch[2], true)
     };
   }
   return { name: "", date: "" };
@@ -1236,7 +1261,7 @@ function getOfficialDayInfo(officialHolidayCache, todayIso) {
 }
 
 function parseExclusiveDateSpec(rawDate) {
-  let raw = String(rawDate ?? "").trim();
+  let raw = stripInvisibleChars(rawDate, true);
   if (!raw) return null;
 
   let calendar = "solar";
@@ -1244,8 +1269,8 @@ function parseExclusiveDateSpec(rawDate) {
     calendar = "lunar";
     raw = raw.replace(LUNAR_PREFIX_RE, "").trim();
   }
-  // 兼容连字符写法（如 5-20 / 2026-10-1）
-  raw = raw.replace(/-/g, "/");
+  // 兼容连字符与全角斜杠写法（如 5-20 / 2026-10-1 / 12／3）
+  raw = raw.replace(/[-／]/g, "/");
 
   const annualMatch = ANNUAL_SLASH_DATE_RE.exec(raw);
   if (annualMatch) {
@@ -1501,7 +1526,7 @@ function finalizeCountdownResult(state, enablePrioritySort) {
     .map(toPublicCountdownItem);
 
   const activePinnedTokenSet = new Set();
-  for (const item of pinnedData) {
+  for (const item of pinnedData.slice(0, TOP_PINNED_DISPLAY_LIMIT)) {
     addHolidayNameTokens(activePinnedTokenSet, item.name);
   }
 
@@ -1778,8 +1803,7 @@ function notifyTodayIfNeeded(enableNotify, dateCtx, todayItems, isCron) {
   }
 }
 
-function resolvePanelIconColor(enableAutoTheme, dateCtx, officialHolidayCache, todayItems) {
-  if (!enableAutoTheme) return ICON_COLORS.workday;
+function resolvePanelIconColor(dateCtx, officialHolidayCache, todayItems) {
   if (Array.isArray(todayItems) && todayItems.length > 0) {
     return ICON_COLORS.festival;
   }
@@ -1790,26 +1814,25 @@ function resolvePanelIconColor(enableAutoTheme, dateCtx, officialHolidayCache, t
   return dateCtx.isWeekend ? ICON_COLORS.offday : ICON_COLORS.workday;
 }
 
-function buildPanelOutput(baseData, enableAutoTheme, dateCtx, officialHolidayCache) {
+function buildPanelOutput(baseData, dateCtx, officialHolidayCache) {
   const title = baseData.todayNoticeText
-    ? `✨ ${baseData.todayNoticeText}`
+    ? baseData.todayNoticeText
     : RANDOM_NOTICES[Math.floor(Math.random() * RANDOM_NOTICES.length)];
 
   const lines = [];
   const stickyText = buildPinnedStickyText(baseData.pinnedData);
   if (stickyText) {
-    lines.push(`📌 置顶：${stickyText}`);
+    lines.push(`置顶：${stickyText}`);
   }
 
   for (const cfg of CATEGORY_CONFIG) {
     const items = (baseData.result?.[cfg.key] || []).slice(0, CATEGORY_DISPLAY_LIMIT);
     if (items.length === 0) continue;
-    lines.push(`${cfg.emoji} ${cfg.label}：${items.map(formatDisplayItem).join("，")}`);
+    lines.push(`${cfg.label}：${items.map(formatDisplayItem).join("，")}`);
   }
 
   const content = lines.length > 0 ? lines.join("\n") : "近期暂无倒计时";
   const iconColor = resolvePanelIconColor(
-    enableAutoTheme,
     dateCtx,
     officialHolidayCache,
     baseData.todayItems
@@ -1833,7 +1856,6 @@ async function runTimeCard() {
   const rawEnv = parseSurgeArgument(typeof $argument !== "undefined" ? $argument : "");
   const normalizedEnv = buildNormalizedEnv(rawEnv);
   const dataEnvFingerprint = buildEnvFingerprintFromNormalized(normalizedEnv);
-  const enableAutoTheme = normalizedEnv.ENABLE_AUTO_THEME !== "0";
   const enableNotify = normalizedEnv.ENABLE_NOTIFY !== "0";
 
   const dailyCache = createDailyCacheReader(dateCtx.todayStr);
@@ -1898,7 +1920,7 @@ async function runTimeCard() {
     return;
   }
 
-  $done(buildPanelOutput(baseData, enableAutoTheme, dateCtx, officialHolidayCache));
+  $done(buildPanelOutput(baseData, dateCtx, officialHolidayCache));
 }
 
 (async () => {
