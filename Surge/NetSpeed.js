@@ -23,10 +23,14 @@ const MAX_PACKET_MB_IOS = 16;
 const MAX_PACKET_MB_MAC = 64;
 const DEFAULT_TIMEOUT = 4;
 const MAX_TIMEOUT = 60;
+const HTTP_API_TIMEOUT_MS = 600;
+const RECENT_TIME_TOLERANCE_MS = 2000;
+const MAX_POLICY_DEPTH = 10;
 const MIN_DURATION = 0.01;
 const SIZE_TOLERANCE = 0.01;
 const MAX_RAW_KEY_ENCODED_LEN = 120;
 const FAILED_TEXT = '⚠️ 测速失败';
+const NODE_SEPARATOR = ' · ';
 
 const DEFAULT_SPEED_DATA = {
   mbps: 0,
@@ -168,9 +172,31 @@ function hash64Hex(text) {
   );
 }
 
-function getCacheKey(policy) {
+function getCacheKey(policy, resolvedNode) {
+  const node = getNonEmptyString(resolvedNode);
+
   if (policy === null) {
-    return 'netspeed_cache_rule';
+    if (!node || node === RULE_POLICY_LABEL) {
+      return 'netspeed_cache_rule';
+    }
+
+    const rawKey = `rule\0${node}`;
+    const encoded = encodeURIComponent(rawKey);
+    if (encoded.length <= MAX_RAW_KEY_ENCODED_LEN) {
+      return `netspeed_cache_node_${encoded}`;
+    }
+
+    return `netspeed_cache_node_h_${hash64Hex(rawKey)}`;
+  }
+
+  if (node && node !== policy) {
+    const rawKey = `${policy}\0${node}`;
+    const encoded = encodeURIComponent(rawKey);
+    if (encoded.length <= MAX_RAW_KEY_ENCODED_LEN) {
+      return `netspeed_cache_node_${encoded}`;
+    }
+
+    return `netspeed_cache_node_h_${hash64Hex(rawKey)}`;
   }
 
   const encoded = encodeURIComponent(policy);
@@ -343,6 +369,240 @@ async function measureSpeed(url, policy, policyLabel, timeout, expectedBytes) {
   }
 }
 
+function createRunId() {
+  const ts = Date.now().toString(36);
+  const rand = Math.random().toString(36).slice(2, 6);
+  return `${ts}${rand}`;
+}
+
+function toEpochMs(value) {
+  const num = Number(value);
+  if (!Number.isFinite(num) || num <= 0) return 0;
+  return num > 1e12 ? num : num * 1000;
+}
+
+function getRemainingMs(deadline) {
+  return Math.max(0, deadline - Date.now());
+}
+
+function httpApiGet(path, params, timeoutMs) {
+  if (typeof $httpAPI !== 'function' || timeoutMs <= 0) {
+    return Promise.resolve(null);
+  }
+
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      resolve(value);
+    };
+
+    if (typeof setTimeout === 'function') {
+      setTimeout(() => finish(null), timeoutMs);
+    }
+
+    try {
+      $httpAPI('GET', path, params || null, (result) => {
+        finish(result && typeof result === 'object' ? result : null);
+      });
+    } catch (_) {
+      finish(null);
+    }
+  });
+}
+
+function getSelectGroupDetails() {
+  try {
+    if (
+      typeof $surge !== 'undefined' &&
+      $surge &&
+      typeof $surge.selectGroupDetails === 'function'
+    ) {
+      const details = $surge.selectGroupDetails();
+      if (details && typeof details === 'object') {
+        return {
+          groups: details.groups && typeof details.groups === 'object' ? details.groups : {},
+          decisions: details.decisions && typeof details.decisions === 'object' ? details.decisions : {}
+        };
+      }
+    }
+  } catch (_) {}
+
+  return null;
+}
+
+async function followSelectChain(startName, selectDetails, apiDeadline) {
+  let current = getNonEmptyString(startName);
+  if (!current) return '';
+
+  const visited = new Set([current]);
+
+  if (selectDetails) {
+    for (let i = 0; i < MAX_POLICY_DEPTH; i++) {
+      const next = getNonEmptyString(selectDetails.decisions[current]);
+      if (!next || visited.has(next)) break;
+      visited.add(next);
+      current = next;
+    }
+    return current;
+  }
+
+  for (let i = 0; i < MAX_POLICY_DEPTH; i++) {
+    const remaining = getRemainingMs(apiDeadline);
+    if (remaining <= 0) break;
+    const res = await httpApiGet('/v1/policy_groups/select', { group_name: current }, remaining);
+    const next = getNonEmptyString(res && res.policy);
+    if (!next || visited.has(next)) break;
+    visited.add(next);
+    current = next;
+  }
+
+  return current;
+}
+
+function pickNewerRequest(current, candidate) {
+  if (!current) return candidate;
+
+  const curId = Number(current.id);
+  const candId = Number(candidate.id);
+  if (Number.isFinite(curId) && Number.isFinite(candId) && candId !== curId) {
+    return candId > curId ? candidate : current;
+  }
+
+  const curTime = toEpochMs(current.startDate);
+  const candTime = toEpochMs(candidate.startDate);
+  if (candTime > curTime) {
+    return candidate;
+  }
+
+  return current;
+}
+
+function findRecentSpeedRequest(recentData, runId, startedAt, finishedAt, policy) {
+  const list =
+    recentData && Array.isArray(recentData.requests) ? recentData.requests : [];
+  if (list.length === 0) return null;
+
+  const token = `_=${runId}`;
+  let exactMatch = null;
+  let downWindowMatch = null;
+  let hostWindowMatch = null;
+
+  for (const item of list) {
+    if (!item || typeof item !== 'object') continue;
+    const url = getNonEmptyString(item.URL || item.url);
+    if (!url) continue;
+
+    const urlLower = url.toLowerCase();
+    if (!urlLower.includes('speed.cloudflare.com')) continue;
+
+    if (url.includes(token)) {
+      exactMatch = pickNewerRequest(exactMatch, item);
+      continue;
+    }
+
+    const startMs = toEpochMs(item.startDate);
+    if (
+      startMs <= 0 ||
+      startMs < startedAt - RECENT_TIME_TOLERANCE_MS ||
+      startMs > finishedAt + RECENT_TIME_TOLERANCE_MS
+    ) {
+      continue;
+    }
+
+    if (policy !== null) {
+      const origPolicy = getNonEmptyString(item.originalPolicyName);
+      if (origPolicy && origPolicy !== policy) {
+        continue;
+      }
+    }
+
+    if (urlLower.includes('/__down')) {
+      downWindowMatch = pickNewerRequest(downWindowMatch, item);
+    } else {
+      hostWindowMatch = pickNewerRequest(hostWindowMatch, item);
+    }
+  }
+
+  return exactMatch || downWindowMatch || hostWindowMatch;
+}
+
+async function resolveSpeedNode(policy, runId, startedAt, finishedAt) {
+  if (policy === DEFAULT_POLICY) {
+    return {
+      group: null,
+      node: DEFAULT_POLICY,
+      display: DEFAULT_POLICY
+    };
+  }
+
+  const apiDeadline = Date.now() + HTTP_API_TIMEOUT_MS;
+  const selectDetails = getSelectGroupDetails();
+  const selectGroups = selectDetails ? selectDetails.groups : null;
+  const recentData = await httpApiGet('/v1/requests/recent', null, getRemainingMs(apiDeadline));
+  const recentReq = findRecentSpeedRequest(recentData, runId, startedAt, finishedAt, policy);
+  const recentPolicy = getNonEmptyString(recentReq && recentReq.policyName);
+  const recentOriginalPolicy = getNonEmptyString(recentReq && recentReq.originalPolicyName);
+  const recentResolved = recentPolicy
+    ? await followSelectChain(recentPolicy, selectDetails, apiDeadline)
+    : '';
+
+  if (policy !== null) {
+    const selectLeaf = await followSelectChain(policy, selectDetails, apiDeadline);
+    let finalNode = selectLeaf;
+
+    if (recentResolved) {
+      if (selectLeaf === policy) {
+        if (recentResolved !== policy) {
+          finalNode = recentResolved;
+        }
+      } else if (
+        recentResolved !== policy &&
+        recentResolved !== selectLeaf &&
+        !(selectGroups && hasOwn(selectGroups, recentResolved))
+      ) {
+        finalNode = recentResolved;
+      }
+    }
+
+    if (finalNode && finalNode !== policy) {
+      return {
+        group: policy,
+        node: finalNode,
+        display: `${policy}${NODE_SEPARATOR}${finalNode}`
+      };
+    }
+
+    return {
+      group: null,
+      node: policy,
+      display: policy
+    };
+  }
+
+  if (recentResolved) {
+    let group = RULE_POLICY_LABEL;
+    if (recentOriginalPolicy && recentOriginalPolicy !== recentResolved) {
+      group = recentOriginalPolicy;
+    } else if (recentPolicy && recentPolicy !== recentResolved) {
+      group = recentPolicy;
+    }
+
+    return {
+      group,
+      node: recentResolved,
+      display: `${group}${NODE_SEPARATOR}${recentResolved}`
+    };
+  }
+
+  return {
+    group: null,
+    node: '',
+    display: RULE_POLICY_LABEL
+  };
+}
+
 (async () => {
   const arg = parseArguments(typeof $argument !== 'undefined' ? $argument : '');
   const panelTitle = getNonEmptyString(arg.title) || DEFAULT_TITLE;
@@ -350,10 +610,12 @@ async function measureSpeed(url, policy, policyLabel, timeout, expectedBytes) {
   const policyLabel = policy === null ? RULE_POLICY_LABEL : policy;
   const packetBytes = getPacketBytes(arg);
   const timeout = getTimeoutSeconds(arg.timeout);
-  const speedTestUrl = `https://speed.cloudflare.com/__down?bytes=${packetBytes}`;
-  const cacheKey = getCacheKey(policy);
+  const runId = createRunId();
+  const speedTestUrl = `https://speed.cloudflare.com/__down?bytes=${packetBytes}&_=${runId}`;
+  let nodeDisplay = policyLabel;
 
   try {
+    const startedAt = Date.now();
     const measuredData = await measureSpeed(
       speedTestUrl,
       policy,
@@ -361,6 +623,11 @@ async function measureSpeed(url, policy, policyLabel, timeout, expectedBytes) {
       timeout,
       packetBytes
     );
+    const finishedAt = Date.now();
+
+    const nodeInfo = await resolveSpeedNode(policy, runId, startedAt, finishedAt);
+    nodeDisplay = nodeInfo.display;
+    const cacheKey = getCacheKey(policy, nodeInfo.node);
 
     let speedData;
     let fromCache = false;
@@ -377,11 +644,11 @@ async function measureSpeed(url, policy, policyLabel, timeout, expectedBytes) {
     const style = getSpeedStyle(speedData.mbps, failed);
 
     const content = failed
-      ? `${FAILED_TEXT}\n测速策略: ${policyLabel}`
+      ? `${FAILED_TEXT}\n测速节点: ${nodeDisplay}`
       : [
           `下行速率: ${speedData.mbps} Mbps [${speedData.mBs} MB/s]`,
           `测试耗时: ${speedData.duration}s${fromCache ? ' (缓存)' : ''}`,
-          `测速策略: ${policyLabel}`
+          `测速节点: ${nodeDisplay}`
         ].join('\n');
 
     $done({
@@ -395,7 +662,7 @@ async function measureSpeed(url, policy, policyLabel, timeout, expectedBytes) {
     const style = getSpeedStyle(0, true);
     $done({
       title: panelTitle,
-      content: `${FAILED_TEXT}\n测速策略: ${policyLabel}`,
+      content: `${FAILED_TEXT}\n测速节点: ${nodeDisplay}`,
       icon: style.icon,
       'icon-color': style.color
     });
