@@ -1,8 +1,6 @@
 "use strict";
 
 /*
- * 由 @mieqq 编写，@Rabbit-Spec 修改。
- * 原脚本地址：https://raw.githubusercontent.com/mieqq/mieqq/master/sub_info_panel.js
  * 配合 Sub-Info.sgmodule 使用。url 填完整 HTTP(S) 订阅链接，无需编码，兼容旧式 encodeURIComponent 编码。
  * 手动拼 $argument 时，优先把 url= 放在末尾。若查询参数恰与脚本参数同名且含义有歧义，可整体编码 URL 值。
  * reset_day：每月重置日（1–31），短月份按月末计。title：面板标题。icon：SF Symbol 名称。
@@ -65,9 +63,16 @@
   const ERROR_ICON = "exclamationmark.triangle.fill";
   const MAX_FATAL_ERROR_TEXT_LENGTH = 120;
   const STAGE_LABELS = {
-    init: "初始化", args: "参数解析", url: "链接校验", storage: "缓存处理", fetch: "订阅请求", render: "面板渲染",
+    init: "初始化",
+    args: "参数解析",
+    url: "链接校验",
+    storage: "缓存处理",
+    fetch: "订阅请求",
+    render: "面板渲染",
   };
-  const ERROR_NAMES = new Set(["Error", "TypeError", "ReferenceError", "RangeError", "SyntaxError", "URIError", "EvalError"]);
+  const ERROR_NAMES = new Set([
+    "Error", "TypeError", "ReferenceError", "RangeError", "SyntaxError", "URIError", "EvalError",
+  ]);
   const ACCEPT = "application/x-yaml,text/plain,*/*";
   const STRATEGIES = [
     { id: "head_meta", method: "head", flag: "meta", ua: "mihomo/1.19.3", accept: ACCEPT },
@@ -77,7 +82,7 @@
     { id: "get_verge", method: "get", flag: null, ua: "clash-verge-rev/2.3.1", accept: ACCEPT },
   ];
   const STRATEGY_IDS = new Set(STRATEGIES.map((strategy) => strategy.id));
-  const HEAD_SKIP_ERRORS = new Set(["HTTP 400", "HTTP 403", "HTTP 404", "HTTP 405", "HTTP 501", "Timeout"]);
+  const HEAD_SKIP_ERRORS = new Set(["HTTP 405", "HTTP 501", "Timeout"]);
 
   function stripPairedQuotes(value) {
     const quote = value[0];
@@ -122,7 +127,8 @@
       case "icon": return value.length <= 80 && SF_SYMBOL_PATTERN.test(value);
       case "method": return /^(?:head|get)$/i.test(value);
       case "expire": return /^(?:false|\d{4}[-/]\d{1,2}[-/]\d{1,2})$/i.test(value);
-      case "policy": return value.length <= 128 && !/^https?:\/\//i.test(value) && !/^eyJ[A-Za-z0-9+/_-]{16,}/.test(value);
+      case "policy":
+        return value.length <= 128 && !/^https?:\/\//i.test(value) && !/^eyJ[A-Za-z0-9+/_-]{16,}/.test(value);
       case "title": return true;
       default: return false;
     }
@@ -169,7 +175,6 @@
     return prefix.indexOf("#") === -1 && prefix.indexOf("?") !== -1;
   }
 
-  // 词法候选：scheme 后、首个 / ? # 之前首个 @ 所在段的下一段；遇到已知合法脚本参数段时停止。
   function findBareAuthorityMinEnd(segments, u) {
     const first = segments[u].value;
     const scheme = /^\s*https?:\/\//i.exec(first);
@@ -204,6 +209,7 @@
     let currentValue = "";
     for (let i = start; i < segments.length; i++) {
       const { text, key, value } = segments[i];
+      if (!text) continue;
       if (key !== "url" && KNOWN_KEYS.has(key)) {
         if (currentKey && !isValidModuleExtraValue(currentKey, currentValue)) return false;
         if (!MODULE_EXTRAS.has(key) || beforeKeys.has(key) || seen.has(key)) return false;
@@ -237,7 +243,10 @@
       const extraSeen = new Set();
       while (tailEnd > minStart + 3) {
         const { key, value } = segments[tailEnd - 1];
-        if (!MODULE_EXTRAS.has(key) || beforeKeys.has(key) || extraSeen.has(key) || !isValidModuleExtraValue(key, value)) break;
+        if (!MODULE_EXTRAS.has(key) || beforeKeys.has(key) || extraSeen.has(key) ||
+            !isValidModuleExtraValue(key, value)) {
+          break;
+        }
         extraSeen.add(key);
         tailEnd--;
       }
@@ -285,10 +294,12 @@
   }
 
   function parseArgs(argumentStr) {
-    if (typeof argumentStr !== "string" || !argumentStr.trim()) return {};
+    if (typeof argumentStr !== "string") return {};
+    const trimmed = argumentStr.trim();
+    if (!trimmed) return {};
 
     const args = {};
-    const segments = argumentStr.split("&").map((text) => {
+    const segments = trimmed.split("&").map((text) => {
       const eq = text.indexOf("=");
       return { text, key: eq > 0 ? text.slice(0, eq).toLowerCase() : "", value: eq > 0 ? text.slice(eq + 1) : text };
     });
@@ -298,6 +309,7 @@
       let current = "";
       for (let i = start; i < end; i++) {
         const { text, key, value } = segments[i];
+        if (!text) continue;
         if (key !== "url" && KNOWN_KEYS.has(key)) {
           current = key;
           args[key] = value;
@@ -329,7 +341,6 @@
       let end = -1;
       let template = null;
       if (quoted.length) {
-        // 预计算一次尾部骨架锚点，按升序选最左偶数模板，其次最左奇数模板。
         const tail = findModuleTail(segments, beforeKeys, urlIndex + 1);
         let selectedR = -1;
         if (tail) {
@@ -362,8 +373,6 @@
       } else {
         const minEnd = findBareAuthorityMinEnd(segments, urlIndex);
         let plan = matchBareUrl(segments, urlIndex, beforeKeys, minEnd);
-        // 抬高下界仅当实际切出的 URL 合法时采纳，否则按 urlIndex + 1 重算（R9-1）。
-        // 不变量依赖：args.url 写入后不再改写，与主流程 normalizeSubscriptionUrl(args.url) 保持同函数同输入。
         if (minEnd > urlIndex + 1 && !normalizeSubscriptionUrl(joinUrlSegments(segments, urlIndex, plan.end)).ok) {
           plan = matchBareUrl(segments, urlIndex, beforeKeys, urlIndex + 1);
         }
@@ -495,8 +504,7 @@
     }
     starts.push(source.length);
     if (starts.length !== full.length + 1) return null;
-    const trimmedLead = /^\s*/.exec(full)[0].length;
-    return trimmedLead ? starts.slice(trimmedLead) : starts;
+    return starts;
   }
 
   function decodeUrlLayersWithMaps(initial) {
@@ -727,7 +735,7 @@
 
   function normalizePending(items, nowMs, activeProtectedUntil) {
     const maxAfter = nowMs + RETIRE_GRACE_MS;
-    const order = []; // 从最新位置向前保留各 ID。
+    const order = [];
     const byId = new Map();
     let changed = false;
     for (let i = items.length - 1; i >= 0; i--) {
@@ -786,12 +794,15 @@
     let dirty = state.freezeUntil !== raw.freezeUntil;
     for (const hash of Object.keys(raw.slots)) {
       const slot = raw.slots[hash];
-      if (!FINGERPRINT.test(hash) || !slot || !isCacheId(slot.i, slot.k) || !Number.isFinite(slot.t)) {
+      if (!FINGERPRINT.test(hash) || !slot || !isCacheId(slot.i, slot.k) ||
+          !Number.isFinite(slot.t) || slot.t < 0) {
         state.freezeUntil = limit;
         dirty = true;
         continue;
       }
-      const { k, i, t } = slot;
+      const { k, i } = slot;
+      const t = Math.min(slot.t, nowMs);
+      if (slot.t - nowMs > CLOCK_SKEW_TOLERANCE_MS) dirty = true;
       state.slots[hash] = { k, i, t };
     }
     const activeProtectedUntil = collectActiveProtection(state.slots, nowMs);
@@ -987,18 +998,24 @@
     try {
       const resultBox = await new Promise((resolve, reject) => {
         let settled = false;
-        const timer = setTimeout(() => {
-          if (settled) return;
-          settled = true;
-          reject(new Error("Timeout"));
-        }, Math.max(1000, timeout * 1000 + 250));
+        const timer = typeof setTimeout === "function"
+          ? setTimeout(() => {
+            if (settled) return;
+            settled = true;
+            reject(new Error("Timeout"));
+          }, Math.max(1000, timeout * 1000 + 250))
+          : null;
+        const cancelTimer = () => {
+          if (timer !== null && typeof clearTimeout === "function") clearTimeout(timer);
+        };
         try {
           $httpClient[strategy.method](options, (error, result) => {
             if (settled) return;
             settled = true;
-            clearTimeout(timer);
-            if (error !== null && error !== undefined && error !== "" && error !== false) reject(error);
-            else {
+            cancelTimer();
+            if (error !== null && error !== undefined && error !== "" && error !== false) {
+              reject(error);
+            } else {
               // Promise 只检查包装对象的 then，宿主响应留到 await 后读取。
               const box = Object.create(null);
               box.response = result;
@@ -1008,7 +1025,7 @@
         } catch (error) {
           if (!settled) {
             settled = true;
-            clearTimeout(timer);
+            cancelTimer();
             reject(error);
           }
         }
@@ -1036,12 +1053,15 @@
     const used = (info.upload || 0) + (info.download || 0);
     const percent = (used / info.total) * 100;
     if (!Number.isFinite(used) || !Number.isFinite(percent)) return { error: "No Data" };
-    return { data: { used, totalBytes: info.total, percent, expire: typeof info.expire === "number" ? info.expire : null } };
+    const expire = typeof info.expire === "number" ? info.expire : null;
+    return { data: { used, totalBytes: info.total, percent, expire } };
   }
 
   async function fetchSubscription(url, args, preferred, deadlineTime) {
     const method = typeof args.method === "string" ? args.method.toLowerCase() : "";
-    const strategies = STRATEGIES.filter((strategy) => (method !== "head" && method !== "get") || strategy.method === method);
+    const strategies = STRATEGIES.filter(
+      (strategy) => (method !== "head" && method !== "get") || strategy.method === method
+    );
     const preferredIndex = strategies.findIndex((strategy) => strategy.id === preferred);
     if (preferredIndex > 0) strategies.unshift(strategies.splice(preferredIndex, 1)[0]);
 
@@ -1197,7 +1217,7 @@
       case "DNS Error": return "DNS 解析失败";
       case "No Data": return "响应头不含有效流量信息";
       case "Network": return "网络连接失败";
-      default: return error; // requestStrategy 仅构造校验过的 HTTP 状态码。
+      default: return error;
     }
   }
 
@@ -1431,7 +1451,6 @@
     else if (ENCODED_HTTP.test(decoded)) knownSet.add(decoded);
   }
 
-  // 与 getUrlSecretParts/extractUrlSecrets 同口径，返回最后一层明文中秘密子段的 [start, end) 与候选形态。
   function getUrlSecretSpans(url) {
     const spans = [];
     function add(start, end, forms) {
@@ -1765,7 +1784,6 @@
       const foldedSecret = secrets.foldedByItem.get(secret);
       if (!foldedSecret) return true;
       for (let pos = folded.indexOf(foldedSecret); pos !== -1; pos = folded.indexOf(foldedSecret, pos + 1)) {
-        // 折叠命中使用原文的半开终点，只检查进入后缀的区间。
         if (endMap[pos + foldedSecret.length - 1] > prefixLen) return true;
       }
     }
@@ -1808,7 +1826,9 @@
   function finishOnce(result) {
     if (finished) return;
     finished = true;
-    try { $done(result); } catch (_) {}
+    try {
+      $done(result);
+    } catch (_) {}
   }
 
   let secrets = null;
@@ -1877,12 +1897,12 @@
     if (secondRead.ok) {
       fallback = secondRead.entry;
     } else if (cached && Number.isFinite(finishedAt) &&
-               cached.time - finishedAt <= CLOCK_SKEW_TOLERANCE_MS && finishedAt - cached.time < MAX_STALE_MS) {
+        cached.time - finishedAt <= CLOCK_SKEW_TOLERANCE_MS && finishedAt - cached.time < MAX_STALE_MS) {
       fallback = cached;
     }
     stage = "render";
     if (fallback) {
-      const details = { time: fallback.time, error: result.error };
+      const details = { time: fallback.time };
       return finishOnce(renderData(baseTitle, args, secrets, fallback.data, finishedAt, safePanelName, details));
     }
     const title = finalizeTitle(baseTitle, " | 获取失败", secrets, safePanelName);
