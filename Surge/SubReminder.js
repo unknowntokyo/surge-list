@@ -25,8 +25,8 @@
 
   // 苹果 iOS 官方系统色（systemRed / systemOrange / systemGreen）
   const PANEL_COLOR = {
-    red: "#FF3B30",
-    orange: "#FF9500",
+    red: "#FF383C",
+    orange: "#FF8D28",
     green: "#34C759"
   };
 
