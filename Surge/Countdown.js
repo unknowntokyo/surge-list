@@ -93,7 +93,7 @@ const TOP_PINNED_DISPLAY_LIMIT = 2;
 const CATEGORY_CACHE_LIMIT = 7;
 const CATEGORY_DISPLAY_LIMIT = 2;
 
-const STORAGE_SCOPE = "timecard";
+const STORAGE_SCOPE = "countdown";
 const OFFICIAL_HOLIDAY_STORAGE_VERSION = 3;
 const DAILY_CACHE_SCHEMA_VERSION = 26;
 const DAILY_CACHE_VERSION = `v${DAILY_CACHE_SCHEMA_VERSION}`;
@@ -546,11 +546,14 @@ function sanitizeEnvStringValue(key, rawValue) {
   }
   if (key === "PINNED_HOLIDAY") {
     const truncated = truncateByCodePoint(value, MAX_PINNED_HOLIDAY_TOTAL_LENGTH);
-    return splitNameList(truncated)
-      .map(item => normalizePinnedHolidayName(truncateByCodePoint(item, MAX_PINNED_HOLIDAY_ITEM_LENGTH)))
-      .filter(Boolean)
-      .slice(0, MAX_PINNED_HOLIDAY_COUNT)
-      .join(",");
+    const deduped = Array.from(
+      new Set(
+        splitNameList(truncated)
+          .map(item => normalizePinnedHolidayName(truncateByCodePoint(item, MAX_PINNED_HOLIDAY_ITEM_LENGTH)))
+          .filter(Boolean)
+      )
+    );
+    return deduped.slice(0, MAX_PINNED_HOLIDAY_COUNT).join(",");
   }
   if (EXCLUSIVE_NAME_KEY_RE.test(key)) {
     return truncateByCodePoint(value, MAX_EXCLUSIVE_NAME_LENGTH);
@@ -570,6 +573,11 @@ const SHORT_ARG_ALIASES = {
 
 const CUSTOM_TRAILING_DATE_RE = /^(.*?)\s+((?:(?:[Ll]|农历)\s*)?(?:\d{4}[/／-])?\d{1,2}[/／-]\d{1,2})$/;
 
+function isPlaceholderOrEmptyArg(rawValue) {
+  const value = stripInvisibleChars(rawValue, false);
+  return !value || TEMPLATE_PLACEHOLDER_RE.test(value) || EMPTY_ARG_SENTINEL_RE.test(value);
+}
+
 function parseCustomEntry(rawValue) {
   let value = stripInvisibleChars(rawValue, false);
   if (!value || TEMPLATE_PLACEHOLDER_RE.test(value) || EMPTY_ARG_SENTINEL_RE.test(value)) {
@@ -577,17 +585,19 @@ function parseCustomEntry(rawValue) {
   }
   const sepMatch = /^([\s\S]+?)\s*[:：=]\s*([^:：=]+)$/.exec(value);
   if (sepMatch) {
-    return {
-      name: stripInvisibleChars(sepMatch[1], false),
-      date: stripInvisibleChars(sepMatch[2], true)
-    };
+    const name = stripInvisibleChars(sepMatch[1], false);
+    const date = stripInvisibleChars(sepMatch[2], true);
+    if (name && date && parseExclusiveDateSpec(date)) {
+      return { name, date };
+    }
   }
   const spaceMatch = CUSTOM_TRAILING_DATE_RE.exec(value);
   if (spaceMatch) {
-    return {
-      name: stripInvisibleChars(spaceMatch[1], false),
-      date: stripInvisibleChars(spaceMatch[2], true)
-    };
+    const name = stripInvisibleChars(spaceMatch[1], false);
+    const date = stripInvisibleChars(spaceMatch[2], true);
+    if (name && date && parseExclusiveDateSpec(date)) {
+      return { name, date };
+    }
   }
   return { name: "", date: "" };
 }
@@ -597,7 +607,11 @@ function buildNormalizedEnv(rawEnv) {
   const merged = { ...src };
 
   for (const [canonicalKey, shortKey] of Object.entries(SHORT_ARG_ALIASES)) {
-    if (Object.prototype.hasOwnProperty.call(src, shortKey)) {
+    if (!Object.prototype.hasOwnProperty.call(src, shortKey)) continue;
+    if (
+      !isPlaceholderOrEmptyArg(src[shortKey]) ||
+      !Object.prototype.hasOwnProperty.call(src, canonicalKey)
+    ) {
       merged[canonicalKey] = src[shortKey];
     }
   }
@@ -632,7 +646,7 @@ function buildEnvFingerprintFromNormalized(normalizedEnv) {
 
 function warnLog(msg, err) {
   const detail = err ? ` ${err.message || String(err)}` : "";
-  console.log(`[TimeCard] ${msg}${detail}`);
+  console.log(`[Countdown] ${msg}${detail}`);
 }
 
 const surgeStorage = {
@@ -676,7 +690,7 @@ function httpGetJSON(url, timeoutSec) {
         timeout: clampedTimeout,
         headers: {
           Accept: "application/json",
-          "User-Agent": "Surge-TimeCard"
+          "User-Agent": "Surge-Countdown"
         }
       },
       (error, response, data) => {
@@ -1348,9 +1362,9 @@ function createLunarToSolarConverter() {
 
 function getSolarTermYMD(y, n) {
   if (!Number.isInteger(y) || y < 1900 || y > 2100) return null;
+  // Lunar.term 基准 Date.UTC(1900, 0, 6, 2, 5) 已内置东八区偏移，直接取 UTC 年月日即北京时间日期
   const termDate = Lunar.term(y, n);
-  const bjTerm = new Date(termDate.getTime() + BJ_OFFSET_MS);
-  return YMD(bjTerm.getUTCFullYear(), bjTerm.getUTCMonth() + 1, bjTerm.getUTCDate());
+  return YMD(termDate.getUTCFullYear(), termDate.getUTCMonth() + 1, termDate.getUTCDate());
 }
 
 function wDay(y, m, nth, weekday) {
@@ -1439,6 +1453,8 @@ function compareTodayItems(a, b) {
   return (
     b.priority - a.priority ||
     b.diff - a.diff ||
+    splitHolidayNames(b.name).length - splitHolidayNames(a.name).length ||
+    (Number(b.duration) || 1) - (Number(a.duration) || 1) ||
     String(a.name).localeCompare(String(b.name))
   );
 }
@@ -1495,9 +1511,10 @@ function updatePinnedCountdown(state, name, diff, duration) {
     const prev = state.pinnedMap.get(pinnedName);
     if (!prev || diff < prev.diff) {
       state.pinnedMap.set(pinnedName, {
-        name: pinnedName,
+        name: nameParts.length > 1 ? name : pinnedName,
         diff,
-        duration: Math.max(1, Number(duration) || 1)
+        duration: Math.max(1, Number(duration) || 1),
+        order: state.pinnedOrderMap.get(pinnedName) ?? Number.MAX_SAFE_INTEGER
       });
     }
   }
@@ -1514,16 +1531,16 @@ function finalizeCountdownResult(state, enablePrioritySort) {
     addHolidayNameTokens(todayFestTokenSet, item.name);
   }
 
-  const pinnedData = Array.from(state.pinnedMap.values())
+  const sortedPinned = Array.from(state.pinnedMap.values())
     .filter(item => !holidayNameMatchesTokenSet(item.name, todayFestTokenSet))
     .sort((a, b) => {
       const diffCmp = a.diff - b.diff;
       if (diffCmp !== 0) return diffCmp;
-      const orderA = state.pinnedOrderMap.get(a.name) ?? Number.MAX_SAFE_INTEGER;
-      const orderB = state.pinnedOrderMap.get(b.name) ?? Number.MAX_SAFE_INTEGER;
+      const orderA = a.order ?? state.pinnedOrderMap.get(a.name) ?? Number.MAX_SAFE_INTEGER;
+      const orderB = b.order ?? state.pinnedOrderMap.get(b.name) ?? Number.MAX_SAFE_INTEGER;
       return orderA - orderB || String(a.name).localeCompare(String(b.name));
-    })
-    .map(toPublicCountdownItem);
+    });
+  const pinnedData = dedupeHolidayItemsByToken(sortedPinned).map(toPublicCountdownItem);
 
   const activePinnedTokenSet = new Set();
   for (const item of pinnedData.slice(0, TOP_PINNED_DISPLAY_LIMIT)) {
@@ -1639,6 +1656,25 @@ function buildCountdownData(dateCtx, normalizedEnv, officialHolidayCache) {
     }
   }
 
+  // 公历每年 2/29 无法被 [Y-1, Y, Y+1] 窗口覆盖（闰年间隔 4 年，跨世纪平年可达 8 年）
+  for (const item of userConfig.customDays) {
+    if (
+      item.spec.kind !== "annual" ||
+      item.spec.calendar !== "solar" ||
+      item.spec.month !== 2 ||
+      item.spec.day !== 29
+    ) {
+      continue;
+    }
+    for (let offset = 2; offset <= 8; offset++) {
+      const candidateYear = dateCtx.Y + offset;
+      if (isValidMonthDay(candidateYear, 2, 29)) {
+        addCountdownFestival("exclusive", [item.name, YMD(candidateYear, 2, 29), 1, "custom"]);
+        break;
+      }
+    }
+  }
+
   for (const item of userConfig.customDays) {
     if (item.spec.kind !== "once") continue;
     let ymd = null;
@@ -1738,13 +1774,12 @@ function notifyTodayIfNeeded(enableNotify, dateCtx, todayItems, isCron) {
   }
 
   const todayIso = dateCtx.todayIso;
-  const todayStartNames = Array.from(
-    new Set(
-      todayItems
-        .filter(item => Number(item.diff) === 0 && typeof item.name === "string" && item.name.trim())
-        .map(item => item.name.trim())
+  const todayStartItems = dedupeHolidayItemsByToken(
+    todayItems.filter(
+      item => Number(item.diff) === 0 && typeof item.name === "string" && item.name.trim()
     )
   );
+  const todayStartNames = Array.from(new Set(todayStartItems.map(item => item.name.trim())));
   if (todayStartNames.length === 0) {
     return { sent: false, reason: "no_first_day_items" };
   }
@@ -1846,7 +1881,7 @@ function buildPanelOutput(baseData, dateCtx, officialHolidayCache) {
   };
 }
 
-async function runTimeCard() {
+async function runCountdown() {
   const isCron = typeof $script !== "undefined" && $script?.type === "cron";
   const isManualRefresh = typeof $trigger !== "undefined" && $trigger === "button";
   const now = new Date();
@@ -1914,7 +1949,7 @@ async function runTimeCard() {
 
   if (isCron) {
     console.log(
-      `[TimeCard] cron done (${dateCtx.todayIso}), today=${baseData.todayNoticeText || "none"}, notify=${notifyRes.sent ? notifyRes.names.join("、") : notifyRes.reason}`
+      `[Countdown] cron done (${dateCtx.todayIso}), today=${baseData.todayNoticeText || "none"}, notify=${notifyRes.sent ? notifyRes.names.join("、") : notifyRes.reason}`
     );
     $done();
     return;
@@ -1925,7 +1960,7 @@ async function runTimeCard() {
 
 (async () => {
   try {
-    await runTimeCard();
+    await runCountdown();
   } catch (e) {
     warnLog("unhandled error:", e);
     const isCron = typeof $script !== "undefined" && $script?.type === "cron";
