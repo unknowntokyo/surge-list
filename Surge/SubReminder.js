@@ -23,12 +23,7 @@
 (function () {
   "use strict";
 
-  const PANEL_COLOR = {
-    red: "#FF3B30",
-    orange: "#FF9500",
-    green: "#34C759",
-    muted: "#8E8E93"
-  };
+  const PANEL_ICON_COLOR = "#FF3B30";
 
   const DAY_MS = 86400000;
   const MAX_SUBS = 20;
@@ -369,19 +364,9 @@
       title = `订阅提醒 · 共${items.length}项`;
     }
 
-    let icon = "bell.circle.fill";
-    let iconColor = PANEL_COLOR.muted;
-    if (!items.length) {
-      if (errors.length) {
-        icon = "exclamationmark.triangle.fill";
-        iconColor = PANEL_COLOR.red;
-      }
-    } else if (items[0].diff <= 1) {
-      iconColor = PANEL_COLOR.red;
-    } else if (items[0].diff <= 3) {
-      iconColor = PANEL_COLOR.orange;
-    } else {
-      iconColor = PANEL_COLOR.green;
+    let icon = "bell.badge";
+    if (!items.length && errors.length) {
+      icon = "exclamationmark.triangle.fill";
     }
 
     const lines = [];
@@ -413,7 +398,7 @@
       title,
       content: lines.join("\n"),
       icon,
-      "icon-color": iconColor
+      "icon-color": PANEL_ICON_COLOR
     };
   }
 
@@ -472,7 +457,7 @@
           title: "订阅提醒出错",
           content: String(e && e.message ? e.message : e),
           icon: "exclamationmark.triangle.fill",
-          "icon-color": PANEL_COLOR.red
+          "icon-color": PANEL_ICON_COLOR
         });
       } else {
         $done();
