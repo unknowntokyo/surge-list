@@ -99,7 +99,7 @@ const NOTIFY_PANEL_START_HOUR = 8;
 
 const TOP_PINNED_DISPLAY_LIMIT = 2;
 const CATEGORY_CACHE_LIMIT = 7;
-const CATEGORY_DISPLAY_LIMIT = 3;
+const CATEGORY_DISPLAY_LIMIT = 2;
 
 const STORAGE_SCOPE = "timecard";
 const OFFICIAL_HOLIDAY_STORAGE_VERSION = 3;
@@ -535,14 +535,67 @@ function sanitizeEnvStringValue(key, rawValue) {
   return value;
 }
 
+const SHORT_ARG_ALIASES = {
+  ENABLE_PRIORITY_SORT: "SMART_SORT",
+  ENABLE_EXCLUSIVE_WEIGHT: "VIP_WEIGHT",
+  ENABLE_AUTO_THEME: "AUTO_THEME",
+  ENABLE_NOTIFY: "NOTIFY",
+  PINNED_HOLIDAY: "PINNED"
+};
+
+const CUSTOM_TRAILING_DATE_RE = /^(.*?)\s+((?:(?:[Ll]|农历)\s*)?(?:\d{4}\/)?\d{1,2}\/\d{1,2})$/;
+
+function parseCustomEntry(rawValue) {
+  let value = String(rawValue ?? "").trim();
+  if (!value || TEMPLATE_PLACEHOLDER_RE.test(value) || EMPTY_ARG_SENTINEL_RE.test(value)) {
+    return { name: "", date: "" };
+  }
+  const sepMatch = /^([\s\S]+?)\s*[:：=]\s*([^:：=]+)$/.exec(value);
+  if (sepMatch) {
+    return {
+      name: sepMatch[1].trim(),
+      date: sepMatch[2].trim()
+    };
+  }
+  const spaceMatch = CUSTOM_TRAILING_DATE_RE.exec(value);
+  if (spaceMatch) {
+    return {
+      name: spaceMatch[1].trim(),
+      date: spaceMatch[2].trim()
+    };
+  }
+  return { name: "", date: "" };
+}
+
 function buildNormalizedEnv(rawEnv) {
   const src = rawEnv && typeof rawEnv === "object" ? rawEnv : {};
+  const merged = { ...src };
+
+  for (const [canonicalKey, shortKey] of Object.entries(SHORT_ARG_ALIASES)) {
+    if (Object.prototype.hasOwnProperty.call(src, shortKey)) {
+      merged[canonicalKey] = src[shortKey];
+    }
+  }
+
+  for (let i = 1; i <= 6; i++) {
+    const customKey = `CUSTOM_${i}`;
+    if (!Object.prototype.hasOwnProperty.call(src, customKey)) continue;
+    const parsed = parseCustomEntry(src[customKey]);
+    if (parsed.name && parsed.date) {
+      merged[`EXCLUSIVE_NAME_${i}`] = parsed.name;
+      merged[`EXCLUSIVE_DATE_${i}`] = parsed.date;
+    } else if (!Object.prototype.hasOwnProperty.call(src, `EXCLUSIVE_NAME_${i}`)) {
+      merged[`EXCLUSIVE_NAME_${i}`] = "";
+      merged[`EXCLUSIVE_DATE_${i}`] = "";
+    }
+  }
+
   const normalized = {};
   for (const key of CACHE_ENV_KEYS) {
     if (BOOL_ENV_KEYS.has(key)) {
-      normalized[key] = parseBoolValue(src[key], true) ? "1" : "0";
+      normalized[key] = parseBoolValue(merged[key], true) ? "1" : "0";
     } else {
-      normalized[key] = sanitizeEnvStringValue(key, src[key]);
+      normalized[key] = sanitizeEnvStringValue(key, merged[key]);
     }
   }
   return normalized;
