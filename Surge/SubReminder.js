@@ -66,7 +66,6 @@
   const MAX_SUBS = 20;
   const DEFAULT_MAX_DISPLAY = 8;
   const NOTIFY_STORE_NAME = "sub_reminder_notified_v1";
-  const WEEK = ["日", "一", "二", "三", "四", "五", "六"];
 
   // ---------- 基础工具 ----------
 
@@ -196,8 +195,9 @@
     const subs = [];
     for (let i = 1; i <= MAX_SUBS; i++) {
       const raw = env[`SUB_${i}`];
-      if (raw == null || !String(raw).trim()) continue;
-      const fields = String(raw).split("|").map(s => s.trim());
+      const trimmed = raw == null ? "" : String(raw).trim();
+      if (!trimmed || trimmed === "-") continue;
+      const fields = trimmed.split("|").map(s => s.trim());
       const [name, dateRaw, amountRaw, cycleRaw, colorRaw] = fields;
       const cycle = parseCycle(cycleRaw);
       let anchor = null;
@@ -293,7 +293,6 @@
       nextIso: isoOf(nextMs),
       month: nd.getUTCMonth() + 1,
       day: nd.getUTCDate(),
-      week: `周${WEEK[nd.getUTCDay()]}`,
       diff,
       price: sub.amount
         ? (sub.amount.value == null ? sub.amount.text : `${sub.amount.text}/${cyc}`)
@@ -447,7 +446,7 @@
     } else {
       const visible = maxDisplay > 0 ? items.slice(0, maxDisplay) : items;
       for (const it of visible) {
-        lines.push(`${rowMarker(it.diff)} ${it.name} · ${dayShort(it.diff)} · ${it.month}/${it.day} ${it.week} · ${it.price}`);
+        lines.push(`${rowMarker(it.diff)} ${it.name} · ${dayShort(it.diff)} · ${it.price}`);
       }
       if (visible.length < items.length) {
         lines.push(`… 另有 ${items.length - visible.length} 项未显示`);
