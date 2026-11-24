@@ -8,14 +8,14 @@
  *   - 金额：可选，条目与通知原样显示；月均支持非负数、.99、规范千分位和前/后缀币种。
  *   - 周期：默认 1M；支持 1M/3M/1Y/30D 及月/年/3个月/30天，上限 120M/10Y/3660D。
  * - REMIND_DAYS：提前提醒天数，默认 "1 0"（兼容逗号/顿号/空格分隔，单值 0～60）；非法值回退默认。
- *   同一订阅同一续费期的同一档位只推一次（按实例作用域+订阅名+周期去重）；漏跑补最近档位，跨过续费日不追溯上一期。
+ *   同一订阅同一续费期的同一档位只推一次（按脚本实例+订阅名+周期及同名序号去重，不同脚本实例分键隔离）；漏跑补最近档位，跨过续费日不追溯上一期。
  * - NOTIFY：默认 true（仅接受 true/false）；仅由 Cron 定时任务触发系统通知，面板刷新不弹窗。
  * - TZ_OFFSET：固定时区偏移 -12～14 小时，默认 8，不自动处理夏令时。
  * - SHOW_TOTAL：默认 true（仅接受 true/false）；按币种统计月均，按天周期以 30 天折算，不换汇；
- *   人民币 ¥/￥/元/CNY/RMB 统一为 ¥ 并合计，其余含字母币种忽略大小写归并、顺序按 SUB_n，最多显示两种，超出以 +N 提示。
+ *   人民币 ¥/￥/元/CNY/RMB 统一为 ¥ 并合计（兼容 ¥10元 等写法），其余含字母币种忽略大小写归并、顺序按 SUB_n，最多显示两种，超出以 +N 提示。
  * - MAX_DISPLAY：面板最多展示条数，默认 8；设为 0 显示全部。
  *
- * 提醒：Surge 模块参数通过双引号传入 argument="..."，请勿在订阅名称等值中使用英文双引号 " 或换行符。
+ * 提醒：Surge 模块参数通过双引号传入 argument="..."，请勿在订阅名称等值中使用英文双引号 "、换行符或以反斜杠 \ 结尾。
  * 通知调用与 $persistentStore 写入非事务，写入失败后下轮可能重发。
  */
 
@@ -96,7 +96,9 @@
     for (let i = 0; i < matches.length; i++) {
       const cur = matches[i];
       const valueEnd = i + 1 < matches.length ? matches[i + 1].tokenStart : text.length;
-      if (!Object.prototype.hasOwnProperty.call(env, cur.key)) {
+      // .sgmodule 中全局选项固定位于末尾，取后值避免被靠前 SUB_i 中的伪键抢占；SUB_i 取首值防靠后槽位覆盖。
+      const isGlobal = !cur.key.startsWith("SUB_");
+      if (isGlobal || !Object.prototype.hasOwnProperty.call(env, cur.key)) {
         env[cur.key] = stripUnreplacedPlaceholder(text.slice(cur.valueStart, valueEnd));
       }
     }
@@ -136,14 +138,20 @@
     return m[2] === "Y" ? { unit: "M", n: n * 12 } : { unit: m[2], n };
   }
 
+  function normalizeCurrency(cur) {
+    if (!cur) return "";
+    if (/^(?:¥|￥|元|CNY|RMB)$/i.test(cur)) return "¥";
+    return /[A-Za-z]/.test(cur) ? cur.toUpperCase() : cur;
+  }
+
   // 完整匹配：前缀币种 + 非负数字 + 后缀币种；小数点固定为点，不猜测地区格式。
   function parseAmount(raw) {
     const s = String(raw || "").trim();
     if (!s) return null;
     const m = s.match(/^([A-Za-z$¥￥€£₩₽₹元]*)\s*((?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?|\.\d+)\s*([A-Za-z$¥￥€£₩₽₹元]*)$/);
     const value = m ? Number(m[2].replace(/,/g, "")) : NaN;
-    // 同时填写前后缀币种时，只接受相同币种（忽略大小写），避免把 "$20 USD" 擅自合并为某币种。
-    if (!m || !Number.isFinite(value) || (m[1] && m[3] && m[1].toUpperCase() !== m[3].toUpperCase())) {
+    // 同时填写前后缀币种时，只接受归一化后的相同币种（如 ¥10元 / USD 10 usd），避免把 "$20 USD" 擅自合并。
+    if (!m || !Number.isFinite(value) || (m[1] && m[3] && normalizeCurrency(m[1]) !== normalizeCurrency(m[3]))) {
       return { text: s, value: null, cur: "" };
     }
     return { text: s, value, cur: m[1] || m[3] };
@@ -157,8 +165,8 @@
       if (!trimmed || trimmed === "-") continue;
       const fields = trimmed.split("|").map(s => s.trim());
       const [name, dateRaw, amountRaw, cycleRaw] = fields;
-      // 防止漏写金额分隔符（如 "域名|2025/9/10|1Y"）把周期静默错判为金额与每月扣费
-      const amountLooksLikeCycle = !cycleRaw && Boolean(amountRaw) && /^\d+\s*(?:[MYD]|个月|月|年|天)$/i.test(amountRaw);
+      // 防止漏写金额分隔符（如 "域名|2025/9/10|1Y" 或 "|年"）把周期静默错判为金额与每月扣费
+      const amountLooksLikeCycle = !cycleRaw && Boolean(amountRaw) && parseCycle(amountRaw) !== null;
       const cycle = parseCycle(cycleRaw);
       let anchor = null;
 
@@ -274,9 +282,7 @@
       if (!a || a.value == null) continue;
       const perMonth = it.cycle.unit === "D" ? (a.value * 30) / it.cycle.n : a.value / it.cycle.n;
       // 仅汇总展示统一人民币别名及字母币种大小写；各条目原价与通知文案仍保留用户输入。
-      const cur = /^(?:¥|￥|元|CNY|RMB)$/i.test(a.cur)
-        ? "¥"
-        : (/[A-Za-z]/.test(a.cur) ? a.cur.toUpperCase() : a.cur);
+      const cur = normalizeCurrency(a.cur);
       totals.set(cur, (totals.get(cur) || 0) + perMonth);
     }
     return [...totals].map(([cur, v]) => {
@@ -306,16 +312,23 @@
     const raw = typeof $script !== "undefined" && $script && $script.name
       ? String($script.name).trim()
       : "";
-    return raw.replace(/(?:Panel|Cron)$/i, "") || "default";
+    return raw || "default";
   }
 
-  function notifyIfNeeded(items, remindDays, todayMs, storeKey) {
+  function notifyIfNeeded(items, remindDays, todayMs, baseStoreKey) {
     if (typeof $notification === "undefined" || typeof $notification.post !== "function") return;
     if (
       typeof $persistentStore === "undefined" ||
       typeof $persistentStore.read !== "function" ||
       typeof $persistentStore.write !== "function"
     ) return;
+
+    const scope = getNotifyScope();
+    const isDefaultStore = scope === "SubReminderCron" || scope === "default";
+    // 非默认脚本名按实例分键存储，避免多实例同刻 Cron 并发写同一键引发覆盖；
+    // 键名仅保留 [A-Za-z0-9_-] 并单射编码其余字符，满足 Surge $persistentStore 纯名称无路径分隔符要求。
+    const safeScope = scope.replace(/[^A-Za-z0-9-]/g, (c) => `_${c.charCodeAt(0).toString(16).toUpperCase()}_`);
+    const storeKey = isDefaultStore ? baseStoreKey : `${baseStoreKey}__${safeScope}`;
 
     let rawState;
     try {
@@ -343,7 +356,7 @@
     }
 
     const todayIso = isoOf(todayMs);
-    // 只按日期和合法性清理过期记录，不按当前订阅列表删除，避免多实例互删去重记录。
+    // 只按日期和合法性清理过期记录，不按当前订阅列表删除，避免跨实例或临时编辑导致状态丢失。
     for (const key of Object.keys(state)) {
       const m = key.match(/^(\d{4}-\d{2}-\d{2})\|(\d+)\|[\s\S]+$/) || key.match(/^SUB_\d+@(\d{4}-\d{2}-\d{2})@(\d+)$/);
       if (!m || m[1] < todayIso || Number(m[2]) > 60 || !Number.isFinite(state[key]) || state[key] < 0) {
@@ -352,13 +365,24 @@
       }
     }
 
-    const scope = getNotifyScope();
+    const occ = new Map();
     const due = [];
     for (const it of items) {
       const stage = remindStage(it.diff, remindDays);
       if (stage === undefined) continue;
-      const key = `${it.nextIso}|${stage}|${scope}|${it.name.trim().toLowerCase()}|${it.cycle.n}${it.cycle.unit}`;
-      if (Object.prototype.hasOwnProperty.call(state, key)) continue;
+      const nameNorm = it.name.trim().toLowerCase();
+      const cycleNorm = `${it.cycle.n}${it.cycle.unit}`;
+      const baseKey = `${it.nextIso}|${stage}|${scope}|${nameNorm}|${cycleNorm}`;
+      const idx = (occ.get(baseKey) || 0) + 1;
+      occ.set(baseKey, idx);
+      const key = idx === 1 ? baseKey : `${baseKey}#${idx}`;
+      // 默认实例查重兼容初版旧键（SUB_i@date@stage）与上一版剥离后缀后的键，避免升级过渡期重推。
+      const hitLegacyV1 = isDefaultStore && Object.prototype.hasOwnProperty.call(state, `${it.id}@${it.nextIso}@${stage}`);
+      const hitLegacyV2 = scope === "SubReminderCron" && idx === 1 && Object.prototype.hasOwnProperty.call(
+        state,
+        `${it.nextIso}|${stage}|SubReminder|${nameNorm}|${cycleNorm}`
+      );
+      if (Object.prototype.hasOwnProperty.call(state, key) || hitLegacyV1 || hitLegacyV2) continue;
       due.push({ it, key });
     }
 
@@ -491,7 +515,8 @@
       }
 
       const totals = monthlyTotals(items);
-      const omitted = !errors.length && showTotal && totals.length
+      const hasUnparsedAmount = items.some(it => it.amount && it.amount.value == null);
+      const omitted = !errors.length && showTotal && (totals.length || hasUnparsedAmount)
         ? items.filter(it => !it.amount || it.amount.value == null).length
         : 0;
 

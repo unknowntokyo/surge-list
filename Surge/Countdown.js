@@ -34,14 +34,14 @@ const CATEGORY_CONFIG = [
 
 const CATEGORY_KEYS = CATEGORY_CONFIG.map(cfg => cfg.key);
 
-const BASE_PRIORITY = {
+const BASE_PRIORITY = Object.assign(Object.create(null), {
   legal: 3,
   folk: 2,
   intl: 1,
   exclusive: 2
-};
+});
 
-const SPECIAL_PRIORITY = {
+const SPECIAL_PRIORITY = Object.assign(Object.create(null), {
   "春节": 10,
   "国庆节": 9,
   "元旦": 7,
@@ -49,7 +49,7 @@ const SPECIAL_PRIORITY = {
   "端午节": 7,
   "中秋节": 7,
   "除夕": 6
-};
+});
 
 const ICON_COLORS = {
   festival: "#FF8D28",
@@ -95,7 +95,7 @@ const INVISIBLE_STRICT_CHARS_RE = /[\u200B-\u200D\u2060\uFEFF\u00AD]/g;
 const EXCLUSIVE_NAME_KEY_RE = /^EXCLUSIVE_NAME_\d+$/;
 const EXCLUSIVE_DATE_KEY_RE = /^EXCLUSIVE_DATE_\d+$/;
 
-const HOLIDAY_ALIAS_MAP = {
+const HOLIDAY_ALIAS_MAP = Object.assign(Object.create(null), {
   "国庆": "国庆节",
   "中秋": "中秋节",
   "端午": "端午节",
@@ -118,7 +118,7 @@ const HOLIDAY_ALIAS_MAP = {
   "万圣": "万圣节",
   "感恩": "感恩节",
   "圣诞": "圣诞节"
-};
+});
 
 const MAX_EXCLUSIVE_NAME_LENGTH = 20;
 const MAX_EXCLUSIVE_DATE_LENGTH = 20;
@@ -413,13 +413,33 @@ function getSpecialHolidayPriority(name) {
   return maxPriority;
 }
 
+function mergeItemCoverage(target, source) {
+  if (!target || !source || target.diff !== source.diff) {
+    return;
+  }
+  if (source.coversCustom) {
+    target.coversCustom = true;
+    if (source.coveredCustomNames && source.coveredCustomNames.size > 0) {
+      if (!target.coveredCustomNames) {
+        target.coveredCustomNames = new Set();
+      }
+      for (const customName of source.coveredCustomNames) {
+        target.coveredCustomNames.add(customName);
+      }
+    }
+  }
+  if (source.coversBuiltin) {
+    target.coversBuiltin = true;
+  }
+}
+
 function dedupeHolidayItemsByToken(items) {
   if (!Array.isArray(items) || items.length === 0) {
     return [];
   }
   const usedCustomNameSet = new Set();
-  const usedTokenSet = new Set();
-  const usedExactDisplaySet = new Set();
+  const usedTokenMap = new Map();
+  const usedExactDisplayMap = new Map();
   const output = [];
   for (const item of items) {
     if (!item) {
@@ -429,7 +449,8 @@ function dedupeHolidayItemsByToken(items) {
     const exactDisplayKey = normName
       ? `${normName}\0${formatDisplayItem(item)}`
       : "";
-    if (exactDisplayKey && usedExactDisplaySet.has(exactDisplayKey)) {
+    if (exactDisplayKey && usedExactDisplayMap.has(exactDisplayKey)) {
+      mergeItemCoverage(usedExactDisplayMap.get(exactDisplayKey), item);
       continue;
     }
     if (item.sourceKind === "custom") {
@@ -437,19 +458,27 @@ function dedupeHolidayItemsByToken(items) {
         continue;
       }
       usedCustomNameSet.add(normName);
-      usedExactDisplaySet.add(exactDisplayKey);
+      usedExactDisplayMap.set(exactDisplayKey, item);
       output.push(item);
       continue;
     }
     const parts = splitHolidayNames(item.name);
-    if (parts.some(part => usedTokenSet.has(part))) {
+    let matchedOwner = null;
+    for (const part of parts) {
+      if (usedTokenMap.has(part)) {
+        matchedOwner = usedTokenMap.get(part);
+        break;
+      }
+    }
+    if (matchedOwner) {
+      mergeItemCoverage(matchedOwner, item);
       continue;
     }
     for (const part of parts) {
-      usedTokenSet.add(part);
+      usedTokenMap.set(part, item);
     }
     if (exactDisplayKey) {
-      usedExactDisplaySet.add(exactDisplayKey);
+      usedExactDisplayMap.set(exactDisplayKey, item);
     }
     output.push(item);
   }
@@ -554,17 +583,6 @@ function parseBoolValue(value, defaultVal = true) {
   return defaultVal;
 }
 
-function safeDecodeURIComponent(str) {
-  if (!str || str.indexOf("%") === -1) {
-    return str;
-  }
-  try {
-    return decodeURIComponent(str);
-  } catch (_) {
-    return str;
-  }
-}
-
 function parseSurgeArgument(rawArg) {
   if (!rawArg) {
     return {};
@@ -596,11 +614,11 @@ function parseSurgeArgument(rawArg) {
     if (eqIdx <= 0) {
       continue;
     }
-    const key = safeDecodeURIComponent(segment.slice(0, eqIdx).trim());
+    const key = segment.slice(0, eqIdx).trim();
     if (!key) {
       continue;
     }
-    let val = safeDecodeURIComponent(segment.slice(eqIdx + 1)).trim();
+    let val = segment.slice(eqIdx + 1).trim();
     if (TEMPLATE_PLACEHOLDER_RE.test(val)) {
       val = "";
     }
@@ -612,6 +630,7 @@ function parseSurgeArgument(rawArg) {
 function stripInvisibleChars(value, strict = false) {
   return String(value ?? "")
     .replace(strict ? INVISIBLE_STRICT_CHARS_RE : INVISIBLE_TEXT_CHARS_RE, "")
+    .replace(/[\r\n]+/g, " ")
     .trim();
 }
 
@@ -623,8 +642,28 @@ function normalizeExclusiveDateString(rawDate) {
   return cleaned.replace(/^([Ll]|农历)\s+/, "$1").replace(/\s+/g, " ");
 }
 
-function normalizePinnedHolidayName(name) {
+function buildNormalizedCustomNameSet(customNames) {
+  const set = new Set();
+  if (!Array.isArray(customNames)) {
+    return set;
+  }
+  for (const name of customNames) {
+    const clean = truncateByCodePoint(
+      stripInvisibleChars(name, false),
+      MAX_EXCLUSIVE_NAME_LENGTH
+    );
+    if (clean) {
+      set.add(clean);
+    }
+  }
+  return set;
+}
+
+function normalizePinnedHolidayName(name, customNameSet = null) {
   const clean = stripInvisibleChars(name, false);
+  if (customNameSet && customNameSet.has(clean)) {
+    return clean;
+  }
   return HOLIDAY_ALIAS_MAP[clean] ?? clean;
 }
 
@@ -710,13 +749,14 @@ function normalizePinnedHolidayList(rawValue, customNames = []) {
   ) {
     return [];
   }
+  const customNameSet = buildNormalizedCustomNameSet(customNames);
   const truncated = truncateByCodePoint(value, MAX_PINNED_HOLIDAY_TOTAL_LENGTH);
   const deduped = Array.from(
     new Set(
       splitPinnedHolidayList(truncated, customNames)
         .map(item => {
           const clipped = truncateByCodePoint(item, MAX_PINNED_HOLIDAY_ITEM_LENGTH);
-          return normalizePinnedHolidayName(clipped);
+          return normalizePinnedHolidayName(clipped, customNameSet);
         })
         .filter(Boolean)
     )
@@ -725,11 +765,14 @@ function normalizePinnedHolidayList(rawValue, customNames = []) {
 }
 
 function decodeNormalizedPinnedHolidays(rawValue, customNames = []) {
+  const customNameSet = buildNormalizedCustomNameSet(customNames);
   if (Array.isArray(rawValue)) {
     return Array.from(
       new Set(
         rawValue
-          .map(item => normalizePinnedHolidayName(stripInvisibleChars(item, false)))
+          .map(item =>
+            normalizePinnedHolidayName(stripInvisibleChars(item, false), customNameSet)
+          )
           .filter(Boolean)
       )
     );
@@ -746,12 +789,27 @@ function decodeNormalizedPinnedHolidays(rawValue, customNames = []) {
         parsed.every(item => typeof item === "string")
       ) {
         return Array.from(
-          new Set(parsed.map(item => item.trim()).filter(Boolean))
+          new Set(
+            parsed
+              .map(item =>
+                normalizePinnedHolidayName(
+                  stripInvisibleChars(item, false),
+                  customNameSet
+                )
+              )
+              .filter(Boolean)
+          )
         );
       }
     } catch (_) {}
   }
-  return Array.from(new Set(splitPinnedHolidayList(text, customNames)));
+  return Array.from(
+    new Set(
+      splitPinnedHolidayList(text, customNames)
+        .map(item => normalizePinnedHolidayName(item, customNameSet))
+        .filter(Boolean)
+    )
+  );
 }
 
 function sanitizeEnvStringValue(key, rawValue, customNames = []) {
@@ -782,8 +840,14 @@ const SHORT_ARG_ALIASES = {
   PINNED_HOLIDAY: "PINNED"
 };
 
+const LUNAR_DATE_LIKE_RE =
+  /^(?:[Ll]|农历)\s*(?:\d{4}[/／-])?\d{1,2}[/／-]\d{1,2}$/;
+const BARE_LUNAR_DATE_ONLY_RE =
+  /^(?:[Ll]|农历)\s+(?:\d{4}[/／-])?\d{1,2}[/／-]\d{1,2}$/;
+const CUSTOM_TRAILING_LUNAR_WORD_DATE_RE =
+  /^(.+)\s+(农历\s*(?:\d{4}[/／-])?\d{1,2}[/／-]\d{1,2})$/;
 const CUSTOM_TRAILING_DATE_RE =
-  /^(.+)\s+((?:[Ll]|农历)?(?:\d{4}[/／-])?\d{1,2}[/／-]\d{1,2})$/;
+  /^(.+)\s+([Ll]?(?:\d{4}[/／-])?\d{1,2}[/／-]\d{1,2})$/;
 
 function isPlaceholderOrEmptyArg(rawValue) {
   const value = stripInvisibleChars(rawValue, false);
@@ -810,6 +874,21 @@ function parseCustomEntry(rawValue) {
     if (name && date && parseExclusiveDateSpec(date)) {
       return { name, date };
     }
+    if (LUNAR_DATE_LIKE_RE.test(date)) {
+      return { name: "", date: "" };
+    }
+  }
+  if (BARE_LUNAR_DATE_ONLY_RE.test(value)) {
+    return { name: "", date: "" };
+  }
+  const lunarWordMatch = CUSTOM_TRAILING_LUNAR_WORD_DATE_RE.exec(value);
+  if (lunarWordMatch) {
+    const name = stripInvisibleChars(lunarWordMatch[1], false);
+    const date = normalizeExclusiveDateString(lunarWordMatch[2]);
+    if (name && date && parseExclusiveDateSpec(date)) {
+      return { name, date };
+    }
+    return { name: "", date: "" };
   }
   const spaceMatch = CUSTOM_TRAILING_DATE_RE.exec(value);
   if (spaceMatch) {
@@ -1143,7 +1222,7 @@ function officialRequiredYears(currentYear, todayIso) {
   if (m === 1) {
     return [currentYear - 1, currentYear];
   }
-  if (m === 12) {
+  if (m >= 11) {
     return [currentYear, currentYear + 1];
   }
   return [currentYear];
@@ -1447,7 +1526,7 @@ function buildOfficialHolidayRangesFromNormalizedDays(days) {
     });
   }
 
-  offDays.sort((a, b) => a.ms - b.ms);
+  offDays.sort((a, b) => a.ms - b.ms || a.name.localeCompare(b.name));
   const groups = [];
   for (const day of offDays) {
     const last = groups[groups.length - 1];
@@ -1774,7 +1853,13 @@ function parseExclusiveDateSpec(rawDate) {
     const month = Number(onceMatch[2]);
     const day = Number(onceMatch[3]);
     if (calendar === "lunar") {
-      if (!isValidLunarYear(year) || month < 1 || month > 12 || day < 1 || day > 30) {
+      if (
+        !isValidLunarYear(year) ||
+        month < 1 ||
+        month > 12 ||
+        day < 1 ||
+        day > Lunar.mDays(year, month)
+      ) {
         return null;
       }
       return { calendar: "lunar", kind: "once", year, month, day };
@@ -2049,18 +2134,54 @@ function updatePinnedCountdown(state, name, diff, duration, sourceKind = "builti
         : nameParts.length > 1
           ? name
           : pinnedName;
+      const coveredCustomNames = new Set();
+      if (isCustom) {
+        coveredCustomNames.add(normalizedName);
+      }
       state.pinnedMap.set(pinnedName, {
         name: displayName,
         diff,
         duration: Math.max(1, Number(duration) || 1),
         sourceKind,
+        coversCustom: isCustom,
+        coversBuiltin: !isCustom,
+        coveredCustomNames,
         order: state.pinnedOrderMap.get(pinnedName) ?? Number.MAX_SAFE_INTEGER
       });
+    } else if (diff === prev.diff) {
+      if (isCustom) {
+        prev.coversCustom = true;
+        if (!prev.coveredCustomNames) {
+          prev.coveredCustomNames = new Set();
+        }
+        prev.coveredCustomNames.add(normalizedName);
+      } else {
+        prev.coversBuiltin = true;
+      }
     }
   }
 }
 
 function isHiddenByMatchSets(item, nonCustomTokenSet, customNameSet) {
+  if (item.coversCustom || item.coversBuiltin) {
+    let customHidden = false;
+    if (item.coversCustom) {
+      if (item.coveredCustomNames && item.coveredCustomNames.size > 0) {
+        for (const customName of item.coveredCustomNames) {
+          if (customNameSet.has(customName)) {
+            customHidden = true;
+            break;
+          }
+        }
+      } else {
+        customHidden = customNameSet.has(normalizeHolidayMatchName(item.name));
+      }
+    }
+    const builtinHidden =
+      Boolean(item.coversBuiltin) &&
+      holidayNameMatchesTokenSet(item.name, nonCustomTokenSet);
+    return customHidden || builtinHidden;
+  }
   if (item.sourceKind === "custom") {
     return customNameSet.has(normalizeHolidayMatchName(item.name));
   }
@@ -2108,12 +2229,19 @@ function finalizeCountdownResult(state, enablePrioritySort) {
   const activePinnedNonCustomTokenSet = new Set();
   const activePinnedCustomNameSet = new Set();
   for (const item of dedupedPinned.slice(0, TOP_PINNED_DISPLAY_LIMIT)) {
-    if (item.sourceKind === "custom") {
-      const normName = normalizeHolidayMatchName(item.name);
-      if (normName) {
-        activePinnedCustomNameSet.add(normName);
+    if (item.coversCustom || item.sourceKind === "custom") {
+      if (item.coveredCustomNames && item.coveredCustomNames.size > 0) {
+        for (const customName of item.coveredCustomNames) {
+          activePinnedCustomNameSet.add(customName);
+        }
+      } else {
+        const normName = normalizeHolidayMatchName(item.name);
+        if (normName) {
+          activePinnedCustomNameSet.add(normName);
+        }
       }
-    } else {
+    }
+    if (item.coversBuiltin || item.sourceKind !== "custom") {
       addHolidayNameTokens(activePinnedNonCustomTokenSet, item.name);
     }
   }
@@ -2427,7 +2555,14 @@ function notifyTodayIfNeeded(enableNotify, dateCtx, todayItems, isCron) {
     }
   }
 
-  if (sameDay && prevState.failed === true && Number(prevState.retryAfter) > nowMs) {
+  const notifyRetryAt = Number(prevState?.retryAfter);
+  if (
+    sameDay &&
+    prevState.failed === true &&
+    Number.isFinite(notifyRetryAt) &&
+    notifyRetryAt > nowMs &&
+    notifyRetryAt <= nowMs + NOTIFY_FAILED_RETRY_INTERVAL_MS
+  ) {
     return { sent: false, reason: "retry_backoff" };
   }
 

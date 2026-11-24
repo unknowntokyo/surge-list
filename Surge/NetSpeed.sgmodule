@@ -1,9 +1,9 @@
 #!name=NetSpeed
-#!desc=花里胡哨才是生产力 测试网络下载速度、延迟并根据速度和延迟改变图标和颜色，乌龟、兔子还是闪电？
+#!desc=测试网络下行下载速度，并根据测速速率自动切换图标和颜色（乌龟、兔子或闪电）。
 #!author=unknownTokyo
 #!category=工具
 #!arguments=title:NetSpeed,policy:DIRECT,TEST_PACKET:3,timeout:8
-#!arguments-desc=title 面板标题；policy 测速策略或策略组名（默认 DIRECT，填 - 跟随 Surge 规则分流）；TEST_PACKET 下行数据量（MB，iOS 上限 16 / Mac 上限 64）；timeout 单次请求超时秒数（建议不超过 8，模块脚本总超时为 10s，需为非 DIRECT 策略节点查询预留时间）。参数值请勿包含 & 或 "，支持 URL 编码（字面 % 请写 %25）。
+#!arguments-desc=title 面板标题；policy 测速策略或策略组名（默认 DIRECT，填 - 跟随 Surge 规则分流）；TEST_PACKET 下行数据量（MB，iOS 上限 16 / Mac 上限 64；iOS 建议不超过 8，大包体可能增加内存占用）；timeout 单次请求超时秒数（建议不超过 8，模块脚本总超时为 10s，需为非 DIRECT 策略节点查询预留时间）。参数值请勿包含 & 或 "，支持 URL 编码（&→%26，"→%22，字面 %→%25）。
 
 [Panel]
 NetSpeed = script-name=NetSpeed,update-interval=-1

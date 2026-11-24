@@ -1,9 +1,11 @@
 /**
  * Surge 信息面板：NetSpeed 下行测速脚本
  *
- * $argument 参数（key=value 以 & 连接，均可选；支持 URL 编码，参数值含逗号时请用双引号包裹整个 argument="..."）：
+ * $argument 参数（key=value 以 & 连接，均可选；支持 URL 编码，字面 % 请写 %25；
+ * 参数值含逗号时请用双引号包裹整个 argument="..."）：
  * - policy：测速策略或策略组名，默认 DIRECT；传空值（policy=）或 "-" 时跟随 Surge 规则分流
- * - TEST_PACKET（兼容 SPEED_TEST_PACKET / mb）：下行测速数据量（MB，支持小数），默认 3（iOS 上限 16 / Mac 上限 64）
+ * - TEST_PACKET（兼容 SPEED_TEST_PACKET / mb）：下行测速数据量（MB，支持小数），
+ *   默认 3（iOS 上限 16 且建议不超过 8，大包体可能增加内存占用 / Mac 上限 64）
  * - timeout：单次测速请求超时秒数，默认 4（脚本上限 60，仅在手动调大 [Script] timeout 时生效；模块 timeout=10 下建议不超过 8）
  * - title：面板标题，默认 NetSpeed
  *
@@ -22,6 +24,7 @@ const DEFAULT_TIMEOUT = 4;
 const MAX_TIMEOUT = 60;
 const HTTP_API_TIMEOUT_MS = 600;
 const RECENT_TIME_TOLERANCE_MS = 2000;
+const RECENT_START_UPPER_TOLERANCE_MS = 3000;
 const MAX_POLICY_DEPTH = 10;
 const MIN_DURATION = 0.01;
 const SIZE_TOLERANCE = 0.01;
@@ -48,6 +51,7 @@ function decodeValue(value) {
   try {
     return decodeURIComponent(value);
   } catch (_) {
+    console.log(`[NetSpeed] 参数值 URL 解码失败，已按原文使用: ${value}`);
     return value;
   }
 }
@@ -119,6 +123,7 @@ function parsePositivePacketBytes(value, maxPacketMB) {
 
   let mb = Number(raw);
   if (!Number.isFinite(mb) || mb <= 0) {
+    console.log(`[NetSpeed] 测速包体参数无效 (${raw})，已忽略`);
     return 0;
   }
 
@@ -161,6 +166,9 @@ function getTimeoutSeconds(value) {
 
   const seconds = Number(raw);
   if (!Number.isFinite(seconds) || seconds <= 0) {
+    console.log(
+      `[NetSpeed] timeout=${raw} 无效，已回退默认 ${DEFAULT_TIMEOUT}s`
+    );
     return DEFAULT_TIMEOUT;
   }
 
@@ -491,7 +499,10 @@ function httpApiGet(path, params, timeoutMs) {
     };
 
     if (typeof setTimeout === 'function') {
-      timerId = setTimeout(() => finish(null), timeoutMs);
+      timerId = setTimeout(() => {
+        console.log(`[NetSpeed] $httpAPI 查询超时 (${path})`);
+        finish(null);
+      }, timeoutMs);
     }
 
     try {
@@ -539,7 +550,7 @@ function getSelectGroupDetails() {
 async function followSelectChain(startName, selectDetails, apiDeadline) {
   let current = getNonEmptyString(startName);
   if (!current) {
-    return '';
+    return { node: '', complete: true };
   }
 
   const visited = new Set([current]);
@@ -548,20 +559,21 @@ async function followSelectChain(startName, selectDetails, apiDeadline) {
     for (let i = 0; i < MAX_POLICY_DEPTH; i++) {
       const next = getNonEmptyString(selectDetails.decisions[current]);
       if (!next || visited.has(next)) {
-        break;
+        return { node: current, complete: true };
       }
 
       visited.add(next);
       current = next;
     }
 
-    return current;
+    const more = getNonEmptyString(selectDetails.decisions[current]);
+    return { node: current, complete: !more || visited.has(more) };
   }
 
   for (let i = 0; i < MAX_POLICY_DEPTH; i++) {
     const remaining = getRemainingMs(apiDeadline);
     if (remaining <= 0) {
-      break;
+      return { node: current, complete: false };
     }
 
     const res = await httpApiGet(
@@ -569,16 +581,20 @@ async function followSelectChain(startName, selectDetails, apiDeadline) {
       { group_name: current },
       remaining
     );
+    if (res === null && getRemainingMs(apiDeadline) <= 0) {
+      return { node: current, complete: false };
+    }
+
     const next = getNonEmptyString(res && res.policy);
     if (!next || visited.has(next)) {
-      break;
+      return { node: current, complete: true };
     }
 
     visited.add(next);
     current = next;
   }
 
-  return current;
+  return { node: current, complete: false };
 }
 
 function hasRunIdToken(url, runId) {
@@ -640,7 +656,8 @@ function findRecentSpeedRequest(
   runId,
   startedAt,
   finishedAt,
-  policy
+  policy,
+  selectLeaf
 ) {
   const list =
     recentData && Array.isArray(recentData.requests)
@@ -650,6 +667,11 @@ function findRecentSpeedRequest(
     return null;
   }
 
+  const windowStart = startedAt - RECENT_TIME_TOLERANCE_MS;
+  const windowEnd = Math.min(
+    finishedAt + RECENT_TIME_TOLERANCE_MS,
+    startedAt + RECENT_START_UPPER_TOLERANCE_MS
+  );
   let exactMatch = null;
   let downWindowMatch = null;
   let hostWindowMatch = null;
@@ -670,17 +692,16 @@ function findRecentSpeedRequest(
     }
 
     const startMs = toEpochMs(item.startDate);
-    if (
-      startMs <= 0 ||
-      startMs < startedAt - RECENT_TIME_TOLERANCE_MS ||
-      startMs > finishedAt + RECENT_TIME_TOLERANCE_MS
-    ) {
+    if (startMs <= 0 || startMs < windowStart || startMs > windowEnd) {
       continue;
     }
 
     if (policy !== null) {
       const origPolicy = getNonEmptyString(item.originalPolicyName);
-      if (origPolicy && origPolicy !== policy) {
+      const matchesPolicy =
+        origPolicy === policy ||
+        (Boolean(selectLeaf) && origPolicy === selectLeaf);
+      if (!matchesPolicy) {
         continue;
       }
     }
@@ -718,6 +739,12 @@ async function resolveSpeedNode(policy, runId, startedAt, finishedAt) {
   const apiDeadline = Date.now() + HTTP_API_TIMEOUT_MS;
   const selectDetails = getSelectGroupDetails();
   const selectGroups = selectDetails ? selectDetails.groups : null;
+  const selectChain =
+    policy !== null
+      ? await followSelectChain(policy, selectDetails, apiDeadline)
+      : { node: '', complete: true };
+  const selectLeaf = selectChain.node;
+
   const recentData = await httpApiGet(
     '/v1/requests/recent',
     null,
@@ -728,7 +755,8 @@ async function resolveSpeedNode(policy, runId, startedAt, finishedAt) {
     runId,
     startedAt,
     finishedAt,
-    policy
+    policy,
+    selectLeaf
   );
   const recentReq = recentMatch ? recentMatch.item : null;
   const recentExact = Boolean(recentMatch && recentMatch.exact);
@@ -736,28 +764,29 @@ async function resolveSpeedNode(policy, runId, startedAt, finishedAt) {
     recentReq && recentReq.originalPolicyName
   );
   const recentPolicy = getNonEmptyString(recentReq && recentReq.policyName);
-  const recentResolved = recentPolicy
+  const recentChain = recentPolicy
     ? await followSelectChain(recentPolicy, selectDetails, apiDeadline)
-    : '';
+    : { node: '', complete: true };
+  const recentResolved = recentChain.node;
 
   if (policy !== null) {
-    const selectLeaf = await followSelectChain(
-      policy,
-      selectDetails,
-      apiDeadline
-    );
     let finalNode = selectLeaf;
+    const recentIsUnexpandedSelect =
+      !recentChain.complete ||
+      Boolean(selectGroups && hasOwn(selectGroups, recentResolved));
+    const recentReliable =
+      recentExact ||
+      recentOrigPolicy === policy ||
+      (selectLeaf !== policy && recentOrigPolicy === selectLeaf);
 
-    if (recentResolved) {
+    if (recentResolved && !recentIsUnexpandedSelect && recentReliable) {
       if (selectLeaf === policy) {
         if (recentResolved !== policy) {
           finalNode = recentResolved;
         }
       } else if (
         recentResolved !== policy &&
-        recentResolved !== selectLeaf &&
-        !(selectGroups && hasOwn(selectGroups, recentResolved)) &&
-        (recentExact || recentOrigPolicy === policy)
+        recentResolved !== selectLeaf
       ) {
         finalNode = recentResolved;
       }
@@ -845,9 +874,7 @@ async function resolveSpeedNode(policy, runId, startedAt, finishedAt) {
         const fallbackData = loadCachedSpeedData(fallbackCacheKey);
         const canUseFallback =
           isValidSpeedData(fallbackData) &&
-          (!fallbackData.node ||
-            fallbackData.node === policy ||
-            fallbackData.node === nodeInfo.node);
+          fallbackData.node === nodeInfo.node;
         speedData = canUseFallback ? fallbackData : { ...DEFAULT_SPEED_DATA };
       } else {
         speedData = { ...DEFAULT_SPEED_DATA };

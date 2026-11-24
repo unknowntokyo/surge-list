@@ -149,9 +149,11 @@
       for (let pos = text.indexOf(quote); pos !== -1; pos = text.indexOf(quote, pos + 1)) quoteCount++;
       const trimmed = trimRight(text);
       if (!trimmed.endsWith(quote) || (i === u && trimmed.length < 2)) continue;
-      const next = segments[i + 1];
+      let nextIndex = i + 1;
+      while (nextIndex < segments.length && !segments[nextIndex].text) nextIndex++;
+      const next = segments[nextIndex];
       if (next && (next.key === "url" || !KNOWN_KEYS.has(next.key))) continue;
-      candidates.push({ end: i + 1, even: quoteCount % 2 === 0 });
+      candidates.push({ end: i + 1, next: nextIndex, even: quoteCount % 2 === 0 });
     }
     return candidates;
   }
@@ -170,9 +172,9 @@
     return -1;
   }
 
-  function isInUrlQuery(segments, u, limit) {
+  function isInUrlQueryOrFragment(segments, u, limit) {
     const prefix = joinUrlSegments(segments, u, limit);
-    return prefix.indexOf("#") === -1 && prefix.indexOf("?") !== -1;
+    return prefix.indexOf("?") !== -1 || prefix.indexOf("#") !== -1;
   }
 
   function findBareAuthorityMinEnd(segments, u) {
@@ -237,12 +239,16 @@
         break;
       }
     }
-    // 严格匹配未命中时回退至容错切分，避免尾随 &、未知参数或非法 extra 值导致整个模板失配
+    // 严格匹配未命中时回退至容错切分，避免未知参数或非法 extra 值导致整个模板失配
     if (co === -1) {
       tailEnd = segments.length;
       const extraSeen = new Set();
       while (tailEnd > minStart + 3) {
-        const { key, value } = segments[tailEnd - 1];
+        const { text, key, value } = segments[tailEnd - 1];
+        if (!text) {
+          tailEnd--;
+          continue;
+        }
         if (!MODULE_EXTRAS.has(key) || beforeKeys.has(key) || extraSeen.has(key) ||
             !isValidModuleExtraValue(key, value)) {
           break;
@@ -269,21 +275,29 @@
     } else {
       const rFirst = findFirstKey(segments, minStart, tail.tLast - 1, "reset_day");
       if (rFirst === -1) return null;
-      r = isInUrlQuery(segments, u, rFirst) ? findLastKey(segments, tail.tLast - 1, rFirst, "reset_day") : rFirst;
+      r = isInUrlQueryOrFragment(segments, u, rFirst)
+        ? findLastKey(segments, tail.tLast - 1, rFirst, "reset_day")
+        : rFirst;
     }
     const t = findFirstKey(segments, r + 1, tail.tLast, "title");
-    return { r, t, ic: tail.ic, co: tail.co, tailEnd: tail.tailEnd };
+    return { urlEnd: r, r, t, ic: tail.ic, co: tail.co, tailEnd: tail.tailEnd };
   }
 
   function findBareUrlEnd(segments, u, beforeKeys, minEnd) {
     const seen = new Set(beforeKeys);
     let end = segments.length;
-    while (end > minEnd) {
-      const { key, value } = segments[end - 1];
+    let scan = end;
+    while (scan > minEnd) {
+      const { text, key, value } = segments[scan - 1];
+      if (!text) {
+        scan--;
+        continue;
+      }
       if (key === "url" || !KNOWN_KEYS.has(key) || seen.has(key) || !isValidTrailingArgValue(key, value)) break;
-      if (key === "title" && isSecretTrailingTitle(value, joinUrlSegments(segments, u, end - 1))) break;
+      if (key === "title" && isSecretTrailingTitle(value, joinUrlSegments(segments, u, scan - 1))) break;
       seen.add(key);
-      end--;
+      scan--;
+      end = scan;
     }
     return end;
   }
@@ -313,7 +327,9 @@
         if (key !== "url" && KNOWN_KEYS.has(key)) {
           current = key;
           args[key] = value;
-        } else if (current) {
+        } else if (key === "url") {
+          current = "";
+        } else if (current === "title" || current === "policy") {
           args[current] += "&" + text;
         }
       }
@@ -342,20 +358,20 @@
       let template = null;
       if (quoted.length) {
         const tail = findModuleTail(segments, beforeKeys, urlIndex + 1);
-        let selectedR = -1;
+        let selected = null;
         if (tail) {
           for (const candidate of quoted) {
-            if (candidate.end >= tail.tLast) break;
-            if (segments[candidate.end].key !== "reset_day") continue;
+            if (candidate.next >= tail.tLast) break;
+            if (segments[candidate.next].key !== "reset_day") continue;
             if (candidate.even) {
-              selectedR = candidate.end;
+              selected = candidate;
               break;
             }
-            if (selectedR === -1) selectedR = candidate.end;
+            if (!selected) selected = candidate;
           }
-          if (selectedR !== -1) {
-            const t = findFirstKey(segments, selectedR + 1, tail.tLast, "title");
-            template = { r: selectedR, t, ic: tail.ic, co: tail.co, tailEnd: tail.tailEnd };
+          if (selected) {
+            const t = findFirstKey(segments, selected.next + 1, tail.tLast, "title");
+            template = { urlEnd: selected.end, r: selected.next, t, ic: tail.ic, co: tail.co, tailEnd: tail.tailEnd };
           }
         }
         if (!template) {
@@ -380,8 +396,8 @@
         end = plan.end;
       }
       if (template) {
-        const { r, t, ic, co, tailEnd } = template;
-        args.url = joinUrlSegments(segments, urlIndex, r);
+        const { urlEnd, r, t, ic, co, tailEnd } = template;
+        args.url = joinUrlSegments(segments, urlIndex, urlEnd);
         args.reset_day = joinUrlSegments(segments, r, t);
         args.title = joinUrlSegments(segments, t, ic);
         args.icon = joinUrlSegments(segments, ic, co);
@@ -636,7 +652,8 @@
     if (!data || !Number.isFinite(data.used) || data.used < 0 ||
         !Number.isFinite(data.totalBytes) || data.totalBytes <= 0 ||
         !Number.isFinite(data.percent) || data.percent < 0 ||
-        (data.expire !== null && (!Number.isFinite(data.expire) || data.expire < 0))) return null;
+        (data.expire !== null && data.expire !== "unknown" &&
+          (!Number.isFinite(data.expire) || data.expire < 0))) return null;
     const { used, totalBytes, expire } = data;
     const percent = (used / totalBytes) * 100;
     if (!Number.isFinite(percent) || Math.abs(data.percent - percent) > Math.max(1e-6, percent * 1e-9)) return null;
@@ -976,12 +993,17 @@
         const key = first.slice(0, eq).trim().toLowerCase();
         if (key !== "expire" && !TRAFFIC_KEYS.has(key)) continue;
         rawValue = rawValue.trim();
-        if (key === "expire" && (!rawValue || /^(?:null|none)$/i.test(rawValue))) continue;
-        const value = STRICT_NON_NEGATIVE_NUM.test(rawValue) ? Number(rawValue) : NaN;
-        if (!Number.isFinite(value) || value < 0) {
-          if (key === "expire") continue;
-          return null;
+        if (key === "expire") {
+          if (!rawValue || /^(?:null|none|unlimited)$/i.test(rawValue)) {
+            info.expire = null;
+            continue;
+          }
+          const value = STRICT_NON_NEGATIVE_NUM.test(rawValue) ? Number(rawValue) : NaN;
+          info.expire = Number.isFinite(value) && value >= 0 ? value : "unknown";
+          continue;
         }
+        const value = STRICT_NON_NEGATIVE_NUM.test(rawValue) ? Number(rawValue) : NaN;
+        if (!Number.isFinite(value) || value < 0) return null;
         info[key] = value;
       }
     }
@@ -1006,7 +1028,9 @@
           }, Math.max(1000, timeout * 1000 + 250))
           : null;
         const cancelTimer = () => {
-          if (timer !== null && typeof clearTimeout === "function") clearTimeout(timer);
+          if (timer !== null && typeof clearTimeout === "function") {
+            try { clearTimeout(timer); } catch (_) {}
+          }
         };
         try {
           $httpClient[strategy.method](options, (error, result) => {
@@ -1053,7 +1077,9 @@
     const used = (info.upload || 0) + (info.download || 0);
     const percent = (used / info.total) * 100;
     if (!Number.isFinite(used) || !Number.isFinite(percent)) return { error: "No Data" };
-    const expire = typeof info.expire === "number" ? info.expire : null;
+    const expire = info.expire === "unknown"
+      ? "unknown"
+      : (typeof info.expire === "number" ? info.expire : null);
     return { data: { used, totalBytes: info.total, percent, expire } };
   }
 
