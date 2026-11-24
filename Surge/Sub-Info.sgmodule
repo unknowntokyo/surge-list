@@ -1,6 +1,7 @@
 #!name=Sub-Info
 #!desc=显示流量信息与套餐到期时间
-#!category=订阅管理
+#!author=unknownTokyo
+#!category=工具
 #!arguments=NAME_1:第一个机场的名字,URL_1:机场订阅,RESET-Day_1:重置日期,ICON_1:gauge.with.dots.needle.67percent,COLOR_1:#34C759,NAME_2:#第二个机场的名字,URL_2:机场订阅,RESET-Day_2:重置日期,ICON_2:gauge.with.dots.needle.67percent,COLOR_2:#CB30E0,NAME_3:#第三个机场的名字,URL_3:机场订阅,RESET-Day_3:重置日期,ICON_3:gauge.with.dots.needle.67percent,COLOR_3:#E980AB,NAME_4:#第四个机场的名字,URL_4:机场订阅,RESET-Day_4:重置日期,ICON_4:gauge.with.dots.needle.67percent,COLOR_4:#BDDC9D
 #!arguments-desc=[参数设置]\n\n⓵ NAME：填写机场名称，默认开启单订阅；2–4 号机场默认带 # 为关闭状态，去掉 # 即可启用。不可留空或重名，启用项勿以 #、; 或 // 开头，且勿含英文逗号 ,、等号 = 或双引号 "。\n\n⓶ URL：机场订阅链接（无需编码）。\n\n⓷ RESET-Day：流量每月重置日（1–31），如 26 号填 26；留空则仅显示到期日期。\n\n⓸ ICON：自定义面板图标，需为有效的 SF Symbol 名称；留空则使用默认图标（airplane.circle）。\n\n⓹ COLOR：自定义图标颜色，需为 HEX 编码；留空可按用量自动变色。\n\n注意：所有参数值均勿含英文双引号 "。
 
