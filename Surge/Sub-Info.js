@@ -1020,13 +1020,18 @@
     try {
       const resultBox = await new Promise((resolve, reject) => {
         let settled = false;
-        const timer = typeof setTimeout === "function"
-          ? setTimeout(() => {
-            if (settled) return;
-            settled = true;
-            reject(new Error("Timeout"));
-          }, Math.max(1000, timeout * 1000 + 250))
-          : null;
+        let timer = null;
+        if (typeof setTimeout === "function") {
+          try {
+            timer = setTimeout(() => {
+              if (settled) return;
+              settled = true;
+              reject(new Error("Timeout"));
+            }, Math.max(1000, timeout * 1000 + 250));
+          } catch (_) {
+            timer = null;
+          }
+        }
         const cancelTimer = () => {
           if (timer !== null && typeof clearTimeout === "function") {
             try { clearTimeout(timer); } catch (_) {}
@@ -1306,14 +1311,16 @@
   }
 
   function findSensitiveKeyStart(text, bounds) {
-    // 两种后缀都不超过八个码元。API 键分支可保留连字符前缀。
+    // 两种后缀都不超过八个码元。
     const keyLen = bounds.end - bounds.start;
     const tail = keyLen > 8 ? text.slice(bounds.end - 8, bounds.end) : text.slice(bounds.start, bounds.end);
     if (SENSITIVE_KEY_SUFFIX.test(tail)) return bounds.start;
     const match = SENSITIVE_API_KEY_SUFFIX.exec(tail);
     if (!match) return -1;
     const start = bounds.end - match[0].length;
-    return (start === bounds.start || text.charCodeAt(start - 1) === 45) ? start : -1;
+    if (start === bounds.start) return bounds.start;
+    const prev = text.charCodeAt(start - 1);
+    return prev === 45 || prev === 95 ? bounds.start : -1;
   }
 
   function collectSensitiveAssignmentSpans(text, spans) {

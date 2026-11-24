@@ -64,9 +64,10 @@ const PANEL_HTTP_TIMEOUT_S = 3;
 const CRON_HTTP_TIMEOUT_S = 5;
 const OFFICIAL_REFRESH_INTERVAL_MS = 3 * DAY_MS;
 const OFFICIAL_FAILED_RETRY_INTERVAL_MS = DAY_MS;
-const OFFICIAL_DISTINCT_PERIOD_GAP_MS = 60 * DAY_MS;
 const NOTIFY_FAILED_RETRY_INTERVAL_MS = 10 * 60 * 1000;
 const NOTIFY_PANEL_START_HOUR = 8;
+const NOTIFY_PANEL_CRON_GRACE_MINUTES = 2;
+const NOTIFY_CRON_LEASE_MS = 20 * 1000;
 
 const TOP_PINNED_DISPLAY_LIMIT = 2;
 const CATEGORY_CACHE_LIMIT = 7;
@@ -74,13 +75,14 @@ const CATEGORY_DISPLAY_LIMIT = 2;
 
 const STORAGE_SCOPE = "countdown";
 const OFFICIAL_HOLIDAY_STORAGE_VERSION = 3;
-const DAILY_CACHE_SCHEMA_VERSION = 26;
+const DAILY_CACHE_SCHEMA_VERSION = 27;
 const DAILY_CACHE_VERSION = `v${DAILY_CACHE_SCHEMA_VERSION}`;
 
 const OFFICIAL_HOLIDAY_KEY =
   `${STORAGE_SCOPE}_official_holidays_v${OFFICIAL_HOLIDAY_STORAGE_VERSION}`;
 const BASE_CACHE_KEY = `${STORAGE_SCOPE}_daily_${DAILY_CACHE_VERSION}`;
 const NOTIFY_KEY = `${STORAGE_SCOPE}_notify_v1`;
+const NOTIFY_CRON_LEASE_KEY = `${STORAGE_SCOPE}_notify_cron_lease_v1`;
 
 const ISO_DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
 const SLASH_YMD_RE = /^(\d{4})\/(\d{1,2})\/(\d{1,2})$/;
@@ -417,6 +419,10 @@ function mergeItemCoverage(target, source) {
   if (!target || !source || target.diff !== source.diff) {
     return;
   }
+  const sourceDuration = Math.max(1, Number(source.duration) || 1);
+  if (sourceDuration > (Number(target.duration) || 1)) {
+    target.duration = sourceDuration;
+  }
   if (source.coversCustom) {
     target.coversCustom = true;
     if (source.coveredCustomNames && source.coveredCustomNames.size > 0) {
@@ -453,7 +459,8 @@ function dedupeHolidayItemsByToken(items) {
       mergeItemCoverage(usedExactDisplayMap.get(exactDisplayKey), item);
       continue;
     }
-    if (item.sourceKind === "custom") {
+    const isPureCustom = item.sourceKind === "custom" && !item.coversBuiltin;
+    if (isPureCustom) {
       if (!normName || usedCustomNameSet.has(normName)) {
         continue;
       }
@@ -473,6 +480,15 @@ function dedupeHolidayItemsByToken(items) {
     if (matchedOwner) {
       mergeItemCoverage(matchedOwner, item);
       continue;
+    }
+    if (item.coversCustom) {
+      if (item.coveredCustomNames && item.coveredCustomNames.size > 0) {
+        for (const customName of item.coveredCustomNames) {
+          usedCustomNameSet.add(customName);
+        }
+      } else if (normName) {
+        usedCustomNameSet.add(normName);
+      }
     }
     for (const part of parts) {
       usedTokenMap.set(part, item);
@@ -651,7 +667,7 @@ function buildNormalizedCustomNameSet(customNames) {
     const clean = truncateByCodePoint(
       stripInvisibleChars(name, false),
       MAX_EXCLUSIVE_NAME_LENGTH
-    );
+    ).trim();
     if (clean) {
       set.add(clean);
     }
@@ -675,7 +691,12 @@ function splitPinnedHolidayList(value, customNames = []) {
   const preservedNames = Array.from(
     new Set(
       (Array.isArray(customNames) ? customNames : [])
-        .map(name => stripInvisibleChars(name, false))
+        .map(name =>
+          truncateByCodePoint(
+            stripInvisibleChars(name, false),
+            MAX_EXCLUSIVE_NAME_LENGTH
+          ).trim()
+        )
         .filter(name => name && NAME_LIST_SEPARATOR_RE.test(name))
     )
   ).sort((a, b) => b.length - a.length);
@@ -822,7 +843,7 @@ function sanitizeEnvStringValue(key, rawValue, customNames = []) {
     return JSON.stringify(normalizePinnedHolidayList(value, customNames));
   }
   if (EXCLUSIVE_NAME_KEY_RE.test(key)) {
-    return truncateByCodePoint(value, MAX_EXCLUSIVE_NAME_LENGTH);
+    return truncateByCodePoint(value, MAX_EXCLUSIVE_NAME_LENGTH).trim();
   }
   if (isDateField) {
     return truncateByCodePoint(
@@ -1499,6 +1520,104 @@ async function refreshOfficialHolidayYears(
   return nextCache;
 }
 
+function mergeSplitContiguousOfficialGroups(groups) {
+  if (!Array.isArray(groups) || groups.length <= 1) {
+    return Array.isArray(groups) ? groups : [];
+  }
+  const merged = [];
+  let blockStart = 0;
+  while (blockStart < groups.length) {
+    let blockEnd = blockStart;
+    while (
+      blockEnd + 1 < groups.length &&
+      groups[blockEnd + 1].startMs - groups[blockEnd].endMs === DAY_MS
+    ) {
+      blockEnd += 1;
+    }
+    if (blockEnd === blockStart) {
+      merged.push(groups[blockStart]);
+      blockStart = blockEnd + 1;
+      continue;
+    }
+
+    const block = groups.slice(blockStart, blockEnd + 1);
+    const tokenSpans = new Map();
+    for (let i = 0; i < block.length; i++) {
+      for (const part of splitHolidayNames(block[i].name)) {
+        const span = tokenSpans.get(part);
+        if (!span) {
+          tokenSpans.set(part, [i, i]);
+        } else {
+          span[1] = i;
+        }
+      }
+    }
+
+    const rawRanges = [];
+    for (const span of tokenSpans.values()) {
+      if (span[1] > span[0]) {
+        rawRanges.push(span);
+      }
+    }
+    if (rawRanges.length === 0) {
+      for (const g of block) {
+        merged.push(g);
+      }
+      blockStart = blockEnd + 1;
+      continue;
+    }
+
+    rawRanges.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    const collapsed = [];
+    for (const [l, r] of rawRanges) {
+      const last = collapsed[collapsed.length - 1];
+      if (last && l <= last[1]) {
+        if (r > last[1]) {
+          last[1] = r;
+        }
+      } else {
+        collapsed.push([l, r]);
+      }
+    }
+
+    let cursor = 0;
+    for (const [l, r] of collapsed) {
+      while (cursor < l) {
+        merged.push(block[cursor]);
+        cursor += 1;
+      }
+      const combinedParts = [];
+      const seenParts = new Set();
+      for (let i = l; i <= r; i++) {
+        for (const part of splitHolidayNames(block[i].name)) {
+          if (!seenParts.has(part)) {
+            seenParts.add(part);
+            combinedParts.push(part);
+          }
+        }
+      }
+      const firstGroup = block[l];
+      const lastGroup = block[r];
+      merged.push({
+        name: combinedParts.length > 0 ? combinedParts.join("、") : firstGroup.name,
+        start: firstGroup.start,
+        end: lastGroup.end,
+        startMs: firstGroup.startMs,
+        endMs: lastGroup.endMs,
+        duration: Math.round((lastGroup.endMs - firstGroup.startMs) / DAY_MS) + 1
+      });
+      cursor = r + 1;
+    }
+    while (cursor < block.length) {
+      merged.push(block[cursor]);
+      cursor += 1;
+    }
+
+    blockStart = blockEnd + 1;
+  }
+  return merged;
+}
+
 function buildOfficialHolidayRangesFromNormalizedDays(days) {
   if (!Array.isArray(days) || days.length === 0) {
     return [];
@@ -1546,7 +1665,8 @@ function buildOfficialHolidayRangesFromNormalizedDays(days) {
     }
   }
 
-  return groups.map(group => ({
+  const normalizedGroups = mergeSplitContiguousOfficialGroups(groups);
+  return normalizedGroups.map(group => ({
     name: group.name,
     start: group.start,
     end: group.end,
@@ -1764,20 +1884,18 @@ function mergeLegalHolidays(fallbackLegal, officialLegal) {
       merged.push(official.row);
       continue;
     }
-    let hasSameNameUsed = false;
-    let distinctFromAllSameName = true;
+    let overlapsSameName = false;
     for (const usedIdx of usedOfficialIndexes) {
       const used = officialRows[usedIdx];
       if (!partsIntersect(official.parts, used.partSet)) {
         continue;
       }
-      hasSameNameUsed = true;
-      if (officialRowGapMs(official.row, used.row) <= OFFICIAL_DISTINCT_PERIOD_GAP_MS) {
-        distinctFromAllSameName = false;
+      if (officialRowGapMs(official.row, used.row) === 0) {
+        overlapsSameName = true;
         break;
       }
     }
-    if (hasSameNameUsed && distinctFromAllSameName) {
+    if (!overlapsSameName) {
       usedOfficialIndexes.add(i);
       merged.push(official.row);
     }
@@ -1962,11 +2080,18 @@ function resolveLunarExclusiveYMD(
 }
 
 function buildYearFestivals(y, officialRanges, customDays, l2s) {
+  const springFestivalYMD = l2s(y, 1, 1);
+  const springFestivalMs = springFestivalYMD ? slashYMDToMs(springFestivalYMD) : NaN;
+  const isPost2025Legal = y >= 2025;
+  const fallbackSpringStartYMD =
+    isPost2025Legal && Number.isFinite(springFestivalMs)
+      ? msToYMD(springFestivalMs - DAY_MS)
+      : springFestivalYMD;
   const fallbackLegal = [
     ["元旦", YMD(y, 1, 1), 1],
-    ["春节", l2s(y, 1, 1), 3],
+    ["春节", fallbackSpringStartYMD, isPost2025Legal ? 4 : 3],
     ["清明节", getSolarTermYMD(y, 7), 1],
-    ["劳动节", YMD(y, 5, 1), 1],
+    ["劳动节", YMD(y, 5, 1), isPost2025Legal ? 2 : 1],
     ["端午节", l2s(y, 5, 5), 1],
     ["中秋节", l2s(y, 8, 15), 1],
     ["国庆节", YMD(y, 10, 1), 3]
@@ -2156,7 +2281,19 @@ function updatePinnedCountdown(state, name, diff, duration, sourceKind = "builti
         }
         prev.coveredCustomNames.add(normalizedName);
       } else {
+        const safeDuration = Math.max(1, Number(duration) || 1);
+        if (safeDuration > prev.duration) {
+          prev.duration = safeDuration;
+        }
+        const prevWasPureCustom = prev.sourceKind === "custom" && !prev.coversBuiltin;
         prev.coversBuiltin = true;
+        if (prevWasPureCustom) {
+          prev.sourceKind = "builtin";
+        }
+        const prevPartsCount = splitHolidayNames(prev.name).length;
+        if (nameParts.length > 1 && nameParts.length > prevPartsCount) {
+          prev.name = name;
+        }
       }
     }
   }
@@ -2513,6 +2650,26 @@ function createDailyCacheReader(todayStr) {
   };
 }
 
+function acquireNotifyCronLease(nowMs) {
+  return surgeStorage.setJSON(NOTIFY_CRON_LEASE_KEY, {
+    until: nowMs + NOTIFY_CRON_LEASE_MS
+  });
+}
+
+function releaseNotifyCronLease() {
+  surgeStorage.setJSON(NOTIFY_CRON_LEASE_KEY, { until: 0 });
+}
+
+function isNotifyCronLeaseActive(nowMs) {
+  const lease = surgeStorage.getJSON(NOTIFY_CRON_LEASE_KEY);
+  const until = Number(lease?.until);
+  return (
+    Number.isFinite(until) &&
+    until > nowMs &&
+    until <= nowMs + NOTIFY_CRON_LEASE_MS
+  );
+}
+
 function notifyTodayIfNeeded(enableNotify, dateCtx, todayItems, isCron) {
   if (!enableNotify) {
     return { sent: false, reason: "disabled" };
@@ -2522,6 +2679,19 @@ function notifyTodayIfNeeded(enableNotify, dateCtx, todayItems, isCron) {
   }
   if (!isCron && dateCtx.hour < NOTIFY_PANEL_START_HOUR) {
     return { sent: false, reason: "before_morning_window" };
+  }
+  const nowMs = Date.now();
+  if (!isCron) {
+    const localNow = new Date(nowMs);
+    if (
+      localNow.getHours() === NOTIFY_PANEL_START_HOUR &&
+      localNow.getMinutes() < NOTIFY_PANEL_CRON_GRACE_MINUTES
+    ) {
+      return { sent: false, reason: "cron_grace_window" };
+    }
+    if (isNotifyCronLeaseActive(nowMs)) {
+      return { sent: false, reason: "cron_in_flight" };
+    }
   }
   if (!Array.isArray(todayItems) || todayItems.length === 0) {
     return { sent: false, reason: "no_today_items" };
@@ -2543,7 +2713,6 @@ function notifyTodayIfNeeded(enableNotify, dateCtx, todayItems, isCron) {
     return { sent: false, reason: "no_first_day_items" };
   }
 
-  const nowMs = Date.now();
   const prevState = surgeStorage.getJSON(NOTIFY_KEY);
   const sameDay = Boolean(prevState && prevState.date === todayIso);
   let prevNotified = [];
@@ -2600,16 +2769,20 @@ function notifyTodayIfNeeded(enableNotify, dateCtx, todayItems, isCron) {
     return { sent: false, reason: "already_notified" };
   }
 
+  const mergedNotified = Array.from(new Set([...prevNotified, ...pendingNames]));
+  const claimed = surgeStorage.setJSON(NOTIFY_KEY, {
+    date: todayIso,
+    names: todayStartNames,
+    notifiedNames: mergedNotified,
+    time: nowMs,
+    failed: false
+  });
+  if (!claimed) {
+    warnLog("failed to persist notify claim before post");
+  }
+
   try {
     $notification.post("✨ 今日提醒", "", pendingNames.join("、"), { sound: true });
-    const mergedNotified = Array.from(new Set([...prevNotified, ...pendingNames]));
-    surgeStorage.setJSON(NOTIFY_KEY, {
-      date: todayIso,
-      names: todayStartNames,
-      notifiedNames: mergedNotified,
-      time: nowMs,
-      failed: false
-    });
     return { sent: true, names: pendingNames };
   } catch (e) {
     surgeStorage.setJSON(NOTIFY_KEY, {
@@ -2699,59 +2872,69 @@ async function runCountdown() {
   const normalizedEnv = buildNormalizedEnv(rawEnv);
   const dataEnvFingerprint = buildEnvFingerprintFromNormalized(normalizedEnv);
   const enableNotify = normalizedEnv.ENABLE_NOTIFY !== "0";
+  const cronLeaseAcquired = isCron && enableNotify && acquireNotifyCronLease(nowMs);
 
-  const dailyCache = createDailyCacheReader(dateCtx.todayStr);
-  let officialHolidayCache = readOfficialHolidayCache(dateCtx.Y, dateCtx.todayIso, nowMs);
+  let officialHolidayCache;
+  let baseData;
+  let notifyRes;
+  try {
+    const dailyCache = createDailyCacheReader(dateCtx.todayStr);
+    officialHolidayCache = readOfficialHolidayCache(dateCtx.Y, dateCtx.todayIso, nowMs);
 
-  const readBaseByOfficialState = () => {
-    const envFingerprint = buildCompositeEnvFingerprint(
-      dataEnvFingerprint,
-      officialHolidayCache
-    );
-    return {
-      envFingerprint,
-      cachedBaseData: dailyCache.read(envFingerprint)
+    const readBaseByOfficialState = () => {
+      const envFingerprint = buildCompositeEnvFingerprint(
+        dataEnvFingerprint,
+        officialHolidayCache
+      );
+      return {
+        envFingerprint,
+        cachedBaseData: dailyCache.read(envFingerprint)
+      };
     };
-  };
 
-  let { envFingerprint, cachedBaseData } = readBaseByOfficialState();
+    let { envFingerprint, cachedBaseData } = readBaseByOfficialState();
 
-  const canFetchOfficial = typeof $httpClient !== "undefined" && Boolean($httpClient?.get);
-  if (canFetchOfficial) {
-    const plan = resolveOfficialRefreshPlan(
-      officialHolidayCache,
-      dateCtx.Y,
-      dateCtx.todayIso,
-      nowMs,
-      Boolean(cachedBaseData),
-      isCron || isManualRefresh,
-      isManualRefresh
-    );
-    if (plan.blockingYearsToFetch.length > 0) {
-      const timeoutSec = isCron ? CRON_HTTP_TIMEOUT_S : PANEL_HTTP_TIMEOUT_S;
-      try {
-        officialHolidayCache = await refreshOfficialHolidayYears(
-          officialHolidayCache,
-          plan.blockingYearsToFetch,
-          dateCtx.Y,
-          dateCtx.todayIso,
-          nowMs,
-          timeoutSec
-        );
-      } catch (e) {
-        warnLog("official holiday refresh error:", e);
+    const canFetchOfficial = typeof $httpClient !== "undefined" && Boolean($httpClient?.get);
+    if (canFetchOfficial) {
+      const plan = resolveOfficialRefreshPlan(
+        officialHolidayCache,
+        dateCtx.Y,
+        dateCtx.todayIso,
+        nowMs,
+        Boolean(cachedBaseData),
+        isCron || isManualRefresh,
+        isManualRefresh
+      );
+      if (plan.blockingYearsToFetch.length > 0) {
+        const timeoutSec = isCron ? CRON_HTTP_TIMEOUT_S : PANEL_HTTP_TIMEOUT_S;
+        try {
+          officialHolidayCache = await refreshOfficialHolidayYears(
+            officialHolidayCache,
+            plan.blockingYearsToFetch,
+            dateCtx.Y,
+            dateCtx.todayIso,
+            nowMs,
+            timeoutSec
+          );
+        } catch (e) {
+          warnLog("official holiday refresh error:", e);
+        }
+        ({ envFingerprint, cachedBaseData } = readBaseByOfficialState());
       }
-      ({ envFingerprint, cachedBaseData } = readBaseByOfficialState());
+    }
+
+    baseData = cachedBaseData;
+    if (!baseData) {
+      baseData = buildCountdownData(dateCtx, normalizedEnv, officialHolidayCache);
+      dailyCache.save(envFingerprint, baseData);
+    }
+
+    notifyRes = notifyTodayIfNeeded(enableNotify, dateCtx, baseData.todayItems, isCron);
+  } finally {
+    if (cronLeaseAcquired) {
+      releaseNotifyCronLease();
     }
   }
-
-  let baseData = cachedBaseData;
-  if (!baseData) {
-    baseData = buildCountdownData(dateCtx, normalizedEnv, officialHolidayCache);
-    dailyCache.save(envFingerprint, baseData);
-  }
-
-  const notifyRes = notifyTodayIfNeeded(enableNotify, dateCtx, baseData.todayItems, isCron);
 
   if (isCron) {
     const todayLog = baseData.todayNoticeText || "none";
