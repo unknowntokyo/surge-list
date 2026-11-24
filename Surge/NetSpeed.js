@@ -3,11 +3,11 @@
  *
  * $argument 参数（key=value 以 & 连接，均可选；支持 URL 编码，字面 % 请写 %25；
  * 参数值含逗号时请用双引号包裹整个 argument="..."）：
- * - policy：测速策略或策略组名，默认 DIRECT；传空值（policy=）或 "-" 时跟随 Surge 规则分流
+ * - TITLE（兼容 title）：面板标题，默认 NetSpeed
+ * - POLICY（兼容 policy）：测速策略或策略组名，默认 DIRECT；传空值（POLICY=）或 "-" 时跟随 Surge 规则分流
  * - TEST_PACKET（兼容 SPEED_TEST_PACKET / mb）：下行测速数据量（MB，支持小数），
  *   默认 3（iOS 上限 16 且建议不超过 8，大包体可能增加内存占用 / Mac 上限 64）
- * - timeout：单次测速请求超时秒数，默认 4（脚本上限 60，仅在手动调大 [Script] timeout 时生效；模块 timeout=10 下建议不超过 8）
- * - title：面板标题，默认 NetSpeed
+ * - TIMEOUT（兼容 timeout）：单次测速请求超时秒数，默认 4（脚本上限 60，仅在手动调大 [Script] timeout 时生效；模块 timeout=10 下建议不超过 8）
  *
  * 说明：Surge $httpClient 不支持流式读取，须在超时内完整下完测速包才能算速；
  * 默认 3MB/4s 下低于约 6 Mbps（模块 3MB/8s 下低于约 3 Mbps）会超时并回退缓存。
@@ -89,11 +89,16 @@ function getNonEmptyString(value) {
 }
 
 function resolvePolicy(arg) {
-  if (!hasOwn(arg, 'policy')) {
+  const key = hasOwn(arg, 'POLICY')
+    ? 'POLICY'
+    : hasOwn(arg, 'policy')
+      ? 'policy'
+      : '';
+  if (!key) {
     return DEFAULT_POLICY;
   }
 
-  const value = getNonEmptyString(arg.policy);
+  const value = getNonEmptyString(arg[key]);
   if (!value || value === '-') {
     return null;
   }
@@ -159,7 +164,7 @@ function getTimeoutSeconds(value) {
 
   if (!STRICT_DECIMAL_RE.test(raw)) {
     console.log(
-      `[NetSpeed] timeout=${raw} 格式无效，已回退默认 ${DEFAULT_TIMEOUT}s`
+      `[NetSpeed] TIMEOUT=${raw} 格式无效，已回退默认 ${DEFAULT_TIMEOUT}s`
     );
     return DEFAULT_TIMEOUT;
   }
@@ -167,14 +172,14 @@ function getTimeoutSeconds(value) {
   const seconds = Number(raw);
   if (!Number.isFinite(seconds) || seconds <= 0) {
     console.log(
-      `[NetSpeed] timeout=${raw} 无效，已回退默认 ${DEFAULT_TIMEOUT}s`
+      `[NetSpeed] TIMEOUT=${raw} 无效，已回退默认 ${DEFAULT_TIMEOUT}s`
     );
     return DEFAULT_TIMEOUT;
   }
 
   if (seconds > MAX_TIMEOUT) {
     console.log(
-      `[NetSpeed] timeout=${seconds} 超过上限 ${MAX_TIMEOUT}s（单位为秒，非毫秒），已回退默认 ${DEFAULT_TIMEOUT}s`
+      `[NetSpeed] TIMEOUT=${seconds} 超过上限 ${MAX_TIMEOUT}s（单位为秒，非毫秒），已回退默认 ${DEFAULT_TIMEOUT}s`
     );
     return DEFAULT_TIMEOUT;
   }
@@ -814,11 +819,13 @@ async function resolveSpeedNode(policy, runId, startedAt, finishedAt) {
 
 (async () => {
   const arg = parseArguments(typeof $argument !== 'undefined' ? $argument : '');
-  const panelTitle = getNonEmptyString(arg.title) || DEFAULT_TITLE;
+  const rawTitle = hasOwn(arg, 'TITLE') ? arg.TITLE : arg.title;
+  const panelTitle = getNonEmptyString(rawTitle) || DEFAULT_TITLE;
   const policy = resolvePolicy(arg);
   const policyLabel = policy === null ? RULE_POLICY_LABEL : policy;
   const packetBytes = getPacketBytes(arg);
-  const timeout = getTimeoutSeconds(arg.timeout);
+  const rawTimeout = hasOwn(arg, 'TIMEOUT') ? arg.TIMEOUT : arg.timeout;
+  const timeout = getTimeoutSeconds(rawTimeout);
   const runId = createRunId();
   const speedTestUrl =
     `https://speed.cloudflare.com/__down?bytes=${packetBytes}&_=${runId}`;
