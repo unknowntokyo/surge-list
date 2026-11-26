@@ -15,7 +15,7 @@
 const COLORS = {
   direct: "#00C0E8",
   peerRelay: "#34C759",
-  derp: "#FFCC00",
+  derp: "#FF8D28",
   error: "#FF383C",
   idle: "#CB30E0",
 };
