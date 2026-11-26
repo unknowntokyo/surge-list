@@ -478,7 +478,7 @@ function buildPanel(args, data) {
     const addrValue = defaultDerp || "-";
     return {
       title: args.TITLE,
-      content: `出口节点：${nodeLabel}\n连接方式：待连接 (未活跃)\n${addrTitle}：${addrValue}\n当前延迟：无数据`,
+      content: `出口节点：${nodeLabel}\n连接方式：空闲中\n${addrTitle}：${addrValue}\n当前延迟：无数据`,
       icon: args.ICON,
       "icon-color": pickColor(COLORS.idle),
     };
@@ -501,7 +501,7 @@ function buildPanel(args, data) {
         : "未知";
     stateColor = COLORS.peerRelay;
   } else if (effectiveType === "direct") {
-    connLabel = "直连 (Direct)";
+    connLabel = "直连";
     addrTitle = "直连地址";
     addrValue =
       typeof exitPeer.directAddress === "string" && exitPeer.directAddress.trim()
