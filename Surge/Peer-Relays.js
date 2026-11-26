@@ -177,7 +177,10 @@ function findPeerRelayNodeName(ts, relayAddress, shortName) {
   if (relayHost) {
     const matched = peers.find((p) => {
       if (!p || !p.relayServerCandidate) return false;
-      return extractHost(p.directAddress) === relayHost;
+      return (
+        extractHost(p.directAddress) === relayHost ||
+        extractHost(p.relayAddress) === relayHost
+      );
     });
     if (matched && matched.name) {
       return formatNodeName(matched.name, shortName);
@@ -312,9 +315,13 @@ function buildPanel(args, data) {
 
   const ts = data && data.tailscale;
   if (!ts) {
+    const serverMsg =
+      data && typeof data.result === "string" && data.result.trim() ? data.result.trim() : "";
     return {
       title: args.TITLE,
-      content: `策略「${args.POLICY}」不是 Tailscale 代理或无运行数据`,
+      content: serverMsg
+        ? `策略「${args.POLICY}」查询异常：${serverMsg}`
+        : `策略「${args.POLICY}」不是 Tailscale 代理或无运行数据`,
       icon: args.ICON,
       "icon-color": pickColor(COLORS.error),
     };
@@ -433,7 +440,7 @@ function safeFormatError(err) {
 function isLikelyMcpEndpointError(err, errMsg) {
   const code = err && typeof err === "object" ? err.code : undefined;
   if (code === -32601 || code === 403 || code === 404) return true;
-  return /(403|404|forbidden|not found|disabled|mcp|subscription|unauthorized)/i.test(
+  return /(403|404|forbidden|not found|unknown path|disabled|mcp|subscription|unauthorized)/i.test(
     String(errMsg || "")
   );
 }
