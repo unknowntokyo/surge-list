@@ -13,11 +13,11 @@
  */
 
 const COLORS = {
-  direct: "#34C759",
-  peerRelay: "#007AFF",
-  derp: "#FF9500",
-  error: "#FF3B30",
-  idle: "#8E8E93",
+  direct: "#00C0E8",
+  peerRelay: "#34C759",
+  derp: "#FFCC00",
+  error: "#FF383C",
+  idle: "#CB30E0",
 };
 
 const DEFAULTS = {
@@ -26,7 +26,7 @@ const DEFAULTS = {
   ICON: "point.3.connected.trianglepath.dotted",
   SHORT_NAME: "true",
   AUTO_COLOR: "true",
-  COLOR: "#00C0E8",
+  COLOR: "#FFCC00",
 };
 
 const ARG_KEYS = ["POLICY", "TITLE", "ICON", "SHORT_NAME", "AUTO_COLOR", "COLOR"];
