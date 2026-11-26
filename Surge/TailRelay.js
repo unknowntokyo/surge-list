@@ -292,7 +292,7 @@ function findDerpDisplay(ts, peer, allowGenericFallback) {
   }
   if (displayCode) return `DERP ${displayCode}`;
   if (regionIDStr) return `DERP #${regionIDStr}`;
-  return allowFallback ? "官方 DERP" : "";
+  return allowFallback ? "官方DERP" : "";
 }
 
 function findHomeDerpDisplay(ts) {
@@ -329,7 +329,7 @@ function resolveLatency(ts, peer, connType) {
     return `${Math.round(ownLatency)} ms`;
   }
 
-  // 仅在官方 DERP 中继路径下允许回退使用 netcheck 本机到 DERP 区域的单段测速
+  // 仅在官方DERP中继路径下允许回退使用 netcheck 本机到 DERP 区域的单段测速
   if (connType === "relay" || connType === "derp") {
     const regionMap = ts.netcheck && ts.netcheck.regionLatencyMs;
     if (
@@ -343,7 +343,7 @@ function resolveLatency(ts, peer, connType) {
       if (Object.prototype.hasOwnProperty.call(regionMap, key)) {
         const fallback = parseNonNegativeNumber(regionMap[key]);
         if (fallback !== null) {
-          return `约 ${Math.round(fallback)} ms`;
+          return `约${Math.round(fallback)}ms`;
         }
       }
     }
@@ -476,7 +476,7 @@ function buildPanel(args, data) {
   const hasDirectAddr =
     typeof exitPeer.directAddress === "string" && exitPeer.directAddress.trim() !== "";
 
-  // 在线且无有效直连/中继地址、尚未完成握手时，避免将其误判为正在走官方 DERP 中继
+  // 在线且无有效直连/中继地址、尚未完成握手时，避免将其误判为正在走官方DERP中继
   if (
     peerStatus === "not-used" &&
     exitPeer.handshakeCompleted === false &&
@@ -517,7 +517,7 @@ function buildPanel(args, data) {
   } else if (effectiveType === "relay" || effectiveType === "derp") {
     const derpCode =
       typeof exitPeer.derpRegionCode === "string" ? exitPeer.derpRegionCode.trim() : "";
-    connLabel = derpCode ? `官方 DERP (${derpCode})` : "官方 DERP";
+    connLabel = derpCode ? `官方DERP(${derpCode})` : "官方DERP";
     addrTitle = "中继节点";
     addrValue = findDerpDisplay(ts, exitPeer, true);
     stateColor = COLORS.derp;
