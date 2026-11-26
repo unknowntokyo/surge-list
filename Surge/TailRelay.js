@@ -517,7 +517,7 @@ function buildPanel(args, data) {
   } else if (effectiveType === "relay" || effectiveType === "derp") {
     const derpCode =
       typeof exitPeer.derpRegionCode === "string" ? exitPeer.derpRegionCode.trim() : "";
-    connLabel = derpCode ? `官方DERP(${derpCode})` : "官方DERP";
+    connLabel = derpCode ? `官方DERP (${derpCode})` : "官方DERP";
     addrTitle = "中继节点";
     addrValue = findDerpDisplay(ts, exitPeer, true);
     stateColor = COLORS.derp;
