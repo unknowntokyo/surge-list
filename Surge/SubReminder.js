@@ -10,6 +10,8 @@
  * - REMIND_DAYS：提前提醒天数，默认 "1 0"（兼容逗号/顿号/空格分隔，单值 0～60）；非法值回退默认。
  *   同一订阅同一续费期的同一档位只推一次（按脚本实例+订阅名+周期及同名序号去重，不同脚本实例分键隔离）；漏跑补最近档位，跨过续费日不追溯上一期。
  * - NOTIFY：默认 true（仅接受 true/false）；仅由 Cron 定时任务触发系统通知，面板刷新不弹窗。
+ * - NOTIFY_TIME：每日提示时间，默认 "08:00"（支持 24 小时制 HH:MM / H:MM / 中文冒号 / 纯小时 H，范围 00:00～23:59）；
+ *   按 TZ_OFFSET 对应时区判断，到达或超过该时间后由 Cron 触发提醒（配合去重避免重复推送并支持当天漏跑补推）；非法值回退默认。
  * - TZ_OFFSET：固定时区偏移 -12～14 小时，默认 8，不自动处理夏令时。
  * - SHOW_TOTAL：默认 true（仅接受 true/false）；按币种统计月均，按天周期以 30 天折算，不换汇；
  *   人民币 ¥/￥/元/CNY/RMB 统一为 ¥ 并合计（兼容 ¥10元 等写法），其余含字母币种忽略大小写归并、顺序按 SUB_n，最多显示两种，超出以 +N 提示。
@@ -32,6 +34,8 @@
   const DAY_MS = 86400000;
   const MAX_SUBS = 20;
   const DEFAULT_MAX_DISPLAY = 8;
+  const DEFAULT_NOTIFY_TIME = "08:00";
+  const DEFAULT_NOTIFY_MINUTES = 8 * 60;
   const NOTIFY_STORE_NAME = "sub_reminder_notified_v1";
 
   // ---------- 基础工具 ----------
@@ -52,9 +56,12 @@
     return toMs(ny, nm, Math.min(d, daysInMonth(ny, nm)));
   }
 
-  function getTodayMs(tzOffsetHours, nowMs) {
+  function getLocalTimeInfo(tzOffsetHours, nowMs) {
     const local = new Date(nowMs + tzOffsetHours * 3600000);
-    return toMs(local.getUTCFullYear(), local.getUTCMonth() + 1, local.getUTCDate());
+    return {
+      todayMs: toMs(local.getUTCFullYear(), local.getUTCMonth() + 1, local.getUTCDate()),
+      minutesOfDay: local.getUTCHours() * 60 + local.getUTCMinutes()
+    };
   }
 
   function isPlainObject(val) {
@@ -82,7 +89,7 @@
     }
 
     const env = {};
-    const keyRe = /(?:^|&)(SUB_\d+|TZ_OFFSET|REMIND_DAYS|NOTIFY|SHOW_TOTAL|MAX_DISPLAY)=/g;
+    const keyRe = /(?:^|&)(SUB_\d+|TZ_OFFSET|REMIND_DAYS|NOTIFY_TIME|NOTIFY|SHOW_TOTAL|MAX_DISPLAY)=/g;
     const matches = [];
     let m;
     while ((m = keyRe.exec(text)) !== null) {
@@ -233,6 +240,25 @@
     if (s === "false") return false;
     errors.push(`${name} 有误，已使用 true`);
     return true;
+  }
+
+  function parseNotifyTime(raw, errors) {
+    const s = String(raw ?? "").trim();
+    if (!s) return DEFAULT_NOTIFY_MINUTES;
+    const hm = s.match(/^(\d{1,2})\s*[:：]\s*(\d{2})$/);
+    if (hm) {
+      const h = Number(hm[1]);
+      const m = Number(hm[2]);
+      if (h <= 23 && m <= 59) return h * 60 + m;
+    } else {
+      const hourOnly = s.match(/^(\d{1,2})$/);
+      if (hourOnly) {
+        const h = Number(hourOnly[1]);
+        if (h <= 23) return h * 60;
+      }
+    }
+    errors.push(`NOTIFY_TIME 有误，已使用 ${DEFAULT_NOTIFY_TIME}`);
+    return DEFAULT_NOTIFY_MINUTES;
   }
 
   // ---------- 计算续费日与汇总 ----------
@@ -489,9 +515,10 @@
       const remindDays = parseRemindDays(env.REMIND_DAYS, errors);
       const maxDisplay = parseMaxDisplay(env.MAX_DISPLAY, errors);
       const notify = parseBool(env.NOTIFY, "NOTIFY", errors);
+      const notifyMinutes = parseNotifyTime(env.NOTIFY_TIME, errors);
       const showTotal = parseBool(env.SHOW_TOTAL, "SHOW_TOTAL", errors);
 
-      const todayMs = getTodayMs(tz, Date.now());
+      const { todayMs, minutesOfDay } = getLocalTimeInfo(tz, Date.now());
       const items = parseSubs(env, errors)
         .map(sub => computeRenewal(sub, todayMs))
         .sort((a, b) => a.diff - b.diff || a.slot - b.slot);
@@ -500,8 +527,8 @@
         console.log(`[SubReminder] ${errors.join("；")}`);
       }
 
-      // 仅在 Cron 定时任务运行时检查并发送系统通知，避免面板刷新提前打扰或消费档位。
-      if (notify && isCronExecution()) {
+      // 仅在 Cron 定时任务运行且到达设定的提示时间后检查并发送系统通知，避免面板刷新或未到点提前打扰。
+      if (notify && isCronExecution() && minutesOfDay >= notifyMinutes) {
         try {
           notifyIfNeeded(items, remindDays, todayMs, NOTIFY_STORE_NAME);
         } catch (e) {
