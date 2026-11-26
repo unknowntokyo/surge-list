@@ -1,0 +1,11 @@
+#!name=Tailscale 出口状态面板
+#!desc=在 Surge 面板展示 Tailscale 出口节点、连接方式（直连 / Peer Relay / DERP）、中继公网 IP 与端口及当前延迟。需在 [General] 中开启 http-api-mcp = true。
+#!category=Tailscale
+#!arguments=POLICY:Tailscale,TITLE:Tailscale 出口,ICON:point.3.connected.trianglepath.dotted,SHORT_NAME:true,AUTO_COLOR:true,COLOR:#007AFF
+#!arguments-desc=POLICY: Tailscale 代理策略名\nTITLE: 面板显示标题\nICON: SF Symbols 图标名称\nSHORT_NAME: 是否隐藏 .ts.net 后缀（true/false）\nAUTO_COLOR: 按连接类型自动变色（true/false）\nCOLOR: 关闭自动变色时的图标色值
+
+[Panel]
+TailscaleStatus = title=Tailscale 出口, content=加载中..., icon=point.3.connected.trianglepath.dotted, script-name=TailscaleStatus, update-interval=60
+
+[Script]
+TailscaleStatus = type=generic, timeout=10, script-path=https://raw.githubusercontent.com/unknowntokyo/surge-list/master/Surge/Peer-Relays.js, argument="POLICY={{{POLICY}}}&TITLE={{{TITLE}}}&ICON={{{ICON}}}&SHORT_NAME={{{SHORT_NAME}}}&AUTO_COLOR={{{AUTO_COLOR}}}&COLOR={{{COLOR}}}"
