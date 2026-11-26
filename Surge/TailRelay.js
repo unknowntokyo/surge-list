@@ -471,14 +471,26 @@ function buildPanel(args, data) {
     };
   }
 
-  // 在线但尚未发起流量 / 未完成握手时，避免将其误判为正在走官方 DERP 中继
-  if (peerStatus === "not-used" && exitPeer.handshakeCompleted === false) {
+  const hasRelayAddr =
+    typeof exitPeer.relayAddress === "string" && exitPeer.relayAddress.trim() !== "";
+  const hasDirectAddr =
+    typeof exitPeer.directAddress === "string" && exitPeer.directAddress.trim() !== "";
+
+  // 在线且无有效直连/中继地址、尚未完成握手时，避免将其误判为正在走官方 DERP 中继
+  if (
+    peerStatus === "not-used" &&
+    exitPeer.handshakeCompleted === false &&
+    effectiveType !== "peer-relay" &&
+    effectiveType !== "direct" &&
+    !hasRelayAddr &&
+    !hasDirectAddr
+  ) {
     const defaultDerp = findDerpDisplay(ts, exitPeer, false);
     const addrTitle = defaultDerp ? "默认中继" : "连接地址";
     const addrValue = defaultDerp || "-";
     return {
       title: args.TITLE,
-      content: `出口节点：${nodeLabel}\n连接方式：空闲中\n${addrTitle}：${addrValue}\n当前延迟：无数据`,
+      content: `出口节点：${nodeLabel}\n连接方式：待连接\n${addrTitle}：${addrValue}\n当前延迟：无数据`,
       icon: args.ICON,
       "icon-color": pickColor(COLORS.idle),
     };
@@ -495,18 +507,12 @@ function buildPanel(args, data) {
     const relayNode = findPeerRelayNodeName(ts, exitPeer.relayAddress, shortName);
     connLabel = relayNode ? `Peer Relay (${relayNode})` : "Peer Relay";
     addrTitle = "中继地址";
-    addrValue =
-      typeof exitPeer.relayAddress === "string" && exitPeer.relayAddress.trim()
-        ? exitPeer.relayAddress.trim()
-        : "未知";
+    addrValue = hasRelayAddr ? exitPeer.relayAddress.trim() : "未知";
     stateColor = COLORS.peerRelay;
   } else if (effectiveType === "direct") {
     connLabel = "直连";
     addrTitle = "直连地址";
-    addrValue =
-      typeof exitPeer.directAddress === "string" && exitPeer.directAddress.trim()
-        ? exitPeer.directAddress.trim()
-        : "未知";
+    addrValue = hasDirectAddr ? exitPeer.directAddress.trim() : "未知";
     stateColor = COLORS.direct;
   } else if (effectiveType === "relay" || effectiveType === "derp") {
     const derpCode =
@@ -515,10 +521,10 @@ function buildPanel(args, data) {
     addrTitle = "中继节点";
     addrValue = findDerpDisplay(ts, exitPeer, true);
     stateColor = COLORS.derp;
-  } else if (typeof exitPeer.relayAddress === "string" && exitPeer.relayAddress.trim()) {
+  } else if (hasRelayAddr) {
     addrTitle = "中继地址";
     addrValue = exitPeer.relayAddress.trim();
-  } else if (typeof exitPeer.directAddress === "string" && exitPeer.directAddress.trim()) {
+  } else if (hasDirectAddr) {
     addrTitle = "直连地址";
     addrValue = exitPeer.directAddress.trim();
   } else {
