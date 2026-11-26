@@ -5,9 +5,9 @@
  *
  * 支持参数（通过 $argument 传入原始 UTF-8 文本，不做 URL 解码）：
  *   POLICY      Tailscale 代理策略名称，默认 Tailscale
- *   TITLE       面板标题，默认 Tailscale节点中继
+ *   TITLE       面板标题，默认 TailRelay
  *   ICON        SF Symbols 图标名，默认 point.3.connected.trianglepath.dotted
- *   SHORT_NAME  是否隐藏 .ts.net 后缀，默认 false
+ *   SHORT_NAME  是否隐藏 .ts.net 后缀，默认 true
  *   AUTO_COLOR  是否按连接状态自动配色（直连绿/Peer Relay蓝/DERP橙/异常红），默认 true
  *   COLOR       AUTO_COLOR=false 时使用的图标十六进制色值，默认 #00C0E8
  */
@@ -22,9 +22,9 @@ const COLORS = {
 
 const DEFAULTS = {
   POLICY: "Tailscale",
-  TITLE: "Tailscale节点中继",
+  TITLE: "TailRelay",
   ICON: "point.3.connected.trianglepath.dotted",
-  SHORT_NAME: "false",
+  SHORT_NAME: "true",
   AUTO_COLOR: "true",
   COLOR: "#00C0E8",
 };
@@ -310,7 +310,7 @@ function findExitPeer(peers, exitNode) {
 }
 
 function buildPanel(args, data) {
-  const shortName = toBool(args.SHORT_NAME, false);
+  const shortName = toBool(args.SHORT_NAME, true);
   const pickColor = (stateColor) => resolveIconColor(args, stateColor);
 
   const ts = data && data.tailscale;
