@@ -8,7 +8,7 @@
  *   TITLE       面板标题，默认 TailRelay
  *   ICON        SF Symbols 图标名，默认 point.3.connected.trianglepath.dotted
  *   SHORT_NAME  是否隐藏 .ts.net 后缀，默认 true
- *   AUTO_COLOR  是否按连接状态自动配色（直连绿/Peer Relay蓝/DERP橙/未启用或待连接紫/异常红），默认 true
+ *   AUTO_COLOR  是否按连接状态自动配色（直连绿/Peer Relay蓝/DERP橙/未启用或空闲中紫/异常红），默认 true
  *   COLOR       AUTO_COLOR=false 时使用的图标十六进制色值，默认 #FFCC00
  */
 
@@ -490,7 +490,7 @@ function buildPanel(args, data) {
     const addrValue = defaultDerp || "-";
     return {
       title: args.TITLE,
-      content: `出口节点：${nodeLabel}\n连接方式：待连接\n${addrTitle}：${addrValue}\n当前延迟：无数据`,
+      content: `出口节点：${nodeLabel}\n连接方式：空闲中\n${addrTitle}：${addrValue}\n当前延迟：无数据`,
       icon: args.ICON,
       "icon-color": pickColor(COLORS.idle),
     };
