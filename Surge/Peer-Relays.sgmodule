@@ -1,12 +1,13 @@
 #!name=Tailscale节点中继
-#!desc=在 Surge 面板展示 Tailscale 出口节点、连接方式（直连 / Peer Relay / DERP）、中继公网 IP 与端口及当前延迟。需在 [General] 中开启 http-api-mcp = true。
+#!desc=在 Surge 面板展示 Tailscale 出口节点、连接方式（直连 / Peer Relay / DERP）、中继公网 IP 与端口及当前延迟。需 Surge iOS 6.0.0+（含特性订阅）或 Mac 6.11.0+，并在 [General] 开启 http-api-mcp = true（建议确认 http-api 仅监听 127.0.0.1 或已配置强 Key 与 http-api-tls）。默认引用同目录本地脚本 Peer-Relays.js，如改为远程 URL 请锁定不可变 Git commit SHA。
 #!author=unknownTokyo
 #!category=工具
+#!requirement=CORE_VERSION>=6011000
 #!arguments=POLICY:Tailscale,TITLE:Tailscale节点中继,ICON:point.3.connected.trianglepath.dotted,SHORT_NAME:false,AUTO_COLOR:true,COLOR:#00C0E8
-#!arguments-desc=POLICY: Tailscale 代理策略名\nTITLE: 面板显示标题\nICON: SF Symbols 图标名称\nSHORT_NAME: 是否隐藏 .ts.net 后缀（true/false）\nAUTO_COLOR: 按连接类型自动变色（true/false）\nCOLOR: 关闭自动变色时的图标色值
+#!arguments-desc=POLICY: Tailscale 代理策略名（勿含未转义英文双引号）\nTITLE: 面板显示标题（勿含未转义英文双引号）\nICON: SF Symbols 图标名称\nSHORT_NAME: 是否隐藏 .ts.net 后缀（true/false）\nAUTO_COLOR: 按连接类型自动变色（true/false）\nCOLOR: 关闭自动变色时的图标十六进制色值（如 #00C0E8）
 
 [Panel]
-TailscaleStatus = title=Tailscale节点中继, content=加载中..., icon=point.3.connected.trianglepath.dotted, script-name=TailscaleStatus, update-interval=60
+TailscaleStatus = title={{{TITLE}}}, content=加载中..., icon={{{ICON}}}, script-name=TailscaleStatus, update-interval=60
 
 [Script]
-TailscaleStatus = type=generic, timeout=10, script-path=https://raw.githubusercontent.com/unknowntokyo/surge-list/master/Surge/Peer-Relays.js, argument="POLICY={{{POLICY}}}&TITLE={{{TITLE}}}&ICON={{{ICON}}}&SHORT_NAME={{{SHORT_NAME}}}&AUTO_COLOR={{{AUTO_COLOR}}}&COLOR={{{COLOR}}}"
+TailscaleStatus = type=generic, timeout=10, script-path=Peer-Relays.js, argument="v2|POLICY={{{POLICY}}}|&|TITLE={{{TITLE}}}|&|ICON={{{ICON}}}|&|SHORT_NAME={{{SHORT_NAME}}}|&|AUTO_COLOR={{{AUTO_COLOR}}}|&|COLOR={{{COLOR}}}"
