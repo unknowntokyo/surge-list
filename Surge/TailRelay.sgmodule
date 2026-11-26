@@ -3,7 +3,7 @@
 #!author=unknownTokyo
 #!category=工具
 #!requirement=CORE_VERSION>=6011000
-#!arguments=POLICY:Tailscale,TITLE:TailRelay,ICON:point.3.connected.trianglepath.dotted,SHORT_NAME:true,AUTO_COLOR:true,COLOR:#00C0E8
+#!arguments=POLICY:Tailscale,TITLE:TailRelay,ICON:point.3.connected.trianglepath.dotted,SHORT_NAME:true,AUTO_COLOR:true,COLOR:#FFCC00
 #!arguments-desc=POLICY: Tailscale 代理策略名（勿含未转义英文双引号）\nTITLE: 面板显示标题（勿含未转义英文双引号）\nICON: SF Symbols 图标名称\nSHORT_NAME: 是否隐藏 .ts.net 后缀（true/false）\nAUTO_COLOR: 按连接类型自动变色（true/false）\nCOLOR: 关闭自动变色时的图标十六进制色值（如 #00C0E8）
 
 [Panel]
