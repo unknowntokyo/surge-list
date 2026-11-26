@@ -283,7 +283,7 @@ function resolveLatency(ts, peer, connType) {
     }
   }
 
-  return "未测得";
+  return "无数据";
 }
 
 function findExitPeer(peers, exitNode) {
