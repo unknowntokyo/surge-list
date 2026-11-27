@@ -287,9 +287,7 @@ function findDerpDisplay(ts, peer, allowGenericFallback) {
   const displayCode = code || connCode;
   const connHost = conn && typeof conn.hostname === "string" ? conn.hostname.trim() : "";
 
-  if (connHost) {
-    return displayCode ? `${connHost} (${displayCode})` : connHost;
-  }
+  if (connHost) return connHost;
   if (displayCode) return `DERP ${displayCode}`;
   if (regionIDStr) return `DERP #${regionIDStr}`;
   return allowFallback ? "DERP" : "";
