@@ -1,5 +1,5 @@
 #!name=TailRelay
-#!desc=在 Surge 面板展示 Tailscale 出口节点、连接方式（直连 / Peer Relay / DERP）、中继公网 IP、端口及延迟。需在 [General] 开启 http-api-mcp = true（建议确认 http-api 仅监听 127.0.0.1 或已配置强 Key 与 http-api-tls）。
+#!desc=Tailscale 出口节点信息。
 #!author=unknownTokyo
 #!category=工具
 #!requirement=CORE_VERSION>=6011000
