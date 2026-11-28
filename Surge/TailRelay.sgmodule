@@ -1,5 +1,5 @@
 #!name=TailRelay
-#!desc=Tailscale 出口节点信息。
+#!desc=Tailscale 节点中继状态。
 #!author=unknownTokyo
 #!category=工具
 #!requirement=CORE_VERSION>=6011000
